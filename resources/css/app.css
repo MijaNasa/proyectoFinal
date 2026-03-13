@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+    :root {
+        --brand-red: #E61919;
+        --brand-black: #0A0A0A;
+        --brand-surface: #1A1A1A;
+        --brand-text: #FFFFFF;
+        --brand-text-muted: #A0A0A0;
+    }
+
+    body {
+        @apply bg-brand-black text-white font-sans antialiased;
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+        @apply font-bold tracking-tight text-white;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply bg-brand-red text-white font-bold py-2 px-6 rounded-lg hover:bg-red-700 transition-all duration-300 shadow-lg shadow-red-900/20 active:scale-95;
+    }
+
+    .card {
+        @apply bg-brand-surface border border-white/5 rounded-xl p-6 shadow-xl backdrop-blur-sm;
+    }
+
+    .input-field {
+        @apply bg-brand-black border border-white/10 rounded-lg py-2 px-4 text-white focus:border-brand-red focus:ring-1 focus:ring-brand-red outline-none transition-all;
+    }
+}
