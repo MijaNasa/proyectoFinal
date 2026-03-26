@@ -14,13 +14,18 @@ class Libro extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'isbn', 'master_id', 'editorial_id', 'idioma_id', 
-        'año_edicion', 'cantidad_paginas', 'synopsis', 'activo'
+        'isbn', 'master_id', 'serie_id', 'numero_tomo', 'editorial_id', 'idioma_id',
+        'año_edicion', 'cantidad_paginas', 'synopsis', 'activo',
     ];
 
     public function master(): BelongsTo
     {
         return $this->belongsTo(LibroMaster::class, 'master_id');
+    }
+
+    public function serie(): BelongsTo
+    {
+        return $this->belongsTo(Serie::class);
     }
 
     public function editorial(): BelongsTo

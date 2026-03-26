@@ -13,6 +13,8 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CierreCajaController;
+use App\Http\Controllers\ProveedorController;
+use App\Http\Controllers\SerieController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -45,6 +47,8 @@ Route::middleware('auth')->group(function () {
     Route::resource('stocks', StockController::class)->except(['show', 'create', 'edit']);
     Route::resource('clientes', ClienteController::class)->except(['show', 'create', 'edit']);
     Route::resource('empleados', EmpleadoController::class)->except(['show', 'create', 'edit']);
+    Route::resource('proveedores', ProveedorController::class)->except(['show', 'create', 'edit'])->parameters(['proveedores' => 'proveedor']);
+    Route::resource('series', SerieController::class)->except(['show', 'create', 'edit']);
     Route::resource('ventas', VentaController::class)->except(['show', 'create', 'edit', 'update']);
     Route::get('cierre-cajas/monto-sistema', [CierreCajaController::class, 'getMontoSistema'])->name('cierre-cajas.monto-sistema');
     Route::resource('cierre-cajas', CierreCajaController::class)->except(['show', 'create', 'edit', 'update']);
