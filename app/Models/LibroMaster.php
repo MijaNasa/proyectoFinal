@@ -15,7 +15,22 @@ class LibroMaster extends Model
 
     protected $table = 'libro_masters';
 
-    protected $fillable = ['titulo', 'titulo_original', 'autor_id', 'categoria_id', 'activo'];
+    protected $fillable = ['titulo', 'titulo_original', 'portada', 'autor_id', 'categoria_id', 'activo'];
+
+    protected $appends = ['portada_url'];
+
+    public function getPortadaUrlAttribute()
+    {
+        if (!$this->portada) {
+            return 'https://via.placeholder.com/400x600?text=Sin+Portada';
+        }
+
+        if (filter_var($this->portada, FILTER_VALIDATE_URL)) {
+            return $this->portada;
+        }
+
+        return asset('storage/' . $this->portada);
+    }
 
     public function autor(): BelongsTo
     {

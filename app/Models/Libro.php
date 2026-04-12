@@ -48,12 +48,8 @@ class Libro extends Model
         return $this->hasMany(Stock::class);
     }
 
-    public function getPrecioActualAttribute()
+    public function precioActual()
     {
-        return $this->precios()->where('activo', true)
-            ->where(function ($query) {
-                $query->whereNull('fecha_hasta')
-                    ->orWhere('fecha_hasta', '>', now());
-            })->latest('fecha_desde')->first();
+        return $this->hasOne(PrecioLibro::class)->where('activo', true)->latestOfMany('fecha_desde');
     }
 }

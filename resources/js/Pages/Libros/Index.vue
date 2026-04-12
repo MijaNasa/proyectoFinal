@@ -1,18 +1,30 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 
 const props = defineProps({
-    libros: Object,
+    libros: Array,
     masters: Array,
     editoriales: Array,
     idiomas: Array,
     filters: Object
 });
 
-const search = ref(props.filters.search || '');
+const search = ref('');
+
+const filteredLibros = computed(() => {
+    if (!search.value) return props.libros;
+    
+    const term = search.value.toLowerCase();
+    return props.libros.filter(l => 
+        (l.isbn && l.isbn.toLowerCase().includes(term)) ||
+        (l.master && l.master.titulo.toLowerCase().includes(term)) ||
+        (l.editorial && l.editorial.nombre.toLowerCase().includes(term)) ||
+        (l.master && l.master.autor && (l.master.autor.nombre.toLowerCase().includes(term) || l.master.autor.apellido.toLowerCase().includes(term)))
+    );
+});
 
 const form = useForm({
     id: null,
@@ -101,9 +113,6 @@ const deleteLibro = (id) => {
     });
 };
 
-const handleSearch = () => {
-    window.location.href = route('libros.index', { search: search.value });
-};
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
@@ -134,14 +143,10 @@ const formatCurrency = (value) => {
                     <div class="flex items-center gap-4">
                         <input 
                             v-model="search" 
-                            @keyup.enter="handleSearch"
                             type="text" 
-                            placeholder="Buscar por ISBN o título..." 
+                            placeholder="Buscar por ISBN, título, autor o editorial (filtrado instantáneo)..." 
                             class="input-field flex-1"
                         >
-                        <button @click="handleSearch" class="btn-primary py-2 px-4 bg-white/5 hover:bg-white/10 text-white font-bold">
-                            BUSCAR
-                        </button>
                     </div>
                 </div>
 
@@ -157,7 +162,7 @@ const formatCurrency = (value) => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr v-for="libro in libros.data" :key="libro.id" class="hover:bg-white/[0.02] transition-colors">
+                            <tr v-for="libro in filteredLibros" :key="libro.id" class="hover:bg-white/[0.02] transition-colors">
                                 <td class="p-4">
                                     <div class="font-bold text-lg leading-tight uppercase">{{ libro.master ? libro.master.titulo : 'N/A' }}</div>
                                     <div class="text-xs text-white/40 italic">Autor: {{ libro.master && libro.master.autor ? libro.master.autor.apellido : 'S/A' }}</div>
@@ -191,16 +196,13 @@ const formatCurrency = (value) => {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="libros.data.length === 0">
-                                <td colspan="4" class="p-12 text-center text-white/30 italic">No se encontraron ediciones registradas</td>
+                            <tr v-if="filteredLibros.length === 0">
+                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron ediciones registradas</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <div class="mt-6 flex justify-center gap-2">
-                    <Link v-for="link in libros.links" :key="link.label" :href="link.url || '#'" v-html="link.label" class="px-3 py-1 rounded border border-white/5 transition-all text-sm font-black" :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/20': !link.url}" />
-                </div>
             </div>
         </div>
 

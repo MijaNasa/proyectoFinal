@@ -1,29 +1,43 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 
 const props = defineProps({
-    librosMaster: Object,
+    librosMaster: Array,
     autores: Array,
     categorias: Array,
     filters: Object
 });
 
-const search = ref(props.filters.search || '');
+const search = ref('');
+
+const filteredLibros = computed(() => {
+    if (!search.value) return props.librosMaster;
+    
+    const term = search.value.toLowerCase();
+    return props.librosMaster.filter(lm => 
+        lm.titulo.toLowerCase().includes(term) ||
+        (lm.titulo_original && lm.titulo_original.toLowerCase().includes(term)) ||
+        (lm.autor && (lm.autor.nombre.toLowerCase().includes(term) || lm.autor.apellido.toLowerCase().includes(term)))
+    );
+});
 
 const form = useForm({
     id: null,
     titulo: '',
     titulo_original: '',
+    portada: null,
     autor_id: '',
     categoria_id: '',
-    activo: true
+    activo: true,
+    _method: 'POST'
 });
 
 const isEditing = ref(false);
 const showModal = ref(false);
+const previewUrl = ref(null);
 
 const openModal = (libroMaster = null) => {
     if (libroMaster) {
@@ -34,16 +48,31 @@ const openModal = (libroMaster = null) => {
         form.autor_id = libroMaster.autor_id;
         form.categoria_id = libroMaster.categoria_id;
         form.activo = !!libroMaster.activo;
+        form.portada = null; // No cargamos el archivo al editar
+        previewUrl.value = libroMaster.portada_url;
+        form._method = 'PUT';
     } else {
         isEditing.value = false;
         form.reset();
+        form.id = null;
+        form._method = 'POST';
+        previewUrl.value = null;
     }
     showModal.value = true;
 };
 
+const onFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        form.portada = file;
+        previewUrl.value = URL.createObjectURL(file);
+    }
+};
+
 const submit = () => {
     if (isEditing.value) {
-        form.put(route('libro-masters.update', form.id), {
+        // Usamos POST con _method PUT para soportar archivos en Laravel
+        form.post(route('libro-masters.update', form.id), {
             onSuccess: () => {
                 showModal.value = false;
                 Swal.fire({
@@ -87,9 +116,6 @@ const deleteLibroMaster = (id) => {
     });
 };
 
-const handleSearch = () => {
-    window.location.href = route('libro-masters.index', { search: search.value });
-};
 </script>
 
 <template>
@@ -116,14 +142,10 @@ const handleSearch = () => {
                     <div class="flex items-center gap-4">
                         <input 
                             v-model="search" 
-                            @keyup.enter="handleSearch"
                             type="text" 
-                            placeholder="Buscar por título o título original..." 
+                            placeholder="Buscar por título, autor o título original (filtrado instantáneo)..." 
                             class="input-field flex-1"
                         >
-                        <button @click="handleSearch" class="btn-primary py-2 px-4 bg-white/5 hover:bg-white/10 text-white">
-                            Buscar
-                        </button>
                     </div>
                 </div>
 
@@ -131,6 +153,7 @@ const handleSearch = () => {
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-brand-red/10 border-b border-brand-red/20">
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red w-16"></th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Título</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Autor</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Categoría</th>
@@ -138,7 +161,10 @@ const handleSearch = () => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr v-for="libroMaster in librosMaster.data" :key="libroMaster.id" class="hover:bg-white/[0.02] transition-colors">
+                            <tr v-for="libroMaster in filteredLibros" :key="libroMaster.id" class="hover:bg-white/[0.02] transition-colors">
+                                <td class="p-4">
+                                    <img :src="libroMaster.portada_url" class="w-12 h-16 object-cover rounded border border-white/10 shadow-lg">
+                                </td>
                                 <td class="p-4">
                                     <div class="font-bold text-lg leading-tight uppercase">{{ libroMaster.titulo }}</div>
                                     <div class="text-xs text-white/40 italic" v-if="libroMaster.titulo_original">{{ libroMaster.titulo_original }}</div>
@@ -164,16 +190,13 @@ const handleSearch = () => {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="librosMaster.data.length === 0">
-                                <td colspan="4" class="p-12 text-center text-white/30 italic">No se encontraron títulos maestros</td>
+                            <tr v-if="filteredLibros.length === 0">
+                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron títulos maestros</td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
-                <div class="mt-6 flex justify-center gap-2">
-                    <Link v-for="link in librosMaster.links" :key="link.label" :href="link.url || '#'" v-html="link.label" class="px-3 py-1 rounded border border-white/5 transition-all text-sm font-black" :class="{'bg-brand-red text-white': link.active, 'text-white/20': !link.url}" />
-                </div>
             </div>
         </div>
 
@@ -197,6 +220,17 @@ const handleSearch = () => {
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Título Original (Opcional)</label>
                             <input v-model="form.titulo_original" type="text" class="input-field w-full italic">
+                        </div>
+                        <div class="flex gap-4 items-start">
+                            <div class="w-24 h-32 bg-white/5 rounded border border-dashed border-white/20 flex items-center justify-center overflow-hidden">
+                                <img v-if="previewUrl" :src="previewUrl" class="w-full h-full object-cover">
+                                <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white/10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                            </div>
+                            <div class="flex-1">
+                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Imagen de Portada</label>
+                                <input type="file" @change="onFileChange" class="w-full text-sm text-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-black file:bg-brand-red file:text-white hover:file:bg-brand-red/80 cursor-pointer">
+                                <p class="text-[10px] text-white/30 mt-2 uppercase tracking-tighter">Recomendado: 400x600px (JPG/PNG)</p>
+                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">
                             <div>

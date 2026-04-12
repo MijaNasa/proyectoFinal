@@ -14,17 +14,10 @@ class LibroMasterController extends Controller
      */
     public function index(Request $request)
     {
-        $query = LibroMaster::query()->with(['autor', 'categoria']);
-
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('titulo', 'like', '%' . $search . '%')
-                  ->orWhere('titulo_original', 'like', '%' . $search . '%');
-            });
-        }
-
-        $librosMaster = $query->latest()->paginate(10)->withQueryString();
+        $librosMaster = LibroMaster::query()
+            ->with(['autor', 'categoria'])
+            ->latest()
+            ->get();
 
         return inertia('LibroMasters/Index', [
             'librosMaster' => $librosMaster,
@@ -39,7 +32,13 @@ class LibroMasterController extends Controller
      */
     public function store(StoreLibroMasterRequest $request)
     {
-        LibroMaster::create($request->validated());
+        $data = $request->validated();
+
+        if ($request->hasFile('portada')) {
+            $data['portada'] = $request->file('portada')->store('portadas', 'public');
+        }
+
+        LibroMaster::create($data);
 
         return redirect()->route('libro-masters.index')
             ->with('message', 'Libro Master creado con éxito');
@@ -50,7 +49,17 @@ class LibroMasterController extends Controller
      */
     public function update(UpdateLibroMasterRequest $request, LibroMaster $libroMaster)
     {
-        $libroMaster->update($request->validated());
+        $data = $request->validated();
+
+        if ($request->hasFile('portada')) {
+            // Eliminar imagen anterior si existe
+            if ($libroMaster->portada && \Illuminate\Support\Facades\Storage::disk('public')->exists($libroMaster->portada)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($libroMaster->portada);
+            }
+            $data['portada'] = $request->file('portada')->store('portadas', 'public');
+        }
+
+        $libroMaster->update($data);
 
         return redirect()->route('libro-masters.index')
             ->with('message', 'Libro Master actualizado con éxito');

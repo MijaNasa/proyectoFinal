@@ -14,19 +14,10 @@ class LibroController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Libro::query()->with(['master.autor', 'editorial', 'idioma', 'precios']);
-
-        if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('isbn', 'like', '%' . $search . '%')
-                  ->orWhereHas('master', function($sq) use ($search) {
-                      $sq->where('titulo', 'like', '%' . $search . '%');
-                  });
-            });
-        }
-
-        $libros = $query->latest()->paginate(10)->withQueryString();
+        $libros = Libro::query()
+            ->with(['master.autor', 'editorial', 'idioma', 'precios'])
+            ->latest()
+            ->get();
 
         return inertia('Libros/Index', [
             'libros' => $libros,

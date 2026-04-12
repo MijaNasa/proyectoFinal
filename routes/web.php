@@ -15,9 +15,14 @@ use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CierreCajaController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\SerieController;
+use App\Http\Controllers\PublicCatalogoController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+
+// Rutas Públicas de E-commerce
+Route::get('/catalogo', [PublicCatalogoController::class, 'index'])->name('catalogo.index');
+Route::get('/catalogo/{id}', [PublicCatalogoController::class, 'show'])->name('catalogo.show');
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [

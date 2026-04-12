@@ -12,6 +12,8 @@ class Idioma extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'idiomas';
+
     protected $fillable = ['nombre', 'codigo', 'activo'];
 
     public function libros(): HasMany

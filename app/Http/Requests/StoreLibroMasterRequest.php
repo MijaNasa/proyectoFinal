@@ -18,11 +18,12 @@ class StoreLibroMasterRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'titulo' => 'required|string|max:255',
-            'titulo_original' => 'nullable|string|max:255',
-            'autor_id' => 'required|exists:autores,id',
-            'categoria_id' => 'required|exists:categorias,id',
-            'activo' => 'boolean'
+            'titulo' => ['required', 'string', 'max:255'],
+            'titulo_original' => ['nullable', 'string', 'max:255'],
+            'portada' => ['nullable', 'image', 'max:2048'],
+            'autor_id' => ['required', 'exists:autores,id'],
+            'categoria_id' => ['required', 'exists:categorias,id'],
+            'activo' => ['boolean']
         ];
     }
 }

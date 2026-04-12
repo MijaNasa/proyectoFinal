@@ -12,6 +12,8 @@ class Serie extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $table = 'series';
+
     protected $fillable = [
         'nombre', 'descripcion', 'proveedor_id', 'activo',
     ];
