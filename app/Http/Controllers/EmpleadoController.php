@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Cargo;
 use App\Models\Empleado;
 use App\Http\Requests\StoreEmpleadoRequest;
 use App\Http\Requests\UpdateEmpleadoRequest;
@@ -14,7 +15,11 @@ class EmpleadoController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Empleado::query()->with(['user', 'sucursal']);
+        $query = Empleado::query()->with([
+            'user',
+            'sucursal',
+            'cargos' => fn($q) => $q->wherePivotNull('fecha_hasta'),
+        ]);
 
         if ($request->has('search')) {
             $search = $request->search;
@@ -33,7 +38,8 @@ class EmpleadoController extends Controller
         return inertia('Empleados/Index', [
             'empleados' => $empleados,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
-            'filters' => $request->only(['search'])
+            'cargos'     => Cargo::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'filters'    => $request->only(['search']),
         ]);
     }
 
@@ -99,5 +105,41 @@ class EmpleadoController extends Controller
 
         return redirect()->route('empleados.index')
             ->with('message', 'Empleado eliminado con éxito');
+    }
+
+    public function asignarCargo(Request $request, Empleado $empleado)
+    {
+        $request->validate(['cargo_id' => 'required|exists:cargos,id']);
+
+        $user = $request->user();
+
+        // Gerente solo puede gestionar empleados de su sucursal
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $empleado->sucursal_id) {
+            abort(403, 'Solo podés asignar cargos a empleados de tu sucursal.');
+        }
+
+        if ($empleado->cargos()->where('cargo_id', $request->cargo_id)->wherePivotNull('fecha_hasta')->exists()) {
+            return back()->with('error', 'El empleado ya tiene ese cargo activo.');
+        }
+
+        $empleado->cargos()->attach($request->cargo_id, ['fecha_desde' => now()->toDateString()]);
+
+        return back()->with('message', 'Cargo asignado con éxito');
+    }
+
+    public function desasignarCargo(Request $request, Empleado $empleado, Cargo $cargo)
+    {
+        $user = $request->user();
+
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $empleado->sucursal_id) {
+            abort(403, 'Solo podés gestionar empleados de tu sucursal.');
+        }
+
+        $empleado->cargos()
+            ->wherePivot('cargo_id', $cargo->id)
+            ->wherePivotNull('fecha_hasta')
+            ->update(['fecha_hasta' => now()->toDateString()]);
+
+        return back()->with('message', 'Cargo removido');
     }
 }
