@@ -26,11 +26,49 @@ const posForm = useForm({
     items: [] // {libro_id, cantidad, precio, titulo}
 });
 
-const selectedLibroId = ref('');
+// --- Buscador de clientes ---
+const clienteSearch = ref('');
+const clienteSeleccionado = ref(null);
+const showClienteDropdown = ref(false);
+
+const clientesFiltrados = computed(() => {
+    if (!clienteSearch.value) return [];
+    const q = clienteSearch.value.toLowerCase();
+    return props.clientes.filter(c =>
+        c.user?.name?.toLowerCase().includes(q) ||
+        c.user?.apellido?.toLowerCase().includes(q) ||
+        c.user?.dni?.includes(q)
+    ).slice(0, 8);
+});
+
+const seleccionarCliente = (cliente) => {
+    clienteSeleccionado.value = cliente;
+    posForm.cliente_id = cliente.id;
+    clienteSearch.value = `${cliente.user?.name} ${cliente.user?.apellido || ''}`.trim();
+    showClienteDropdown.value = false;
+};
+
+const limpiarCliente = () => {
+    clienteSeleccionado.value = null;
+    posForm.cliente_id = '';
+    clienteSearch.value = '';
+};
+
+// --- Buscador de libros ---
+const libroSearch = ref('');
+const showLibroDropdown = ref(false);
 const itemCantidad = ref(1);
 
-const addItem = () => {
-    const libro = props.libros.find(l => l.id == selectedLibroId.value);
+const librosFiltrados = computed(() => {
+    if (!libroSearch.value) return [];
+    const q = libroSearch.value.toLowerCase();
+    return props.libros.filter(l =>
+        l.master?.titulo?.toLowerCase().includes(q) ||
+        l.isbn?.toLowerCase().includes(q)
+    ).slice(0, 8);
+});
+
+const addItem = (libro) => {
     if (!libro) return;
 
     if (!libro.precio_actual) {
@@ -54,7 +92,8 @@ const addItem = () => {
             precio: libro.precio_actual.precio_venta
         });
     }
-    selectedLibroId.value = '';
+    libroSearch.value = '';
+    showLibroDropdown.value = false;
     itemCantidad.value = 1;
 };
 
@@ -92,6 +131,10 @@ const formatCurrency = (value) => {
 
 const openPos = () => {
     posForm.reset();
+    clienteSearch.value = '';
+    clienteSeleccionado.value = null;
+    libroSearch.value = '';
+    itemCantidad.value = 1;
     showPosModal.value = true;
 };
 
@@ -225,34 +268,74 @@ const viewVenta = (venta) => {
                     <!-- Filter Area -->
                     <div class="space-y-6">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <!-- Buscador de Cliente -->
                             <div>
-                                <label class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 block mb-2 font-black">Cliente</label>
-                                <select v-model="posForm.cliente_id" class="input-field w-full bg-black/40 text-xs font-black uppercase italic">
-                                    <option value="">Consumidor Final</option>
-                                    <option v-for="c in clientes" :key="c.id" :value="c.id">{{ c.user?.name }} (Saldo: {{ formatCurrency(c.saldo_actual) }})</option>
-                                </select>
+                                <label class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 block mb-2">Cliente</label>
+                                <div class="relative">
+                                    <div class="flex gap-2">
+                                        <input
+                                            v-model="clienteSearch"
+                                            @input="showClienteDropdown = true"
+                                            @focus="showClienteDropdown = true"
+                                            type="text"
+                                            placeholder="Buscar por nombre o DNI..."
+                                            class="input-field w-full bg-black/40 text-xs font-bold"
+                                            :class="clienteSeleccionado ? 'border-green-500/40 text-green-400' : ''"
+                                        >
+                                        <button v-if="clienteSeleccionado" @click="limpiarCliente" class="px-3 text-white/30 hover:text-brand-red transition-colors bg-white/5 rounded text-xs font-black">✕</button>
+                                    </div>
+                                    <p v-if="!clienteSeleccionado" class="text-[9px] text-white/20 mt-1 italic">Sin selección = Consumidor Final</p>
+                                    <p v-else class="text-[9px] text-green-400/60 mt-1 italic">Saldo: {{ formatCurrency(clienteSeleccionado.saldo_actual) }}</p>
+
+                                    <!-- Dropdown resultados -->
+                                    <div v-if="showClienteDropdown && clientesFiltrados.length" class="absolute z-50 w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                                        <div v-for="c in clientesFiltrados" :key="c.id"
+                                            @mousedown.prevent="seleccionarCliente(c)"
+                                            class="px-4 py-3 cursor-pointer hover:bg-brand-red/10 hover:text-brand-red transition-colors border-b border-white/5 last:border-0">
+                                            <div class="text-xs font-black uppercase">{{ c.user?.name }} {{ c.user?.apellido }}</div>
+                                            <div class="text-[9px] text-white/30 font-mono">DNI: {{ c.user?.dni }} — Saldo: {{ formatCurrency(c.saldo_actual) }}</div>
+                                        </div>
+                                    </div>
+                                    <div v-if="showClienteDropdown" class="fixed inset-0 z-40" @click="showClienteDropdown = false"></div>
+                                </div>
                             </div>
+
                             <div>
-                                <label class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 block mb-2 font-black">Sucursal de Venta</label>
+                                <label class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 block mb-2">Sucursal de Venta</label>
                                 <select v-model="posForm.sucursal_id" class="input-field w-full bg-black/40 text-xs font-black uppercase">
+                                    <option value="">Seleccionar sucursal...</option>
                                     <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
                                 </select>
                             </div>
                         </div>
 
+                        <!-- Buscador de Libros -->
                         <div class="bg-white/[0.03] p-6 rounded-xl border border-white/5">
-                            <label class="text-[9px] font-black uppercase tracking-[0.3em] text-brand-red block mb-4 font-black">Agregar productos al carrito</label>
+                            <label class="text-[9px] font-black uppercase tracking-[0.3em] text-brand-red block mb-4">Agregar productos al carrito</label>
                             <div class="flex gap-4">
-                                <div class="flex-1">
-                                    <select v-model="selectedLibroId" class="input-field w-full bg-black/80 font-bold uppercase text-xs">
-                                        <option value="">Buscar obra artística...</option>
-                                        <option v-for="l in libros" :key="l.id" :value="l.id">[{{ l.isbn }}] - {{ l.master?.titulo }}</option>
-                                    </select>
+                                <div class="flex-1 relative">
+                                    <input
+                                        v-model="libroSearch"
+                                        @input="showLibroDropdown = true"
+                                        @focus="showLibroDropdown = true"
+                                        type="text"
+                                        placeholder="Buscar por título o ISBN..."
+                                        class="input-field w-full bg-black/80 text-xs font-bold"
+                                    >
+                                    <!-- Dropdown resultados -->
+                                    <div v-if="showLibroDropdown && librosFiltrados.length" class="absolute z-50 w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                                        <div v-for="l in librosFiltrados" :key="l.id"
+                                            @mousedown.prevent="addItem(l)"
+                                            class="px-4 py-3 cursor-pointer hover:bg-brand-red/10 hover:text-brand-red transition-colors border-b border-white/5 last:border-0">
+                                            <div class="text-xs font-black uppercase">{{ l.master?.titulo }}</div>
+                                            <div class="text-[9px] text-white/30 font-mono">ISBN: {{ l.isbn }} — {{ l.precio_actual ? formatCurrency(l.precio_actual.precio_venta) : 'Sin precio' }}</div>
+                                        </div>
+                                    </div>
+                                    <div v-if="showLibroDropdown" class="fixed inset-0 z-40" @click="showLibroDropdown = false"></div>
                                 </div>
                                 <div class="w-24">
                                     <input v-model="itemCantidad" type="number" min="1" class="input-field w-full text-center font-black">
                                 </div>
-                                <button @click="addItem" class="btn-primary px-8 bg-brand-red hover:scale-105 active:scale-95 transition-all font-black uppercase italic text-xs">Añadir</button>
                             </div>
                         </div>
                     </div>
