@@ -7,6 +7,7 @@ import Swal from 'sweetalert2';
 const props = defineProps({
     empleados: Object,
     sucursales: Array,
+    cargos: Array,
     filters: Object
 });
 
@@ -98,6 +99,52 @@ const deleteEmpleado = (id) => {
 const handleSearch = () => {
     window.location.href = route('empleados.index', { search: search.value });
 };
+
+// --- Gestión de Accesos (Cargos por empleado) ---
+const showAccesosModal = ref(false);
+const empleadoSeleccionado = ref(null);
+
+const asignarForm = useForm({ cargo_id: '' });
+const desasignarForm = useForm({});
+
+const openAccesosModal = (empleado) => {
+    empleadoSeleccionado.value = empleado;
+    asignarForm.reset();
+    showAccesosModal.value = true;
+};
+
+const asignarCargo = () => {
+    if (!asignarForm.cargo_id) return;
+    asignarForm.post(route('empleados.asignar-cargo', empleadoSeleccionado.value.id), {
+        onSuccess: () => {
+            asignarForm.reset();
+            Swal.fire({ title: 'Cargo asignado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+        },
+    });
+};
+
+const desasignarCargo = (cargo) => {
+    Swal.fire({
+        title: `¿Quitar cargo ${cargo.nombre}?`,
+        icon: 'warning', showCancelButton: true,
+        confirmButtonColor: '#E61919', cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, quitar',
+        background: '#1A1A1A', color: '#FFF',
+    }).then(result => {
+        if (result.isConfirmed) {
+            desasignarForm.delete(route('empleados.desasignar-cargo', { empleado: empleadoSeleccionado.value.id, cargo: cargo.id }), {
+                onSuccess: () => {
+                    Swal.fire({ title: 'Cargo removido', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                },
+            });
+        }
+    });
+};
+
+const colorCargo = (nombre) => {
+    const map = { ADMIN: 'bg-brand-red/20 text-brand-red border-brand-red/30', GERENTE: 'bg-blue-500/20 text-blue-400 border-blue-500/30', VENDEDOR: 'bg-green-500/20 text-green-400 border-green-500/30', DEPOSITO: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
+    return map[nombre] || 'bg-white/10 text-white/50 border-white/10';
+};
 </script>
 
 <template>
@@ -141,6 +188,7 @@ const handleSearch = () => {
                             <tr class="bg-brand-red/10 border-b border-white/10 uppercase text-[10px] font-black tracking-widest text-brand-red">
                                 <th class="p-4">Legajo / Datos</th>
                                 <th class="p-4">Sucursal Asignada</th>
+                                <th class="p-4">Cargos / Accesos</th>
                                 <th class="p-4">Ingreso / Estado</th>
                                 <th class="p-4 text-right">Acciones</th>
                             </tr>
@@ -165,12 +213,25 @@ const handleSearch = () => {
                                     <div class="text-[9px] text-white/30 uppercase tracking-[0.2em] mt-1">Cód: {{ emp.sucursal?.codigo }}</div>
                                 </td>
                                 <td class="p-4">
+                                    <div class="flex flex-wrap gap-1">
+                                        <span v-for="c in emp.cargos" :key="c.id" class="px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border" :class="colorCargo(c.nombre)">
+                                            {{ c.nombre }}
+                                        </span>
+                                        <span v-if="!emp.cargos?.length" class="text-[9px] text-white/20 italic">Sin cargo</span>
+                                    </div>
+                                </td>
+                                <td class="p-4">
                                     <div class="text-xs font-bold">{{ emp.fecha_ingreso }}</div>
                                     <div v-if="emp.fecha_egreso" class="text-[9px] text-brand-red font-black uppercase tracking-widest mt-1">Baja: {{ emp.fecha_egreso }}</div>
                                     <div v-else class="text-[9px] text-green-500 font-black uppercase tracking-widest mt-1">Activo</div>
                                 </td>
                                 <td class="p-4 text-right">
                                     <div class="flex justify-end gap-2">
+                                        <button @click="openAccesosModal(emp)" title="Gestionar Accesos" class="p-2 text-white/30 hover:text-blue-400 transition-colors bg-white/5 rounded">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                                <path fill-rule="evenodd" d="M18 8a6 6 0 01-7.743 5.743L10 14l-1 1-1 1H6v2H2v-4l4.257-4.257A6 6 0 1118 8zm-6-4a1 1 0 100 2 2 2 0 012 2 1 1 0 102 0 4 4 0 00-4-4z" clip-rule="evenodd" />
+                                            </svg>
+                                        </button>
                                         <button @click="openModal(emp)" class="p-2 text-white/30 hover:text-brand-red transition-colors bg-white/5 rounded">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                                 <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -284,6 +345,54 @@ const handleSearch = () => {
                         </button>
                     </div>
                 </form>
+            </div>
+        </div>
+        <!-- Modal Gestión de Accesos -->
+        <div v-if="showAccesosModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="showAccesosModal = false"></div>
+            <div class="relative w-full max-w-lg card p-0 border border-blue-500/40 shadow-2xl overflow-hidden">
+                <div class="bg-blue-600 p-6 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-xl font-black uppercase tracking-tighter text-white">Gestión de Accesos</h3>
+                        <p class="text-blue-200 text-[10px] uppercase tracking-widest mt-1">
+                            {{ empleadoSeleccionado?.user?.name }} {{ empleadoSeleccionado?.user?.apellido }} — Leg. {{ empleadoSeleccionado?.legajo }}
+                        </p>
+                    </div>
+                    <button @click="showAccesosModal = false" class="text-white hover:scale-110 transition-transform">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <div class="p-6 space-y-6">
+                    <!-- Cargos actuales -->
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 mb-3">Cargos Activos</p>
+                        <div v-if="empleadoSeleccionado?.cargos?.length" class="flex flex-wrap gap-2">
+                            <div v-for="c in empleadoSeleccionado.cargos" :key="c.id" class="flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase" :class="colorCargo(c.nombre)">
+                                {{ c.nombre }}
+                                <button @click="desasignarCargo(c)" class="ml-1 hover:text-white transition-colors opacity-60 hover:opacity-100">✕</button>
+                            </div>
+                        </div>
+                        <p v-else class="text-[10px] text-white/20 italic">Este empleado no tiene cargos asignados</p>
+                    </div>
+
+                    <!-- Asignar nuevo cargo -->
+                    <div>
+                        <p class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 mb-3">Asignar Cargo</p>
+                        <div class="flex gap-3">
+                            <select v-model="asignarForm.cargo_id" class="input-field flex-1 bg-brand-black font-bold uppercase text-xs">
+                                <option value="">Seleccionar cargo...</option>
+                                <option v-for="c in cargos" :key="c.id" :value="c.id"
+                                    :disabled="empleadoSeleccionado?.cargos?.some(ec => ec.id === c.id)">
+                                    {{ c.nombre }}
+                                </option>
+                            </select>
+                            <button @click="asignarCargo" :disabled="!asignarForm.cargo_id || asignarForm.processing" class="btn-primary px-6 text-xs font-black uppercase tracking-widest">
+                                Asignar
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>
