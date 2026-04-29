@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\User;
+use Database\Seeders\CargoPermisoSeeder;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -21,6 +22,8 @@ class DatabaseSeeder extends Seeder
             GeografiaSeeder::class,
             TipoClienteSeeder::class,
         ]);
+
+        // 2b. Cargos y permisos (se llama después de crear sucursales y admin user)
 
         // 2. Usuarios base
         \App\Models\User::factory()->create([
@@ -74,5 +77,8 @@ class DatabaseSeeder extends Seeder
 
         // 5. Ventas para el Dashboard
         \App\Models\Venta::factory()->count(50)->create();
+
+        // 6. Cargos, permisos y asignación del usuario admin
+        $this->call(CargoPermisoSeeder::class);
     }
 }
