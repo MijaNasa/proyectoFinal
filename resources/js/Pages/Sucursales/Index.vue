@@ -196,9 +196,11 @@ const handleSearch = () => {
         </div>
 
         <!-- Modal -->
-        <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/90 backdrop-blur-sm" @click="showModal = false"></div>
-            <div class="relative w-full max-w-4xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all">
+        <template v-if="showModal">
+        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-4">
+            <div class="relative w-full max-w-4xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all my-8">
                 <div class="bg-brand-red p-4 flex justify-between items-center shadow-lg">
                     <h3 class="text-xl font-black uppercase tracking-tighter"> {{ isEditing ? 'Editar' : 'Nueva' }} <span class="italic text-white">Sucursal</span></h3>
                     <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
@@ -278,6 +280,8 @@ const handleSearch = () => {
                     </div>
                 </form>
             </div>
+            </div>
         </div>
+        </template>
     </AuthenticatedLayout>
 </template>

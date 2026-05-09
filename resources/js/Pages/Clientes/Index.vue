@@ -205,9 +205,11 @@ const formatCurrency = (value) => {
         </div>
 
         <!-- Modal -->
-        <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="showModal = false"></div>
-            <div class="relative w-full max-w-4xl card p-0 border border-brand-red/50 shadow-[0_0_80px_rgba(230,25,25,0.1)] overflow-hidden transform transition-all">
+        <template v-if="showModal">
+        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-4">
+            <div class="relative w-full max-w-4xl card p-0 border border-brand-red/50 shadow-[0_0_80px_rgba(230,25,25,0.1)] overflow-hidden transform transition-all my-8">
                 <div class="bg-gradient-to-r from-brand-red to-black p-6 flex justify-between items-center relative shadow-xl">
                     <h3 class="text-2xl font-black uppercase tracking-tighter italic"> 
                         {{ isEditing ? 'Gestionar' : 'Alta de' }} <span class="text-white">Cliente</span>
@@ -286,6 +288,8 @@ const formatCurrency = (value) => {
                     </div>
                 </form>
             </div>
+            </div>
         </div>
+        </template>
     </AuthenticatedLayout>
 </template>

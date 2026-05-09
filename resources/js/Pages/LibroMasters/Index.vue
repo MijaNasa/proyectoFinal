@@ -201,9 +201,11 @@ const deleteLibroMaster = (id) => {
         </div>
 
         <!-- Modal -->
-        <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showModal = false"></div>
-            <div class="relative w-full max-w-lg card p-0 border-brand-red/30 shadow-2xl overflow-hidden transform transition-all">
+        <template v-if="showModal">
+        <div class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm" @click="showModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-4">
+            <div class="relative w-full max-w-lg card p-0 border-brand-red/30 shadow-2xl overflow-hidden transform transition-all my-8">
                 <div class="bg-brand-red p-4 flex justify-between items-center shadow-lg">
                     <h3 class="text-xl font-black uppercase tracking-tighter"> {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="italic text-white underline">Título</span></h3>
                     <button @click="showModal = false" class="text-white/80 hover:text-white">
@@ -260,6 +262,8 @@ const deleteLibroMaster = (id) => {
                     </div>
                 </form>
             </div>
+            </div>
         </div>
+        </template>
     </AuthenticatedLayout>
 </template>

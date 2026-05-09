@@ -207,9 +207,11 @@ const formatCurrency = (value) => {
         </div>
 
         <!-- Modal -->
-        <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/90 backdrop-blur-sm" @click="showModal = false"></div>
-            <div class="relative w-full max-w-2xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group">
+        <template v-if="showModal">
+        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-4">
+            <div class="relative w-full max-w-2xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
                 <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
                     <div class="absolute inset-0 opacity-10 pointer-events-none">
                         <div class="bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] h-full w-full"></div>
@@ -295,6 +297,8 @@ const formatCurrency = (value) => {
                     </div>
                 </form>
             </div>
+            </div>
         </div>
+        </template>
     </AuthenticatedLayout>
 </template>

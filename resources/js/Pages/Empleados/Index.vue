@@ -261,9 +261,11 @@ const colorCargo = (nombre) => {
         </div>
 
         <!-- Modal -->
-        <div v-if="showModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="showModal = false"></div>
-            <div class="relative w-full max-w-4xl card p-0 border border-brand-red/50 shadow-2xl overflow-hidden transform transition-all">
+        <template v-if="showModal">
+        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-4">
+            <div class="relative w-full max-w-4xl card p-0 border border-brand-red/50 shadow-2xl overflow-hidden transform transition-all my-8">
                 <div class="bg-brand-red p-6 flex justify-between items-center">
                     <h3 class="text-2xl font-black uppercase tracking-tighter"> 
                         {{ isEditing ? 'Ficha de' : 'Incorporación de' }} <span class="text-white">Empleado</span>
@@ -346,11 +348,15 @@ const colorCargo = (nombre) => {
                     </div>
                 </form>
             </div>
+            </div>
         </div>
+        </template>
         <!-- Modal Gestión de Accesos -->
-        <div v-if="showAccesosModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="showAccesosModal = false"></div>
-            <div class="relative w-full max-w-lg card p-0 border border-blue-500/40 shadow-2xl overflow-hidden">
+        <template v-if="showAccesosModal">
+        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showAccesosModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-4">
+            <div class="relative w-full max-w-lg card p-0 border border-blue-500/40 shadow-2xl overflow-hidden my-8">
                 <div class="bg-blue-600 p-6 flex justify-between items-center">
                     <div>
                         <h3 class="text-xl font-black uppercase tracking-tighter text-white">Gestión de Accesos</h3>
@@ -394,6 +400,8 @@ const colorCargo = (nombre) => {
                     </div>
                 </div>
             </div>
+            </div>
         </div>
+        </template>
     </AuthenticatedLayout>
 </template>
