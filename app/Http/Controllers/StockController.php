@@ -3,15 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Stock;
+use App\Models\MovimientoStock;
+use App\Models\TipoMovimientoStock;
 use App\Http\Requests\StoreStockRequest;
 use App\Http\Requests\UpdateStockRequest;
 use Illuminate\Http\Request;
 
 class StockController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request)
     {
         $query = Stock::query()->with(['libro.master.autor', 'sucursal']);
@@ -32,49 +31,77 @@ class StockController extends Controller
 
         $stocks = $query->latest()->paginate(10)->withQueryString();
 
+        $tiposMovimiento = TipoMovimientoStock::where('activo', true)->get(['id', 'codigo', 'nombre']);
+
         return inertia('Stocks/Index', [
             'stocks' => $stocks,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
-            'libros' => \App\Models\Libro::with('master')->get()->map(function($l) {
+            'libros' => \App\Models\Libro::with('master.autor')->get()->map(function($l) {
                 return [
-                    'id' => $l->id,
-                    'label' => $l->master->titulo . ' (' . ($l->isbn ?: 'S/I') . ')'
+                    'id'     => $l->id,
+                    'label'  => $l->master->titulo . ' (' . ($l->isbn ?: 'S/I') . ')',
+                    'titulo' => $l->master->titulo,
+                    'isbn'   => $l->isbn,
+                    'autor'  => $l->master->autor?->apellido ?? '',
                 ];
             }),
-            'filters' => $request->only(['search', 'sucursal_id'])
+            'tiposMovimiento' => $tiposMovimiento,
+            'stocksExistentes' => \App\Models\Stock::select('libro_id', 'sucursal_id', 'cantidad_disponible')->get(),
+            'filters' => $request->only(['search', 'sucursal_id']),
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(StoreStockRequest $request)
     {
-        Stock::create($request->validated());
+        $stock = Stock::create($request->safe()->except(['motivo']));
 
-        return redirect()->route('stocks.index')
-            ->with('message', 'Stock registrado con éxito');
+        $tipoIngreso = TipoMovimientoStock::where('codigo', 'INGRESO_MANUAL')->first();
+
+        if ($tipoIngreso) {
+            MovimientoStock::create([
+                'stock_id'          => $stock->id,
+                'tipo_movimiento_id' => $tipoIngreso->id,
+                'cantidad'          => $stock->cantidad_disponible,
+                'cantidad_anterior' => 0,
+                'cantidad_nueva'    => $stock->cantidad_disponible,
+                'motivo'            => $request->motivo,
+                'user_id'           => auth()->id(),
+                'fecha_movimiento'  => now(),
+            ]);
+        }
+
+        return redirect()->route('stocks.index')->with('message', 'Stock registrado con éxito');
     }
 
-    /**
-     * Update the specified resource in storage.
-     */
     public function update(UpdateStockRequest $request, Stock $stock)
     {
-        $stock->update($request->validated());
+        $cantidadAnterior = $stock->cantidad_disponible;
 
-        return redirect()->route('stocks.index')
-            ->with('message', 'Stock actualizado con éxito');
+        $stock->update($request->safe()->except(['tipo_movimiento_id', 'motivo']));
+
+        $cantidadNueva = $stock->fresh()->cantidad_disponible;
+        $delta = abs($cantidadNueva - $cantidadAnterior);
+
+        if ($delta > 0) {
+            MovimientoStock::create([
+                'stock_id'          => $stock->id,
+                'tipo_movimiento_id' => $request->tipo_movimiento_id,
+                'cantidad'          => $delta,
+                'cantidad_anterior' => $cantidadAnterior,
+                'cantidad_nueva'    => $cantidadNueva,
+                'motivo'            => $request->motivo,
+                'user_id'           => auth()->id(),
+                'fecha_movimiento'  => now(),
+            ]);
+        }
+
+        return redirect()->route('stocks.index')->with('message', 'Stock actualizado con éxito');
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Stock $stock)
     {
         $stock->delete();
 
-        return redirect()->route('stocks.index')
-            ->with('message', 'Registro de stock eliminado con éxito');
+        return redirect()->route('stocks.index')->with('message', 'Registro de stock eliminado con éxito');
     }
 }

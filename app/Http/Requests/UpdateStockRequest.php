@@ -23,7 +23,9 @@ class UpdateStockRequest extends FormRequest
             'cantidad_disponible' => 'required|integer|min:0',
             'cantidad_reservada' => 'nullable|integer|min:0',
             'ubicacion_text' => 'nullable|string|max:100',
-            'activo' => 'boolean'
+            'activo' => 'boolean',
+            'tipo_movimiento_id' => 'required|exists:tipos_movimientos_stock,id',
+            'motivo' => 'nullable|string|max:500',
         ];
     }
 }
