@@ -15,8 +15,14 @@ class Venta extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'fecha', 'cliente_id', 'user_id', 
-        'sucursal_id', 'tipo', 'total'
+        'fecha', 'cliente_id', 'user_id',
+        'sucursal_id', 'tipo', 'total',
+        'estado', 'tipo_envio', 'direccion_envio',
+        'pago_expira_at', 'payment_id',
+    ];
+
+    protected $casts = [
+        'pago_expira_at' => 'datetime',
     ];
 
     public function cliente(): BelongsTo
