@@ -17,7 +17,14 @@ class LibroMaster extends Model
 
     protected $fillable = ['titulo', 'titulo_original', 'portada', 'autor_id', 'categoria_id', 'activo'];
 
-    protected $appends = ['portada_url'];
+    protected $appends = ['portada_url', 'stock_total'];
+
+    public function getStockTotalAttribute(): int
+    {
+        return $this->libros->sum(function ($libro) {
+            return $libro->stocks->sum('cantidad_disponible');
+        });
+    }
 
     public function getPortadaUrlAttribute()
     {
