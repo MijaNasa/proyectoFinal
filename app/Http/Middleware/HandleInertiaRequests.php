@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\CarritoController;
 use Illuminate\Http\Request;
 use Inertia\Middleware;
 
@@ -36,6 +37,12 @@ class HandleInertiaRequests extends Middleware
                 'permisos'  => $request->user()?->getPermisosActivos() ?? [],
                 'esAdmin'   => $request->user()?->esAdmin() ?? false,
                 'esGerente' => $request->user()?->esGerente() ?? false,
+            ],
+            'carritoCount' => CarritoController::getCount(),
+            'flash' => [
+                'success' => session('success'),
+                'warning' => session('warning'),
+                'error'   => session('error'),
             ],
         ];
     }

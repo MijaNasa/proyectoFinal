@@ -17,6 +17,7 @@ use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\SerieController;
 use App\Http\Controllers\CargoController;
 use App\Http\Controllers\PublicCatalogoController;
+use App\Http\Controllers\CarritoController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -24,6 +25,14 @@ use Inertia\Inertia;
 // Rutas Públicas de E-commerce
 Route::get('/catalogo', [PublicCatalogoController::class, 'index'])->name('catalogo.index');
 Route::get('/catalogo/{id}', [PublicCatalogoController::class, 'show'])->name('catalogo.show');
+Route::get('/nosotros', fn() => \Inertia\Inertia::render('Nosotros'))->name('nosotros');
+
+// Carrito (no requiere login)
+Route::get('/carrito', [CarritoController::class, 'index'])->name('carrito.index');
+Route::post('/carrito/agregar', [CarritoController::class, 'agregar'])->name('carrito.agregar');
+Route::patch('/carrito/{libroId}', [CarritoController::class, 'actualizar'])->name('carrito.actualizar');
+Route::delete('/carrito/{libroId}', [CarritoController::class, 'quitar'])->name('carrito.quitar');
+Route::delete('/carrito', [CarritoController::class, 'vaciar'])->name('carrito.vaciar');
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
