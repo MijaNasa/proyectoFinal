@@ -18,6 +18,8 @@ use App\Http\Controllers\SerieController;
 use App\Http\Controllers\CargoController;
 use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\CarritoController;
+use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\MiCuentaController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -33,6 +35,19 @@ Route::post('/carrito/agregar', [CarritoController::class, 'agregar'])->name('ca
 Route::patch('/carrito/{libroId}', [CarritoController::class, 'actualizar'])->name('carrito.actualizar');
 Route::delete('/carrito/{libroId}', [CarritoController::class, 'quitar'])->name('carrito.quitar');
 Route::delete('/carrito', [CarritoController::class, 'vaciar'])->name('carrito.vaciar');
+
+// Checkout
+Route::get('/checkout', [CheckoutController::class, 'index'])->name('checkout.index');
+Route::post('/checkout', [CheckoutController::class, 'store'])->name('checkout.store');
+Route::get('/checkout/success', [CheckoutController::class, 'success'])->name('checkout.success');
+Route::get('/checkout/pending', [CheckoutController::class, 'pending'])->name('checkout.pending');
+Route::get('/checkout/failure', [CheckoutController::class, 'failure'])->name('checkout.failure');
+Route::post('/checkout/webhook', [CheckoutController::class, 'webhook'])->name('checkout.webhook');
+
+// Mi Cuenta (requiere login)
+Route::middleware('auth')->group(function () {
+    Route::get('/mi-cuenta', [MiCuentaController::class, 'index'])->name('mi-cuenta.index');
+});
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
