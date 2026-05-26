@@ -1,10 +1,11 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, reactive } from 'vue';
+import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
-    libros: Array,
+    libros: Object,
     categorias: Array,
     autores: Array,
     series: Array,
@@ -13,17 +14,15 @@ const props = defineProps({
     filters: Object,
 });
 
-// Filtros
-const search = ref('');
+const search = ref(props.filters?.search || '');
 const selected = reactive({
-    categorias:  [],
-    autores:     [],
-    series:      [],
-    editoriales: [],
-    idiomas:     [],
+    categoria:  props.filters?.categoria  || null,
+    autor:      props.filters?.autor      || null,
+    serie:      props.filters?.serie      || null,
+    editorial:  props.filters?.editorial  || null,
+    idioma:     props.filters?.idioma     || null,
 });
 
-// Secciones colapsables
 const open = reactive({
     categorias:  false,
     autores:     false,
@@ -32,66 +31,66 @@ const open = reactive({
     idiomas:     false,
 });
 
-// Chips activos
-const activeChips = computed(() => {
-    const chips = [];
-    selected.categorias.forEach(id => {
-        const item = props.categorias.find(x => x.id === id);
-        if (item) chips.push({ label: item.nombre, key: 'categorias', id });
-    });
-    selected.autores.forEach(id => {
-        const item = props.autores.find(x => x.id === id);
-        if (item) chips.push({ label: `${item.apellido}, ${item.nombre}`, key: 'autores', id });
-    });
-    selected.series.forEach(id => {
-        const item = props.series.find(x => x.id === id);
-        if (item) chips.push({ label: item.nombre, key: 'series', id });
-    });
-    selected.editoriales.forEach(id => {
-        const item = props.editoriales.find(x => x.id === id);
-        if (item) chips.push({ label: item.nombre, key: 'editoriales', id });
-    });
-    selected.idiomas.forEach(id => {
-        const item = props.idiomas.find(x => x.id === id);
-        if (item) chips.push({ label: item.nombre, key: 'idiomas', id });
-    });
-    return chips;
-});
+const applyFilters = () => {
+    router.get(route('catalogo.index'), {
+        search:    search.value || undefined,
+        categoria: selected.categoria || undefined,
+        autor:     selected.autor     || undefined,
+        serie:     selected.serie     || undefined,
+        editorial: selected.editorial || undefined,
+        idioma:    selected.idioma    || undefined,
+    }, { preserveState: false });
+};
 
-const removeChip = (chip) => {
-    selected[chip.key] = selected[chip.key].filter(id => id !== chip.id);
+const toggle = (key, id) => {
+    selected[key] = selected[key] === id ? null : id;
+    applyFilters();
 };
 
 const limpiarFiltros = () => {
     search.value = '';
-    Object.keys(selected).forEach(k => selected[k] = []);
+    Object.keys(selected).forEach(k => selected[k] = null);
+    applyFilters();
+};
+
+const activeChips = computed(() => {
+    const chips = [];
+    if (selected.categoria) {
+        const item = props.categorias.find(x => x.id === selected.categoria);
+        if (item) chips.push({ label: item.nombre, key: 'categoria' });
+    }
+    if (selected.autor) {
+        const item = props.autores.find(x => x.id === selected.autor);
+        if (item) chips.push({ label: `${item.apellido}, ${item.nombre}`, key: 'autor' });
+    }
+    if (selected.serie) {
+        const item = props.series.find(x => x.id === selected.serie);
+        if (item) chips.push({ label: item.nombre, key: 'serie' });
+    }
+    if (selected.editorial) {
+        const item = props.editoriales.find(x => x.id === selected.editorial);
+        if (item) chips.push({ label: item.nombre, key: 'editorial' });
+    }
+    if (selected.idioma) {
+        const item = props.idiomas.find(x => x.id === selected.idioma);
+        if (item) chips.push({ label: item.nombre, key: 'idioma' });
+    }
+    return chips;
+});
+
+const removeChip = (chip) => {
+    selected[chip.key] = null;
+    applyFilters();
 };
 
 const hayFiltrosActivos = computed(() => search.value || activeChips.value.length);
 
-// Lógica de filtrado
-const filteredLibros = computed(() => {
-    return props.libros.filter(libro => {
-        const q = search.value.toLowerCase();
-        const matchesSearch = !q ||
-            libro.titulo.toLowerCase().includes(q) ||
-            (libro.titulo_original?.toLowerCase().includes(q)) ||
-            (libro.autor?.nombre.toLowerCase().includes(q)) ||
-            (libro.autor?.apellido.toLowerCase().includes(q));
+const getStockTotal = (libro) =>
+    libro.libros?.reduce((acc, l) =>
+        acc + (l.stocks?.reduce((s, st) => s + (st.cantidad_disponible ?? 0), 0) ?? 0), 0) ?? 0;
 
-        const matchesCategoria  = !selected.categorias.length  || selected.categorias.includes(libro.categoria_id);
-        const matchesAutor      = !selected.autores.length      || selected.autores.includes(libro.autor_id);
-        const matchesSerie      = !selected.series.length       || libro.libros?.some(l => selected.series.includes(l.serie_id));
-        const matchesEditorial  = !selected.editoriales.length  || libro.libros?.some(l => selected.editoriales.includes(l.editorial_id));
-        const matchesIdioma     = !selected.idiomas.length      || libro.libros?.some(l => selected.idiomas.includes(l.idioma_id));
-
-        return matchesSearch && matchesCategoria && matchesAutor && matchesSerie && matchesEditorial && matchesIdioma;
-    });
-});
-
-// Stock
 const getStockStatus = (libro) => {
-    const total = libro.stock_total ?? 0;
+    const total = getStockTotal(libro);
     if (total === 0) return 'sin_stock';
     if (total < 5)  return 'pocos';
     return 'disponible';
@@ -133,6 +132,7 @@ const getPrecio = (libro) => {
                         <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-4 underline decoration-2 underline-offset-4">Búsqueda</h3>
                         <input
                             v-model="search"
+                            @keyup.enter="applyFilters"
                             type="text"
                             placeholder="BUSCAR..."
                             class="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-sm text-white focus:border-brand-red outline-none transition-all placeholder:text-white/40 font-bold uppercase"
@@ -141,16 +141,15 @@ const getPrecio = (libro) => {
 
                     <!-- Categoría -->
                     <div v-if="categorias.length" class="border-t border-white/5">
-                        <button @click="open.categorias = !open.categorias" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.categorias || selected.categorias.length ? 'text-white' : 'text-white/50'">
-                            <span>Categoría <span v-if="selected.categorias.length" class="text-brand-red">({{ selected.categorias.length }})</span></span>
+                        <button @click="open.categorias = !open.categorias" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.categorias || selected.categoria ? 'text-white' : 'text-white/50'">
+                            <span>Categoría <span v-if="selected.categoria" class="text-brand-red">(1)</span></span>
                             <svg class="w-3 h-3 transition-transform duration-200" :class="open.categorias ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                         <div v-if="open.categorias" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in categorias" :key="item.id" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.categorias.includes(item.id) ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.categorias.includes(item.id)" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            <label v-for="item in categorias" :key="item.id" @click="toggle('categoria', item.id)" class="flex items-center gap-3 cursor-pointer group">
+                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.categoria === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
+                                    <svg v-if="selected.categoria === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <input type="checkbox" :value="item.id" v-model="selected.categorias" class="sr-only">
                                 <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors">{{ item.nombre }}</span>
                             </label>
                         </div>
@@ -158,16 +157,15 @@ const getPrecio = (libro) => {
 
                     <!-- Autor -->
                     <div v-if="autores.length" class="border-t border-white/5">
-                        <button @click="open.autores = !open.autores" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.autores || selected.autores.length ? 'text-white' : 'text-white/50'">
-                            <span>Autor <span v-if="selected.autores.length" class="text-brand-red">({{ selected.autores.length }})</span></span>
+                        <button @click="open.autores = !open.autores" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.autores || selected.autor ? 'text-white' : 'text-white/50'">
+                            <span>Autor <span v-if="selected.autor" class="text-brand-red">(1)</span></span>
                             <svg class="w-3 h-3 transition-transform duration-200" :class="open.autores ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                         <div v-if="open.autores" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in autores" :key="item.id" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.autores.includes(item.id) ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.autores.includes(item.id)" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            <label v-for="item in autores" :key="item.id" @click="toggle('autor', item.id)" class="flex items-center gap-3 cursor-pointer group">
+                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.autor === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
+                                    <svg v-if="selected.autor === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <input type="checkbox" :value="item.id" v-model="selected.autores" class="sr-only">
                                 <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors line-clamp-1">{{ item.apellido }}, {{ item.nombre }}</span>
                             </label>
                         </div>
@@ -175,16 +173,15 @@ const getPrecio = (libro) => {
 
                     <!-- Serie -->
                     <div v-if="series.length" class="border-t border-white/5">
-                        <button @click="open.series = !open.series" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.series || selected.series.length ? 'text-white' : 'text-white/50'">
-                            <span>Serie <span v-if="selected.series.length" class="text-brand-red">({{ selected.series.length }})</span></span>
+                        <button @click="open.series = !open.series" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.series || selected.serie ? 'text-white' : 'text-white/50'">
+                            <span>Serie <span v-if="selected.serie" class="text-brand-red">(1)</span></span>
                             <svg class="w-3 h-3 transition-transform duration-200" :class="open.series ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                         <div v-if="open.series" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in series" :key="item.id" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.series.includes(item.id) ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.series.includes(item.id)" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            <label v-for="item in series" :key="item.id" @click="toggle('serie', item.id)" class="flex items-center gap-3 cursor-pointer group">
+                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.serie === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
+                                    <svg v-if="selected.serie === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <input type="checkbox" :value="item.id" v-model="selected.series" class="sr-only">
                                 <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors line-clamp-1">{{ item.nombre }}</span>
                             </label>
                         </div>
@@ -192,16 +189,15 @@ const getPrecio = (libro) => {
 
                     <!-- Editorial -->
                     <div v-if="editoriales.length" class="border-t border-white/5">
-                        <button @click="open.editoriales = !open.editoriales" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.editoriales || selected.editoriales.length ? 'text-white' : 'text-white/50'">
-                            <span>Editorial <span v-if="selected.editoriales.length" class="text-brand-red">({{ selected.editoriales.length }})</span></span>
+                        <button @click="open.editoriales = !open.editoriales" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.editoriales || selected.editorial ? 'text-white' : 'text-white/50'">
+                            <span>Editorial <span v-if="selected.editorial" class="text-brand-red">(1)</span></span>
                             <svg class="w-3 h-3 transition-transform duration-200" :class="open.editoriales ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                         <div v-if="open.editoriales" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in editoriales" :key="item.id" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.editoriales.includes(item.id) ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.editoriales.includes(item.id)" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            <label v-for="item in editoriales" :key="item.id" @click="toggle('editorial', item.id)" class="flex items-center gap-3 cursor-pointer group">
+                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.editorial === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
+                                    <svg v-if="selected.editorial === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <input type="checkbox" :value="item.id" v-model="selected.editoriales" class="sr-only">
                                 <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors line-clamp-1">{{ item.nombre }}</span>
                             </label>
                         </div>
@@ -209,16 +205,15 @@ const getPrecio = (libro) => {
 
                     <!-- Idioma -->
                     <div v-if="idiomas.length" class="border-t border-white/5">
-                        <button @click="open.idiomas = !open.idiomas" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.idiomas || selected.idiomas.length ? 'text-white' : 'text-white/50'">
-                            <span>Idioma <span v-if="selected.idiomas.length" class="text-brand-red">({{ selected.idiomas.length }})</span></span>
+                        <button @click="open.idiomas = !open.idiomas" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.idiomas || selected.idioma ? 'text-white' : 'text-white/50'">
+                            <span>Idioma <span v-if="selected.idioma" class="text-brand-red">(1)</span></span>
                             <svg class="w-3 h-3 transition-transform duration-200" :class="open.idiomas ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                         </button>
                         <div v-if="open.idiomas" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in idiomas" :key="item.id" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.idiomas.includes(item.id) ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.idiomas.includes(item.id)" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                            <label v-for="item in idiomas" :key="item.id" @click="toggle('idioma', item.id)" class="flex items-center gap-3 cursor-pointer group">
+                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.idioma === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
+                                    <svg v-if="selected.idioma === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <input type="checkbox" :value="item.id" v-model="selected.idiomas" class="sr-only">
                                 <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors">{{ item.nombre }}</span>
                             </label>
                         </div>
@@ -238,7 +233,7 @@ const getPrecio = (libro) => {
                     <div v-if="activeChips.length" class="flex flex-wrap gap-2 mb-6">
                         <button
                             v-for="chip in activeChips"
-                            :key="`${chip.key}-${chip.id}`"
+                            :key="chip.key"
                             @click="removeChip(chip)"
                             class="flex items-center gap-2 px-3 py-1.5 bg-brand-red/10 border border-brand-red/30 rounded-full text-[10px] font-black uppercase tracking-widest text-brand-red hover:bg-brand-red/20 transition-all group"
                         >
@@ -250,12 +245,12 @@ const getPrecio = (libro) => {
                     </div>
 
                     <p class="text-xs font-bold uppercase tracking-widest text-white/20 mb-8">
-                        {{ filteredLibros.length }} resultado{{ filteredLibros.length !== 1 ? 's' : '' }}
+                        {{ libros.total }} resultado{{ libros.total !== 1 ? 's' : '' }}
                     </p>
 
                     <!-- Grid -->
                     <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5">
-                        <Link v-for="libro in filteredLibros" :key="libro.id" :href="route('catalogo.show', libro.id)" class="group">
+                        <Link v-for="libro in libros.data" :key="libro.id" :href="route('catalogo.show', libro.id)" class="group">
                             <div class="relative aspect-[2/3] overflow-hidden rounded-xl bg-white/5 border border-white/10 transition-all duration-500 group-hover:border-brand-red group-hover:-translate-y-1 group-hover:shadow-[0_12px_30px_rgba(230,25,25,0.15)]">
                                 <img :src="libro.portada_url" :alt="libro.titulo" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-100 group-hover:scale-105">
                                 <div v-if="getStockStatus(libro) === 'sin_stock'" class="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -279,12 +274,23 @@ const getPrecio = (libro) => {
                     </div>
 
                     <!-- Sin resultados -->
-                    <div v-if="filteredLibros.length === 0" class="py-24 text-center">
+                    <div v-if="libros.data.length === 0" class="py-24 text-center">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto text-white/10 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
                         </svg>
                         <h3 class="text-2xl font-black uppercase tracking-widest text-white/30">Sin resultados</h3>
                         <button @click="limpiarFiltros" class="mt-4 text-xs font-black uppercase tracking-widest text-brand-red/60 hover:text-brand-red transition-colors">Limpiar filtros</button>
+                    </div>
+
+                    <!-- Paginación -->
+                    <div v-if="libros.links?.length > 3" class="mt-10 flex justify-center gap-2 flex-wrap">
+                        <Link
+                            v-for="link in libros.links"
+                            :key="link.label"
+                            :href="link.url || '#'"
+                            class="px-4 py-2 rounded-lg border border-white/10 text-sm font-black uppercase tracking-tighter transition-all"
+                            :class="{ 'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/30 pointer-events-none': !link.url }"
+                        >{{ decodeLabel(link.label) }}</Link>
                     </div>
                 </div>
             </div>

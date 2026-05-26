@@ -1,28 +1,22 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import Swal from 'sweetalert2';
+import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
-    librosMaster: Array,
+    librosMaster: Object,
     autores: Array,
     categorias: Array,
     filters: Object
 });
 
-const search = ref('');
+const search = ref(props.filters?.search || '');
 
-const filteredLibros = computed(() => {
-    if (!search.value) return props.librosMaster;
-    
-    const term = search.value.toLowerCase();
-    return props.librosMaster.filter(lm => 
-        lm.titulo.toLowerCase().includes(term) ||
-        (lm.titulo_original && lm.titulo_original.toLowerCase().includes(term)) ||
-        (lm.autor && (lm.autor.nombre.toLowerCase().includes(term) || lm.autor.apellido.toLowerCase().includes(term)))
-    );
-});
+const handleSearch = () => {
+    router.get(route('libro-masters.index'), { search: search.value }, { preserveState: true });
+};
 
 const form = useForm({
     id: null,
@@ -140,12 +134,16 @@ const deleteLibroMaster = (id) => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="card mb-8">
                     <div class="flex items-center gap-4">
-                        <input 
-                            v-model="search" 
-                            type="text" 
-                            placeholder="Buscar por título, autor o título original (filtrado instantáneo)..." 
+                        <input
+                            v-model="search"
+                            @keyup.enter="handleSearch"
+                            type="text"
+                            placeholder="Buscar por título, autor o título original..."
                             class="input-field flex-1"
                         >
+                        <button @click="handleSearch" class="btn-primary py-2 px-6 bg-white/5 hover:bg-brand-red text-white font-black uppercase text-xs">
+                            BUSCAR
+                        </button>
                     </div>
                 </div>
 
@@ -161,7 +159,7 @@ const deleteLibroMaster = (id) => {
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr v-for="libroMaster in filteredLibros" :key="libroMaster.id" class="hover:bg-white/[0.02] transition-colors">
+                            <tr v-for="libroMaster in librosMaster.data" :key="libroMaster.id" class="hover:bg-white/[0.02] transition-colors">
                                 <td class="p-4">
                                     <img :src="libroMaster.portada_url" class="w-12 h-16 object-cover rounded border border-white/10 shadow-lg">
                                 </td>
@@ -190,11 +188,22 @@ const deleteLibroMaster = (id) => {
                                     </div>
                                 </td>
                             </tr>
-                            <tr v-if="filteredLibros.length === 0">
+                            <tr v-if="librosMaster.data.length === 0">
                                 <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron títulos maestros</td>
                             </tr>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- Paginación -->
+                <div class="mt-6 flex justify-center gap-2">
+                    <Link
+                        v-for="link in librosMaster.links"
+                        :key="link.label"
+                        :href="link.url || '#'"
+                        class="px-4 py-2 rounded-lg border border-white/5 text-sm font-black uppercase tracking-tighter transition-all"
+                        :class="{ 'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20 pointer-events-none': !link.url }"
+                    >{{ decodeLabel(link.label) }}</Link>
                 </div>
 
             </div>

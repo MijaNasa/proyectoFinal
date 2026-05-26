@@ -14,12 +14,21 @@ class LibroMasterController extends Controller
      */
     public function index(Request $request)
     {
-        $librosMaster = LibroMaster::query()
+        $query = LibroMaster::query()
             ->with(['autor:id,nombre,apellido', 'categoria:id,nombre'])
-            ->select(['id', 'titulo', 'titulo_original', 'portada', 'autor_id', 'categoria_id', 'activo'])
-            ->latest()
-            ->paginate(20)
-            ->withQueryString();
+            ->select(['id', 'titulo', 'titulo_original', 'portada', 'autor_id', 'categoria_id', 'activo']);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('titulo', 'like', "%{$search}%")
+                  ->orWhere('titulo_original', 'like', "%{$search}%")
+                  ->orWhereHas('autor', fn($sq) => $sq->where('nombre', 'like', "%{$search}%")
+                      ->orWhere('apellido', 'like', "%{$search}%"));
+            });
+        }
+
+        $librosMaster = $query->latest()->paginate(20)->withQueryString();
 
         return inertia('LibroMasters/Index', [
             'librosMaster' => $librosMaster,

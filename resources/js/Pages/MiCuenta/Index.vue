@@ -1,9 +1,10 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
-import { Head } from '@inertiajs/vue3';
+import { Head, Link } from '@inertiajs/vue3';
+import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
-    pedidos: Array,
+    pedidos: Object,
 });
 
 const formatPrecio = (valor) =>
@@ -33,7 +34,7 @@ const estadoConfig = {
             </h1>
 
             <!-- Sin pedidos -->
-            <div v-if="!pedidos.length" class="py-32 text-center">
+            <div v-if="!pedidos.data.length" class="py-32 text-center">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto text-white/10 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
@@ -47,7 +48,7 @@ const estadoConfig = {
             <!-- Lista de pedidos -->
             <div v-else class="space-y-6">
                 <div
-                    v-for="pedido in pedidos"
+                    v-for="pedido in pedidos.data"
                     :key="pedido.id"
                     class="bg-white/[0.03] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all"
                 >
@@ -88,6 +89,17 @@ const estadoConfig = {
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <!-- Paginación -->
+            <div v-if="pedidos.links?.length > 3" class="mt-10 flex justify-center gap-2">
+                <Link
+                    v-for="link in pedidos.links"
+                    :key="link.label"
+                    :href="link.url || '#'"
+                    class="px-4 py-2 rounded-lg border border-white/10 text-sm font-black uppercase tracking-tighter transition-all"
+                    :class="{ 'bg-brand-red text-white border-brand-red': link.active, 'text-white/30 pointer-events-none': !link.url }"
+                >{{ decodeLabel(link.label) }}</Link>
             </div>
         </div>
     </PublicLayout>

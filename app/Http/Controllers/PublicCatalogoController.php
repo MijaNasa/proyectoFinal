@@ -41,6 +41,18 @@ class PublicCatalogoController extends Controller
             $query->where('autor_id', $request->autor);
         }
 
+        if ($request->filled('serie')) {
+            $query->whereHas('libros', fn($q) => $q->where('serie_id', $request->serie));
+        }
+
+        if ($request->filled('editorial')) {
+            $query->whereHas('libros', fn($q) => $q->where('editorial_id', $request->editorial));
+        }
+
+        if ($request->filled('idioma')) {
+            $query->whereHas('libros', fn($q) => $q->where('idioma_id', $request->idioma));
+        }
+
         $libros = $query->latest()->paginate(24)->withQueryString();
 
         return Inertia::render('Catalogo/Index', [
