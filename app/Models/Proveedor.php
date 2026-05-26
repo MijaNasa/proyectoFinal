@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Proveedor extends Model
 {
@@ -14,11 +15,16 @@ class Proveedor extends Model
     protected $table = 'proveedores';
 
     protected $fillable = [
-        'nombre_empresa', 'nombre_contacto', 'telefono', 'email', 'direccion', 'activo',
+        'nombre_empresa', 'nombre_contacto', 'telefono', 'email', 'direccion', 'activo', 'deuda_actual',
     ];
 
     public function series(): HasMany
     {
         return $this->hasMany(Serie::class);
+    }
+
+    public function transacciones(): MorphMany
+    {
+        return $this->morphMany(Transaccion::class, 'transaccionable');
     }
 }

@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Proveedor;
+use App\Models\Transaccion;
 use App\Http\Requests\StoreProveedorRequest;
 use App\Http\Requests\UpdateProveedorRequest;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class ProveedorController extends Controller
 {
@@ -44,6 +46,33 @@ class ProveedorController extends Controller
 
         return redirect()->route('proveedores.index')
             ->with('message', 'Proveedor actualizado con éxito');
+    }
+
+    public function registrarPago(Request $request, Proveedor $proveedor)
+    {
+        $request->validate([
+            'monto'       => 'required|numeric|min:0.01',
+            'metodo_pago' => 'required|in:Efectivo,Transferencia,Tarjeta,Débito',
+            'descripcion' => 'nullable|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($request, $proveedor) {
+            $proveedor->decrement('deuda_actual', $request->monto);
+
+            Transaccion::create([
+                'tipo'                 => 'egreso',
+                'monto'                => $request->monto,
+                'metodo_pago'          => $request->metodo_pago,
+                'fecha'                => now(),
+                'sucursal_id'          => auth()->user()->empleado?->sucursal_id,
+                'transaccionable_id'   => $proveedor->id,
+                'transaccionable_type' => Proveedor::class,
+                'descripcion'          => $request->descripcion ?: 'Pago a proveedor',
+                'user_id'              => auth()->id(),
+            ]);
+        });
+
+        return redirect()->route('proveedores.index')->with('message', 'Pago registrado con éxito');
     }
 
     public function destroy(Proveedor $proveedor)

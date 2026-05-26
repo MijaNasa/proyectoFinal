@@ -25,6 +25,37 @@ const form = useForm({
 const isEditing = ref(false);
 const showModal = ref(false);
 
+const showPagoModal = ref(false);
+const pagoForm = useForm({
+    proveedor_id: null,
+    monto: '',
+    metodo_pago: 'Transferencia',
+    descripcion: '',
+});
+
+const openPagoModal = (proveedor) => {
+    pagoForm.reset();
+    pagoForm.proveedor_id = proveedor.id;
+    showPagoModal.value = true;
+};
+
+const submitPago = () => {
+    pagoForm.post(route('proveedores.pago', pagoForm.proveedor_id), {
+        onSuccess: () => {
+            showPagoModal.value = false;
+            Swal.fire({
+                title: '¡Pago registrado!',
+                text: 'El pago al proveedor fue registrado correctamente',
+                icon: 'success',
+                background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919',
+            });
+        },
+    });
+};
+
+const formatCurrency = (v) =>
+    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v);
+
 const openModal = (proveedor = null) => {
     if (proveedor) {
         isEditing.value = true;
@@ -136,6 +167,7 @@ const handleSearch = () => {
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Contacto</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Teléfono / Email</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Estado</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Deuda</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Acciones</th>
                             </tr>
                         </thead>
@@ -157,7 +189,20 @@ const handleSearch = () => {
                                     <span v-else class="text-brand-red">Inactivo</span>
                                 </td>
                                 <td class="p-4 text-right">
+                                    <span class="font-black text-sm" :class="proveedor.deuda_actual > 0 ? 'text-brand-red' : 'text-white/30'">
+                                        {{ formatCurrency(proveedor.deuda_actual ?? 0) }}
+                                    </span>
+                                </td>
+                                <td class="p-4 text-right">
                                     <div class="flex justify-end gap-2">
+                                        <button
+                                            v-if="proveedor.deuda_actual > 0"
+                                            @click="openPagoModal(proveedor)"
+                                            title="Registrar pago"
+                                            class="p-2 text-white/50 hover:text-green-400 transition-colors"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+                                        </button>
                                         <button @click="openModal(proveedor)" class="p-2 text-white/50 hover:text-brand-red transition-colors">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                                                 <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
@@ -172,7 +217,7 @@ const handleSearch = () => {
                                 </td>
                             </tr>
                             <tr v-if="proveedores.data.length === 0">
-                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron proveedores registrados</td>
+                                <td colspan="6" class="p-12 text-center text-white/30 italic">No se encontraron proveedores registrados</td>
                             </tr>
                         </tbody>
                     </table>
@@ -239,6 +284,70 @@ const handleSearch = () => {
             </div>
             </div>
         </div>
+        <!-- Modal Pago -->
+        <template v-if="showPagoModal">
+        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showPagoModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative w-full max-w-md card p-0 border border-green-500/30 shadow-[0_0_60px_rgba(34,197,94,0.08)] overflow-hidden my-8">
+                <div class="bg-gradient-to-r from-green-700 to-black p-6 flex justify-between items-center">
+                    <h3 class="text-xl font-black uppercase tracking-tighter italic">
+                        Pago a <span class="text-white">Proveedor</span>
+                    </h3>
+                    <button @click="showPagoModal = false" class="text-white/80 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitPago" class="p-8 space-y-6">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Monto ($)</label>
+                        <input
+                            v-model="pagoForm.monto"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="0.00"
+                            class="input-field w-full text-right font-mono text-xl"
+                            :class="{ 'border-brand-red': pagoForm.errors.monto }"
+                        >
+                        <p v-if="pagoForm.errors.monto" class="text-brand-red text-xs mt-1">{{ pagoForm.errors.monto }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Método de Pago</label>
+                        <select v-model="pagoForm.metodo_pago" class="input-field w-full bg-brand-black font-black uppercase text-xs">
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Tarjeta">Tarjeta de Crédito</option>
+                            <option value="Débito">Débito</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Descripción (opcional)</label>
+                        <input
+                            v-model="pagoForm.descripcion"
+                            type="text"
+                            placeholder="Pago a proveedor..."
+                            class="input-field w-full"
+                            maxlength="255"
+                        >
+                    </div>
+
+                    <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
+                        <button type="button" @click="showPagoModal = false" class="px-6 py-2 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-widest">
+                            Cancelar
+                        </button>
+                        <button type="submit" :disabled="pagoForm.processing" class="px-10 py-3 bg-green-600 hover:bg-green-500 text-white font-black uppercase text-xs tracking-widest rounded-lg transition-colors disabled:opacity-50">
+                            {{ pagoForm.processing ? 'Procesando...' : 'Confirmar Pago' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+            </div>
+        </div>
+        </template>
         </template>
     </AuthenticatedLayout>
 </template>
