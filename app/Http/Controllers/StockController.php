@@ -36,7 +36,10 @@ class StockController extends Controller
         return inertia('Stocks/Index', [
             'stocks' => $stocks,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
-            'libros' => \App\Models\Libro::with('master.autor')->get()->map(function($l) {
+            'libros' => \App\Models\Libro::with([
+                    'master:id,titulo,autor_id',
+                    'master.autor:id,apellido',
+                ])->select(['id', 'master_id', 'isbn'])->get()->map(function($l) {
                 return [
                     'id'     => $l->id,
                     'label'  => $l->master->titulo . ' (' . ($l->isbn ?: 'S/I') . ')',
@@ -46,7 +49,7 @@ class StockController extends Controller
                 ];
             }),
             'tiposMovimiento' => $tiposMovimiento,
-            'stocksExistentes' => \App\Models\Stock::select('libro_id', 'sucursal_id', 'cantidad_disponible')->get(),
+            'stocksExistentes' => \App\Models\Stock::select(['libro_id', 'sucursal_id', 'cantidad_disponible'])->get(),
             'filters' => $request->only(['search', 'sucursal_id']),
         ]);
     }
@@ -75,11 +78,16 @@ class StockController extends Controller
 
     public function update(UpdateStockRequest $request, Stock $stock)
     {
+        $user = auth()->user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $stock->sucursal_id) {
+            abort(403);
+        }
+
         $cantidadAnterior = $stock->cantidad_disponible;
 
         $stock->update($request->safe()->except(['tipo_movimiento_id', 'motivo']));
 
-        $cantidadNueva = $stock->fresh()->cantidad_disponible;
+        $cantidadNueva = $stock->cantidad_disponible;
         $delta = abs($cantidadNueva - $cantidadAnterior);
 
         if ($delta > 0) {
@@ -100,6 +108,11 @@ class StockController extends Controller
 
     public function destroy(Stock $stock)
     {
+        $user = auth()->user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $stock->sucursal_id) {
+            abort(403);
+        }
+
         $stock->delete();
 
         return redirect()->route('stocks.index')->with('message', 'Registro de stock eliminado con éxito');

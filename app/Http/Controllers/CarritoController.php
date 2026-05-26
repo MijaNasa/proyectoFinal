@@ -24,7 +24,7 @@ class CarritoController extends Controller
             'cantidad' => 'required|integer|min:1|max:5',
         ]);
 
-        $libro = Libro::with(['master', 'precioActual', 'stocks'])->findOrFail($request->libro_id);
+        $libro = Libro::with(['master', 'precioActual', 'stocks', 'editorial'])->findOrFail($request->libro_id);
 
         $stockTotal = $libro->stocks->sum('cantidad_disponible');
         if ($stockTotal === 0) {
@@ -61,7 +61,7 @@ class CarritoController extends Controller
 
     public function actualizar(Request $request, $libroId)
     {
-        $request->validate(['cantidad' => 'required|integer|min:1|max:99']);
+        $request->validate(['cantidad' => 'required|integer|min:1|max:5']);
 
         $carrito = session(self::SESSION_KEY, []);
 
@@ -72,7 +72,8 @@ class CarritoController extends Controller
         $libro = Libro::with('stocks')->findOrFail($libroId);
         $stockTotal = $libro->stocks->sum('cantidad_disponible');
 
-        $carrito[$libroId]['cantidad'] = min($request->cantidad, $stockTotal);
+        $limite = min(5, $stockTotal);
+        $carrito[$libroId]['cantidad'] = min($request->cantidad, $limite);
         session([self::SESSION_KEY => $carrito]);
 
         return back();

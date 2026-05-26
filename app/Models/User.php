@@ -50,13 +50,13 @@ class User extends Authenticatable
         return $this->hasOne(Empleado::class);
     }
 
-    // Devuelve true si el usuario tiene el cargo ADMIN activo
     public function esAdmin(): bool
     {
-        if (!$this->relationLoaded('empleado')) {
-            $this->load('empleado.cargos');
-        }
         if (!$this->empleado) return false;
+
+        if ($this->empleado->relationLoaded('cargos')) {
+            return $this->empleado->cargos->contains('nombre', 'ADMIN');
+        }
 
         return $this->empleado->cargos()
             ->wherePivotNull('fecha_hasta')
@@ -64,10 +64,13 @@ class User extends Authenticatable
             ->exists();
     }
 
-    // Devuelve true si tiene cargo GERENTE activo
     public function esGerente(): bool
     {
         if (!$this->empleado) return false;
+
+        if ($this->empleado->relationLoaded('cargos')) {
+            return $this->empleado->cargos->contains('nombre', 'GERENTE');
+        }
 
         return $this->empleado->cargos()
             ->wherePivotNull('fecha_hasta')
@@ -75,11 +78,17 @@ class User extends Authenticatable
             ->exists();
     }
 
-    // Verifica si el usuario tiene un permiso específico (por código)
     public function hasPermiso(string $codigo): bool
     {
         if ($this->esAdmin()) return true;
         if (!$this->empleado) return false;
+
+        if ($this->empleado->relationLoaded('cargos')) {
+            return $this->empleado->cargos->contains(
+                fn($cargo) => $cargo->relationLoaded('permisos')
+                    && $cargo->permisos->contains('codigo', $codigo)
+            );
+        }
 
         return $this->empleado->cargos()
             ->wherePivotNull('fecha_hasta')
@@ -87,7 +96,6 @@ class User extends Authenticatable
             ->exists();
     }
 
-    // Retorna array con los códigos de permisos activos del usuario
     public function getPermisosActivos(): array
     {
         if ($this->esAdmin()) {
@@ -95,6 +103,16 @@ class User extends Authenticatable
         }
 
         if (!$this->empleado) return [];
+
+        if ($this->empleado->relationLoaded('cargos')) {
+            return $this->empleado->cargos
+                ->flatMap(fn($cargo) => $cargo->relationLoaded('permisos')
+                    ? $cargo->permisos->pluck('codigo')
+                    : collect())
+                ->unique()
+                ->values()
+                ->toArray();
+        }
 
         return $this->empleado->cargos()
             ->wherePivotNull('fecha_hasta')

@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
+import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     clientes: Object,
@@ -199,7 +200,7 @@ const formatCurrency = (value) => {
                 </div>
 
                 <div class="mt-8 flex justify-center gap-2">
-                    <Link v-for="link in clientes.links" :key="link.label" :href="link.url || '#'" v-html="link.label" class="px-4 py-2 rounded-lg border border-white/5 transition-all text-sm font-black uppercase tracking-tighter" :class="{'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20': !link.url}" />
+                    <Link v-for="link in clientes.links" :key="link.label" :href="link.url || '#'" class="px-4 py-2 rounded-lg border border-white/5 transition-all text-sm font-black uppercase tracking-tighter" :class="{'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20': !link.url}">{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
         </div>

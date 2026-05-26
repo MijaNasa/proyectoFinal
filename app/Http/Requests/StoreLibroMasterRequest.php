@@ -20,7 +20,7 @@ class StoreLibroMasterRequest extends FormRequest
         return [
             'titulo' => ['required', 'string', 'max:255'],
             'titulo_original' => ['nullable', 'string', 'max:255'],
-            'portada' => ['nullable', 'image', 'max:2048'],
+            'portada' => ['nullable', 'image', 'mimes:jpg,jpeg,png,gif,webp', 'max:2048'],
             'autor_id' => ['required', 'exists:autores,id'],
             'categoria_id' => ['required', 'exists:categorias,id'],
             'activo' => ['boolean']

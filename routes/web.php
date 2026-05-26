@@ -20,7 +20,6 @@ use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\CarritoController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\MiCuentaController;
-use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
@@ -51,10 +50,8 @@ Route::middleware('auth')->group(function () {
 
 Route::get('/', function () {
     return Inertia::render('Welcome', [
-        'canLogin'      => Route::has('login'),
-        'canRegister'   => Route::has('register'),
-        'laravelVersion' => Application::VERSION,
-        'phpVersion'    => PHP_VERSION,
+        'canLogin'    => Route::has('login'),
+        'canRegister' => Route::has('register'),
     ]);
 });
 

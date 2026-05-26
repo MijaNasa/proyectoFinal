@@ -11,17 +11,27 @@ use Inertia\Inertia;
 
 class DashboardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $user = $request->user();
+        if (!$user->esAdmin() && !$user->empleado) {
+            return redirect()->route('catalogo.index');
+        }
+
+        $hoy = now();
+        $ventasHoy = Venta::whereBetween('fecha', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])
+            ->selectRaw('COUNT(*) as cantidad, COALESCE(SUM(total),0) as recaudacion')
+            ->first();
+
         $stats = [
-            'ventas_hoy' => Venta::whereDate('fecha', now())->sum('total'),
-            'cantidad_ventas' => Venta::whereDate('fecha', now())->count(),
-            'stock_total' => (int) Stock::sum('cantidad_disponible'),
+            'ventas_hoy'     => (float) $ventasHoy->recaudacion,
+            'cantidad_ventas' => (int) $ventasHoy->cantidad,
+            'stock_total'    => (int) Stock::sum('cantidad_disponible'),
             'clientes_total' => Cliente::count(),
-            'ultimas_ventas' => Venta::with(['cliente.user', 'sucursal'])
+            'ultimas_ventas' => Venta::with(['cliente.user:id,name,apellido', 'sucursal:id,nombre'])
                 ->latest()
                 ->take(5)
-                ->get(),
+                ->get(['id', 'fecha', 'total', 'estado', 'cliente_id', 'sucursal_id']),
         ];
 
         return Inertia::render('Dashboard', [

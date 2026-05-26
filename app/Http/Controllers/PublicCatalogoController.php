@@ -15,7 +15,7 @@ class PublicCatalogoController extends Controller
 {
     public function index(Request $request)
     {
-        $libros = LibroMaster::query()
+        $query = LibroMaster::query()
             ->with([
                 'autor',
                 'categoria',
@@ -23,9 +23,25 @@ class PublicCatalogoController extends Controller
                     $q->with(['precioActual', 'serie', 'editorial', 'idioma', 'stocks.sucursal']);
                 },
             ])
-            ->where('activo', true)
-            ->latest()
-            ->get();
+            ->where('activo', true);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('titulo', 'like', "%{$search}%")
+                  ->orWhere('titulo_original', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('categoria')) {
+            $query->where('categoria_id', $request->categoria);
+        }
+
+        if ($request->filled('autor')) {
+            $query->where('autor_id', $request->autor);
+        }
+
+        $libros = $query->latest()->paginate(24)->withQueryString();
 
         return Inertia::render('Catalogo/Index', [
             'libros'      => $libros,
@@ -40,7 +56,7 @@ class PublicCatalogoController extends Controller
 
     public function show($id)
     {
-        $libroMaster = LibroMaster::with([
+        $libroMaster = LibroMaster::where('activo', true)->with([
             'autor',
             'categoria',
             'libros' => function ($q) {

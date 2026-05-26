@@ -30,13 +30,22 @@ class HandleInertiaRequests extends Middleware
      */
     public function share(Request $request): array
     {
+        $user = $request->user();
+
+        if ($user) {
+            $user->load([
+                'empleado.cargos'          => fn($q) => $q->wherePivotNull('fecha_hasta'),
+                'empleado.cargos.permisos' => fn($q) => $q->where('activo', true),
+            ]);
+        }
+
         return [
             ...parent::share($request),
             'auth' => [
-                'user'      => $request->user(),
-                'permisos'  => $request->user()?->getPermisosActivos() ?? [],
-                'esAdmin'   => $request->user()?->esAdmin() ?? false,
-                'esGerente' => $request->user()?->esGerente() ?? false,
+                'user'      => $user?->only(['id', 'name', 'apellido', 'email']),
+                'permisos'  => $user?->getPermisosActivos() ?? [],
+                'esAdmin'   => $user?->esAdmin() ?? false,
+                'esGerente' => $user?->esGerente() ?? false,
             ],
             'carritoCount' => CarritoController::getCount(),
             'flash' => [

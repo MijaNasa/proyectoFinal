@@ -15,9 +15,11 @@ class LibroMasterController extends Controller
     public function index(Request $request)
     {
         $librosMaster = LibroMaster::query()
-            ->with(['autor', 'categoria'])
+            ->with(['autor:id,nombre,apellido', 'categoria:id,nombre'])
+            ->select(['id', 'titulo', 'titulo_original', 'portada', 'autor_id', 'categoria_id', 'activo'])
             ->latest()
-            ->get();
+            ->paginate(20)
+            ->withQueryString();
 
         return inertia('LibroMasters/Index', [
             'librosMaster' => $librosMaster,

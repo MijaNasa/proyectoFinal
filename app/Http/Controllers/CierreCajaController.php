@@ -29,16 +29,22 @@ class CierreCajaController extends Controller
      */
     public function store(StoreCierreCajaRequest $request)
     {
-        $diferencia = $request->monto_real - $request->monto_esperado;
+        $user = \Auth::user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== (int) $request->sucursal_id) {
+            abort(403);
+        }
+
+        $montoEsperado = $this->calcularMontoEsperado($request->sucursal_id, $request->fecha);
+        $diferencia    = $request->monto_real - $montoEsperado;
 
         CierreCaja::create([
-            'fecha' => $request->fecha,
-            'sucursal_id' => $request->sucursal_id,
-            'user_id' => \Auth::id(),
-            'monto_esperado' => $request->monto_esperado,
-            'monto_real' => $request->monto_real,
-            'diferencia' => $diferencia,
-            'observaciones' => $request->observaciones,
+            'fecha'          => $request->fecha,
+            'sucursal_id'    => $request->sucursal_id,
+            'user_id'        => \Auth::id(),
+            'monto_esperado' => $montoEsperado,
+            'monto_real'     => $request->monto_real,
+            'diferencia'     => $diferencia,
+            'observaciones'  => $request->observaciones,
         ]);
 
         return redirect()->route('cierre-cajas.index')
@@ -49,26 +55,31 @@ class CierreCajaController extends Controller
     {
         $request->validate([
             'sucursal_id' => 'required|exists:sucursales,id',
-            'fecha' => 'required|date',
+            'fecha'       => 'required|date',
         ]);
 
-        // Calculamos el monto esperado:
-        // Suma de transacciones en EFECTIVO (Cash) de tipo ingreso menos egreso
-        $ingresos = \App\Models\Transaccion::where('sucursal_id', $request->sucursal_id)
-            ->whereDate('fecha', $request->fecha)
-            ->where('tipo', 'ingreso')
-            ->where('metodo_pago', 'Efectivo')
-            ->sum('monto');
-
-        $egresos = \App\Models\Transaccion::where('sucursal_id', $request->sucursal_id)
-            ->whereDate('fecha', $request->fecha)
-            ->where('tipo', 'egreso')
-            ->where('metodo_pago', 'Efectivo')
-            ->sum('monto');
+        $user = \Auth::user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== (int) $request->sucursal_id) {
+            abort(403);
+        }
 
         return response()->json([
-            'monto_sistema' => (float) ($ingresos - $egresos)
+            'monto_sistema' => $this->calcularMontoEsperado($request->sucursal_id, $request->fecha),
         ]);
+    }
+
+    private function calcularMontoEsperado(int|string $sucursalId, string $fecha): float
+    {
+        $totales = \App\Models\Transaccion::where('sucursal_id', $sucursalId)
+            ->whereDate('fecha', $fecha)
+            ->where('metodo_pago', 'Efectivo')
+            ->selectRaw("
+                COALESCE(SUM(CASE WHEN tipo = 'ingreso' THEN monto ELSE 0 END), 0) as total_ingresos,
+                COALESCE(SUM(CASE WHEN tipo = 'egreso'  THEN monto ELSE 0 END), 0) as total_egresos
+            ")
+            ->first();
+
+        return (float) ($totales->total_ingresos - $totales->total_egresos);
     }
 
     /**
@@ -76,6 +87,11 @@ class CierreCajaController extends Controller
      */
     public function destroy(CierreCaja $cierreCaja)
     {
+        $user = \Auth::user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $cierreCaja->sucursal_id) {
+            abort(403);
+        }
+
         $cierreCaja->delete();
 
         return redirect()->route('cierre-cajas.index')

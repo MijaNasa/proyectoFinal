@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\PrecioLibro;
 use App\Models\Venta;
 use App\Http\Requests\StoreVentaRequest;
 use App\Http\Requests\UpdateVentaRequest;
@@ -26,28 +27,35 @@ class VentaController extends Controller
 
         $ventas = $query->latest()->paginate(10)->withQueryString();
 
-        // Real Stats
+        $hoy = now();
+        $statsHoy = Venta::whereBetween('fecha', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])
+            ->selectRaw('COUNT(*) as cantidad, COALESCE(SUM(total),0) as recaudacion, COALESCE(AVG(total),0) as promedio')
+            ->first();
+
         $stats = [
-            'ventas_hoy' => Venta::whereDate('fecha', now())->count(),
-            'recaudacion' => Venta::whereDate('fecha', now())->sum('total'),
-            'promedio_ticket' => (float) Venta::whereDate('fecha', now())->avg('total') ?: 0,
-            'stock_total' => (int) \App\Models\Stock::sum('cantidad_disponible')
+            'ventas_hoy'      => (int) $statsHoy->cantidad,
+            'recaudacion'     => (float) $statsHoy->recaudacion,
+            'promedio_ticket' => (float) $statsHoy->promedio,
+            'stock_total'     => (int) \App\Models\Stock::sum('cantidad_disponible'),
         ];
 
         return inertia('Ventas/Index', [
-            'ventas' => $ventas,
-            'clientes' => \App\Models\Cliente::with('user')->get(),
-            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(),
-            'libros' => \App\Models\Libro::with(['master', 'precios' => function($q) {
-                $q->where('activo', true)->where(function($sq) {
-                    $sq->whereNull('fecha_hasta')->orWhere('fecha_hasta', '>', now());
-                })->latest('fecha_desde');
-            }])->get()->map(function($l) {
-                $l->precio_actual = $l->precios->first();
-                return $l;
-            }),
-            'stats' => $stats,
-            'filters' => $request->only(['search'])
+            'ventas'     => $ventas,
+            'clientes'   => \App\Models\Cliente::with('user:id,name,apellido,email')
+                               ->get(['id', 'user_id', 'saldo_actual']),
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
+            'libros'     => \App\Models\Libro::with([
+                               'master:id,titulo',
+                               'precios' => fn($q) => $q->where('activo', true)
+                                   ->where(fn($sq) => $sq->whereNull('fecha_hasta')->orWhere('fecha_hasta', '>', now()))
+                                   ->latest('fecha_desde')
+                                   ->limit(1),
+                           ])->get(['id', 'master_id', 'isbn'])->map(function ($l) {
+                               $l->precio_actual = $l->precios->first();
+                               return $l;
+                           }),
+            'stats'      => $stats,
+            'filters'    => $request->only(['search']),
         ]);
     }
 
@@ -56,55 +64,82 @@ class VentaController extends Controller
      */
     public function store(StoreVentaRequest $request)
     {
-        \DB::transaction(function() use ($request) {
+        $libroIds = collect($request->items)->pluck('libro_id');
+
+        $precios = PrecioLibro::whereIn('libro_id', $libroIds)
+            ->where('activo', true)
+            ->where(function ($q) {
+                $q->whereNull('fecha_hasta')->orWhere('fecha_hasta', '>', now());
+            })
+            ->orderByDesc('fecha_desde')
+            ->get()
+            ->unique('libro_id')
+            ->keyBy('libro_id');
+
+        foreach ($libroIds as $libroId) {
+            if (!isset($precios[$libroId])) {
+                return back()->withErrors(['items' => "El libro ID {$libroId} no tiene un precio activo."]);
+            }
+        }
+
+        try {
+        \DB::transaction(function () use ($request, $precios) {
             $total = 0;
             foreach ($request->items as $item) {
-                $total += $item['cantidad'] * $item['precio'];
+                $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
+                    ->where('sucursal_id', $request->sucursal_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$stock || $stock->cantidad_disponible < $item['cantidad']) {
+                    throw new \RuntimeException("Stock insuficiente para el libro ID {$item['libro_id']}.");
+                }
+
+                $total += $item['cantidad'] * $precios[$item['libro_id']]->precio_venta;
             }
 
             $venta = Venta::create([
-                'fecha' => now(),
-                'cliente_id' => $request->cliente_id,
-                'user_id' => \Auth::id(),
+                'fecha'       => now(),
+                'cliente_id'  => $request->cliente_id,
+                'user_id'     => \Auth::id(),
                 'sucursal_id' => $request->sucursal_id,
-                'tipo' => $request->tipo,
-                'total' => $total,
+                'tipo'        => $request->tipo,
+                'total'       => $total,
             ]);
 
             foreach ($request->items as $item) {
+                $precio = $precios[$item['libro_id']]->precio_venta;
+
                 $venta->detalles()->create([
-                    'libro_id' => $item['libro_id'],
-                    'cantidad' => $item['cantidad'],
-                    'precio_unitario' => $item['precio'],
-                    'subtotal' => $item['cantidad'] * $item['precio'],
+                    'libro_id'        => $item['libro_id'],
+                    'cantidad'        => $item['cantidad'],
+                    'precio_unitario' => $precio,
+                    'subtotal'        => $item['cantidad'] * $precio,
                 ]);
 
-                // Update Stock
-                $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
+                \App\Models\Stock::where('libro_id', $item['libro_id'])
                     ->where('sucursal_id', $request->sucursal_id)
-                    ->first();
-
-                if ($stock) {
-                    $stock->decrement('cantidad_disponible', $item['cantidad']);
-                }
+                    ->decrement('cantidad_disponible', $item['cantidad']);
             }
 
-            // Financial Transaction
             $venta->transacciones()->create([
-                'fecha' => now(),
-                'tipo' => 'ingreso',
-                'monto' => $total,
+                'fecha'       => now(),
+                'tipo'        => 'ingreso',
+                'monto'       => $total,
                 'metodo_pago' => $request->medio_pago,
                 'sucursal_id' => $request->sucursal_id,
-                'user_id' => \Auth::id(),
+                'user_id'     => \Auth::id(),
             ]);
 
-            // Update Client Balance if "Cuenta Corriente"
             if ($request->medio_pago === 'Cuenta Corriente') {
                 $cliente = \App\Models\Cliente::find($request->cliente_id);
                 $cliente->decrement('saldo_actual', $total);
             }
         });
+        } catch (\RuntimeException $e) {
+            return redirect()->route('ventas.index')
+                ->with('error', $e->getMessage());
+        }
 
         return redirect()->route('ventas.index')
             ->with('message', 'Venta procesada con éxito');
@@ -115,8 +150,14 @@ class VentaController extends Controller
      */
     public function destroy(Venta $venta)
     {
+        $user = \Auth::user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
+            abort(403);
+        }
+
+        $venta->load(['detalles', 'cliente', 'transacciones']);
+
         \DB::transaction(function() use ($venta) {
-            // Revert stocks
             foreach ($venta->detalles as $detalle) {
                 \App\Models\Stock::where('libro_id', $detalle->libro_id)
                     ->where('sucursal_id', $venta->sucursal_id)

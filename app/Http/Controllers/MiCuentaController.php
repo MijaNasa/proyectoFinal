@@ -10,12 +10,12 @@ class MiCuentaController extends Controller
 {
     public function index()
     {
-        $pedidos = Venta::with(['detalles.libro.master'])
+        $pedidos = Venta::with(['detalles.libro.master:id,titulo'])
             ->where('user_id', Auth::id())
             ->where('tipo', 'online')
             ->latest()
-            ->get()
-            ->map(fn($v) => [
+            ->paginate(10)
+            ->through(fn($v) => [
                 'id'         => $v->id,
                 'fecha'      => $v->fecha,
                 'total'      => $v->total,

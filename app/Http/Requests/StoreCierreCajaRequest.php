@@ -18,10 +18,9 @@ class StoreCierreCajaRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'sucursal_id' => 'required|exists:sucursales,id',
-            'fecha' => 'required|date',
-            'monto_esperado' => 'required|numeric',
-            'monto_real' => 'required|numeric',
+            'sucursal_id'   => 'required|exists:sucursales,id',
+            'fecha'         => 'required|date',
+            'monto_real'    => 'required|numeric',
             'observaciones' => 'nullable|string',
         ];
     }

@@ -24,7 +24,6 @@ class StoreVentaRequest extends FormRequest
             'items' => 'required|array|min:1',
             'items.*.libro_id' => 'required|exists:libros,id',
             'items.*.cantidad' => 'required|integer|min:1',
-            'items.*.precio' => 'required|numeric|min:0',
             'medio_pago' => 'required|string', // E.g., 'Efectivo', 'Tarjeta', 'Cuenta Corriente'
         ];
     }

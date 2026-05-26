@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
+import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     ventas: Object,
@@ -247,7 +248,7 @@ const viewVenta = (venta) => {
 
                 <!-- Paginación -->
                 <div class="mt-8 flex justify-center gap-2">
-                    <Link v-for="link in ventas.links" :key="link.label" :href="link.url || '#'" v-html="link.label" class="px-3 py-1 rounded text-[10px] font-black uppercase transition-all" :class="link.active ? 'bg-brand-red text-white' : 'text-white/20 hover:text-white'" />
+                    <Link v-for="link in ventas.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded text-[10px] font-black uppercase transition-all" :class="link.active ? 'bg-brand-red text-white' : 'text-white/20 hover:text-white'">{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
         </div>

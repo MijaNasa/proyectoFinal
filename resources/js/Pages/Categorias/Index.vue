@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
+import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     categorias: Object,
@@ -173,18 +174,17 @@ const handleSearch = () => {
 
                 <!-- Pagination Placeholder -->
                 <div class="mt-6 flex justify-center gap-2">
-                    <Link 
-                        v-for="link in categorias.links" 
+                    <Link
+                        v-for="link in categorias.links"
                         :key="link.label"
                         :href="link.url || '#'"
-                        v-html="link.label"
                         class="px-4 py-2 rounded-lg border border-white/5 transition-all"
                         :class="{
                             'bg-brand-red text-white font-bold': link.active,
                             'text-white/50 hover:bg-white/5': !link.active && link.url,
                             'opacity-20 pointer-events-none': !link.url
                         }"
-                    />
+                    >{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
         </div>

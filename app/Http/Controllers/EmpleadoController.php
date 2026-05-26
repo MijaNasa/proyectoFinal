@@ -56,7 +56,7 @@ class EmpleadoController extends Controller
                 'apellido' => $request->apellido,
                 'dni' => $request->dni,
                 'telefono' => $request->telefono,
-                'active' => true,
+                'activo' => true,
             ]);
 
             $user->empleado()->create([
@@ -99,7 +99,7 @@ class EmpleadoController extends Controller
         \DB::transaction(function() use ($empleado) {
             $user = $empleado->user;
             $empleado->delete();
-            $user->update(['active' => false]);
+            $user->update(['activo' => false]);
             $user->delete();
         });
 
@@ -113,9 +113,13 @@ class EmpleadoController extends Controller
 
         $user = $request->user();
 
-        // Gerente solo puede gestionar empleados de su sucursal
         if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $empleado->sucursal_id) {
             abort(403, 'Solo podés asignar cargos a empleados de tu sucursal.');
+        }
+
+        $cargo = Cargo::findOrFail($request->cargo_id);
+        if (!$user->esAdmin() && $cargo->nombre === 'ADMIN') {
+            abort(403, 'Solo un administrador puede asignar el cargo ADMIN.');
         }
 
         if ($empleado->cargos()->where('cargo_id', $request->cargo_id)->wherePivotNull('fecha_hasta')->exists()) {
@@ -133,6 +137,10 @@ class EmpleadoController extends Controller
 
         if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $empleado->sucursal_id) {
             abort(403, 'Solo podés gestionar empleados de tu sucursal.');
+        }
+
+        if (!$user->esAdmin() && $cargo->nombre === 'ADMIN') {
+            abort(403, 'Solo un administrador puede remover el cargo ADMIN.');
         }
 
         $empleado->cargos()

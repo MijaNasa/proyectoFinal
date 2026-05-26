@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
+import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     proveedores: Object,
@@ -178,7 +179,7 @@ const handleSearch = () => {
                 </div>
 
                 <div class="mt-6 flex justify-center gap-2">
-                    <Link v-for="link in proveedores.links" :key="link.label" :href="link.url || '#'" v-html="link.label" class="px-3 py-1 rounded border border-white/5 transition-all text-sm font-black" :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/30': !link.url}" />
+                    <Link v-for="link in proveedores.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-sm font-black" :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/30': !link.url}">{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
         </div>

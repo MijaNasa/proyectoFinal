@@ -30,7 +30,7 @@ class ClienteController extends Controller
 
         return inertia('Clientes/Index', [
             'clientes' => $clientes,
-            'tipos_clientes' => \App\Models\TipoCliente::all(),
+            'tipos_clientes' => \App\Models\TipoCliente::get(['id', 'nombre', 'descuento_porcentaje']),
             'filters' => $request->only(['search'])
         ]);
     }
@@ -48,7 +48,7 @@ class ClienteController extends Controller
                 'apellido' => $request->apellido,
                 'dni' => $request->dni,
                 'telefono' => $request->telefono,
-                'active' => true,
+                'activo' => true,
             ]);
 
             $user->cliente()->create([
@@ -97,7 +97,7 @@ class ClienteController extends Controller
             $cliente->delete();
             // We usually don't delete the user if they could be an employee too, 
             // but here 1-1 structure suggests we might want to deactivate it.
-            $user->update(['active' => false]);
+            $user->update(['activo' => false]);
             $user->delete();
         });
 
