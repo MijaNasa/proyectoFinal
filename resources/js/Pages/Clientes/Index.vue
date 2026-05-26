@@ -28,6 +28,34 @@ const form = useForm({
 const isEditing = ref(false);
 const showModal = ref(false);
 
+const showPagoModal = ref(false);
+const pagoForm = useForm({
+    cliente_id: null,
+    monto: '',
+    metodo_pago: 'Efectivo',
+    descripcion: '',
+});
+
+const openPagoModal = (cliente) => {
+    pagoForm.reset();
+    pagoForm.cliente_id = cliente.id;
+    showPagoModal.value = true;
+};
+
+const submitPago = () => {
+    pagoForm.post(route('clientes.pago', pagoForm.cliente_id), {
+        onSuccess: () => {
+            showPagoModal.value = false;
+            Swal.fire({
+                title: '¡Pago registrado!',
+                text: 'El pago fue registrado y el saldo actualizado',
+                icon: 'success',
+                background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
+            });
+        }
+    });
+};
+
 const openModal = (cliente = null) => {
     if (cliente) {
         isEditing.value = true;
@@ -189,6 +217,9 @@ const formatCurrency = (value) => {
 
                         <!-- Card Footer -->
                         <div class="px-6 py-4 bg-white/[0.02] flex justify-end gap-2 border-t border-white/5 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                            <button @click="openPagoModal(cliente)" title="Registrar pago" class="p-2 text-white/40 hover:text-green-400 transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
+                            </button>
                             <button @click="openModal(cliente)" class="p-2 text-white/40 hover:text-brand-red transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                             </button>
@@ -285,6 +316,70 @@ const formatCurrency = (value) => {
                         <button type="submit" :disabled="form.processing" class="btn-primary px-20 relative overflow-hidden group shadow-2xl">
                            <span class="relative z-10 tracking-widest">{{ form.processing ? 'PROCESANDO...' : (isEditing ? 'GUARDAR CAMBIOS' : 'CONFIRMAR REGISTRO') }}</span>
                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            </div>
+        </div>
+        </template>
+        <!-- Modal Pago -->
+        <template v-if="showPagoModal">
+        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showPagoModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative w-full max-w-md card p-0 border border-green-500/30 shadow-[0_0_60px_rgba(34,197,94,0.08)] overflow-hidden my-8">
+                <div class="bg-gradient-to-r from-green-700 to-black p-6 flex justify-between items-center">
+                    <h3 class="text-xl font-black uppercase tracking-tighter italic">
+                        Registrar <span class="text-white">Pago</span>
+                    </h3>
+                    <button @click="showPagoModal = false" class="text-white/80 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitPago" class="p-8 space-y-6">
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Monto ($)</label>
+                        <input
+                            v-model="pagoForm.monto"
+                            type="number"
+                            step="0.01"
+                            min="0.01"
+                            placeholder="0.00"
+                            class="input-field w-full text-right font-mono text-xl"
+                            :class="{ 'border-brand-red': pagoForm.errors.monto }"
+                        >
+                        <p v-if="pagoForm.errors.monto" class="text-brand-red text-xs mt-1">{{ pagoForm.errors.monto }}</p>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Método de Pago</label>
+                        <select v-model="pagoForm.metodo_pago" class="input-field w-full bg-brand-black font-black uppercase text-xs">
+                            <option value="Efectivo">Efectivo</option>
+                            <option value="Transferencia">Transferencia</option>
+                            <option value="Tarjeta">Tarjeta de Crédito</option>
+                            <option value="Débito">Débito</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Descripción (opcional)</label>
+                        <input
+                            v-model="pagoForm.descripcion"
+                            type="text"
+                            placeholder="Pago de cuenta corriente..."
+                            class="input-field w-full"
+                            maxlength="255"
+                        >
+                    </div>
+
+                    <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
+                        <button type="button" @click="showPagoModal = false" class="px-6 py-2 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-widest">
+                            Cancelar
+                        </button>
+                        <button type="submit" :disabled="pagoForm.processing" class="px-10 py-3 bg-green-600 hover:bg-green-500 text-white font-black uppercase text-xs tracking-widest rounded-lg transition-colors disabled:opacity-50">
+                            {{ pagoForm.processing ? 'Procesando...' : 'Confirmar Pago' }}
                         </button>
                     </div>
                 </form>

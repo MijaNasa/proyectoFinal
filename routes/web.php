@@ -97,6 +97,7 @@ Route::middleware('auth')->group(function () {
     // Clientes
     Route::middleware('permiso:clientes.acceder')->group(function () {
         Route::resource('clientes', ClienteController::class)->except(['show', 'create', 'edit']);
+        Route::post('clientes/{cliente}/pago', [ClienteController::class, 'registrarPago'])->name('clientes.pago');
     });
 
     // Empleados
