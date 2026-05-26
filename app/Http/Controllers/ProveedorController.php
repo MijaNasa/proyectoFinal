@@ -48,6 +48,26 @@ class ProveedorController extends Controller
             ->with('message', 'Proveedor actualizado con éxito');
     }
 
+    public function show(Proveedor $proveedor)
+    {
+        $proveedor->load(['series:id,nombre,activo,proveedor_id']);
+
+        $pagos = $proveedor->transacciones()
+            ->latest('fecha')
+            ->get(['id', 'monto', 'metodo_pago', 'descripcion', 'fecha']);
+
+        $stats = [
+            'total_pagado'    => (float) $proveedor->transacciones()->sum('monto'),
+            'cantidad_pagos'  => (int)   $proveedor->transacciones()->count(),
+        ];
+
+        return inertia('Proveedores/Show', [
+            'proveedor' => $proveedor,
+            'pagos'     => $pagos,
+            'stats'     => $stats,
+        ]);
+    }
+
     public function registrarPago(Request $request, Proveedor $proveedor)
     {
         $request->validate([

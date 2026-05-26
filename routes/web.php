@@ -109,7 +109,7 @@ Route::middleware('auth')->group(function () {
 
     // Proveedores y Series
     Route::middleware('permiso:proveedores.acceder')->group(function () {
-        Route::resource('proveedores', ProveedorController::class)->except(['show', 'create', 'edit'])->parameters(['proveedores' => 'proveedor']);
+        Route::resource('proveedores', ProveedorController::class)->except(['create', 'edit'])->parameters(['proveedores' => 'proveedor']);
         Route::post('proveedores/{proveedor}/pago', [ProveedorController::class, 'registrarPago'])->name('proveedores.pago');
         Route::resource('series', SerieController::class)->except(['show', 'create', 'edit']);
     });

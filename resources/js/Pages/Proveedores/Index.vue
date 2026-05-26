@@ -195,6 +195,13 @@ const handleSearch = () => {
                                 </td>
                                 <td class="p-4 text-right">
                                     <div class="flex justify-end gap-2">
+                                        <Link
+                                            :href="route('proveedores.show', proveedor.id)"
+                                            title="Ver historial"
+                                            class="p-2 text-white/50 hover:text-blue-400 transition-colors"
+                                        >
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+                                        </Link>
                                         <button
                                             v-if="proveedor.deuda_actual > 0"
                                             @click="openPagoModal(proveedor)"
