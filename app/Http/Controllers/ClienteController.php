@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Cliente;
 use App\Models\Transaccion;
+use App\Models\Venta;
 use App\Http\Requests\StoreClienteRequest;
 use App\Http\Requests\UpdateClienteRequest;
 use Illuminate\Http\Request;
@@ -87,6 +88,35 @@ class ClienteController extends Controller
 
         return redirect()->route('clientes.index')
             ->with('message', 'Cliente actualizado con éxito');
+    }
+
+    public function show(Cliente $cliente)
+    {
+        $cliente->load(['user', 'tipoCliente']);
+
+        $ventas = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
+            ->where('cliente_id', $cliente->id)
+            ->latest('fecha')
+            ->paginate(10);
+
+        $pagos = $cliente->transacciones()
+            ->latest('fecha')
+            ->get(['id', 'monto', 'metodo_pago', 'descripcion', 'fecha']);
+
+        $stats = Venta::where('cliente_id', $cliente->id)
+            ->selectRaw('COUNT(*) as cantidad_ventas, COALESCE(SUM(total), 0) as total_comprado')
+            ->first();
+
+        return inertia('Clientes/Show', [
+            'cliente' => $cliente,
+            'ventas'  => $ventas,
+            'pagos'   => $pagos,
+            'stats'   => [
+                'cantidad_ventas'  => (int) $stats->cantidad_ventas,
+                'total_comprado'   => (float) $stats->total_comprado,
+                'total_pagado'     => (float) $cliente->transacciones()->sum('monto'),
+            ],
+        ]);
     }
 
     public function registrarPago(Request $request, Cliente $cliente)
