@@ -23,6 +23,9 @@ class CargoPermisoSeeder extends Seeder
             ['codigo' => 'clientes.acceder',     'nombre' => 'Gestionar Clientes',              'modulo' => 'clientes'],
             ['codigo' => 'empleados.acceder',    'nombre' => 'Gestionar Empleados',             'modulo' => 'empleados'],
             ['codigo' => 'proveedores.acceder',  'nombre' => 'Proveedores y Series',            'modulo' => 'proveedores'],
+            ['codigo' => 'repartos.acceder',     'nombre' => 'Gestionar Repartos',              'modulo' => 'repartos'],
+            ['codigo' => 'reportes.acceder',     'nombre' => 'Ver Reportes',                    'modulo' => 'reportes'],
+            ['codigo' => 'gastos.acceder',       'nombre' => 'Registrar Gastos',                'modulo' => 'gastos'],
             ['codigo' => 'cargos.gestionar',     'nombre' => 'Gestionar Cargos y Asignaciones', 'modulo' => 'administracion'],
             ['codigo' => 'permisos.gestionar',   'nombre' => 'Gestionar Permisos del Sistema',  'modulo' => 'administracion'],
         ];
@@ -53,7 +56,7 @@ class CargoPermisoSeeder extends Seeder
             ['descripcion' => 'Personal de ventas y atención al cliente', 'activo' => true]
         );
         $vendedor->permisos()->sync(
-            $todos->only(['dashboard.acceder', 'ventas.acceder', 'caja.acceder', 'clientes.acceder', 'catalogo.acceder', 'colecciones.acceder'])->values()->toArray()
+            $todos->only(['dashboard.acceder', 'ventas.acceder', 'caja.acceder', 'clientes.acceder', 'catalogo.acceder', 'colecciones.acceder', 'repartos.acceder'])->values()->toArray()
         );
 
         $deposito = Cargo::firstOrCreate(

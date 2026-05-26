@@ -17,6 +17,8 @@ class RutaReparto extends Model
 
     protected $fillable = ['nombre', 'fecha', 'repartidor_id', 'activa'];
 
+    protected $casts = ['activa' => 'boolean'];
+
     public function repartidor(): BelongsTo
     {
         return $this->belongsTo(Empleado::class, 'repartidor_id');

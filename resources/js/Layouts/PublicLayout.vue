@@ -1,6 +1,8 @@
 <script setup>
-import { Link, usePage } from '@inertiajs/vue3';
+import { Link, usePage, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
+
+const logout = () => router.post(route('logout'));
 
 const isMenuOpen = ref(false);
 const page = usePage();
@@ -58,6 +60,9 @@ watch(() => page.props.flash, (flash) => {
                             <Link :href="route('mi-cuenta.index')" class="text-sm font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">
                                 Mi Cuenta
                             </Link>
+                            <button @click="logout" class="text-sm font-bold uppercase tracking-widest text-white/40 hover:text-brand-red transition-colors">
+                                Salir
+                            </button>
                         </template>
                         <template v-else>
                             <Link :href="route('login')" class="text-sm font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">Iniciar Sesión</Link>
@@ -93,6 +98,7 @@ watch(() => page.props.flash, (flash) => {
                     <Link :href="route('nosotros')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Nosotros</Link>
                     <template v-if="user">
                         <Link :href="route('mi-cuenta.index')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Mi Cuenta</Link>
+                        <button @click="logout" class="block text-lg font-bold uppercase text-white/40 hover:text-brand-red">Salir</button>
                     </template>
                     <template v-else>
                         <Link :href="route('login')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Iniciar Sesión</Link>
@@ -152,6 +158,7 @@ watch(() => page.props.flash, (flash) => {
                         <li v-if="!user"><Link :href="route('login')" class="text-white/60 hover:text-white transition-colors text-sm">Iniciar Sesión</Link></li>
                         <li v-if="!user"><Link :href="route('register')" class="text-white/60 hover:text-white transition-colors text-sm">Registrarse</Link></li>
                         <li v-if="user"><Link :href="route('mi-cuenta.index')" class="text-white/60 hover:text-white transition-colors text-sm">Mi Cuenta</Link></li>
+                        <li v-if="user"><button @click="logout" class="text-white/60 hover:text-brand-red transition-colors text-sm">Cerrar Sesión</button></li>
                         <li><Link :href="route('carrito.index')" class="text-white/60 hover:text-white transition-colors text-sm">Mi Carrito</Link></li>
                     </ul>
                 </div>

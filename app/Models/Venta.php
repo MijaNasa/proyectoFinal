@@ -49,4 +49,9 @@ class Venta extends Model
     {
         return $this->morphMany(Transaccion::class, 'transaccionable');
     }
+
+    public function paradas(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\ParadaReparto::class);
+    }
 }

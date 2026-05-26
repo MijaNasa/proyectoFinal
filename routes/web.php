@@ -16,6 +16,12 @@ use App\Http\Controllers\CierreCajaController;
 use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\SerieController;
 use App\Http\Controllers\CargoController;
+use App\Http\Controllers\RutaRepartoController;
+use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\PrecioController;
+use App\Http\Controllers\GastoController;
+use App\Http\Controllers\TransferenciaStockController;
+use App\Http\Controllers\OrdenCompraController;
 use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\CarritoController;
 use App\Http\Controllers\CheckoutController;
@@ -75,11 +81,22 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permiso:colecciones.acceder')->group(function () {
         Route::resource('libro-masters', LibroMasterController::class)->except(['show', 'create', 'edit']);
         Route::resource('libros', LibroController::class)->except(['show', 'create', 'edit']);
+        Route::get('precios', [PrecioController::class, 'index'])->name('precios.index');
+        Route::post('libros/{libro}/precios', [PrecioController::class, 'store'])->name('precios.store');
+        Route::get('libros/{libro}/precios/historial', [PrecioController::class, 'historial'])->name('precios.historial');
     });
 
     // Terminal de Ventas
     Route::middleware('permiso:ventas.acceder')->group(function () {
-        Route::resource('ventas', VentaController::class)->except(['show', 'create', 'edit', 'update']);
+        Route::resource('ventas', VentaController::class)->except(['create', 'edit', 'update']);
+    });
+
+    // Gastos
+    Route::middleware('permiso:gastos.acceder')->group(function () {
+        Route::get('gastos', [GastoController::class, 'index'])->name('gastos.index');
+        Route::post('gastos', [GastoController::class, 'store'])->name('gastos.store');
+        Route::put('gastos/{gasto}', [GastoController::class, 'update'])->name('gastos.update');
+        Route::delete('gastos/{gasto}', [GastoController::class, 'destroy'])->name('gastos.destroy');
     });
 
     // Cierres de Caja
@@ -92,6 +109,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permiso:stock.acceder')->group(function () {
         Route::resource('sucursales', SucursalController::class)->except(['show', 'create', 'edit'])->parameters(['sucursales' => 'sucursal']);
         Route::resource('stocks', StockController::class)->except(['show', 'create', 'edit']);
+        Route::get('transferencias-stock', [TransferenciaStockController::class, 'index'])->name('transferencias-stock.index');
+        Route::post('transferencias-stock', [TransferenciaStockController::class, 'store'])->name('transferencias-stock.store');
     });
 
     // Clientes
@@ -112,11 +131,30 @@ Route::middleware('auth')->group(function () {
         Route::resource('proveedores', ProveedorController::class)->except(['create', 'edit'])->parameters(['proveedores' => 'proveedor']);
         Route::post('proveedores/{proveedor}/pago', [ProveedorController::class, 'registrarPago'])->name('proveedores.pago');
         Route::resource('series', SerieController::class)->except(['show', 'create', 'edit']);
+
+        // Órdenes de Compra
+        Route::resource('ordenes-compra', OrdenCompraController::class)->except(['create', 'edit', 'update']);
+        Route::post('ordenes-compra/{ordenesCompra}/confirmar', [OrdenCompraController::class, 'confirmar'])->name('ordenes-compra.confirmar');
+        Route::post('ordenes-compra/{ordenesCompra}/recibir', [OrdenCompraController::class, 'recibir'])->name('ordenes-compra.recibir');
+    });
+
+    // Repartos
+    Route::middleware('permiso:repartos.acceder')->group(function () {
+        Route::resource('rutas-reparto', RutaRepartoController::class)->except(['create', 'edit']);
+        Route::post('rutas-reparto/{rutas_reparto}/ventas', [RutaRepartoController::class, 'asignarVenta'])->name('rutas-reparto.asignar-venta');
+        Route::delete('rutas-reparto/{rutas_reparto}/paradas/{parada}', [RutaRepartoController::class, 'removeParada'])->name('rutas-reparto.remove-parada');
+        Route::patch('rutas-reparto/{rutas_reparto}/paradas/{parada}', [RutaRepartoController::class, 'actualizarEstadoParada'])->name('rutas-reparto.actualizar-parada');
+        Route::post('rutas-reparto/{rutas_reparto}/optimizar', [RutaRepartoController::class, 'optimizarRuta'])->name('rutas-reparto.optimizar');
     });
 
     // Administración: Cargos (admin + gerente)
     Route::middleware('permiso:cargos.gestionar')->group(function () {
         Route::resource('cargos', CargoController::class)->except(['show', 'create', 'edit']);
+    });
+
+    // Reportes
+    Route::middleware('permiso:reportes.acceder')->group(function () {
+        Route::get('reportes', [ReporteController::class, 'index'])->name('reportes.index');
     });
 });
 

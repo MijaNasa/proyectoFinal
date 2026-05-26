@@ -145,6 +145,25 @@ class VentaController extends Controller
             ->with('message', 'Venta procesada con éxito');
     }
 
+    public function show(Venta $venta): \Inertia\Response
+    {
+        $user = \Auth::user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
+            abort(403);
+        }
+
+        $venta->load([
+            'cliente.user:id,name,apellido,email',
+            'user:id,name,apellido',
+            'sucursal:id,nombre,calle,numero,telefono',
+            'detalles.libro.master:id,titulo',
+            'detalles.libro:id,master_id,isbn',
+            'transacciones:id,transaccionable_id,transaccionable_type,metodo_pago,monto',
+        ]);
+
+        return inertia('Ventas/Show', ['venta' => $venta]);
+    }
+
     /**
      * Remove the specified resource from storage.
      */

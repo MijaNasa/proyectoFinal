@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { usePage } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 import Dropdown from '@/Components/Dropdown.vue';
@@ -17,9 +17,26 @@ const expandedGroups = ref({
     inventory: false,
     people: false,
     admin: false,
+    repartos: false,
+    reportes: false,
+    proveedores: false,
 });
 
-const hasPermiso = (codigo) => usePage().props.auth.permisos?.includes(codigo) ?? false;
+const page = usePage();
+const hasPermiso = (codigo) => page.props.auth.permisos?.includes(codigo) ?? false;
+
+const toast = ref(null);
+let toastTimer = null;
+const showToast = (msg, type) => {
+    if (toastTimer) clearTimeout(toastTimer);
+    toast.value = { msg, type };
+    toastTimer = setTimeout(() => toast.value = null, 3500);
+};
+watch(() => page.props.flash, (flash) => {
+    if (flash?.success) showToast(flash.success, 'success');
+    else if (flash?.error)   showToast(flash.error,   'error');
+    else if (flash?.warning) showToast(flash.warning, 'warning');
+}, { deep: true });
 
 const toggleGroup = (group) => {
     expandedGroups.value[group] = !expandedGroups.value[group];
@@ -66,11 +83,12 @@ const toggleGroup = (group) => {
                     <div v-show="expandedGroups.books" class="pl-4 space-y-1">
                         <DropdownLink :href="route('libro-masters.index')" :active="route().current('libro-masters.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Títulos</DropdownLink>
                         <DropdownLink :href="route('libros.index')" :active="route().current('libros.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Ediciones</DropdownLink>
+                        <DropdownLink :href="route('precios.index')" :active="route().current('precios.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Precios</DropdownLink>
                     </div>
                 </div>
 
                 <!-- Group: Operaciones -->
-                <div v-if="hasPermiso('ventas.acceder') || hasPermiso('caja.acceder')" class="space-y-1">
+                <div v-if="hasPermiso('ventas.acceder') || hasPermiso('caja.acceder') || hasPermiso('gastos.acceder')" class="space-y-1">
                     <button @click="toggleGroup('operations')" class="w-full flex items-center justify-between px-4 py-3 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all group">
                         <span class="text-[10px] font-black uppercase tracking-[0.2em] text-brand-red italic">Terminal Ventas</span>
                         <svg :class="{'rotate-180': expandedGroups.operations}" class="h-4 w-4 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
@@ -78,6 +96,7 @@ const toggleGroup = (group) => {
                     <div v-show="expandedGroups.operations" class="pl-4 space-y-1">
                         <DropdownLink v-if="hasPermiso('ventas.acceder')" :href="route('ventas.index')" :active="route().current('ventas.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Nueva Venta / Historial</DropdownLink>
                         <DropdownLink v-if="hasPermiso('caja.acceder')" :href="route('cierre-cajas.index')" :active="route().current('cierre-cajas.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Cierres de Caja</DropdownLink>
+                        <DropdownLink v-if="hasPermiso('gastos.acceder')" :href="route('gastos.index')" :active="route().current('gastos.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Gastos</DropdownLink>
                     </div>
                 </div>
 
@@ -90,6 +109,7 @@ const toggleGroup = (group) => {
                     <div v-show="expandedGroups.inventory" class="pl-4 space-y-1">
                         <DropdownLink :href="route('sucursales.index')" :active="route().current('sucursales.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Sucursales</DropdownLink>
                         <DropdownLink :href="route('stocks.index')" :active="route().current('stocks.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Control de Stock</DropdownLink>
+                        <DropdownLink :href="route('transferencias-stock.index')" :active="route().current('transferencias-stock.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Transferencias</DropdownLink>
                     </div>
                 </div>
 
@@ -103,6 +123,37 @@ const toggleGroup = (group) => {
                         <DropdownLink v-if="hasPermiso('clientes.acceder')" :href="route('clientes.index')" :active="route().current('clientes.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Clientes</DropdownLink>
                         <DropdownLink v-if="hasPermiso('empleados.acceder')" :href="route('empleados.index')" :active="route().current('empleados.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Recursos Humanos</DropdownLink>
                     </div>
+                </div>
+
+                <!-- Group: Repartos -->
+                <div v-if="hasPermiso('repartos.acceder')" class="space-y-1">
+                    <button @click="toggleGroup('repartos')" class="w-full flex items-center justify-between px-4 py-3 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all group">
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-blue-400">Repartos</span>
+                        <svg :class="{'rotate-180': expandedGroups.repartos}" class="h-4 w-4 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    <div v-show="expandedGroups.repartos" class="pl-4 space-y-1">
+                        <DropdownLink :href="route('rutas-reparto.index')" :active="route().current('rutas-reparto.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Rutas de Reparto</DropdownLink>
+                    </div>
+                </div>
+
+                <!-- Group: Proveedores -->
+                <div v-if="hasPermiso('proveedores.acceder')" class="space-y-1">
+                    <button @click="toggleGroup('proveedores')" class="w-full flex items-center justify-between px-4 py-3 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all group">
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-orange-400">Proveedores</span>
+                        <svg :class="{'rotate-180': expandedGroups.proveedores}" class="h-4 w-4 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                    </button>
+                    <div v-show="expandedGroups.proveedores" class="pl-4 space-y-1">
+                        <DropdownLink :href="route('proveedores.index')" :active="route().current('proveedores.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Proveedores</DropdownLink>
+                        <DropdownLink :href="route('series.index')" :active="route().current('series.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Series</DropdownLink>
+                        <DropdownLink :href="route('ordenes-compra.index')" :active="route().current('ordenes-compra.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Órdenes de Compra</DropdownLink>
+                    </div>
+                </div>
+
+                <!-- Group: Reportes -->
+                <div v-if="hasPermiso('reportes.acceder')" class="space-y-1">
+                    <NavLink :href="route('reportes.index')" :active="route().current('reportes.*')" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 transition-all">
+                        <span class="text-[10px] font-black uppercase tracking-[0.2em] text-green-400">Reportes</span>
+                    </NavLink>
                 </div>
 
                 <!-- Group: Administración -->
@@ -192,6 +243,23 @@ const toggleGroup = (group) => {
                 </footer>
             </main>
         </div>
+    <!-- Toast global -->
+    <transition name="toast">
+        <div
+            v-if="toast"
+            class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-sm font-black uppercase tracking-widest"
+            :class="{
+                'bg-green-500/90 text-white':  toast.type === 'success',
+                'bg-yellow-500/90 text-black': toast.type === 'warning',
+                'bg-red-600/90 text-white':    toast.type === 'error',
+            }"
+        >
+            <svg v-if="toast.type === 'success'" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+            <svg v-else-if="toast.type === 'warning'" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+            <svg v-else class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            {{ toast.msg }}
+        </div>
+    </transition>
     </div>
 </template>
 
@@ -209,4 +277,8 @@ const toggleGroup = (group) => {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
+.toast-enter-active { transition: opacity 0.25s ease, transform 0.25s ease; }
+.toast-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
+.toast-enter-from  { opacity: 0; transform: translateY(12px); }
+.toast-leave-to    { opacity: 0; transform: translateY(12px); }
 </style>
