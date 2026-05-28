@@ -40,15 +40,19 @@ class TransferenciaStockController extends Controller
         $transferencias = $query->paginate(20)->withQueryString();
 
         // Libros con stock disponible en al menos una sucursal
-        $librosConStock = Stock::with(['libro.master:id,titulo', 'libro:id,master_id,isbn'])
-            ->where('cantidad_disponible', '>', 0)
+        $librosConStock = Libro::with([
+                'master:id,titulo',
+                'stocks' => fn($q) => $q->where('cantidad_disponible', '>', 0)
+                                        ->select('libro_id', 'sucursal_id', 'cantidad_disponible'),
+            ])
+            ->whereHas('stocks', fn($q) => $q->where('cantidad_disponible', '>', 0))
+            ->select('id', 'master_id', 'isbn')
             ->get()
-            ->groupBy('libro_id')
-            ->map(fn($stocks, $libroId) => [
-                'id'     => $libroId,
-                'titulo' => $stocks->first()->libro->master->titulo,
-                'isbn'   => $stocks->first()->libro->isbn,
-                'stocks' => $stocks->map(fn($s) => [
+            ->map(fn($l) => [
+                'id'     => $l->id,
+                'titulo' => $l->master->titulo,
+                'isbn'   => $l->isbn,
+                'stocks' => $l->stocks->map(fn($s) => [
                     'sucursal_id'        => $s->sucursal_id,
                     'cantidad_disponible'=> $s->cantidad_disponible,
                 ])->values(),
@@ -73,18 +77,20 @@ class TransferenciaStockController extends Controller
             'motivo'              => 'nullable|string|max:255',
         ]);
 
-        // Verificar stock suficiente en origen
-        $stockOrigen = Stock::where('libro_id', $data['libro_id'])
-            ->where('sucursal_id', $data['sucursal_origen_id'])
-            ->first();
+        DB::transaction(function () use ($data) {
+            // lockForUpdate evita race condition: dos requests simultáneos no pueden
+            // pasar el chequeo de stock al mismo tiempo
+            $stockOrigen = Stock::where('libro_id', $data['libro_id'])
+                ->where('sucursal_id', $data['sucursal_origen_id'])
+                ->lockForUpdate()
+                ->first();
 
-        if (!$stockOrigen || $stockOrigen->cantidad_disponible < $data['cantidad']) {
-            return back()->withErrors([
-                'cantidad' => 'Stock insuficiente en la sucursal origen. Disponible: ' . ($stockOrigen?->cantidad_disponible ?? 0),
-            ]);
-        }
+            if (!$stockOrigen || $stockOrigen->cantidad_disponible < $data['cantidad']) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'cantidad' => 'Stock insuficiente en la sucursal origen. Disponible: ' . ($stockOrigen?->cantidad_disponible ?? 0),
+                ]);
+            }
 
-        DB::transaction(function () use ($data, $stockOrigen) {
             $tipoSalida  = TipoMovimientoStock::firstOrCreate(
                 ['codigo' => 'TRANSFERENCIA_SALIDA'],
                 ['nombre' => 'Transferencia - Salida', 'afecta_stock' => true, 'activo' => true]
@@ -94,30 +100,27 @@ class TransferenciaStockController extends Controller
                 ['nombre' => 'Transferencia - Entrada', 'afecta_stock' => true, 'activo' => true]
             );
 
-            // Crear transferencia
             $transferencia = TransferenciaStock::create(array_merge($data, [
                 'user_id' => auth()->id(),
                 'fecha'   => now()->toDateString(),
             ]));
 
-            // ── Origen: restar ────────────────────────────
             $anteriorOrigen = $stockOrigen->cantidad_disponible;
             $stockOrigen->decrement('cantidad_disponible', $data['cantidad']);
 
             MovimientoStock::create([
-                'stock_id'          => $stockOrigen->id,
+                'stock_id'           => $stockOrigen->id,
                 'tipo_movimiento_id' => $tipoSalida->id,
-                'cantidad'          => $data['cantidad'],
-                'cantidad_anterior' => $anteriorOrigen,
-                'cantidad_nueva'    => $anteriorOrigen - $data['cantidad'],
-                'motivo'            => $data['motivo'] ?? 'Transferencia a ' . Sucursal::find($data['sucursal_destino_id'])->nombre,
-                'referencia_id'     => $transferencia->id,
-                'referencia_type'   => TransferenciaStock::class,
-                'user_id'           => auth()->id(),
-                'fecha_movimiento'  => now(),
+                'cantidad'           => $data['cantidad'],
+                'cantidad_anterior'  => $anteriorOrigen,
+                'cantidad_nueva'     => $anteriorOrigen - $data['cantidad'],
+                'motivo'             => $data['motivo'] ?? 'Transferencia a ' . Sucursal::find($data['sucursal_destino_id'])->nombre,
+                'referencia_id'      => $transferencia->id,
+                'referencia_type'    => TransferenciaStock::class,
+                'user_id'            => auth()->id(),
+                'fecha_movimiento'   => now(),
             ]);
 
-            // ── Destino: sumar (crear registro si no existe) ──
             $stockDestino = Stock::firstOrCreate(
                 ['libro_id' => $data['libro_id'], 'sucursal_id' => $data['sucursal_destino_id']],
                 ['cantidad_disponible' => 0, 'cantidad_reservada' => 0, 'activo' => true]
@@ -127,16 +130,16 @@ class TransferenciaStockController extends Controller
             $stockDestino->increment('cantidad_disponible', $data['cantidad']);
 
             MovimientoStock::create([
-                'stock_id'          => $stockDestino->id,
+                'stock_id'           => $stockDestino->id,
                 'tipo_movimiento_id' => $tipoEntrada->id,
-                'cantidad'          => $data['cantidad'],
-                'cantidad_anterior' => $anteriorDestino,
-                'cantidad_nueva'    => $anteriorDestino + $data['cantidad'],
-                'motivo'            => $data['motivo'] ?? 'Transferencia desde ' . Sucursal::find($data['sucursal_origen_id'])->nombre,
-                'referencia_id'     => $transferencia->id,
-                'referencia_type'   => TransferenciaStock::class,
-                'user_id'           => auth()->id(),
-                'fecha_movimiento'  => now(),
+                'cantidad'           => $data['cantidad'],
+                'cantidad_anterior'  => $anteriorDestino,
+                'cantidad_nueva'     => $anteriorDestino + $data['cantidad'],
+                'motivo'             => $data['motivo'] ?? 'Transferencia desde ' . Sucursal::find($data['sucursal_origen_id'])->nombre,
+                'referencia_id'      => $transferencia->id,
+                'referencia_type'    => TransferenciaStock::class,
+                'user_id'            => auth()->id(),
+                'fecha_movimiento'   => now(),
             ]);
         });
 

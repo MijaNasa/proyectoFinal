@@ -15,6 +15,13 @@ class ReporteController extends Controller
 {
     public function index(Request $request): \Inertia\Response
     {
+        $request->validate([
+            'desde'      => 'nullable|date',
+            'hasta'      => 'nullable|date',
+            'sucursal_id'=> 'nullable|integer|exists:sucursales,id',
+            'tab'        => 'nullable|string|in:ventas,stock,balance',
+        ]);
+
         $tab       = $request->get('tab', 'ventas');
         $desde     = $request->get('desde', now()->startOfMonth()->toDateString());
         $hasta     = $request->get('hasta', now()->toDateString());
@@ -161,7 +168,7 @@ class ReporteController extends Controller
         // Ingresos por mes
         $porMes = (clone $base)
             ->select(
-                DB::raw("DATE_FORMAT(fecha, '%Y-%m') as mes"),
+                DB::raw("SUBSTR(fecha, 1, 7) as mes"),
                 DB::raw('SUM(total) as ingresos'),
                 DB::raw('COUNT(*) as ventas')
             )

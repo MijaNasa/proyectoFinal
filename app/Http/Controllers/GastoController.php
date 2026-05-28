@@ -11,6 +11,13 @@ class GastoController extends Controller
 {
     public function index(Request $request): \Inertia\Response
     {
+        $request->validate([
+            'desde'      => 'nullable|date',
+            'hasta'      => 'nullable|date',
+            'sucursal_id'=> 'nullable|integer|exists:sucursales,id',
+            'categoria'  => 'nullable|string',
+        ]);
+
         $desde      = $request->get('desde', now()->startOfMonth()->toDateString());
         $hasta      = $request->get('hasta', now()->toDateString());
         $sucursalId = $request->get('sucursal_id');
@@ -82,6 +89,11 @@ class GastoController extends Controller
 
     public function update(Request $request, Gasto $gasto): \Illuminate\Http\RedirectResponse
     {
+        $user = auth()->user();
+        if (!$user->esAdmin() && $gasto->sucursal_id !== $user->empleado?->sucursal_id) {
+            abort(403);
+        }
+
         $data = $request->validate([
             'concepto'     => 'required|string|max:255',
             'categoria'    => 'required|in:alquiler,servicios,sueldos,insumos,impuestos,mantenimiento,otros',
@@ -116,6 +128,11 @@ class GastoController extends Controller
 
     public function destroy(Gasto $gasto): \Illuminate\Http\RedirectResponse
     {
+        $user = auth()->user();
+        if (!$user->esAdmin() && $gasto->sucursal_id !== $user->empleado?->sucursal_id) {
+            abort(403);
+        }
+
         DB::transaction(function () use ($gasto) {
             $gasto->transaccion()?->delete();
             $gasto->delete();

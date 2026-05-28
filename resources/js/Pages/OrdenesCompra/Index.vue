@@ -7,7 +7,6 @@ const props = defineProps({
     ordenes:     Object,
     proveedores: Array,
     sucursales:  Array,
-    libros:      Array,
     stats:       Object,
     filters:     Object,
 });
@@ -59,15 +58,30 @@ const form = useForm({
 function openModal() {
     form.reset();
     form.items = [];
+    itemDdOpen.value = [];
+    itemSearches.value = [];
+    itemResults.value = [];
+    itemLoadings.value = [];
+    itemLabels.value = [];
     showModal.value = true;
 }
 
 function addItem() {
     form.items.push({ libro_id: '', cantidad: 1, precio_unitario: 0 });
+    itemDdOpen.value.push(false);
+    itemSearches.value.push('');
+    itemResults.value.push([]);
+    itemLoadings.value.push(false);
+    itemLabels.value.push('');
 }
 
 function removeItem(i) {
     form.items.splice(i, 1);
+    itemDdOpen.value.splice(i, 1);
+    itemSearches.value.splice(i, 1);
+    itemResults.value.splice(i, 1);
+    itemLoadings.value.splice(i, 1);
+    itemLabels.value.splice(i, 1);
 }
 
 const totalOrden = computed(() =>
@@ -76,16 +90,30 @@ const totalOrden = computed(() =>
 
 function submitOrden() {
     form.post(route('ordenes-compra.store'), {
-        onSuccess: () => { showModal.value = false; form.reset(); form.items = []; },
+        onSuccess: () => {
+            showModal.value = false;
+            form.reset();
+            form.items = [];
+            itemDdOpen.value = [];
+            itemSearches.value = [];
+            itemResults.value = [];
+            itemLoadings.value = [];
+            itemLabels.value = [];
+        },
     });
 }
 
 // ── Dropdowns custom ──────────────────────────────────────────────────────────
-const ddProvOpen  = ref(false);
-const ddSucOpen   = ref(false);
-const ddEstadoOpen = ref(false);
+const ddProvOpen         = ref(false);
+const ddSucOpen          = ref(false);
+const ddEstadoOpen       = ref(false);
 const ddEstadoFilterOpen = ref(false);
-const itemDdOpen  = ref([]);
+const itemDdOpen         = ref([]);
+const itemSearches       = ref([]);
+const itemResults        = ref([]);
+const itemLoadings       = ref([]);
+const itemLabels         = ref([]);
+const searchTimers       = [];
 
 function ddProvLabel() {
     const p = props.proveedores.find(x => x.id == form.proveedor_id);
@@ -95,20 +123,31 @@ function ddSucLabel() {
     const s = props.sucursales.find(x => x.id == form.sucursal_id);
     return s ? s.nombre : 'Seleccionar sucursal';
 }
-function libroLabel(id) {
-    const l = props.libros.find(x => x.id == id);
-    return l ? l.master?.titulo : 'Seleccionar libro';
-}
 function openItemDd(i) {
     itemDdOpen.value = itemDdOpen.value.map((_, idx) => idx === i ? !itemDdOpen.value[i] : false);
 }
-function selectItemLibro(i, libroId) {
-    form.items[i].libro_id = libroId;
+function selectItemLibro(i, libro) {
+    form.items[i].libro_id = libro.id;
+    itemLabels.value[i] = libro.titulo + (libro.isbn ? ` (${libro.isbn})` : '');
     itemDdOpen.value[i] = false;
+    itemSearches.value[i] = '';
+    itemResults.value[i] = [];
 }
-
-function ensureItemDds() {
-    while (itemDdOpen.value.length < form.items.length) itemDdOpen.value.push(false);
+function searchLibros(i, q) {
+    clearTimeout(searchTimers[i]);
+    if (!q || q.length < 2) { itemResults.value[i] = []; return; }
+    searchTimers[i] = setTimeout(async () => {
+        itemLoadings.value[i] = true;
+        try {
+            const res = await fetch(
+                route('ordenes-compra.search-libros') + '?q=' + encodeURIComponent(q),
+                { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }
+            );
+            itemResults.value[i] = await res.json();
+        } finally {
+            itemLoadings.value[i] = false;
+        }
+    }, 300);
 }
 
 // ── Acciones ──────────────────────────────────────────────────────────────────
@@ -362,7 +401,7 @@ const decodeLabel = (l) => {
                     <div>
                         <div class="flex items-center justify-between mb-2">
                             <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Ítems *</label>
-                            <button type="button" @click="addItem(); ensureItemDds()"
+                            <button type="button" @click="addItem()"
                                 class="text-xs font-bold text-[#e61919] hover:text-red-400 transition-colors">+ Agregar libro</button>
                         </div>
 
@@ -373,21 +412,36 @@ const decodeLabel = (l) => {
                         <div v-for="(item, i) in form.items" :key="i"
                             class="flex gap-3 items-start mb-3 p-3 bg-white/5 border border-white/10 rounded-xl">
 
-                            <!-- Libro dropdown -->
+                            <!-- Libro dropdown con autocomplete AJAX -->
                             <div class="flex-1 relative">
                                 <button type="button" @click="openItemDd(i)"
                                     class="w-full flex items-center justify-between bg-white/5 border border-white/10 text-white/80 text-sm rounded-xl px-3 py-2">
-                                    <span class="truncate">{{ libroLabel(item.libro_id) }}</span>
+                                    <span class="truncate">{{ itemLabels[i] || 'Seleccionar libro' }}</span>
                                     <svg class="w-4 h-4 text-white/40 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                 </button>
-                                <div v-if="itemDdOpen[i]" class="absolute z-40 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-xl max-h-48 overflow-y-auto">
-                                    <button v-for="l in libros" :key="l.id" type="button"
-                                        @click="selectItemLibro(i, l.id)"
-                                        class="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
-                                        :class="{ 'text-white font-bold': item.libro_id == l.id }">
-                                        {{ l.master?.titulo }}
-                                        <span v-if="l.isbn" class="text-white/30 text-xs ml-1">{{ l.isbn }}</span>
-                                    </button>
+                                <div v-if="itemDdOpen[i]" class="absolute z-40 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-xl">
+                                    <div class="p-2 border-b border-white/10">
+                                        <input
+                                            :value="itemSearches[i]"
+                                            @input="itemSearches[i] = $event.target.value; searchLibros(i, $event.target.value)"
+                                            type="text" placeholder="Buscar por título o ISBN…"
+                                            class="w-full bg-white/10 text-white placeholder-white/30 text-sm rounded-lg px-3 py-1.5 focus:outline-none"
+                                        />
+                                    </div>
+                                    <div class="max-h-40 overflow-y-auto">
+                                        <div v-if="itemLoadings[i]" class="px-3 py-3 text-white/40 text-xs text-center">Buscando…</div>
+                                        <div v-else-if="!itemSearches[i] || itemSearches[i].length < 2" class="px-3 py-3 text-white/30 text-xs text-center">Escribí al menos 2 caracteres</div>
+                                        <div v-else-if="!itemResults[i] || itemResults[i].length === 0" class="px-3 py-3 text-white/30 text-xs text-center">Sin resultados</div>
+                                        <template v-else>
+                                            <button v-for="l in itemResults[i]" :key="l.id" type="button"
+                                                @click="selectItemLibro(i, l)"
+                                                class="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
+                                                :class="{ 'text-white font-bold': item.libro_id == l.id }">
+                                                {{ l.titulo }}
+                                                <span v-if="l.isbn" class="text-white/30 text-xs ml-1">{{ l.isbn }}</span>
+                                            </button>
+                                        </template>
+                                    </div>
                                 </div>
                             </div>
 

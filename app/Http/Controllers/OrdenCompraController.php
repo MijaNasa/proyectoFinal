@@ -38,7 +38,6 @@ class OrdenCompraController extends Controller
             'ordenes'     => $ordenes,
             'proveedores' => \App\Models\Proveedor::orderBy('nombre')->get(['id', 'nombre']),
             'sucursales'  => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
-            'libros'      => \App\Models\Libro::with('master:id,titulo')->get(['id', 'master_id', 'isbn']),
             'stats'       => $stats,
             'filters'     => $request->only(['search', 'estado']),
         ]);
@@ -101,6 +100,11 @@ class OrdenCompraController extends Controller
 
     public function confirmar(OrdenCompra $ordenesCompra)
     {
+        $user = auth()->user();
+        if (!$user->esAdmin() && $ordenesCompra->sucursal_id !== $user->empleado?->sucursal_id) {
+            abort(403);
+        }
+
         if ($ordenesCompra->estado !== 'borrador') {
             return back()->withErrors(['estado' => 'Solo se puede confirmar una orden en borrador.']);
         }
@@ -113,6 +117,11 @@ class OrdenCompraController extends Controller
 
     public function recibir(OrdenCompra $ordenesCompra)
     {
+        $user = auth()->user();
+        if (!$user->esAdmin() && $ordenesCompra->sucursal_id !== $user->empleado?->sucursal_id) {
+            abort(403);
+        }
+
         if ($ordenesCompra->estado !== 'confirmada') {
             return back()->withErrors(['estado' => 'Solo se puede recibir una orden confirmada.']);
         }
@@ -135,6 +144,31 @@ class OrdenCompraController extends Controller
 
         return redirect()->route('ordenes-compra.index')
             ->with('message', "Orden {$ordenesCompra->numero_orden} recibida. Stock y deuda actualizados.");
+    }
+
+    public function searchLibros(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $q = trim($request->get('q', ''));
+
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $libros = \App\Models\Libro::with('master:id,titulo')
+            ->where(fn($query) => $query
+                ->whereHas('master', fn($q2) => $q2->where('titulo', 'like', "%{$q}%"))
+                ->orWhere('isbn', 'like', "%{$q}%")
+            )
+            ->select('id', 'master_id', 'isbn')
+            ->limit(20)
+            ->get()
+            ->map(fn($l) => [
+                'id'    => $l->id,
+                'titulo'=> $l->master->titulo,
+                'isbn'  => $l->isbn,
+            ]);
+
+        return response()->json($libros);
     }
 
     public function destroy(OrdenCompra $ordenesCompra)

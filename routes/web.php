@@ -133,6 +133,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('series', SerieController::class)->except(['show', 'create', 'edit']);
 
         // Órdenes de Compra
+        Route::get('ordenes-compra/search-libros', [OrdenCompraController::class, 'searchLibros'])->name('ordenes-compra.search-libros');
         Route::resource('ordenes-compra', OrdenCompraController::class)->except(['create', 'edit', 'update']);
         Route::post('ordenes-compra/{ordenesCompra}/confirmar', [OrdenCompraController::class, 'confirmar'])->name('ordenes-compra.confirmar');
         Route::post('ordenes-compra/{ordenesCompra}/recibir', [OrdenCompraController::class, 'recibir'])->name('ordenes-compra.recibir');
