@@ -114,24 +114,23 @@ class VentaController extends Controller
     {
         $libroIds = collect($request->items)->pluck('libro_id');
 
-        $precios = PrecioLibro::whereIn('libro_id', $libroIds)
-            ->where('activo', true)
-            ->where(function ($q) {
-                $q->whereNull('fecha_hasta')->orWhere('fecha_hasta', '>', now());
-            })
-            ->orderByDesc('fecha_desde')
-            ->get()
-            ->unique('libro_id')
-            ->keyBy('libro_id');
-
-        foreach ($libroIds as $libroId) {
-            if (!isset($precios[$libroId])) {
-                return back()->withErrors(['items' => "El libro ID {$libroId} no tiene un precio activo."]);
-            }
-        }
-
         try {
-            \DB::transaction(function () use ($request, $precios) {
+            \DB::transaction(function () use ($request, $libroIds) {
+                // Read prices inside the transaction so no stale-price sale is possible
+                $precios = PrecioLibro::whereIn('libro_id', $libroIds)
+                    ->where('activo', true)
+                    ->where(fn($q) => $q->whereNull('fecha_hasta')->orWhere('fecha_hasta', '>', now()))
+                    ->orderByDesc('fecha_desde')
+                    ->get()
+                    ->unique('libro_id')
+                    ->keyBy('libro_id');
+
+                foreach ($libroIds as $libroId) {
+                    if (!isset($precios[$libroId])) {
+                        throw new \RuntimeException("El libro ID {$libroId} no tiene un precio activo.");
+                    }
+                }
+
                 $total = 0;
                 foreach ($request->items as $item) {
                     $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
@@ -186,12 +185,13 @@ class VentaController extends Controller
                 }
 
                 $venta->transacciones()->create([
-                    'fecha'       => now(),
-                    'tipo'        => 'ingreso',
-                    'monto'       => $total,
-                    'metodo_pago' => $request->medio_pago,
-                    'sucursal_id' => $request->sucursal_id,
-                    'user_id'     => \Auth::id(),
+                    'fecha'        => now(),
+                    'tipo'         => 'ingreso',
+                    'monto'        => $total,
+                    'metodo_pago'  => $request->medio_pago,
+                    'sucursal_id'  => $request->sucursal_id,
+                    'user_id'      => \Auth::id(),
+                    'descripcion'  => "[Venta #{$venta->id}]",
                 ]);
 
                 if ($cliente) {
@@ -257,6 +257,8 @@ class VentaController extends Controller
                 $fresh->cliente->increment('saldo_actual', $trans->monto);
             }
 
+            // Eliminar transacciones para que no inflen el monto esperado del cierre de caja
+            $fresh->transacciones()->delete();
             $fresh->delete();
         });
 
