@@ -67,7 +67,9 @@ const buscarLibros = (q) => {
     clearTimeout(libroTimer.value);
     if (q.length < 2) { librosResults.value = []; return; }
     libroTimer.value = setTimeout(async () => {
-        const res = await fetch(route('ventas.search-libros') + '?q=' + encodeURIComponent(q));
+        const params = new URLSearchParams({ q });
+        if (posForm.sucursal_id) params.append('sucursal_id', posForm.sucursal_id);
+        const res = await fetch(route('ventas.search-libros') + '?' + params.toString());
         librosResults.value = await res.json();
     }, 300);
 };
@@ -336,10 +338,17 @@ const viewVenta = (venta) => {
                                     <!-- Dropdown resultados -->
                                     <div v-if="showLibroDropdown && librosResults.length" class="absolute z-50 w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
                                         <div v-for="l in librosResults" :key="l.id"
-                                            @mousedown.prevent="addItem(l)"
-                                            class="px-4 py-3 cursor-pointer hover:bg-brand-red/10 hover:text-brand-red transition-colors border-b border-white/5 last:border-0">
+                                            @mousedown.prevent="l.stock_disponible !== 0 && addItem(l)"
+                                            :class="l.stock_disponible === 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-brand-red/10 hover:text-brand-red'"
+                                            class="px-4 py-3 transition-colors border-b border-white/5 last:border-0">
                                             <div class="text-xs font-black uppercase">{{ l.master?.titulo }}</div>
-                                            <div class="text-[9px] text-white/30 font-mono">ISBN: {{ l.isbn }} — {{ l.precio_actual ? formatCurrency(l.precio_actual.precio_venta) : 'Sin precio' }}</div>
+                                            <div class="text-[9px] text-white/30 font-mono">
+                                                ISBN: {{ l.isbn }} —
+                                                {{ l.precio_actual ? formatCurrency(l.precio_actual.precio_venta) : 'Sin precio' }} —
+                                                <span :class="l.stock_disponible === 0 ? 'text-red-400' : 'text-green-400/70'">
+                                                    Stock: {{ l.stock_disponible ?? '?' }}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                     <div v-if="showLibroDropdown" class="fixed inset-0 z-40" @click="showLibroDropdown = false"></div>

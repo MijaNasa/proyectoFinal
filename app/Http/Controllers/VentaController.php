@@ -77,7 +77,8 @@ class VentaController extends Controller
 
     public function searchLibros(Request $request): \Illuminate\Http\JsonResponse
     {
-        $q = trim($request->get('q', ''));
+        $q          = trim($request->get('q', ''));
+        $sucursalId = $request->get('sucursal_id');
 
         if (strlen($q) < 2) {
             return response()->json([]);
@@ -97,21 +98,35 @@ class VentaController extends Controller
         )
         ->select('id', 'master_id', 'isbn')
         ->limit(20)
-        ->get()
-        ->map(fn($l) => [
-            'id'            => $l->id,
-            'isbn'          => $l->isbn,
-            'master'        => ['titulo' => $l->master->titulo],
-            'precio_actual' => $l->precios->first()
+        ->get();
+
+        // One extra query to load stock for all results at once (avoids N+1)
+        $stocks = [];
+        if ($sucursalId) {
+            $stocks = \App\Models\Stock::where('sucursal_id', $sucursalId)
+                ->whereIn('libro_id', $libros->pluck('id'))
+                ->pluck('cantidad_disponible', 'libro_id')
+                ->toArray();
+        }
+
+        return response()->json($libros->map(fn($l) => [
+            'id'               => $l->id,
+            'isbn'             => $l->isbn,
+            'master'           => ['titulo' => $l->master->titulo],
+            'precio_actual'    => $l->precios->first()
                 ? ['precio_venta' => $l->precios->first()->precio_venta]
                 : null,
-        ]);
-
-        return response()->json($libros);
+            'stock_disponible' => $sucursalId ? (int) ($stocks[$l->id] ?? 0) : null,
+        ]));
     }
 
     public function store(StoreVentaRequest $request)
     {
+        $user = \Auth::user();
+        if (!$user->esAdmin() && (int) $request->sucursal_id !== $user->empleado?->sucursal_id) {
+            abort(403);
+        }
+
         $libroIds = collect($request->items)->pluck('libro_id');
 
         try {
