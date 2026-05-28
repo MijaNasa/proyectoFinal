@@ -108,20 +108,32 @@ class RutaRepartoController extends Controller
             return back()->with('error', 'No se pueden agregar ventas de retiro en sucursal.');
         }
 
-        if ($rutasReparto->paradas()->where('venta_id', $venta->id)->exists()) {
-            return back()->with('error', 'Esa venta ya está en esta ruta.');
-        }
+        DB::transaction(function () use ($request, $rutasReparto, $venta) {
+            // Lock the ruta to serialize concurrent asignarVenta calls on the same ruta
+            RutaReparto::lockForUpdate()->find($rutasReparto->id);
 
-        $orden = ($rutasReparto->paradas()->max('orden') ?? 0) + 1;
+            // Check across ALL rutas: a venta can only be in one active ruta at a time
+            $yaAsignada = ParadaReparto::where('venta_id', $venta->id)
+                ->whereIn('estado', ['pendiente', 'en camino', 'entregada'])
+                ->exists();
 
-        $rutasReparto->paradas()->create([
-            'venta_id'      => $venta->id,
-            'estado'        => 'pendiente',
-            'latitud'       => $request->latitud,
-            'longitud'      => $request->longitud,
-            'orden'         => $orden,
-            'observaciones' => $request->observaciones,
-        ]);
+            if ($yaAsignada) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'venta_id' => 'Esa venta ya está asignada a una ruta activa.',
+                ]);
+            }
+
+            $orden = ($rutasReparto->paradas()->max('orden') ?? 0) + 1;
+
+            $rutasReparto->paradas()->create([
+                'venta_id'      => $venta->id,
+                'estado'        => 'pendiente',
+                'latitud'       => $request->latitud,
+                'longitud'      => $request->longitud,
+                'orden'         => $orden,
+                'observaciones' => $request->observaciones,
+            ]);
+        });
 
         return back()->with('message', 'Venta agregada a la ruta');
     }

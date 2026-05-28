@@ -34,7 +34,6 @@ class GastoController extends Controller
         $stats = Gasto::whereBetween('fecha', [$desde, $hasta])
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
             ->selectRaw('COUNT(*) as cantidad, SUM(monto) as total')
-            ->groupBy(DB::raw('1=1'))
             ->first();
 
         $porCategoria = Gasto::whereBetween('fecha', [$desde, $hasta])
@@ -68,6 +67,11 @@ class GastoController extends Controller
             'observaciones'=> 'nullable|string|max:500',
             'sucursal_id'  => 'required|exists:sucursales,id',
         ]);
+
+        $user = auth()->user();
+        if (!$user->esAdmin() && (int) $data['sucursal_id'] !== $user->empleado?->sucursal_id) {
+            abort(403);
+        }
 
         DB::transaction(function () use ($data) {
             $gasto = Gasto::create(array_merge($data, ['user_id' => auth()->id()]));
