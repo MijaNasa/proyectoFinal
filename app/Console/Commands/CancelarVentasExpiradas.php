@@ -12,11 +12,22 @@ class CancelarVentasExpiradas extends Command
 
     public function handle(): void
     {
-        $canceladas = Venta::where('tipo', 'online')
+        $base = Venta::where('tipo', 'online')
             ->where('estado', 'pendiente_pago')
             ->whereNotNull('pago_expira_at')
-            ->where('pago_expira_at', '<', now())
-            ->update(['estado' => 'cancelado']);
+            ->where('pago_expira_at', '<', now());
+
+        // Advertir sobre ventas que tienen payment_id: podrían haber sido cobradas
+        // pero el webhook no llegó (servidor inaccesible, error de red, etc.)
+        $conPago = (clone $base)->whereNotNull('payment_id')->count();
+        if ($conPago > 0) {
+            $this->warn("{$conPago} venta(s) con payment_id serán canceladas — verificar en MP si fueron cobradas.");
+            \Log::warning('ventas:cancelar-expiradas: cancelando ventas con payment_id', [
+                'cantidad' => $conPago,
+            ]);
+        }
+
+        $canceladas = $base->update(['estado' => 'cancelado']);
 
         $this->info("Ventas expiradas canceladas: {$canceladas}");
     }

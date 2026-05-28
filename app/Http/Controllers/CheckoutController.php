@@ -170,8 +170,12 @@ class CheckoutController extends Controller
 
             return redirect()->away($url);
 
-        } catch (MPApiException $e) {
+        } catch (\Exception $e) {
             $venta->update(['estado' => 'cancelado']);
+            \Log::error('Checkout: error al crear preferencia MP', [
+                'venta_id' => $venta->id,
+                'error'    => $e->getMessage(),
+            ]);
             return redirect()->route('checkout.index')
                 ->with('error', 'Error al conectar con Mercado Pago. Intentá nuevamente.');
         }
@@ -252,13 +256,19 @@ class CheckoutController extends Controller
 
                 match ($payment->status) {
                     'approved' => $this->handleApproved($venta, (string) $paymentId),
-                    'rejected', 'cancelled' => $venta->where('estado', 'pendiente_pago')
-                        ->update(['estado' => 'cancelado']),
+                    'rejected', 'cancelled' => $venta->estado === 'pendiente_pago'
+                        ? $venta->update(['estado' => 'cancelado'])
+                        : null,
                     default => null,
                 };
 
-            } catch (\Exception) {
-                // Siempre retornamos 200 a MP
+            } catch (\Exception $e) {
+                \Log::error('Webhook MP: excepción al procesar notificación', [
+                    'error'      => $e->getMessage(),
+                    'payment_id' => $paymentId ?? null,
+                    'venta_id'   => $ventaId ?? null,
+                ]);
+                // Siempre retornamos 200 a MP para evitar reintentos infinitos
             }
         }
 
