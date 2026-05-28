@@ -100,9 +100,6 @@ class ReporteController extends Controller
 
     private function reporteStock(?string $sucursalId): array
     {
-        $base = Stock::with(['libro.master', 'sucursal'])
-            ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId));
-
         // Stock por sucursal
         $porSucursal = DB::table('stocks')
             ->join('sucursales', 'sucursales.id', '=', 'stocks.sucursal_id')

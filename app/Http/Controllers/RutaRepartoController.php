@@ -84,6 +84,10 @@ class RutaRepartoController extends Controller
 
     public function destroy(RutaReparto $rutasReparto)
     {
+        if ($rutasReparto->paradas()->where('estado', 'entregada')->exists()) {
+            return back()->with('error', 'No se puede eliminar una ruta con paradas ya entregadas.');
+        }
+
         $rutasReparto->delete();
 
         return redirect()->route('rutas-reparto.index')
