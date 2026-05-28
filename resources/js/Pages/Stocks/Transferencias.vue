@@ -2,13 +2,11 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
-import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     transferencias: Object,
     sucursales:     Array,
-    librosConStock: Array,
     filters:        Object,
 });
 
@@ -41,6 +39,8 @@ const showLibroDrop   = ref(false);
 const showOrigenDrop  = ref(false);
 const showDestinoDrop = ref(false);
 const libroSearch     = ref('');
+const librosResults   = ref([]);
+const libroSeleccionado = ref(null);
 
 const form = useForm({
     libro_id:            '',
@@ -50,19 +50,20 @@ const form = useForm({
     motivo:              '',
 });
 
-// Libros filtrados por búsqueda en el modal
-const librosFiltrados = computed(() => {
-    if (!libroSearch.value) return props.librosConStock;
-    const t = libroSearch.value.toLowerCase();
-    return props.librosConStock.filter(l =>
-        l.titulo.toLowerCase().includes(t) ||
-        (l.isbn && l.isbn.toLowerCase().includes(t))
-    );
+// AJAX book search
+let libroTimer = null;
+watch(libroSearch, (q) => {
+    clearTimeout(libroTimer);
+    if (q.length < 2) { librosResults.value = []; return; }
+    libroTimer = setTimeout(async () => {
+        try {
+            const res = await fetch(route('transferencias-stock.search-libros') + '?q=' + encodeURIComponent(q));
+            librosResults.value = await res.json();
+        } catch {
+            librosResults.value = [];
+        }
+    }, 300);
 });
-
-const libroSeleccionado = computed(() =>
-    props.librosConStock.find(l => l.id == form.libro_id) ?? null
-);
 
 // Stock disponible en sucursal origen para el libro seleccionado
 const stockEnOrigen = computed(() => {
@@ -95,14 +96,18 @@ watch(() => form.sucursal_origen_id, () => {
 
 const selectLibro = (libro) => {
     form.libro_id = libro.id;
+    libroSeleccionado.value = libro;
     showLibroDrop.value = false;
     libroSearch.value = '';
+    librosResults.value = [];
 };
 
 const openModal = () => {
     form.reset();
     form.cantidad = 1;
     libroSearch.value = '';
+    libroSeleccionado.value = null;
+    librosResults.value = [];
     showModal.value = true;
 };
 
@@ -271,8 +276,9 @@ const submit = () => {
                                         @click.stop />
                                 </div>
                                 <div class="max-h-48 overflow-y-auto">
-                                    <p v-if="!librosFiltrados.length" class="px-4 py-3 text-xs text-white/20 text-center">Sin resultados</p>
-                                    <button v-for="l in librosFiltrados" :key="l.id" type="button"
+                                    <p v-if="libroSearch.length < 2" class="px-4 py-3 text-xs text-white/20 text-center">Escribí al menos 2 caracteres...</p>
+                                    <p v-else-if="!librosResults.length" class="px-4 py-3 text-xs text-white/20 text-center">Sin resultados</p>
+                                    <button v-for="l in librosResults" :key="l.id" type="button"
                                         @click="selectLibro(l)"
                                         class="w-full text-left px-4 py-3 hover:bg-white/5 border-b border-white/5 last:border-0 transition-colors"
                                         :class="{ 'text-brand-red': form.libro_id == l.id }">
@@ -305,6 +311,7 @@ const submit = () => {
                                     <svg class="w-3 h-3 text-white/30 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                 </button>
                                 <div v-if="showOrigenDrop" class="absolute z-20 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                                    <p v-if="!sucursalesOrigen.length" class="px-4 py-3 text-xs text-white/20 text-center">Sin stock disponible en ninguna sucursal</p>
                                     <button v-for="s in sucursalesOrigen" :key="s.id" type="button"
                                         @click="form.sucursal_origen_id = s.id; showOrigenDrop = false"
                                         class="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-white/5 border-b border-white/5 last:border-0"
@@ -316,6 +323,7 @@ const submit = () => {
                                     </button>
                                 </div>
                                 <div v-if="showOrigenDrop" class="fixed inset-0 z-10" @click="showOrigenDrop = false" />
+                                <p v-if="form.errors.sucursal_origen_id" class="text-red-400 text-xs mt-1">{{ form.errors.sucursal_origen_id }}</p>
                             </div>
 
                             <!-- Flecha -->
@@ -371,7 +379,7 @@ const submit = () => {
                         <!-- Motivo -->
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Motivo</label>
-                            <input v-model="form.motivo" type="text"
+                            <input v-model="form.motivo" type="text" maxlength="255"
                                 placeholder="Ej: Reposición por demanda, Equilbrio de inventario..."
                                 class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50" />
                         </div>

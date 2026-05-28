@@ -111,6 +111,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permiso:stock.acceder')->group(function () {
         Route::resource('sucursales', SucursalController::class)->except(['show', 'create', 'edit'])->parameters(['sucursales' => 'sucursal']);
         Route::resource('stocks', StockController::class)->except(['show', 'create', 'edit']);
+        Route::get('transferencias-stock/search-libros', [TransferenciaStockController::class, 'searchLibros'])->name('transferencias-stock.search-libros');
         Route::get('transferencias-stock', [TransferenciaStockController::class, 'index'])->name('transferencias-stock.index');
         Route::post('transferencias-stock', [TransferenciaStockController::class, 'store'])->name('transferencias-stock.store');
     });
