@@ -39,7 +39,8 @@ class ReporteController extends Controller
 
     private function reporteVentas(string $desde, string $hasta, ?string $sucursalId): array
     {
-        $base = Venta::whereBetween('fecha', [$desde, $hasta]);
+        $base = Venta::whereBetween('fecha', [$desde, $hasta])
+            ->whereNotIn('estado', ['cancelado', 'pendiente_pago']);
         if ($sucursalId) $base->where('sucursal_id', $sucursalId);
 
         // Ventas por día
@@ -58,6 +59,7 @@ class ReporteController extends Controller
             ->whereBetween('ventas.fecha', [$desde, $hasta])
             ->when($sucursalId, fn($q) => $q->where('ventas.sucursal_id', $sucursalId))
             ->whereNull('ventas.deleted_at')
+            ->whereNotIn('ventas.estado', ['cancelado', 'pendiente_pago'])
             ->select(
                 'libro_masters.titulo',
                 DB::raw('SUM(venta_detalles.cantidad) as unidades'),
@@ -162,7 +164,8 @@ class ReporteController extends Controller
 
     private function reporteBalance(string $desde, string $hasta, ?string $sucursalId): array
     {
-        $base = Venta::whereBetween('fecha', [$desde, $hasta]);
+        $base = Venta::whereBetween('fecha', [$desde, $hasta])
+            ->whereNotIn('estado', ['cancelado', 'pendiente_pago']);
         if ($sucursalId) $base->where('sucursal_id', $sucursalId);
 
         // Ingresos por mes

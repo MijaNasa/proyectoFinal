@@ -189,8 +189,10 @@ class OrdenCompraController extends Controller
             return back()->withErrors(['estado' => 'No se puede cancelar una orden ya recibida.']);
         }
 
-        $ordenesCompra->update(['estado' => 'cancelada']);
-        $ordenesCompra->delete();
+        \DB::transaction(function () use ($ordenesCompra) {
+            $ordenesCompra->update(['estado' => 'cancelada']);
+            $ordenesCompra->delete();
+        });
 
         return redirect()->route('ordenes-compra.index')
             ->with('message', 'Orden cancelada.');

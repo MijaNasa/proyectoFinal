@@ -132,12 +132,16 @@ class RutaRepartoController extends Controller
             abort(404);
         }
 
-        if ($parada->estado === 'entregada') {
-            return back()->with('error', 'No se puede quitar una parada ya entregada.');
-        }
-
         DB::transaction(function () use ($rutasReparto, $parada) {
-            $parada->delete();
+            $fresh = ParadaReparto::lockForUpdate()->find($parada->id);
+
+            if ($fresh->estado === 'entregada') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'estado' => 'No se puede quitar una parada ya entregada.',
+                ]);
+            }
+
+            $fresh->delete();
 
             // Renumerar orden
             $rutasReparto->paradas()->orderBy('orden')->each(function ($p, $i) {
@@ -159,14 +163,18 @@ class RutaRepartoController extends Controller
             'observaciones' => 'nullable|string|max:500',
         ]);
 
-        if ($parada->estado === 'entregada') {
-            return back()->with('error', 'No se puede cambiar el estado de una parada ya entregada.');
-        }
-
         DB::transaction(function () use ($request, $parada) {
-            $parada->update([
+            $fresh = ParadaReparto::lockForUpdate()->find($parada->id);
+
+            if ($fresh->estado === 'entregada') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'estado' => 'No se puede cambiar el estado de una parada ya entregada.',
+                ]);
+            }
+
+            $fresh->update([
                 'estado'        => $request->estado,
-                'observaciones' => $request->observaciones ?? $parada->observaciones,
+                'observaciones' => $request->observaciones ?? $fresh->observaciones,
             ]);
 
             // Sincronizar estado de la venta
@@ -177,8 +185,8 @@ class RutaRepartoController extends Controller
                 default      => null,
             };
 
-            if ($estadoVenta && $parada->venta) {
-                $parada->venta->update(['estado' => $estadoVenta]);
+            if ($estadoVenta && $fresh->venta) {
+                $fresh->venta->update(['estado' => $estadoVenta]);
             }
         });
 
