@@ -1,15 +1,13 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     ventas: Object,
-    clientes: Array,
     sucursales: Array,
-    libros: Array,
     stats: Object,
     filters: Object
 });
@@ -27,47 +25,52 @@ const posForm = useForm({
     items: [] // {libro_id, cantidad, precio, titulo}
 });
 
-// --- Buscador de clientes ---
+// --- Buscador de clientes (AJAX) ---
 const clienteSearch = ref('');
 const clienteSeleccionado = ref(null);
 const showClienteDropdown = ref(false);
+const clientesResults = ref([]);
+const clienteTimer = ref(null);
 
-const clientesFiltrados = computed(() => {
-    if (!clienteSearch.value) return [];
-    const q = clienteSearch.value.toLowerCase();
-    return props.clientes.filter(c =>
-        c.user?.name?.toLowerCase().includes(q) ||
-        c.user?.apellido?.toLowerCase().includes(q) ||
-        c.user?.dni?.includes(q)
-    ).slice(0, 8);
-});
+const buscarClientes = (q) => {
+    clearTimeout(clienteTimer.value);
+    if (q.length < 2) { clientesResults.value = []; return; }
+    clienteTimer.value = setTimeout(async () => {
+        const res = await fetch(route('ventas.search-clientes') + '?q=' + encodeURIComponent(q));
+        clientesResults.value = await res.json();
+    }, 300);
+};
 
 const seleccionarCliente = (cliente) => {
     clienteSeleccionado.value = cliente;
     posForm.cliente_id = cliente.id;
     clienteSearch.value = `${cliente.user?.name} ${cliente.user?.apellido || ''}`.trim();
     showClienteDropdown.value = false;
+    clientesResults.value = [];
 };
 
 const limpiarCliente = () => {
     clienteSeleccionado.value = null;
     posForm.cliente_id = '';
     clienteSearch.value = '';
+    clientesResults.value = [];
 };
 
-// --- Buscador de libros ---
+// --- Buscador de libros (AJAX) ---
 const libroSearch = ref('');
 const showLibroDropdown = ref(false);
 const itemCantidad = ref(1);
+const librosResults = ref([]);
+const libroTimer = ref(null);
 
-const librosFiltrados = computed(() => {
-    if (!libroSearch.value) return [];
-    const q = libroSearch.value.toLowerCase();
-    return props.libros.filter(l =>
-        l.master?.titulo?.toLowerCase().includes(q) ||
-        l.isbn?.toLowerCase().includes(q)
-    ).slice(0, 8);
-});
+const buscarLibros = (q) => {
+    clearTimeout(libroTimer.value);
+    if (q.length < 2) { librosResults.value = []; return; }
+    libroTimer.value = setTimeout(async () => {
+        const res = await fetch(route('ventas.search-libros') + '?q=' + encodeURIComponent(q));
+        librosResults.value = await res.json();
+    }, 300);
+};
 
 const addItem = (libro) => {
     if (!libro) return;
@@ -95,6 +98,7 @@ const addItem = (libro) => {
     }
     libroSearch.value = '';
     showLibroDropdown.value = false;
+    librosResults.value = [];
     itemCantidad.value = 1;
 };
 
@@ -282,7 +286,7 @@ const viewVenta = (venta) => {
                                     <div class="flex gap-2">
                                         <input
                                             v-model="clienteSearch"
-                                            @input="showClienteDropdown = true"
+                                            @input="buscarClientes(clienteSearch); showClienteDropdown = true"
                                             @focus="showClienteDropdown = true"
                                             type="text"
                                             placeholder="Buscar por nombre o DNI..."
@@ -295,8 +299,8 @@ const viewVenta = (venta) => {
                                     <p v-else class="text-[9px] text-green-400/60 mt-1 italic">Saldo: {{ formatCurrency(clienteSeleccionado.saldo_actual) }}</p>
 
                                     <!-- Dropdown resultados -->
-                                    <div v-if="showClienteDropdown && clientesFiltrados.length" class="absolute z-50 w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
-                                        <div v-for="c in clientesFiltrados" :key="c.id"
+                                    <div v-if="showClienteDropdown && clientesResults.length" class="absolute z-50 w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                                        <div v-for="c in clientesResults" :key="c.id"
                                             @mousedown.prevent="seleccionarCliente(c)"
                                             class="px-4 py-3 cursor-pointer hover:bg-brand-red/10 hover:text-brand-red transition-colors border-b border-white/5 last:border-0">
                                             <div class="text-xs font-black uppercase">{{ c.user?.name }} {{ c.user?.apellido }}</div>
@@ -323,15 +327,15 @@ const viewVenta = (venta) => {
                                 <div class="flex-1 relative">
                                     <input
                                         v-model="libroSearch"
-                                        @input="showLibroDropdown = true"
+                                        @input="buscarLibros(libroSearch); showLibroDropdown = true"
                                         @focus="showLibroDropdown = true"
                                         type="text"
                                         placeholder="Buscar por título o ISBN..."
                                         class="input-field w-full bg-black/80 text-xs font-bold"
                                     >
                                     <!-- Dropdown resultados -->
-                                    <div v-if="showLibroDropdown && librosFiltrados.length" class="absolute z-50 w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
-                                        <div v-for="l in librosFiltrados" :key="l.id"
+                                    <div v-if="showLibroDropdown && librosResults.length" class="absolute z-50 w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                                        <div v-for="l in librosResults" :key="l.id"
                                             @mousedown.prevent="addItem(l)"
                                             class="px-4 py-3 cursor-pointer hover:bg-brand-red/10 hover:text-brand-red transition-colors border-b border-white/5 last:border-0">
                                             <div class="text-xs font-black uppercase">{{ l.master?.titulo }}</div>

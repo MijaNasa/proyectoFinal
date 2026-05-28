@@ -88,6 +88,8 @@ Route::middleware('auth')->group(function () {
 
     // Terminal de Ventas
     Route::middleware('permiso:ventas.acceder')->group(function () {
+        Route::get('ventas/search-libros',   [VentaController::class, 'searchLibros'])->name('ventas.search-libros');
+        Route::get('ventas/search-clientes', [VentaController::class, 'searchClientes'])->name('ventas.search-clientes');
         Route::resource('ventas', VentaController::class)->except(['create', 'edit', 'update']);
     });
 

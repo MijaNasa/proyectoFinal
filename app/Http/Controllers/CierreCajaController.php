@@ -34,6 +34,16 @@ class CierreCajaController extends Controller
             abort(403);
         }
 
+        $yaExiste = CierreCaja::where('sucursal_id', $request->sucursal_id)
+            ->where('fecha', $request->fecha)
+            ->exists();
+
+        if ($yaExiste) {
+            return back()->withErrors([
+                'fecha' => 'Ya existe un cierre de caja para esta sucursal en esa fecha.',
+            ]);
+        }
+
         $montoEsperado = $this->calcularMontoEsperado($request->sucursal_id, $request->fecha);
         $diferencia    = $request->monto_real - $montoEsperado;
 

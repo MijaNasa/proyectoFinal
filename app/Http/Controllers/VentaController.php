@@ -5,21 +5,17 @@ namespace App\Http\Controllers;
 use App\Models\PrecioLibro;
 use App\Models\Venta;
 use App\Http\Requests\StoreVentaRequest;
-use App\Http\Requests\UpdateVentaRequest;
 use Illuminate\Http\Request;
 
 class VentaController extends Controller
 {
-    /**
-     * Display a listing of the resource.
-     */
     public function index(Request $request)
     {
         $query = Venta::with(['cliente.user', 'sucursal', 'detalles.libro.master']);
 
         if ($request->has('search')) {
             $search = $request->search;
-            $query->whereHas('cliente.user', function($q) use ($search) {
+            $query->whereHas('cliente.user', function ($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
                   ->orWhere('apellido', 'like', '%' . $search . '%');
             });
@@ -27,41 +23,93 @@ class VentaController extends Controller
 
         $ventas = $query->latest()->paginate(10)->withQueryString();
 
-        $hoy = now();
+        $hoy      = now();
         $statsHoy = Venta::whereBetween('fecha', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])
+            ->whereNotIn('estado', ['cancelado', 'pendiente_pago'])
             ->selectRaw('COUNT(*) as cantidad, COALESCE(SUM(total),0) as recaudacion, COALESCE(AVG(total),0) as promedio')
             ->first();
 
         $stats = [
-            'ventas_hoy'      => (int) $statsHoy->cantidad,
+            'ventas_hoy'      => (int)   $statsHoy->cantidad,
             'recaudacion'     => (float) $statsHoy->recaudacion,
             'promedio_ticket' => (float) $statsHoy->promedio,
-            'stock_total'     => (int) \App\Models\Stock::sum('cantidad_disponible'),
+            'stock_total'     => (int)   \App\Models\Stock::sum('cantidad_disponible'),
         ];
 
         return inertia('Ventas/Index', [
             'ventas'     => $ventas,
-            'clientes'   => \App\Models\Cliente::with('user:id,name,apellido,email')
-                               ->get(['id', 'user_id', 'saldo_actual']),
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
-            'libros'     => \App\Models\Libro::with([
-                               'master:id,titulo',
-                               'precios' => fn($q) => $q->where('activo', true)
-                                   ->where(fn($sq) => $sq->whereNull('fecha_hasta')->orWhere('fecha_hasta', '>', now()))
-                                   ->latest('fecha_desde')
-                                   ->limit(1),
-                           ])->get(['id', 'master_id', 'isbn'])->map(function ($l) {
-                               $l->precio_actual = $l->precios->first();
-                               return $l;
-                           }),
             'stats'      => $stats,
             'filters'    => $request->only(['search']),
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
+    public function searchClientes(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $q = trim($request->get('q', ''));
+
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $clientes = \App\Models\Cliente::with('user:id,name,apellido,email,dni')
+            ->whereHas('user', fn($query) => $query
+                ->where('name', 'like', "%{$q}%")
+                ->orWhere('apellido', 'like', "%{$q}%")
+                ->orWhere('dni', 'like', "%{$q}%")
+            )
+            ->select('id', 'user_id', 'saldo_actual')
+            ->limit(10)
+            ->get()
+            ->map(fn($c) => [
+                'id'           => $c->id,
+                'saldo_actual' => $c->saldo_actual,
+                'user'         => [
+                    'name'     => $c->user->name,
+                    'apellido' => $c->user->apellido,
+                    'email'    => $c->user->email,
+                    'dni'      => $c->user->dni,
+                ],
+            ]);
+
+        return response()->json($clientes);
+    }
+
+    public function searchLibros(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $q = trim($request->get('q', ''));
+
+        if (strlen($q) < 2) {
+            return response()->json([]);
+        }
+
+        $libros = \App\Models\Libro::with([
+            'master:id,titulo',
+            'precios' => fn($query) => $query
+                ->where('activo', true)
+                ->where(fn($sq) => $sq->whereNull('fecha_hasta')->orWhere('fecha_hasta', '>', now()))
+                ->latest('fecha_desde')
+                ->limit(1),
+        ])
+        ->where(fn($query) => $query
+            ->whereHas('master', fn($q2) => $q2->where('titulo', 'like', "%{$q}%"))
+            ->orWhere('isbn', 'like', "%{$q}%")
+        )
+        ->select('id', 'master_id', 'isbn')
+        ->limit(20)
+        ->get()
+        ->map(fn($l) => [
+            'id'            => $l->id,
+            'isbn'          => $l->isbn,
+            'master'        => ['titulo' => $l->master->titulo],
+            'precio_actual' => $l->precios->first()
+                ? ['precio_venta' => $l->precios->first()->precio_venta]
+                : null,
+        ]);
+
+        return response()->json($libros);
+    }
+
     public function store(StoreVentaRequest $request)
     {
         $libroIds = collect($request->items)->pluck('libro_id');
@@ -83,59 +131,73 @@ class VentaController extends Controller
         }
 
         try {
-        \DB::transaction(function () use ($request, $precios) {
-            $total = 0;
-            foreach ($request->items as $item) {
-                $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
-                    ->where('sucursal_id', $request->sucursal_id)
-                    ->lockForUpdate()
-                    ->first();
+            \DB::transaction(function () use ($request, $precios) {
+                $total = 0;
+                foreach ($request->items as $item) {
+                    $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
+                        ->where('sucursal_id', $request->sucursal_id)
+                        ->lockForUpdate()
+                        ->first();
 
-                if (!$stock || $stock->cantidad_disponible < $item['cantidad']) {
-                    throw new \RuntimeException("Stock insuficiente para el libro ID {$item['libro_id']}.");
+                    if (!$stock || $stock->cantidad_disponible < $item['cantidad']) {
+                        throw new \RuntimeException("Stock insuficiente para el libro ID {$item['libro_id']}.");
+                    }
+
+                    $total += $item['cantidad'] * $precios[$item['libro_id']]->precio_venta;
                 }
 
-                $total += $item['cantidad'] * $precios[$item['libro_id']]->precio_venta;
-            }
+                // Lock and validate CC balance before any writes
+                $cliente = null;
+                if ($request->medio_pago === 'Cuenta Corriente') {
+                    $cliente = \App\Models\Cliente::lockForUpdate()->find($request->cliente_id);
+                    if (!$cliente) {
+                        throw new \RuntimeException("El cliente seleccionado no existe.");
+                    }
+                    if ($cliente->saldo_actual < $total) {
+                        throw new \RuntimeException(
+                            'Saldo insuficiente en Cuenta Corriente. Disponible: $' .
+                            number_format($cliente->saldo_actual, 2, ',', '.')
+                        );
+                    }
+                }
 
-            $venta = Venta::create([
-                'fecha'       => now(),
-                'cliente_id'  => $request->cliente_id,
-                'user_id'     => \Auth::id(),
-                'sucursal_id' => $request->sucursal_id,
-                'tipo'        => $request->tipo,
-                'total'       => $total,
-            ]);
-
-            foreach ($request->items as $item) {
-                $precio = $precios[$item['libro_id']]->precio_venta;
-
-                $venta->detalles()->create([
-                    'libro_id'        => $item['libro_id'],
-                    'cantidad'        => $item['cantidad'],
-                    'precio_unitario' => $precio,
-                    'subtotal'        => $item['cantidad'] * $precio,
+                $venta = Venta::create([
+                    'fecha'       => now(),
+                    'cliente_id'  => $request->cliente_id,
+                    'user_id'     => \Auth::id(),
+                    'sucursal_id' => $request->sucursal_id,
+                    'tipo'        => 'presencial',
+                    'total'       => $total,
                 ]);
 
-                \App\Models\Stock::where('libro_id', $item['libro_id'])
-                    ->where('sucursal_id', $request->sucursal_id)
-                    ->decrement('cantidad_disponible', $item['cantidad']);
-            }
+                foreach ($request->items as $item) {
+                    $precio = $precios[$item['libro_id']]->precio_venta;
 
-            $venta->transacciones()->create([
-                'fecha'       => now(),
-                'tipo'        => 'ingreso',
-                'monto'       => $total,
-                'metodo_pago' => $request->medio_pago,
-                'sucursal_id' => $request->sucursal_id,
-                'user_id'     => \Auth::id(),
-            ]);
+                    $venta->detalles()->create([
+                        'libro_id'        => $item['libro_id'],
+                        'cantidad'        => $item['cantidad'],
+                        'precio_unitario' => $precio,
+                        'subtotal'        => $item['cantidad'] * $precio,
+                    ]);
 
-            if ($request->medio_pago === 'Cuenta Corriente') {
-                $cliente = \App\Models\Cliente::find($request->cliente_id);
-                $cliente->decrement('saldo_actual', $total);
-            }
-        });
+                    \App\Models\Stock::where('libro_id', $item['libro_id'])
+                        ->where('sucursal_id', $request->sucursal_id)
+                        ->decrement('cantidad_disponible', $item['cantidad']);
+                }
+
+                $venta->transacciones()->create([
+                    'fecha'       => now(),
+                    'tipo'        => 'ingreso',
+                    'monto'       => $total,
+                    'metodo_pago' => $request->medio_pago,
+                    'sucursal_id' => $request->sucursal_id,
+                    'user_id'     => \Auth::id(),
+                ]);
+
+                if ($cliente) {
+                    $cliente->decrement('saldo_actual', $total);
+                }
+            });
         } catch (\RuntimeException $e) {
             return redirect()->route('ventas.index')
                 ->with('error', $e->getMessage());
@@ -164,9 +226,6 @@ class VentaController extends Controller
         return inertia('Ventas/Show', ['venta' => $venta]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Venta $venta)
     {
         $user = \Auth::user();
@@ -174,22 +233,31 @@ class VentaController extends Controller
             abort(403);
         }
 
-        $venta->load(['detalles', 'cliente', 'transacciones']);
+        \DB::transaction(function () use ($venta) {
+            $fresh = Venta::with(['detalles', 'cliente', 'transacciones'])
+                ->lockForUpdate()
+                ->find($venta->id);
 
-        \DB::transaction(function() use ($venta) {
-            foreach ($venta->detalles as $detalle) {
+            if (!$fresh) return;
+
+            if (in_array($fresh->estado, ['enviado', 'entregado'])) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'estado' => 'No se puede anular una venta que ya fue enviada o entregada.',
+                ]);
+            }
+
+            foreach ($fresh->detalles as $detalle) {
                 \App\Models\Stock::where('libro_id', $detalle->libro_id)
-                    ->where('sucursal_id', $venta->sucursal_id)
+                    ->where('sucursal_id', $fresh->sucursal_id)
                     ->increment('cantidad_disponible', $detalle->cantidad);
             }
-            
-            // Revert client balance if CC
-            $trans = $venta->transacciones()->where('metodo_pago', 'Cuenta Corriente')->first();
-            if ($trans) {
-                $venta->cliente->increment('saldo_actual', $trans->monto);
+
+            $trans = $fresh->transacciones->firstWhere('metodo_pago', 'Cuenta Corriente');
+            if ($trans && $fresh->cliente) {
+                $fresh->cliente->increment('saldo_actual', $trans->monto);
             }
 
-            $venta->delete();
+            $fresh->delete();
         });
 
         return redirect()->route('ventas.index')
