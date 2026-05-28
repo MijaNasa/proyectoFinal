@@ -66,6 +66,9 @@ class PrecioController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $libro) {
+            // Lock the libro row to serialize concurrent price updates for the same book
+            \App\Models\Libro::lockForUpdate()->find($libro->id);
+
             // Cerrar precio anterior
             $libro->precios()->where('activo', true)->update([
                 'activo'      => false,

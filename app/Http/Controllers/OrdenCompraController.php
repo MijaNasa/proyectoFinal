@@ -56,33 +56,38 @@ class OrdenCompraController extends Controller
             'items.*.precio_unitario'=> 'required|numeric|min:0',
         ]);
 
-        $numero = 'OC-' . str_pad(OrdenCompra::withTrashed()->count() + 1, 6, '0', STR_PAD_LEFT);
-
         $total = collect($request->items)->sum(fn($i) => $i['cantidad'] * $i['precio_unitario']);
 
-        $orden = OrdenCompra::create([
-            'numero_orden'           => $numero,
-            'proveedor_id'           => $request->proveedor_id,
-            'sucursal_id'            => $request->sucursal_id,
-            'estado'                 => 'borrador',
-            'fecha'                  => now()->toDateString(),
-            'fecha_entrega_estimada' => $request->fecha_entrega_estimada,
-            'total'                  => $total,
-            'observaciones'          => $request->observaciones,
-            'user_id'                => \Auth::id(),
-        ]);
-
-        foreach ($request->items as $item) {
-            $orden->items()->create([
-                'libro_id'        => $item['libro_id'],
-                'cantidad'        => $item['cantidad'],
-                'precio_unitario' => $item['precio_unitario'],
-                'subtotal'        => $item['cantidad'] * $item['precio_unitario'],
+        $orden = \DB::transaction(function () use ($request, $total) {
+            // Crear primero para obtener el ID autoincremental; luego generar el número
+            $orden = OrdenCompra::create([
+                'numero_orden'           => 'OC-TEMP',
+                'proveedor_id'           => $request->proveedor_id,
+                'sucursal_id'            => $request->sucursal_id,
+                'estado'                 => 'borrador',
+                'fecha'                  => now()->toDateString(),
+                'fecha_entrega_estimada' => $request->fecha_entrega_estimada,
+                'total'                  => $total,
+                'observaciones'          => $request->observaciones,
+                'user_id'                => \Auth::id(),
             ]);
-        }
+
+            $orden->update(['numero_orden' => 'OC-' . str_pad($orden->id, 6, '0', STR_PAD_LEFT)]);
+
+            foreach ($request->items as $item) {
+                $orden->items()->create([
+                    'libro_id'        => $item['libro_id'],
+                    'cantidad'        => $item['cantidad'],
+                    'precio_unitario' => $item['precio_unitario'],
+                    'subtotal'        => $item['cantidad'] * $item['precio_unitario'],
+                ]);
+            }
+
+            return $orden;
+        });
 
         return redirect()->route('ordenes-compra.index')
-            ->with('message', "Orden {$numero} creada.");
+            ->with('message', "Orden {$orden->numero_orden} creada.");
     }
 
     public function show(OrdenCompra $ordenesCompra)
@@ -122,24 +127,31 @@ class OrdenCompraController extends Controller
             abort(403);
         }
 
-        if ($ordenesCompra->estado !== 'confirmada') {
-            return back()->withErrors(['estado' => 'Solo se puede recibir una orden confirmada.']);
-        }
-
-        $ordenesCompra->load('items');
-
         \DB::transaction(function () use ($ordenesCompra) {
-            foreach ($ordenesCompra->items as $item) {
+            $fresh = OrdenCompra::with('items')->lockForUpdate()->find($ordenesCompra->id);
+
+            if ($fresh->estado !== 'confirmada') {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'estado' => 'Solo se puede recibir una orden confirmada.',
+                ]);
+            }
+
+            foreach ($fresh->items as $item) {
                 \App\Models\Stock::firstOrCreate(
-                    ['libro_id' => $item->libro_id, 'sucursal_id' => $ordenesCompra->sucursal_id],
+                    ['libro_id' => $item->libro_id, 'sucursal_id' => $fresh->sucursal_id],
                     ['cantidad_disponible' => 0]
                 )->increment('cantidad_disponible', $item->cantidad);
             }
 
-            \App\Models\Proveedor::find($ordenesCompra->proveedor_id)
-                ->increment('deuda_actual', $ordenesCompra->total);
+            $proveedor = \App\Models\Proveedor::find($fresh->proveedor_id);
+            if (!$proveedor) {
+                throw \Illuminate\Validation\ValidationException::withMessages([
+                    'proveedor_id' => 'El proveedor asociado ya no existe en el sistema.',
+                ]);
+            }
+            $proveedor->increment('deuda_actual', $fresh->total);
 
-            $ordenesCompra->update(['estado' => 'recibida']);
+            $fresh->update(['estado' => 'recibida']);
         });
 
         return redirect()->route('ordenes-compra.index')

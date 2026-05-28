@@ -136,11 +136,13 @@ class RutaRepartoController extends Controller
             return back()->with('error', 'No se puede quitar una parada ya entregada.');
         }
 
-        $parada->delete();
+        DB::transaction(function () use ($rutasReparto, $parada) {
+            $parada->delete();
 
-        // Renumerar orden
-        $rutasReparto->paradas()->orderBy('orden')->each(function ($p, $i) {
-            $p->update(['orden' => $i + 1]);
+            // Renumerar orden
+            $rutasReparto->paradas()->orderBy('orden')->each(function ($p, $i) {
+                $p->update(['orden' => $i + 1]);
+            });
         });
 
         return back()->with('message', 'Parada eliminada de la ruta');
@@ -157,6 +159,10 @@ class RutaRepartoController extends Controller
             'observaciones' => 'nullable|string|max:500',
         ]);
 
+        if ($parada->estado === 'entregada') {
+            return back()->with('error', 'No se puede cambiar el estado de una parada ya entregada.');
+        }
+
         DB::transaction(function () use ($request, $parada) {
             $parada->update([
                 'estado'        => $request->estado,
@@ -171,7 +177,7 @@ class RutaRepartoController extends Controller
                 default      => null,
             };
 
-            if ($estadoVenta) {
+            if ($estadoVenta && $parada->venta) {
                 $parada->venta->update(['estado' => $estadoVenta]);
             }
         });
