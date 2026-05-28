@@ -68,6 +68,11 @@ class CheckoutController extends Controller
         $sucursal = Sucursal::where('es_deposito_central', true)->where('activo', true)->first()
             ?? Sucursal::where('activo', true)->first();
 
+        if (!$sucursal) {
+            return redirect()->route('carrito.index')
+                ->with('error', 'No hay sucursales disponibles para procesar tu compra. Por favor contactanos.');
+        }
+
         $libroIds = collect($carrito)->pluck('libro_id');
 
         $precios = PrecioLibro::whereIn('libro_id', $libroIds)
@@ -174,43 +179,24 @@ class CheckoutController extends Controller
 
     public function success(Request $request)
     {
-        $ventaId  = $request->query('external_reference');
-        $ventaOut = null;
+        $ventaId = $request->query('external_reference');
+        $venta   = null;
 
         if ($ventaId) {
-            DB::transaction(function () use ($ventaId, $request, &$ventaOut) {
-                $venta = Venta::with('detalles')
-                    ->where('user_id', Auth::id())
-                    ->lockForUpdate()
-                    ->find($ventaId);
-
-                if (!$venta) return;
-
-                $ventaOut = $venta;
-
-                if ($venta->estado !== 'pendiente_pago') return;
-
-                $venta->update([
-                    'estado'     => 'en_preparacion',
-                    'payment_id' => $request->query('payment_id') ?? $venta->payment_id,
-                ]);
-
-                foreach ($venta->detalles as $detalle) {
-                    Stock::where('libro_id', $detalle->libro_id)
-                        ->where('sucursal_id', $venta->sucursal_id)
-                        ->decrement('cantidad_disponible', $detalle->cantidad);
-                }
-            });
-
-            session()->forget('carrito');
+            $venta = Venta::where('user_id', Auth::id())->find($ventaId);
+            if ($venta) {
+                // Limpiar carrito siempre que el pago haya avanzado,
+                // independientemente de si el webhook ya llegó o no
+                session()->forget('carrito');
+            }
         }
 
         return Inertia::render('Checkout/Confirmacion', [
             'status' => 'success',
-            'venta'  => $ventaOut ? [
-                'id'         => $ventaOut->id,
-                'total'      => $ventaOut->total,
-                'tipo_envio' => $ventaOut->tipo_envio,
+            'venta'  => $venta ? [
+                'id'         => $venta->id,
+                'total'      => $venta->total,
+                'tipo_envio' => $venta->tipo_envio,
             ] : null,
         ]);
     }
@@ -285,6 +271,21 @@ class CheckoutController extends Controller
             $fresh = Venta::with('detalles')->lockForUpdate()->find($venta->id);
 
             if (!$fresh || $fresh->estado !== 'pendiente_pago') return;
+
+            // Verificar stock suficiente antes de descontar para prevenir overselling.
+            // Si dos compradores pagaron el mismo libro con stock = 1, el segundo
+            // pago llega acá con stock ya en 0 y se cancela.
+            foreach ($fresh->detalles as $detalle) {
+                $stock = Stock::where('libro_id', $detalle->libro_id)
+                    ->where('sucursal_id', $fresh->sucursal_id)
+                    ->lockForUpdate()
+                    ->first();
+
+                if (!$stock || $stock->cantidad_disponible < $detalle->cantidad) {
+                    $fresh->update(['estado' => 'cancelado', 'payment_id' => $paymentId]);
+                    return;
+                }
+            }
 
             $fresh->update([
                 'estado'     => 'en_preparacion',
