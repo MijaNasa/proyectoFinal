@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreVentaRequest extends FormRequest
 {
@@ -23,6 +24,16 @@ class StoreVentaRequest extends FormRequest
             'items.*.cantidad' => 'required|integer|min:1|max:9999',
             'medio_pago'       => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
         ];
+    }
+
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function ($v) {
+            $ids = collect($this->items ?? [])->pluck('libro_id');
+            if ($ids->count() !== $ids->unique()->count()) {
+                $v->errors()->add('items', 'No se puede agregar el mismo libro más de una vez. Ajustá la cantidad.');
+            }
+        });
     }
 
     public function messages(): array

@@ -13,11 +13,13 @@ class VentaController extends Controller
     {
         $query = Venta::with(['cliente.user', 'sucursal', 'detalles.libro.master']);
 
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('cliente.user', function ($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('apellido', 'like', '%' . $search . '%');
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('cliente.user', function ($q2) use ($search) {
+                    $q2->where('name', 'like', '%' . $search . '%')
+                       ->orWhere('apellido', 'like', '%' . $search . '%');
+                })->orWhereNull('cliente_id'); // consumidor final siempre visible
             });
         }
 
@@ -78,7 +80,7 @@ class VentaController extends Controller
     public function searchLibros(Request $request): \Illuminate\Http\JsonResponse
     {
         $q          = trim($request->get('q', ''));
-        $sucursalId = $request->get('sucursal_id');
+        $sucursalId = filter_var($request->get('sucursal_id'), FILTER_VALIDATE_INT) ?: null;
 
         if (strlen($q) < 2) {
             return response()->json([]);
@@ -245,6 +247,11 @@ class VentaController extends Controller
     {
         $user = \Auth::user();
         if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
+            abort(403);
+        }
+
+        // Solo admins/gerentes pueden anular ventas online
+        if ($venta->tipo === 'online' && !$user->esAdmin() && !$user->esGerente()) {
             abort(403);
         }
 
