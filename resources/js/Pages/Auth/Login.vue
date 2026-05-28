@@ -100,6 +100,16 @@ const submit = () => {
                     INGRESAR
                 </PrimaryButton>
             </div>
+
+            <div class="mt-6 text-center border-t border-white/5 pt-6">
+                <span class="text-[10px] font-black uppercase tracking-widest text-white/20">¿No tenés cuenta?</span>
+                <Link
+                    :href="route('register')"
+                    class="ms-2 text-[10px] font-black uppercase tracking-widest text-brand-red hover:text-brand-red/70 transition-colors"
+                >
+                    Registrarse
+                </Link>
+            </div>
         </form>
     </GuestLayout>
 </template>

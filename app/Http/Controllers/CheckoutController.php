@@ -25,7 +25,7 @@ class CheckoutController extends Controller
     public function index()
     {
         if (!Auth::check()) {
-            return redirect()->route('login')
+            return redirect()->guest(route('login'))
                 ->with('warning', 'Iniciá sesión para continuar con tu compra.');
         }
 
@@ -107,8 +107,11 @@ class CheckoutController extends Controller
                     }
                 }
 
+                $clienteId = \App\Models\Cliente::where('user_id', Auth::id())->value('id');
+
                 $venta = Venta::create([
                     'fecha'           => now(),
+                    'cliente_id'      => $clienteId,
                     'user_id'         => Auth::id(),
                     'sucursal_id'     => $sucursal->id,
                     'tipo'            => 'online',
@@ -131,7 +134,8 @@ class CheckoutController extends Controller
 
                 return $venta;
             });
-        } catch (\RuntimeException $e) {
+        } catch (\Throwable $e) {
+            \Log::error('checkout.store: error en transaccion', ['class' => get_class($e), 'msg' => $e->getMessage()]);
             return redirect()->route('carrito.index')
                 ->with('error', $e->getMessage() . ' Actualizá tu carrito.');
         }
@@ -147,20 +151,18 @@ class CheckoutController extends Controller
                 'currency_id' => 'ARS',
             ])->values()->toArray();
 
-            $preference = $client->create([
+            $preferenceData = [
                 'items'              => $items,
                 'payer'              => ['email' => Auth::user()->email],
+                'external_reference' => (string) $venta->id,
                 'back_urls'          => [
                     'success' => route('checkout.success'),
-                    'pending' => route('checkout.pending'),
                     'failure' => route('checkout.failure'),
+                    'pending' => route('checkout.pending'),
                 ],
-                'auto_return'        => 'approved',
-                'external_reference' => (string) $venta->id,
-                'notification_url'   => route('checkout.webhook'),
-                'expires'            => true,
-                'expiration_date_to' => $venta->pago_expira_at->toIso8601String(),
-            ]);
+            ];
+
+            $preference = $client->create($preferenceData);
 
             $venta->update(['payment_id' => $preference->id]);
 
@@ -172,9 +174,13 @@ class CheckoutController extends Controller
 
         } catch (\Exception $e) {
             $venta->update(['estado' => 'cancelado']);
+            $mpDetail = $e instanceof MPApiException
+                ? $e->getApiResponse()->getContent()
+                : $e->getMessage();
             \Log::error('Checkout: error al crear preferencia MP', [
                 'venta_id' => $venta->id,
                 'error'    => $e->getMessage(),
+                'detail'   => $mpDetail,
             ]);
             return redirect()->route('checkout.index')
                 ->with('error', 'Error al conectar con Mercado Pago. Intentá nuevamente.');
