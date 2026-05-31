@@ -9,9 +9,9 @@ use App\Models\Venta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
 use Inertia\Inertia;
 use MercadoPago\Client\Payment\PaymentClient;
-use MercadoPago\Client\Preference\PreferenceClient;
 use MercadoPago\Exceptions\MPApiException;
 use MercadoPago\MercadoPagoConfig;
 
@@ -141,8 +141,6 @@ class CheckoutController extends Controller
         }
 
         try {
-            $client = new PreferenceClient();
-
             $items = collect($carrito)->map(fn($item) => [
                 'id'          => (string) $item['libro_id'],
                 'title'       => $item['titulo'],
@@ -151,36 +149,42 @@ class CheckoutController extends Controller
                 'currency_id' => 'ARS',
             ])->values()->toArray();
 
+            $baseUrl = config('services.mercadopago.tunnel_url') ?? config('app.url');
+
             $preferenceData = [
                 'items'              => $items,
-                'payer'              => ['email' => Auth::user()->email],
+                'payer'              => ['email' => 'test_user_buyer@testuser.com'],
                 'external_reference' => (string) $venta->id,
                 'back_urls'          => [
-                    'success' => route('checkout.success'),
-                    'failure' => route('checkout.failure'),
-                    'pending' => route('checkout.pending'),
+                    'success' => $baseUrl . '/checkout/success',
+                    'failure' => $baseUrl . '/checkout/failure',
+                    'pending' => $baseUrl . '/checkout/pending',
                 ],
             ];
 
-            $preference = $client->create($preferenceData);
+            $response = Http::timeout(15)
+                ->withToken(config('services.mercadopago.access_token'))
+                ->post('https://api.mercadopago.com/checkout/preferences', $preferenceData);
 
-            $venta->update(['payment_id' => $preference->id]);
+            if (!$response->successful()) {
+                throw new \RuntimeException('MP API error: ' . $response->body());
+            }
+
+            $preference = $response->json();
+
+            $venta->update(['payment_id' => $preference['id']]);
 
             $url = config('services.mercadopago.sandbox')
-                ? $preference->sandbox_init_point
-                : $preference->init_point;
+                ? $preference['sandbox_init_point']
+                : $preference['init_point'];
 
-            return redirect()->away($url);
+            return Inertia::location($url);
 
         } catch (\Exception $e) {
             $venta->update(['estado' => 'cancelado']);
-            $mpDetail = $e instanceof MPApiException
-                ? $e->getApiResponse()->getContent()
-                : $e->getMessage();
             \Log::error('Checkout: error al crear preferencia MP', [
                 'venta_id' => $venta->id,
                 'error'    => $e->getMessage(),
-                'detail'   => $mpDetail,
             ]);
             return redirect()->route('checkout.index')
                 ->with('error', 'Error al conectar con Mercado Pago. Intentá nuevamente.');

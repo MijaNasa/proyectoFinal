@@ -40,6 +40,7 @@ return [
         'public_key'     => env('MP_PUBLIC_KEY'),
         'sandbox'        => env('MP_SANDBOX', true),
         'webhook_secret' => env('MP_WEBHOOK_SECRET'),
+        'tunnel_url'     => env('MP_TUNNEL_URL'),
     ],
 
 ];
