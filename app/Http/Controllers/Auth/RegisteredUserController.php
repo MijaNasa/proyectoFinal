@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Models\TipoCliente;
 use App\Models\User;
 use Illuminate\Auth\Events\Registered;
 use Illuminate\Http\RedirectResponse;
@@ -42,6 +43,14 @@ class RegisteredUserController extends Controller
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
+
+        $tipoCliente = TipoCliente::where('codigo', 'PART')->first();
+        if ($tipoCliente) {
+            $user->cliente()->create([
+                'tipo_cliente_id' => $tipoCliente->id,
+                'saldo_actual'    => 0,
+            ]);
+        }
 
         event(new Registered($user));
 
