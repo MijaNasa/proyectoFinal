@@ -1,30 +1,95 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
 
 const props = defineProps({
     items: Array,
     total: Number,
 });
 
-const tipoEnvio     = ref('retiro');
-const direccionEnvio = ref('');
-const procesando    = ref(false);
+const tipoEnvio           = ref('retiro');
+const direccionInput      = ref('');
+const direccionFormatted  = ref('');
+const addressSelected     = ref(false);
+const piso                = ref('');
+const depto               = ref('');
+const procesando          = ref(false);
+const inputRef            = ref(null);
+
+let autocomplete = null;
+let placeListener = null;
 
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
 
+const loadGoogleMaps = () => new Promise((resolve) => {
+    if (window.google?.maps?.places) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+    s.async = true;
+    s.onload = resolve;
+    document.head.appendChild(s);
+});
+
+const initAutocomplete = async () => {
+    await loadGoogleMaps();
+    if (!inputRef.value) return;
+
+    if (autocomplete && placeListener) {
+        window.google.maps.event.removeListener(placeListener);
+    }
+
+    autocomplete = new window.google.maps.places.Autocomplete(inputRef.value, {
+        types: ['address'],
+        componentRestrictions: { country: 'ar' },
+    });
+
+    placeListener = autocomplete.addListener('place_changed', () => {
+        const place = autocomplete.getPlace();
+        if (place?.formatted_address) {
+            direccionFormatted.value = place.formatted_address;
+            direccionInput.value     = place.formatted_address;
+            addressSelected.value    = true;
+        }
+    });
+};
+
+watch(tipoEnvio, (val) => {
+    direccionInput.value     = '';
+    direccionFormatted.value = '';
+    addressSelected.value    = false;
+    piso.value  = '';
+    depto.value = '';
+    if (val === 'domicilio') nextTick(initAutocomplete);
+});
+
+watch(direccionInput, (val) => {
+    if (addressSelected.value && val !== direccionFormatted.value) {
+        addressSelected.value    = false;
+        direccionFormatted.value = '';
+    }
+});
+
+onUnmounted(() => {
+    if (placeListener) window.google?.maps?.event?.removeListener(placeListener);
+});
+
 const puedeEnviar = computed(() =>
-    tipoEnvio.value === 'retiro' || (tipoEnvio.value === 'domicilio' && direccionEnvio.value.trim().length > 5)
+    tipoEnvio.value === 'retiro' || (tipoEnvio.value === 'domicilio' && addressSelected.value)
 );
 
 const confirmar = () => {
     if (!puedeEnviar.value || procesando.value) return;
     procesando.value = true;
+
+    let direccion = direccionFormatted.value;
+    if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
+    if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
+
     router.post(route('checkout.store'), {
         tipo_envio:      tipoEnvio.value,
-        direccion_envio: tipoEnvio.value === 'domicilio' ? direccionEnvio.value : null,
+        direccion_envio: tipoEnvio.value === 'domicilio' ? direccion : null,
     }, {
         onError: () => { procesando.value = false; },
     });
@@ -77,16 +142,66 @@ const confirmar = () => {
 
                         <!-- Dirección (solo si domicilio) -->
                         <transition name="fade">
-                            <div v-if="tipoEnvio === 'domicilio'" class="mt-6">
-                                <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
-                                    Dirección de entrega
-                                </label>
-                                <input
-                                    v-model="direccionEnvio"
-                                    type="text"
-                                    placeholder="Ej: Av. Pellegrini 1234, Rosario"
-                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
-                                />
+                            <div v-if="tipoEnvio === 'domicilio'" class="mt-6 space-y-4">
+
+                                <!-- Autocomplete -->
+                                <div>
+                                    <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
+                                        Dirección de entrega
+                                    </label>
+                                    <div class="relative">
+                                        <input
+                                            ref="inputRef"
+                                            v-model="direccionInput"
+                                            type="text"
+                                            placeholder="Buscá tu dirección..."
+                                            autocomplete="off"
+                                            class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
+                                            :class="addressSelected
+                                                ? 'border-green-500/60 focus:border-green-500'
+                                                : 'border-white/10 focus:border-brand-red'"
+                                        />
+                                        <svg
+                                            v-if="addressSelected"
+                                            class="absolute right-3 top-3.5 w-4 h-4 text-green-400 pointer-events-none"
+                                            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
+                                        >
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                        </svg>
+                                    </div>
+                                    <p v-if="!addressSelected && direccionInput.length > 2" class="text-yellow-400/70 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
+                                        Seleccioná una dirección de la lista
+                                    </p>
+                                </div>
+
+                                <!-- Piso y Depto (aparecen después de seleccionar) -->
+                                <transition name="fade">
+                                    <div v-if="addressSelected" class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
+                                                Piso <span class="text-white/20">(opcional)</span>
+                                            </label>
+                                            <input
+                                                v-model="piso"
+                                                type="text"
+                                                placeholder="Ej: 3"
+                                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
+                                            />
+                                        </div>
+                                        <div>
+                                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
+                                                Departamento <span class="text-white/20">(opcional)</span>
+                                            </label>
+                                            <input
+                                                v-model="depto"
+                                                type="text"
+                                                placeholder="Ej: B"
+                                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
+                                            />
+                                        </div>
+                                    </div>
+                                </transition>
+
                             </div>
                         </transition>
                     </div>
@@ -169,4 +284,32 @@ const confirmar = () => {
 <style scoped>
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-6px); }
+</style>
+
+<style>
+/* Estilos del dropdown de Google Places */
+.pac-container {
+    background: #1a1a1a;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    margin-top: 4px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+    font-family: inherit;
+    overflow: hidden;
+}
+.pac-item {
+    color: rgba(255, 255, 255, 0.6);
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 10px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1.4;
+}
+.pac-item:first-child { border-top: none; }
+.pac-item:hover,
+.pac-item-selected { background: rgba(255, 255, 255, 0.06); }
+.pac-item-query { color: #fff; font-weight: 700; }
+.pac-matched { color: #e61919; }
+.pac-icon { display: none; }
+.pac-logo:after { display: none; }
 </style>
