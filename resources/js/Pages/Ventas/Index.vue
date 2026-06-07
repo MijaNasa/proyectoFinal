@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
@@ -11,6 +11,36 @@ const props = defineProps({
     stats: Object,
     filters: Object
 });
+
+const page = usePage();
+const puedeEditarEstado = computed(() =>
+    page.props.auth?.esAdmin || page.props.auth?.esGerente ||
+    page.props.auth?.permisos?.includes('ventas.acceder')
+);
+
+const estadoOpciones = [
+    { value: 'pendiente_pago',     label: 'Pendiente de pago' },
+    { value: 'en_preparacion',     label: 'En preparación' },
+    { value: 'pagado',             label: 'Pagado' },
+    { value: 'listo_para_retirar', label: 'Listo para retirar' },
+    { value: 'enviado',            label: 'Enviado' },
+    { value: 'entregado',          label: 'Entregado' },
+    { value: 'retirado',           label: 'Retirado' },
+    { value: 'cancelado',          label: 'Cancelado' },
+];
+
+const estadoColores = {
+    pendiente_pago:     'bg-yellow-500/20 text-yellow-400',
+    en_preparacion:     'bg-blue-500/20 text-blue-400',
+    pagado:             'bg-green-500/20 text-green-400',
+    listo_para_retirar: 'bg-purple-500/20 text-purple-400',
+    enviado:            'bg-indigo-500/20 text-indigo-400',
+    entregado:          'bg-green-700/20 text-green-600',
+    retirado:           'bg-green-700/20 text-green-600',
+    cancelado:          'bg-red-500/20 text-red-400',
+};
+
+const estadoForm = useForm({ estado: '' });
 
 const search = ref(props.filters.search || '');
 const showPosModal = ref(false);
@@ -151,7 +181,17 @@ const handleSearch = () => {
 
 const viewVenta = (venta) => {
     selectedVenta.value = venta;
+    estadoForm.estado = venta.estado;
     showDetailModal.value = true;
+};
+
+const cambiarEstado = () => {
+    if (estadoForm.estado === selectedVenta.value.estado) return;
+    estadoForm.patch(route('ventas.estado', selectedVenta.value.id), {
+        onSuccess: () => {
+            selectedVenta.value.estado = estadoForm.estado;
+        }
+    });
 };
 </script>
 
@@ -216,6 +256,7 @@ const viewVenta = (venta) => {
                                 <th class="p-6">Fecha / Ticket</th>
                                 <th class="p-6">Cliente / Canal</th>
                                 <th class="p-6">Sucursal</th>
+                                <th class="p-6">Estado</th>
                                 <th class="p-6 text-right">Monto Total</th>
                                 <th class="p-6 text-center">Acciones</th>
                             </tr>
@@ -239,6 +280,11 @@ const viewVenta = (venta) => {
                                 </td>
                                 <td class="p-6">
                                     <span class="text-[10px] font-black uppercase opacity-60">{{ venta.sucursal?.nombre }}</span>
+                                </td>
+                                <td class="p-6">
+                                    <span class="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="estadoColores[venta.estado] || 'bg-white/5 text-white/40'">
+                                        {{ estadoOpciones.find(e => e.value === venta.estado)?.label || venta.estado }}
+                                    </span>
                                 </td>
                                 <td class="p-6 text-right">
                                     <div class="text-sm font-black">{{ formatCurrency(venta.total) }}</div>
@@ -476,7 +522,16 @@ const viewVenta = (venta) => {
                         <div class="text-3xl font-black italic text-white">{{ formatCurrency(selectedVenta.total) }}</div>
                     </div>
 
-                    <div class="mt-8 flex justify-end gap-3">
+                    <div v-if="puedeEditarEstado" class="mt-6 flex items-center gap-3 border-t border-white/5 pt-6">
+                        <select v-model="estadoForm.estado" class="input-field flex-1 text-xs font-black uppercase bg-black/40">
+                            <option v-for="e in estadoOpciones" :key="e.value" :value="e.value">{{ e.label }}</option>
+                        </select>
+                        <button @click="cambiarEstado" :disabled="estadoForm.processing || estadoForm.estado === selectedVenta.estado" class="btn-primary px-6 py-2 text-xs font-black disabled:opacity-40">
+                            GUARDAR
+                        </button>
+                    </div>
+
+                    <div class="mt-4 flex justify-end gap-3">
                         <button type="button" @click="showDetailModal = false" class="btn-primary px-10 relative group">
                             <span class="relative z-10 font-black italic tracking-widest">CERRAR DETALLE</span>
                         </button>

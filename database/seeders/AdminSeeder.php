@@ -77,7 +77,7 @@ class AdminSeeder extends Seeder
 
         $yaEsAdmin = $empleado->cargos()
             ->where('nombre', 'ADMIN')
-            ->wherePivotNull('fecha_hasta')
+            ->whereNull('empleados_cargos.fecha_hasta')
             ->exists();
 
         if (!$yaEsAdmin) {
