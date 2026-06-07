@@ -34,7 +34,7 @@ class HandleInertiaRequests extends Middleware
 
         if ($user) {
             $user->load([
-                'empleado.cargos'          => fn($q) => $q->wherePivotNull('fecha_hasta'),
+                'empleado.cargos'          => fn($q) => $q->whereNull('empleados_cargos.fecha_hasta'),
                 'empleado.cargos.permisos' => fn($q) => $q->where('activo', true),
             ]);
         }

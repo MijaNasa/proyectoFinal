@@ -18,7 +18,7 @@ class EmpleadoController extends Controller
         $query = Empleado::query()->with([
             'user',
             'sucursal',
-            'cargos' => fn($q) => $q->wherePivotNull('fecha_hasta'),
+            'cargos' => fn($q) => $q->whereNull('empleados_cargos.fecha_hasta'),
         ]);
 
         if ($request->has('search')) {
@@ -122,7 +122,7 @@ class EmpleadoController extends Controller
             abort(403, 'Solo un administrador puede asignar el cargo ADMIN.');
         }
 
-        if ($empleado->cargos()->where('cargo_id', $request->cargo_id)->wherePivotNull('fecha_hasta')->exists()) {
+        if ($empleado->cargos()->where('cargo_id', $request->cargo_id)->whereNull('empleados_cargos.fecha_hasta')->exists()) {
             return back()->with('error', 'El empleado ya tiene ese cargo activo.');
         }
 
@@ -145,7 +145,7 @@ class EmpleadoController extends Controller
 
         $empleado->cargos()
             ->wherePivot('cargo_id', $cargo->id)
-            ->wherePivotNull('fecha_hasta')
+            ->whereNull('empleados_cargos.fecha_hasta')
             ->update(['fecha_hasta' => now()->toDateString()]);
 
         return back()->with('message', 'Cargo removido');

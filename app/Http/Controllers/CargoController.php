@@ -12,7 +12,7 @@ class CargoController extends Controller
     public function index()
     {
         $cargos = Cargo::with(['permisos' => fn($q) => $q->where('activo', true)])
-            ->withCount(['empleados as empleados_activos_count' => fn($q) => $q->wherePivotNull('fecha_hasta')])
+            ->withCount(['empleados as empleados_activos_count' => fn($q) => $q->whereNull('empleados_cargos.fecha_hasta')])
             ->orderBy('nombre')
             ->get();
 

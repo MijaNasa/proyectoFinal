@@ -81,7 +81,7 @@ class CargoPermisoSeeder extends Seeder
             ]);
         }
 
-        if (!$empleado->cargos()->where('cargo_id', $admin->id)->wherePivotNull('fecha_hasta')->exists()) {
+        if (!$empleado->cargos()->where('cargo_id', $admin->id)->whereNull('empleados_cargos.fecha_hasta')->exists()) {
             $empleado->cargos()->attach($admin->id, ['fecha_desde' => now()->toDateString()]);
         }
     }
