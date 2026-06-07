@@ -168,12 +168,12 @@ class ReporteController extends Controller
         // Ingresos por mes
         $porMes = (clone $base)
             ->select(
-                DB::raw("SUBSTR(fecha, 1, 7) as mes"),
+                DB::raw("TO_CHAR(fecha, 'YYYY-MM') as mes"),
                 DB::raw('SUM(total) as ingresos'),
                 DB::raw('COUNT(*) as ventas')
             )
-            ->groupBy('mes')
-            ->orderBy('mes')
+            ->groupBy(DB::raw("TO_CHAR(fecha, 'YYYY-MM')"))
+            ->orderBy(DB::raw("TO_CHAR(fecha, 'YYYY-MM')"))
             ->get()
             ->map(fn($r) => ['mes' => $r->mes, 'ingresos' => (float)$r->ingresos, 'ventas' => (int)$r->ventas]);
 
