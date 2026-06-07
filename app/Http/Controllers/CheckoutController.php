@@ -155,6 +155,7 @@ class CheckoutController extends Controller
                 'items'              => $items,
                 'payer'              => ['email' => 'test_user_buyer@testuser.com'],
                 'external_reference' => (string) $venta->id,
+                'notification_url'   => $baseUrl . '/checkout/webhook',
                 'back_urls'          => [
                     'success' => $baseUrl . '/checkout/success',
                     'failure' => $baseUrl . '/checkout/failure',
