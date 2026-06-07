@@ -39,7 +39,8 @@ class ReporteController extends Controller
 
     private function reporteVentas(string $desde, string $hasta, ?string $sucursalId): array
     {
-        $base = Venta::whereBetween('fecha', [$desde, $hasta])
+        $base = Venta::where('fecha', '>=', $desde)
+            ->where('fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay())
             ->whereNotIn('estado', ['cancelado', 'pendiente_pago']);
         if ($sucursalId) $base->where('sucursal_id', $sucursalId);
 
@@ -56,7 +57,8 @@ class ReporteController extends Controller
             ->join('ventas', 'ventas.id', '=', 'venta_detalles.venta_id')
             ->join('libros', 'libros.id', '=', 'venta_detalles.libro_id')
             ->join('libro_masters', 'libro_masters.id', '=', 'libros.master_id')
-            ->whereBetween('ventas.fecha', [$desde, $hasta])
+            ->where('ventas.fecha', '>=', $desde)
+            ->where('ventas.fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay())
             ->when($sucursalId, fn($q) => $q->where('ventas.sucursal_id', $sucursalId))
             ->whereNull('ventas.deleted_at')
             ->whereNotIn('ventas.estado', ['cancelado', 'pendiente_pago'])
@@ -161,7 +163,8 @@ class ReporteController extends Controller
 
     private function reporteBalance(string $desde, string $hasta, ?string $sucursalId): array
     {
-        $base = Venta::whereBetween('fecha', [$desde, $hasta])
+        $base = Venta::where('fecha', '>=', $desde)
+            ->where('fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay())
             ->whereNotIn('estado', ['cancelado', 'pendiente_pago']);
         if ($sucursalId) $base->where('sucursal_id', $sucursalId);
 
