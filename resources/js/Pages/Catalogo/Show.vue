@@ -118,7 +118,7 @@ const agregarAlCarrito = (variante) => {
                                 <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                                     <div class="space-y-1">
                                         <div class="flex items-center gap-2 flex-wrap">
-                                            <span class="text-base font-black text-white uppercase tracking-tighter">{{ variante.editorial?.nombre }}</span>
+                                            <span class="text-base font-black text-white uppercase tracking-tighter">Editorial {{ variante.editorial?.nombre }}</span>
                                             <span class="px-2 py-0.5 bg-white/10 rounded text-[10px] font-black uppercase tracking-widest text-white/40">{{ variante.año_edicion }}</span>
                                             <span v-if="variante.serie" class="px-2 py-0.5 bg-brand-red/20 border border-brand-red/30 rounded text-[10px] font-black uppercase tracking-widest text-brand-red/80">
                                                 {{ variante.serie.nombre }} #{{ variante.numero_tomo }}

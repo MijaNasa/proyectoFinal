@@ -287,4 +287,21 @@ class VentaController extends Controller
         return redirect()->route('ventas.index')
             ->with('message', 'Venta anulada y stock revertido');
     }
+
+    public function updateEstado(Request $request, Venta $venta)
+    {
+        $user = \Auth::user();
+
+        if (!$user->esAdmin() && !$user->esGerente()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'estado' => 'required|in:pendiente_pago,en_preparacion,pagado,listo_para_retirar,enviado,entregado,retirado,cancelado',
+        ]);
+
+        $venta->update(['estado' => $request->estado]);
+
+        return back()->with('message', 'Estado de venta actualizado.');
+    }
 }

@@ -133,7 +133,11 @@ const movimientoColor = (codigo) => {
                                                     <span class="text-[9px] text-white/20 font-mono">#{{ venta.id }}</span>
                                                 </div>
                                                 <div class="text-xs font-bold uppercase leading-tight">
-                                                    {{ venta.cliente?.user?.name ? venta.cliente.user.name + ' ' + (venta.cliente.user.apellido || '') : 'Venta Mostrador' }}
+                                                    {{ venta.cliente?.user?.name
+                                                        ? venta.cliente.user.name + ' ' + (venta.cliente.user.apellido || '')
+                                                        : venta.user?.name
+                                                            ? venta.user.name + ' ' + (venta.user.apellido || '')
+                                                            : venta.tipo === 'online' ? 'Cliente Web' : 'Venta Mostrador' }}
                                                 </div>
                                                 <div class="text-[9px] text-white/30 font-bold">{{ venta.sucursal?.nombre }}</div>
                                             </td>

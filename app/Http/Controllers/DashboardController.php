@@ -37,10 +37,10 @@ class DashboardController extends Controller
             'pedidos_online_pendientes' => (int) Venta::where('tipo', 'online')
                 ->whereIn('estado', ['pendiente_pago', 'en_preparacion'])
                 ->count(),
-            'ultimas_ventas' => Venta::with(['cliente.user:id,name,apellido', 'sucursal:id,nombre'])
+            'ultimas_ventas' => Venta::with(['cliente.user:id,name,apellido', 'user:id,name,apellido', 'sucursal:id,nombre'])
                 ->latest()
                 ->take(6)
-                ->get(['id', 'fecha', 'total', 'estado', 'tipo', 'cliente_id', 'sucursal_id']),
+                ->get(['id', 'fecha', 'total', 'estado', 'tipo', 'cliente_id', 'user_id', 'sucursal_id']),
             'ultimos_movimientos' => MovimientoStock::with([
                     'stock.libro.master:id,titulo',
                     'stock.sucursal:id,nombre',

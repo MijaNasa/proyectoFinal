@@ -92,6 +92,7 @@ Route::middleware('auth')->group(function () {
         Route::get('ventas/search-libros',   [VentaController::class, 'searchLibros'])->name('ventas.search-libros');
         Route::get('ventas/search-clientes', [VentaController::class, 'searchClientes'])->name('ventas.search-clientes');
         Route::resource('ventas', VentaController::class)->except(['create', 'edit', 'update']);
+        Route::patch('ventas/{venta}/estado', [VentaController::class, 'updateEstado'])->name('ventas.estado');
     });
 
     // Gastos
