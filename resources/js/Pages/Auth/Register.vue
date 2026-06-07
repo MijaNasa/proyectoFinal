@@ -55,7 +55,11 @@ const submit = () => {
                     class="mt-1 block w-full"
                     v-model="form.email"
                     required
-                    autocomplete="username"
+                    autocomplete="email"
+                    autocapitalize="none"
+                    autocorrect="off"
+                    spellcheck="false"
+                    @input="form.email = form.email.toLowerCase()"
                 />
 
                 <InputError class="mt-2" :message="form.errors.email" />
