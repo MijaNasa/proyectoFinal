@@ -107,10 +107,7 @@ class CheckoutController extends Controller
                     }
                 }
 
-                $cliente = \App\Models\Cliente::firstOrCreate(
-                    ['user_id' => Auth::id()]
-                );
-                $clienteId = $cliente->id;
+                $clienteId = \App\Models\Cliente::where('user_id', Auth::id())->value('id');
 
                 $venta = Venta::create([
                     'fecha'           => now(),
