@@ -59,7 +59,7 @@ class User extends Authenticatable
         }
 
         return $this->empleado->cargos()
-            ->wherePivotNull('fecha_hasta')
+            ->whereNull('empleados_cargos.fecha_hasta')
             ->where('nombre', 'ADMIN')
             ->exists();
     }
@@ -73,7 +73,7 @@ class User extends Authenticatable
         }
 
         return $this->empleado->cargos()
-            ->wherePivotNull('fecha_hasta')
+            ->whereNull('empleados_cargos.fecha_hasta')
             ->where('nombre', 'GERENTE')
             ->exists();
     }
@@ -91,7 +91,7 @@ class User extends Authenticatable
         }
 
         return $this->empleado->cargos()
-            ->wherePivotNull('fecha_hasta')
+            ->whereNull('empleados_cargos.fecha_hasta')
             ->whereHas('permisos', fn($q) => $q->where('codigo', $codigo)->where('activo', true))
             ->exists();
     }
@@ -115,7 +115,7 @@ class User extends Authenticatable
         }
 
         return $this->empleado->cargos()
-            ->wherePivotNull('fecha_hasta')
+            ->whereNull('empleados_cargos.fecha_hasta')
             ->with(['permisos' => fn($q) => $q->where('activo', true)])
             ->get()
             ->flatMap(fn($cargo) => $cargo->permisos->pluck('codigo'))
