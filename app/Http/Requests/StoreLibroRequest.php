@@ -26,8 +26,10 @@ class StoreLibroRequest extends FormRequest
             'cantidad_paginas' => 'nullable|integer|min:1',
             'synopsis' => 'nullable|string',
             'activo' => 'boolean',
-            'precio_compra' => 'nullable|numeric|min:0',
-            'precio_venta' => 'required|numeric|min:0',
+            'precio_compra'   => 'nullable|numeric|min:0',
+            'precio_venta'    => 'required|numeric|min:0',
+            'stock_inicial'   => 'nullable|array',
+            'stock_inicial.*' => 'integer|min:0',
         ];
     }
 }

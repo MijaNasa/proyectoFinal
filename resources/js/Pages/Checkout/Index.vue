@@ -206,6 +206,11 @@ const confirmar = () => {
                         </transition>
                     </div>
 
+                    <!-- Error flash -->
+                    <div v-if="$page.props.flash?.error" class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm font-bold text-red-400">
+                        {{ $page.props.flash.error }}
+                    </div>
+
                     <!-- Info de contacto -->
                     <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
                         <p class="text-xs font-black uppercase tracking-widest text-white/30 mb-1">

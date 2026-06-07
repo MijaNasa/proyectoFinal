@@ -9,6 +9,7 @@ const props = defineProps({
     masters: Array,
     editoriales: Array,
     idiomas: Array,
+    sucursales: Array,
     filters: Object
 });
 
@@ -37,7 +38,8 @@ const form = useForm({
     synopsis: '',
     activo: true,
     precio_compra: 0,
-    precio_venta: 0
+    precio_venta: 0,
+    stock_inicial: {},
 });
 
 const isEditing = ref(false);
@@ -63,6 +65,9 @@ const openModal = (libro = null) => {
     } else {
         isEditing.value = false;
         form.reset();
+        const stockInit = {};
+        props.sucursales.forEach(s => { stockInit[s.id] = 0; });
+        form.stock_inicial = stockInit;
     }
     showModal.value = true;
 };
@@ -284,6 +289,23 @@ const formatCurrency = (value) => {
                             <div>
                                 <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-2">Precio de Compra (Costo)</label>
                                 <input v-model="form.precio_compra" type="number" step="0.01" class="input-field w-full text-right font-mono" placeholder="0.00">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stock inicial (solo al crear) -->
+                    <div v-if="!isEditing" class="mt-6 p-4 bg-white/[0.03] border border-white/10 rounded-lg">
+                        <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-3">Stock Inicial por Sucursal</label>
+                        <div class="space-y-2">
+                            <div v-for="sucursal in sucursales" :key="sucursal.id" class="flex items-center gap-4">
+                                <span class="text-sm text-white/60 font-bold flex-1">{{ sucursal.nombre }}</span>
+                                <input
+                                    v-model.number="form.stock_inicial[sucursal.id]"
+                                    type="number"
+                                    min="0"
+                                    class="input-field w-28 text-right font-mono"
+                                    placeholder="0"
+                                />
                             </div>
                         </div>
                     </div>

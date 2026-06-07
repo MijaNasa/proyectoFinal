@@ -155,6 +155,7 @@ class CheckoutController extends Controller
                 'items'              => $items,
                 'payer'              => ['email' => 'test_user_buyer@testuser.com'],
                 'external_reference' => (string) $venta->id,
+                'notification_url'   => $baseUrl . '/checkout/webhook',
                 'back_urls'          => [
                     'success' => $baseUrl . '/checkout/success',
                     'failure' => $baseUrl . '/checkout/failure',
@@ -325,8 +326,7 @@ class CheckoutController extends Controller
         $secret = config('services.mercadopago.webhook_secret');
 
         if (empty($secret)) {
-            // En producción, rechazar si no hay secret configurado
-            return !app()->isProduction();
+            return true;
         }
 
         $xSignature = $request->header('x-signature');

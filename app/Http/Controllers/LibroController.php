@@ -20,11 +20,12 @@ class LibroController extends Controller
             ->get();
 
         return inertia('Libros/Index', [
-            'libros' => $libros,
-            'masters' => \App\Models\LibroMaster::orderBy('titulo')->get(['id', 'titulo']),
+            'libros'      => $libros,
+            'masters'     => \App\Models\LibroMaster::orderBy('titulo')->get(['id', 'titulo']),
             'editoriales' => \App\Models\Editorial::orderBy('nombre')->get(['id', 'nombre']),
-            'idiomas' => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
-            'filters' => $request->only(['search'])
+            'idiomas'     => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
+            'sucursales'  => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'filters'     => $request->only(['search']),
         ]);
     }
 
@@ -38,10 +39,22 @@ class LibroController extends Controller
 
             $libro->precios()->create([
                 'precio_compra' => $request->precio_compra,
-                'precio_venta' => $request->precio_venta,
-                'fecha_desde' => now(),
-                'activo' => true,
+                'precio_venta'  => $request->precio_venta,
+                'fecha_desde'   => now(),
+                'activo'        => true,
             ]);
+
+            foreach ($request->stock_inicial ?? [] as $sucursalId => $cantidad) {
+                if ($cantidad > 0) {
+                    \App\Models\Stock::create([
+                        'libro_id'            => $libro->id,
+                        'sucursal_id'         => $sucursalId,
+                        'cantidad_disponible' => $cantidad,
+                        'cantidad_reservada'  => 0,
+                        'activo'              => true,
+                    ]);
+                }
+            }
         });
 
         return redirect()->route('libros.index')

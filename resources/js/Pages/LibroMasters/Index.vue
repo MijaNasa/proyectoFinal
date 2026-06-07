@@ -239,8 +239,9 @@ const deleteLibroMaster = (id) => {
                             </div>
                             <div class="flex-1">
                                 <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Imagen de Portada</label>
-                                <input type="file" @change="onFileChange" class="w-full text-sm text-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-black file:bg-brand-red file:text-white hover:file:bg-brand-red/80 cursor-pointer">
-                                <p class="text-[10px] text-white/30 mt-2 uppercase tracking-tighter">Recomendado: 400x600px (JPG/PNG)</p>
+                                <input type="file" @change="onFileChange" accept=".jpg,.jpeg,.png,.gif,.webp" class="w-full text-sm text-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-black file:bg-brand-red file:text-white hover:file:bg-brand-red/80 cursor-pointer">
+                                <p class="text-[10px] text-white/30 mt-2 uppercase tracking-tighter">Recomendado: 400x600px · Formatos: JPG, PNG, GIF, WEBP · Máx: 2MB</p>
+                                <p v-if="form.errors.portada" class="text-brand-red text-[11px] font-bold mt-1">{{ form.errors.portada }}</p>
                             </div>
                         </div>
                         <div class="grid grid-cols-2 gap-4">

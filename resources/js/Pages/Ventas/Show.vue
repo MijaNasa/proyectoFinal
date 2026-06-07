@@ -1,9 +1,31 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
+import { ref } from 'vue';
 
 const props = defineProps({
     venta: Object,
 });
+
+const page = usePage();
+const puedeEditarEstado = page.props.auth?.permisos?.includes('ventas.acceder') || page.props.auth?.esAdmin || page.props.auth?.esGerente;
+
+const estados = [
+    { value: 'pendiente_pago',     label: 'Pendiente de pago' },
+    { value: 'en_preparacion',     label: 'En preparación' },
+    { value: 'pagado',             label: 'Pagado' },
+    { value: 'listo_para_retirar', label: 'Listo para retirar' },
+    { value: 'enviado',            label: 'Enviado' },
+    { value: 'entregado',          label: 'Entregado' },
+    { value: 'retirado',           label: 'Retirado' },
+    { value: 'cancelado',          label: 'Cancelado' },
+];
+
+const estadoForm = useForm({ estado: props.venta.estado });
+
+const cambiarEstado = () => {
+    if (estadoForm.estado === props.venta.estado) return;
+    estadoForm.patch(route('ventas.estado', props.venta.id));
+};
 
 const fmt = (n) => new Intl.NumberFormat('es-AR', {
     style: 'currency', currency: 'ARS', maximumFractionDigits: 2
@@ -34,13 +56,32 @@ const print = () => window.print();
             </svg>
             Volver
         </Link>
-        <button @click="print"
-            class="flex items-center gap-2 bg-[#e61919] hover:bg-red-700 text-white text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-colors">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-            </svg>
-            Imprimir
-        </button>
+        <div class="flex items-center gap-3">
+            <!-- Cambiar estado (solo admin/gerente) -->
+            <div v-if="puedeEditarEstado" class="flex items-center gap-2">
+                <select
+                    v-model="estadoForm.estado"
+                    class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-white/30 transition-colors"
+                >
+                    <option v-for="e in estados" :key="e.value" :value="e.value">{{ e.label }}</option>
+                </select>
+                <button
+                    @click="cambiarEstado"
+                    :disabled="estadoForm.estado === venta.estado || estadoForm.processing"
+                    class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                >
+                    Guardar
+                </button>
+            </div>
+
+            <button @click="print"
+                class="flex items-center gap-2 bg-[#e61919] hover:bg-red-700 text-white text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                </svg>
+                Imprimir
+            </button>
+        </div>
     </div>
 
     <!-- Comprobante -->
