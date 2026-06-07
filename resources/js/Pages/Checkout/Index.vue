@@ -23,36 +23,41 @@ let placeListener = null;
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
 
-const loadGoogleMaps = () => new Promise((resolve) => {
+const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+const usaMaps  = !!MAPS_KEY;
+
+const loadGoogleMaps = () => new Promise((resolve, reject) => {
     if (window.google?.maps?.places) { resolve(); return; }
     const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places`;
     s.async = true;
-    s.onload = resolve;
+    s.onload  = resolve;
+    s.onerror = reject;
     document.head.appendChild(s);
 });
 
 const initAutocomplete = async () => {
-    await loadGoogleMaps();
-    if (!inputRef.value) return;
-
-    if (autocomplete && placeListener) {
-        window.google.maps.event.removeListener(placeListener);
-    }
-
-    autocomplete = new window.google.maps.places.Autocomplete(inputRef.value, {
-        types: ['address'],
-        componentRestrictions: { country: 'ar' },
-    });
-
-    placeListener = autocomplete.addListener('place_changed', () => {
-        const place = autocomplete.getPlace();
-        if (place?.formatted_address) {
-            direccionFormatted.value = place.formatted_address;
-            direccionInput.value     = place.formatted_address;
-            addressSelected.value    = true;
+    if (!usaMaps || !inputRef.value) return;
+    try {
+        await loadGoogleMaps();
+        if (autocomplete && placeListener) {
+            window.google.maps.event.removeListener(placeListener);
         }
-    });
+        autocomplete = new window.google.maps.places.Autocomplete(inputRef.value, {
+            types: ['address'],
+            componentRestrictions: { country: 'ar' },
+        });
+        placeListener = autocomplete.addListener('place_changed', () => {
+            const place = autocomplete.getPlace();
+            if (place?.formatted_address) {
+                direccionFormatted.value = place.formatted_address;
+                direccionInput.value     = place.formatted_address;
+                addressSelected.value    = true;
+            }
+        });
+    } catch {
+        // Si falla la carga de Maps, el input sigue funcionando como texto libre
+    }
 };
 
 watch(tipoEnvio, (val) => {
@@ -61,11 +66,15 @@ watch(tipoEnvio, (val) => {
     addressSelected.value    = false;
     piso.value  = '';
     depto.value = '';
-    if (val === 'domicilio') nextTick(initAutocomplete);
+    if (val === 'domicilio' && usaMaps) nextTick(initAutocomplete);
 });
 
 watch(direccionInput, (val) => {
-    if (addressSelected.value && val !== direccionFormatted.value) {
+    if (!usaMaps) {
+        // Sin Maps: la dirección es válida si tiene más de 5 caracteres
+        addressSelected.value    = val.trim().length > 5;
+        direccionFormatted.value = val;
+    } else if (addressSelected.value && val !== direccionFormatted.value) {
         addressSelected.value    = false;
         direccionFormatted.value = '';
     }
@@ -154,8 +163,8 @@ const confirmar = () => {
                                             ref="inputRef"
                                             v-model="direccionInput"
                                             type="text"
-                                            placeholder="Buscá tu dirección..."
-                                            autocomplete="off"
+                                            :placeholder="usaMaps ? 'Buscá tu dirección...' : 'Ej: Av. Pellegrini 1234, Rosario'"
+                                            :autocomplete="usaMaps ? 'off' : 'street-address'"
                                             class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
                                             :class="addressSelected
                                                 ? 'border-green-500/60 focus:border-green-500'
@@ -169,7 +178,7 @@ const confirmar = () => {
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                                         </svg>
                                     </div>
-                                    <p v-if="!addressSelected && direccionInput.length > 2" class="text-yellow-400/70 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
+                                    <p v-if="usaMaps && !addressSelected && direccionInput.length > 2" class="text-yellow-400/70 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
                                         Seleccioná una dirección de la lista
                                     </p>
                                 </div>
