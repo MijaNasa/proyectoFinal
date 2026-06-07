@@ -108,8 +108,7 @@ class CheckoutController extends Controller
                 }
 
                 $cliente = \App\Models\Cliente::firstOrCreate(
-                    ['user_id' => Auth::id()],
-                    ['activo'  => true]
+                    ['user_id' => Auth::id()]
                 );
                 $clienteId = $cliente->id;
 
