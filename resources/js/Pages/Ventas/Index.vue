@@ -19,15 +19,20 @@ const puedeEditarEstado = computed(() =>
 );
 
 const estadoOpciones = [
-    { value: 'pendiente_pago',     label: 'Pendiente de pago' },
-    { value: 'en_preparacion',     label: 'En preparación' },
-    { value: 'pagado',             label: 'Pagado' },
-    { value: 'listo_para_retirar', label: 'Listo para retirar' },
-    { value: 'enviado',            label: 'Enviado' },
-    { value: 'entregado',          label: 'Entregado' },
-    { value: 'retirado',           label: 'Retirado' },
-    { value: 'cancelado',          label: 'Cancelado' },
+    { value: 'pendiente_pago',     label: 'Pendiente de pago',  tipos: ['online'] },
+    { value: 'en_preparacion',     label: 'En preparación',     tipos: ['online'] },
+    { value: 'listo_para_retirar', label: 'Listo para retirar', tipos: ['online'] },
+    { value: 'enviado',            label: 'Enviado',            tipos: ['online'] },
+    { value: 'entregado',          label: 'Entregado',          tipos: ['online'] },
+    { value: 'retirado',           label: 'Retirado',           tipos: ['online'] },
+    { value: 'pagado',             label: 'Pagado',             tipos: ['presencial'] },
+    { value: 'cancelado',          label: 'Cancelado',          tipos: ['online', 'presencial'] },
 ];
+
+const estadoOpcionesFiltradas = computed(() => {
+    if (!selectedVenta.value) return estadoOpciones;
+    return estadoOpciones.filter(e => e.tipos.includes(selectedVenta.value.tipo));
+});
 
 const estadoColores = {
     pendiente_pago:     'bg-yellow-500/20 text-yellow-400',
@@ -524,7 +529,7 @@ const cambiarEstado = () => {
 
                     <div v-if="puedeEditarEstado" class="mt-6 flex items-center gap-3 border-t border-white/5 pt-6">
                         <select v-model="estadoForm.estado" class="input-field flex-1 text-xs font-black uppercase bg-black/40">
-                            <option v-for="e in estadoOpciones" :key="e.value" :value="e.value">{{ e.label }}</option>
+                            <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
                         </select>
                         <button @click="cambiarEstado" :disabled="estadoForm.processing || estadoForm.estado === selectedVenta.estado" class="btn-primary px-6 py-2 text-xs font-black disabled:opacity-40">
                             GUARDAR
