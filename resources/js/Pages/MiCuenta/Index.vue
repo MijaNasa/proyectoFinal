@@ -1,10 +1,12 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import { ref } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     pedidos: Object,
+    usuario: Object,
 });
 
 const formatPrecio = (valor) =>
@@ -12,6 +14,22 @@ const formatPrecio = (valor) =>
 
 const formatFecha = (fecha) =>
     new Date(fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+
+const showCurrentPassword = ref(false);
+const showNewPassword     = ref(false);
+const showConfirmPassword = ref(false);
+
+const passwordForm = useForm({
+    current_password:      '',
+    password:              '',
+    password_confirmation: '',
+});
+
+const submitPassword = () => {
+    passwordForm.put(route('mi-cuenta.password'), {
+        onSuccess: () => passwordForm.reset(),
+    });
+};
 
 const estadoConfig = {
     pendiente_pago:     { label: 'Pendiente de pago',  color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
@@ -25,82 +43,199 @@ const estadoConfig = {
 </script>
 
 <template>
-    <Head title="Mis Pedidos" />
+    <Head title="Mi Cuenta" />
 
     <PublicLayout>
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-            <h1 class="text-5xl font-black uppercase tracking-tighter mb-12">
-                Mis <span class="text-brand-red italic">Pedidos</span>
-            </h1>
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
 
-            <!-- Sin pedidos -->
-            <div v-if="!pedidos.data.length" class="py-32 text-center">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto text-white/10 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-                <h3 class="text-xl font-black uppercase tracking-widest text-white/20 mb-3">Todavía no hiciste ningún pedido</h3>
-                <p class="text-white/20 text-sm mb-8">Explorá el catálogo y hacé tu primera compra.</p>
-                <a :href="route('catalogo.index')" class="btn-primary py-3 px-8 rounded-full text-sm font-black uppercase tracking-widest">
-                    Ver Catálogo
-                </a>
-            </div>
+            <!-- Sección: Mi Cuenta -->
+            <div>
+                <h1 class="text-5xl font-black uppercase tracking-tighter mb-8">
+                    Mi <span class="text-brand-red italic">Cuenta</span>
+                </h1>
 
-            <!-- Lista de pedidos -->
-            <div v-else class="space-y-6">
-                <div
-                    v-for="pedido in pedidos.data"
-                    :key="pedido.id"
-                    class="bg-white/[0.03] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all"
-                >
-                    <!-- Header del pedido -->
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                        <div>
-                            <div class="flex items-center gap-3 mb-1">
-                                <span class="font-black text-lg"># {{ pedido.id }}</span>
-                                <span
-                                    class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border"
-                                    :class="estadoConfig[pedido.estado]?.color ?? 'text-white/40 bg-white/5 border-white/10'"
-                                >
-                                    {{ estadoConfig[pedido.estado]?.label ?? pedido.estado }}
-                                </span>
-                            </div>
-                            <p class="text-white/40 text-xs font-bold uppercase tracking-widest">
-                                {{ formatFecha(pedido.fecha) }}
-                                · {{ pedido.tipo_envio === 'retiro' ? 'Retiro en sucursal' : 'Envío a domicilio' }}
-                            </p>
+                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
+                    <div class="flex items-center gap-6 mb-8">
+                        <!-- Avatar inicial -->
+                        <div class="w-16 h-16 rounded-full bg-brand-red/20 border border-brand-red/30 flex items-center justify-center flex-shrink-0">
+                            <span class="text-2xl font-black text-brand-red uppercase">
+                                {{ usuario.name?.charAt(0) }}
+                            </span>
                         </div>
-                        <div class="text-right">
-                            <p class="text-2xl font-black text-brand-red italic">{{ formatPrecio(pedido.total) }}</p>
+                        <div>
+                            <p class="text-xl font-black text-white">{{ usuario.name }} {{ usuario.apellido }}</p>
+                            <p class="text-white/40 text-sm">Cliente desde {{ formatFecha(usuario.created_at) }}</p>
                         </div>
                     </div>
 
-                    <!-- Items del pedido -->
-                    <div class="space-y-2 border-t border-white/5 pt-4">
-                        <div
-                            v-for="(item, i) in pedido.items"
-                            :key="i"
-                            class="flex justify-between text-sm"
-                        >
-                            <span class="text-white/60">
-                                {{ item.titulo }}
-                                <span class="text-white/30 text-xs">x{{ item.cantidad }}</span>
-                            </span>
-                            <span class="font-black text-white/80">{{ formatPrecio(item.subtotal) }}</span>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Nombre</p>
+                            <p class="text-sm font-bold text-white">{{ usuario.name }} {{ usuario.apellido }}</p>
+                        </div>
+                        <div class="bg-white/[0.03] border border-white/5 rounded-xl p-4">
+                            <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Email</p>
+                            <p class="text-sm font-bold text-white">{{ usuario.email }}</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Paginación -->
-            <div v-if="pedidos.links?.length > 3" class="mt-10 flex justify-center gap-2">
-                <Link
-                    v-for="link in pedidos.links"
-                    :key="link.label"
-                    :href="link.url || '#'"
-                    class="px-4 py-2 rounded-lg border border-white/10 text-sm font-black uppercase tracking-tighter transition-all"
-                    :class="{ 'bg-brand-red text-white border-brand-red': link.active, 'text-white/30 pointer-events-none': !link.url }"
-                >{{ decodeLabel(link.label) }}</Link>
+            <!-- Sección: Cambiar Contraseña -->
+            <div>
+                <h2 class="text-3xl font-black uppercase tracking-tighter mb-8">
+                    Cambiar <span class="text-brand-red italic">Contraseña</span>
+                </h2>
+
+                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
+                    <div v-if="$page.props.flash?.success" class="mb-6 px-4 py-3 rounded-xl bg-green-400/10 border border-green-400/20 text-green-400 text-sm font-bold">
+                        {{ $page.props.flash.message }}
+                    </div>
+
+                    <form @submit.prevent="submitPassword" class="space-y-4 max-w-md">
+                        <!-- Contraseña actual -->
+                        <div>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">Contraseña actual</label>
+                            <div class="relative">
+                                <input
+                                    v-model="passwordForm.current_password"
+                                    :type="showCurrentPassword ? 'text' : 'password'"
+                                    class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
+                                    :class="passwordForm.errors.current_password ? 'border-red-500' : 'border-white/10 focus:border-brand-red'"
+                                />
+                                <button type="button" @click="showCurrentPassword = !showCurrentPassword" class="absolute right-3 top-3.5 text-white/30 hover:text-white transition-colors">
+                                    <svg v-if="!showCurrentPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                                </button>
+                            </div>
+                            <p v-if="passwordForm.errors.current_password" class="text-red-400 text-xs mt-1">{{ passwordForm.errors.current_password }}</p>
+                        </div>
+
+                        <!-- Nueva contraseña -->
+                        <div>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">Nueva contraseña</label>
+                            <div class="relative">
+                                <input
+                                    v-model="passwordForm.password"
+                                    :type="showNewPassword ? 'text' : 'password'"
+                                    class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
+                                    :class="passwordForm.errors.password ? 'border-red-500' : 'border-white/10 focus:border-brand-red'"
+                                />
+                                <button type="button" @click="showNewPassword = !showNewPassword" class="absolute right-3 top-3.5 text-white/30 hover:text-white transition-colors">
+                                    <svg v-if="!showNewPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                                </button>
+                            </div>
+                            <p v-if="passwordForm.errors.password" class="text-red-400 text-xs mt-1">{{ passwordForm.errors.password }}</p>
+                        </div>
+
+                        <!-- Confirmar nueva contraseña -->
+                        <div>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">Confirmar nueva contraseña</label>
+                            <div class="relative">
+                                <input
+                                    v-model="passwordForm.password_confirmation"
+                                    :type="showConfirmPassword ? 'text' : 'password'"
+                                    class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
+                                    :class="passwordForm.errors.password_confirmation ? 'border-red-500' : 'border-white/10 focus:border-brand-red'"
+                                />
+                                <button type="button" @click="showConfirmPassword = !showConfirmPassword" class="absolute right-3 top-3.5 text-white/30 hover:text-white transition-colors">
+                                    <svg v-if="!showConfirmPassword" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                    <svg v-else class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                                </button>
+                            </div>
+                            <p v-if="passwordForm.errors.password_confirmation" class="text-red-400 text-xs mt-1">{{ passwordForm.errors.password_confirmation }}</p>
+                        </div>
+
+                        <div class="pt-2">
+                            <button
+                                type="submit"
+                                :disabled="passwordForm.processing"
+                                class="btn-primary px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                {{ passwordForm.processing ? 'Guardando...' : 'Cambiar contraseña' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
+
+            <!-- Sección: Mis Pedidos -->
+            <div>
+                <h2 class="text-3xl font-black uppercase tracking-tighter mb-8">
+                    Mis <span class="text-brand-red italic">Pedidos</span>
+                </h2>
+
+                <!-- Sin pedidos -->
+                <div v-if="!pedidos.data.length" class="py-24 text-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto text-white/10 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    <h3 class="text-xl font-black uppercase tracking-widest text-white/20 mb-3">Todavía no hiciste ningún pedido</h3>
+                    <p class="text-white/20 text-sm mb-8">Explorá el catálogo y hacé tu primera compra.</p>
+                    <a :href="route('catalogo.index')" class="btn-primary py-3 px-8 rounded-full text-sm font-black uppercase tracking-widest">
+                        Ver Catálogo
+                    </a>
+                </div>
+
+                <!-- Lista de pedidos -->
+                <div v-else class="space-y-6">
+                    <div
+                        v-for="pedido in pedidos.data"
+                        :key="pedido.id"
+                        class="bg-white/[0.03] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all"
+                    >
+                        <!-- Header del pedido -->
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                            <div>
+                                <div class="flex items-center gap-3 mb-1">
+                                    <span class="font-black text-lg"># {{ pedido.id }}</span>
+                                    <span
+                                        class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border"
+                                        :class="estadoConfig[pedido.estado]?.color ?? 'text-white/40 bg-white/5 border-white/10'"
+                                    >
+                                        {{ estadoConfig[pedido.estado]?.label ?? pedido.estado }}
+                                    </span>
+                                </div>
+                                <p class="text-white/40 text-xs font-bold uppercase tracking-widest">
+                                    {{ formatFecha(pedido.fecha) }}
+                                    · {{ pedido.tipo_envio === 'retiro' ? 'Retiro en sucursal' : 'Envío a domicilio' }}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-2xl font-black text-brand-red italic">{{ formatPrecio(pedido.total) }}</p>
+                            </div>
+                        </div>
+
+                        <!-- Items del pedido -->
+                        <div class="space-y-2 border-t border-white/5 pt-4">
+                            <div
+                                v-for="(item, i) in pedido.items"
+                                :key="i"
+                                class="flex justify-between text-sm"
+                            >
+                                <span class="text-white/60">
+                                    {{ item.titulo }}
+                                    <span class="text-white/30 text-xs">x{{ item.cantidad }}</span>
+                                </span>
+                                <span class="font-black text-white/80">{{ formatPrecio(item.subtotal) }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paginación -->
+                <div v-if="pedidos.links?.length > 3" class="mt-10 flex justify-center gap-2">
+                    <Link
+                        v-for="link in pedidos.links"
+                        :key="link.label"
+                        :href="link.url || '#'"
+                        class="px-4 py-2 rounded-lg border border-white/10 text-sm font-black uppercase tracking-tighter transition-all"
+                        :class="{ 'bg-brand-red text-white border-brand-red': link.active, 'text-white/30 pointer-events-none': !link.url }"
+                    >{{ decodeLabel(link.label) }}</Link>
+                </div>
+            </div>
+
         </div>
     </PublicLayout>
 </template>

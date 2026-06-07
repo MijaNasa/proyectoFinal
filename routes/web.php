@@ -52,6 +52,7 @@ Route::post('/checkout/webhook', [CheckoutController::class, 'webhook'])->name('
 // Mi Cuenta (requiere login)
 Route::middleware('auth')->group(function () {
     Route::get('/mi-cuenta', [MiCuentaController::class, 'index'])->name('mi-cuenta.index');
+    Route::put('/mi-cuenta/password', [MiCuentaController::class, 'updatePassword'])->name('mi-cuenta.password');
 });
 
 Route::get('/', function () {
