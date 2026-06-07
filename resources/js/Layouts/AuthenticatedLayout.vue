@@ -166,6 +166,17 @@ const toggleGroup = (group) => {
                         <DropdownLink :href="route('cargos.index')" :active="route().current('cargos.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Cargos y Accesos</DropdownLink>
                     </div>
                 </div>
+                <!-- Ver Catálogo (visible para todos) -->
+                <a
+                    :href="route('catalogo.index')"
+                    target="_blank"
+                    class="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-white/30 hover:text-white hover:bg-white/5 transition-all mt-2"
+                >
+                    <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                    </svg>
+                    <span class="text-[10px] font-black uppercase tracking-widest">Ver Catálogo</span>
+                </a>
             </div>
 
             <!-- User Area -->

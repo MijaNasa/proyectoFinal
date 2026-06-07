@@ -98,11 +98,23 @@ const getStockStatus = (libro) => {
 const stockLabel = { disponible: 'Disponible', pocos: 'Quedan pocos', sin_stock: 'Sin stock' };
 const stockClass = { disponible: 'text-green-400', pocos: 'text-yellow-400', sin_stock: 'text-red-400' };
 
+const fmt = (v) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v);
+
 const getPrecio = (libro) => {
-    const precio = libro.libros?.[0]?.precio_actual?.precio_venta;
-    if (!precio) return 'Consultar';
-    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio);
+    const precios = libro.libros
+        ?.map(l => l.precio_actual?.precio_venta)
+        .filter(p => p != null)
+        .map(Number);
+    if (!precios?.length) return 'Consultar';
+    const min = Math.min(...precios);
+    const max = Math.max(...precios);
+    return min === max ? fmt(min) : `Desde ${fmt(min)}`;
 };
+
+const getIdiomas = (libro) =>
+    [...new Set(libro.libros?.map(l => l.idioma?.nombre).filter(Boolean) ?? [])];
+
+const tieneVariasEdiciones = (libro) => (libro.libros?.length ?? 0) > 1;
 </script>
 
 <template>
@@ -262,11 +274,18 @@ const getPrecio = (libro) => {
                             </div>
                             <div class="mt-3 space-y-1">
                                 <h3 class="font-black uppercase tracking-tighter text-sm leading-tight group-hover:text-brand-red transition-colors line-clamp-2">{{ libro.titulo }}</h3>
-                                <div class="flex flex-col gap-0.5">
+                                <div class="flex flex-col gap-1">
                                     <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 line-clamp-1">{{ libro.autor ? libro.autor.apellido + ', ' + libro.autor.nombre : 'Autor Desconocido' }}</span>
                                     <div class="flex items-center justify-between">
                                         <span class="text-base font-black text-brand-red italic">{{ getPrecio(libro) }}</span>
                                         <span :class="['text-[8px] font-black uppercase tracking-widest', stockClass[getStockStatus(libro)]]">{{ stockLabel[getStockStatus(libro)] }}</span>
+                                    </div>
+                                    <div v-if="tieneVariasEdiciones(libro)" class="flex gap-1 flex-wrap">
+                                        <span
+                                            v-for="idioma in getIdiomas(libro)"
+                                            :key="idioma"
+                                            class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-white/40"
+                                        >{{ idioma }}</span>
                                     </div>
                                 </div>
                             </div>
