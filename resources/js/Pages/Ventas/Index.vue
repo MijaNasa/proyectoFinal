@@ -194,7 +194,8 @@ const cambiarEstado = () => {
     if (estadoForm.estado === selectedVenta.value.estado) return;
     estadoForm.patch(route('ventas.estado', selectedVenta.value.id), {
         onSuccess: () => {
-            selectedVenta.value.estado = estadoForm.estado;
+            showDetailModal.value = false;
+            router.reload({ preserveScroll: true });
         }
     });
 };

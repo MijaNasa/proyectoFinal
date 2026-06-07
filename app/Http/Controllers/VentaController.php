@@ -27,7 +27,7 @@ class VentaController extends Controller
 
         $hoy      = now();
         $statsHoy = Venta::whereBetween('fecha', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])
-            ->whereNotIn('estado', ['cancelado', 'pendiente_pago'])
+            ->where('estado', '!=', 'cancelado')
             ->selectRaw('COUNT(*) as cantidad, COALESCE(SUM(total),0) as recaudacion, COALESCE(AVG(total),0) as promedio')
             ->first();
 
