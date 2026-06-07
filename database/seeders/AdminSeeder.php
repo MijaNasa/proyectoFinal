@@ -7,11 +7,14 @@ use App\Models\Sucursal;
 use App\Models\User;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
+use Database\Seeders\TipoClienteSeeder;
 
 class AdminSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(TipoClienteSeeder::class);
+
         DB::transaction(function () {
             $pais = \App\Models\Pais::firstOrCreate(
                 ['codigo' => 'AR'],
