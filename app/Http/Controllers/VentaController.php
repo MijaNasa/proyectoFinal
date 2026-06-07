@@ -290,12 +290,6 @@ class VentaController extends Controller
 
     public function updateEstado(Request $request, Venta $venta)
     {
-        $user = \Auth::user();
-
-        if (!$user->esAdmin() && !$user->esGerente()) {
-            abort(403);
-        }
-
         $request->validate([
             'estado' => 'required|in:pendiente_pago,en_preparacion,pagado,listo_para_retirar,enviado,entregado,retirado,cancelado',
         ]);

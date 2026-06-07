@@ -7,7 +7,7 @@ const props = defineProps({
 });
 
 const page = usePage();
-const puedeEditarEstado = page.props.auth?.esAdmin || page.props.auth?.esGerente;
+const puedeEditarEstado = page.props.auth?.permisos?.includes('ventas.acceder') || page.props.auth?.esAdmin || page.props.auth?.esGerente;
 
 const estados = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago' },
