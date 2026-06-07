@@ -1,6 +1,6 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -8,6 +8,8 @@ const props = defineProps({
     pedidos: Object,
     usuario: Object,
 });
+
+const tab = ref('perfil');
 
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
@@ -31,6 +33,10 @@ const submitPassword = () => {
     });
 };
 
+const cerrarSesion = () => {
+    router.post(route('logout'));
+};
+
 const estadoConfig = {
     pendiente_pago:     { label: 'Pendiente de pago',  color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
     en_preparacion:     { label: 'En preparación',     color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
@@ -46,28 +52,58 @@ const estadoConfig = {
     <Head title="Mi Cuenta" />
 
     <PublicLayout>
-        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-16">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
 
-            <!-- Sección: Mi Cuenta -->
-            <div>
-                <h1 class="text-5xl font-black uppercase tracking-tighter mb-8">
-                    Mi <span class="text-brand-red italic">Cuenta</span>
-                </h1>
+            <!-- Header -->
+            <div class="flex items-center gap-5 mb-10">
+                <div class="w-14 h-14 rounded-full bg-brand-red/20 border border-brand-red/30 flex items-center justify-center flex-shrink-0">
+                    <span class="text-xl font-black text-brand-red uppercase">{{ usuario.name?.charAt(0) }}</span>
+                </div>
+                <div>
+                    <h1 class="text-3xl font-black uppercase tracking-tighter">
+                        {{ usuario.name }} {{ usuario.apellido }}
+                    </h1>
+                    <p class="text-white/30 text-xs font-bold uppercase tracking-widest">Cliente desde {{ formatFecha(usuario.created_at) }}</p>
+                </div>
+            </div>
 
+            <!-- Tabs -->
+            <div class="flex items-center gap-2 mb-10 border-b border-white/10 pb-0">
+                <button
+                    @click="tab = 'perfil'"
+                    class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-colors -mb-px"
+                    :class="tab === 'perfil' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                >
+                    Mi Perfil
+                </button>
+                <button
+                    @click="tab = 'pedidos'"
+                    class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-colors -mb-px flex items-center gap-2"
+                    :class="tab === 'pedidos' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                >
+                    Mis Pedidos
+                    <span v-if="pedidos.total" class="text-[10px] bg-brand-red/20 text-brand-red px-1.5 py-0.5 rounded-full font-black">
+                        {{ pedidos.total }}
+                    </span>
+                </button>
+                <div class="flex-1" />
+                <button
+                    @click="cerrarSesion"
+                    class="px-5 py-3 text-xs font-black uppercase tracking-widest text-white/30 hover:text-red-400 transition-colors flex items-center gap-2"
+                >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                    </svg>
+                    Cerrar sesión
+                </button>
+            </div>
+
+            <!-- Tab: Mi Perfil -->
+            <div v-if="tab === 'perfil'" class="space-y-8">
+
+                <!-- Info -->
                 <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
-                    <div class="flex items-center gap-6 mb-8">
-                        <!-- Avatar inicial -->
-                        <div class="w-16 h-16 rounded-full bg-brand-red/20 border border-brand-red/30 flex items-center justify-center flex-shrink-0">
-                            <span class="text-2xl font-black text-brand-red uppercase">
-                                {{ usuario.name?.charAt(0) }}
-                            </span>
-                        </div>
-                        <div>
-                            <p class="text-xl font-black text-white">{{ usuario.name }} {{ usuario.apellido }}</p>
-                            <p class="text-white/40 text-sm">Cliente desde {{ formatFecha(usuario.created_at) }}</p>
-                        </div>
-                    </div>
-
+                    <h2 class="text-xs font-black uppercase tracking-widest text-white/30 mb-5">Información de la cuenta</h2>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div class="bg-white/[0.03] border border-white/5 rounded-xl p-4">
                             <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Nombre</p>
@@ -79,21 +115,16 @@ const estadoConfig = {
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Sección: Cambiar Contraseña -->
-            <div>
-                <h2 class="text-3xl font-black uppercase tracking-tighter mb-8">
-                    Cambiar <span class="text-brand-red italic">Contraseña</span>
-                </h2>
-
+                <!-- Cambiar contraseña -->
                 <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
+                    <h2 class="text-xs font-black uppercase tracking-widest text-white/30 mb-5">Cambiar contraseña</h2>
+
                     <div v-if="$page.props.flash?.success" class="mb-6 px-4 py-3 rounded-xl bg-green-400/10 border border-green-400/20 text-green-400 text-sm font-bold">
-                        {{ $page.props.flash.message }}
+                        {{ $page.props.flash.success }}
                     </div>
 
                     <form @submit.prevent="submitPassword" class="space-y-4 max-w-md">
-                        <!-- Contraseña actual -->
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">Contraseña actual</label>
                             <div class="relative">
@@ -111,7 +142,6 @@ const estadoConfig = {
                             <p v-if="passwordForm.errors.current_password" class="text-red-400 text-xs mt-1">{{ passwordForm.errors.current_password }}</p>
                         </div>
 
-                        <!-- Nueva contraseña -->
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">Nueva contraseña</label>
                             <div class="relative">
@@ -129,7 +159,6 @@ const estadoConfig = {
                             <p v-if="passwordForm.errors.password" class="text-red-400 text-xs mt-1">{{ passwordForm.errors.password }}</p>
                         </div>
 
-                        <!-- Confirmar nueva contraseña -->
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1.5">Confirmar nueva contraseña</label>
                             <div class="relative">
@@ -160,13 +189,9 @@ const estadoConfig = {
                 </div>
             </div>
 
-            <!-- Sección: Mis Pedidos -->
-            <div>
-                <h2 class="text-3xl font-black uppercase tracking-tighter mb-8">
-                    Mis <span class="text-brand-red italic">Pedidos</span>
-                </h2>
+            <!-- Tab: Mis Pedidos -->
+            <div v-if="tab === 'pedidos'">
 
-                <!-- Sin pedidos -->
                 <div v-if="!pedidos.data.length" class="py-24 text-center">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-20 w-20 mx-auto text-white/10 mb-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -178,14 +203,12 @@ const estadoConfig = {
                     </a>
                 </div>
 
-                <!-- Lista de pedidos -->
                 <div v-else class="space-y-6">
                     <div
                         v-for="pedido in pedidos.data"
                         :key="pedido.id"
                         class="bg-white/[0.03] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all"
                     >
-                        <!-- Header del pedido -->
                         <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                             <div>
                                 <div class="flex items-center gap-3 mb-1">
@@ -202,18 +225,11 @@ const estadoConfig = {
                                     · {{ pedido.tipo_envio === 'retiro' ? 'Retiro en sucursal' : 'Envío a domicilio' }}
                                 </p>
                             </div>
-                            <div class="text-right">
-                                <p class="text-2xl font-black text-brand-red italic">{{ formatPrecio(pedido.total) }}</p>
-                            </div>
+                            <p class="text-2xl font-black text-brand-red italic">{{ formatPrecio(pedido.total) }}</p>
                         </div>
 
-                        <!-- Items del pedido -->
                         <div class="space-y-2 border-t border-white/5 pt-4">
-                            <div
-                                v-for="(item, i) in pedido.items"
-                                :key="i"
-                                class="flex justify-between text-sm"
-                            >
+                            <div v-for="(item, i) in pedido.items" :key="i" class="flex justify-between text-sm">
                                 <span class="text-white/60">
                                     {{ item.titulo }}
                                     <span class="text-white/30 text-xs">x{{ item.cantidad }}</span>
@@ -224,7 +240,6 @@ const estadoConfig = {
                     </div>
                 </div>
 
-                <!-- Paginación -->
                 <div v-if="pedidos.links?.length > 3" class="mt-10 flex justify-center gap-2">
                     <Link
                         v-for="link in pedidos.links"
