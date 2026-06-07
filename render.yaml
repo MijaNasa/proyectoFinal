@@ -1,0 +1,58 @@
+databases:
+  - name: erp-purocomic-db
+    databaseName: erp_purocomic
+    user: erp_user
+    plan: free
+
+services:
+  - type: web
+    name: erp-purocomic
+    runtime: docker
+    plan: free
+    envVars:
+      - key: APP_NAME
+        value: PuroComic ERP
+      - key: APP_ENV
+        value: production
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_URL
+        value: https://erp-purocomic.onrender.com
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_HOST
+        fromDatabase:
+          name: erp-purocomic-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: erp-purocomic-db
+          property: port
+      - key: DB_DATABASE
+        fromDatabase:
+          name: erp-purocomic-db
+          property: database
+      - key: DB_USERNAME
+        fromDatabase:
+          name: erp-purocomic-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: erp-purocomic-db
+          property: password
+      - key: SESSION_DRIVER
+        value: database
+      - key: CACHE_STORE
+        value: database
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: LOG_CHANNEL
+        value: stderr
+      - key: MP_PUBLIC_KEY
+        sync: false
+      - key: MP_ACCESS_TOKEN
+        sync: false
+      - key: MP_SANDBOX
+        value: "false"
