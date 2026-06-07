@@ -62,8 +62,9 @@ class RutaRepartoController extends Controller
         // Ventas online con envío a domicilio (o sin tipo_envio asignado), no asignadas a esta ruta
         $ventasDisponibles = Venta::with(['cliente.user', 'detalles.libro.master'])
             ->where('tipo', 'online')
-            ->where(fn($q) => $q->where('tipo_envio', 'domicilio')->orWhereNull('tipo_envio'))
-            ->where(fn($q) => $q->whereIn('estado', ['en_preparacion', 'pagado'])->orWhereNull('estado'))
+            ->where('tipo_envio', 'domicilio')
+            ->whereNotNull('direccion_envio')
+            ->whereIn('estado', ['en_preparacion', 'pagado'])
             ->whereDoesntHave('paradas', fn($q) => $q->where('ruta_reparto_id', $rutasReparto->id))
             ->latest()
             ->get();
