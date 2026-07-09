@@ -130,8 +130,10 @@ const print = () => window.print();
                     </p>
                 </div>
                 <div>
-                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Atendido por</p>
-                    <p class="font-bold text-black">{{ venta.user?.name }} {{ venta.user?.apellido }}</p>
+                    <template v-if="venta.tipo === 'presencial'">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Atendido por</p>
+                        <p class="font-bold text-black">{{ venta.user?.name }} {{ venta.user?.apellido }}</p>
+                    </template>
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1 mt-3">Método de pago</p>
                     <p class="font-bold text-black">{{ metodoPago }}</p>
                 </div>

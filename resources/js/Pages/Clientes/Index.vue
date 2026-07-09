@@ -173,7 +173,6 @@ const formatCurrency = (value) => {
                                 <div class="bg-brand-red text-white text-[8px] font-black px-2 py-0.5 rounded tracking-widest uppercase">
                                     {{ cliente.tipo_cliente?.nombre }}
                                 </div>
-                                <div class="text-[10px] font-mono text-white/40">ID: {{ cliente.id }}</div>
                             </div>
                             <h3 class="text-xl font-black uppercase text-white mt-4 tracking-tighter group-hover:text-brand-red transition-colors">
                                 {{ cliente.user.name }} {{ cliente.user.apellido }}

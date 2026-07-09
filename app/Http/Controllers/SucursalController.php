@@ -29,7 +29,9 @@ class SucursalController extends Controller
 
         return inertia('Sucursales/Index', [
             'sucursales' => $sucursales,
-            'ciudades' => \App\Models\Ciudad::with('provincia.pais')->orderBy('nombre')->get(),
+            'ciudades' => \App\Models\Ciudad::with('provincia.pais')
+                ->whereHas('provincia', fn($q) => $q->where('nombre', 'Santa Fe'))
+                ->orderBy('nombre')->get(),
             'filters' => $request->only(['search'])
         ]);
     }

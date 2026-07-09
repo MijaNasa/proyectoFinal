@@ -240,10 +240,10 @@ const handleSearch = () => {
                             </div>
                             
                             <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Ciudad / Localidad</label>
+                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Ciudad / Localidad (Santa Fe)</label>
                                 <select v-model="form.ciudad_id" class="input-field w-full bg-brand-black">
                                     <option value="">Seleccionar Ciudad</option>
-                                    <option v-for="c in ciudades" :key="c.id" :value="c.id">{{ c.nombre }} ({{ c.provincia.nombre }}, {{ c.provincia.pais.nombre }})</option>
+                                    <option v-for="c in ciudades" :key="c.id" :value="c.id">{{ c.nombre }}</option>
                                 </select>
                             </div>
                         </div>
