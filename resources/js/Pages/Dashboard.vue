@@ -54,7 +54,7 @@ const movimientoColor = (codigo) => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
 
                 <!-- Stats -->
-                <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div class="card bg-brand-red/5 border-brand-red/20 group hover:bg-brand-red transition-all cursor-default">
                         <h3 class="text-brand-red group-hover:text-white text-[10px] font-black uppercase tracking-[0.2em] mb-2 transition-colors">Ventas Hoy</h3>
                         <div class="text-2xl font-black group-hover:scale-105 transition-transform">{{ formatCurrency(stats.ventas_hoy) }}</div>
@@ -65,12 +65,6 @@ const movimientoColor = (codigo) => {
                         <h3 class="text-white/30 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Ventas del Mes</h3>
                         <div class="text-2xl font-black text-brand-red italic">{{ formatCurrency(stats.ventas_mes) }}</div>
                         <div class="text-[10px] text-white/40 font-bold mt-1 uppercase">Acumulado</div>
-                    </div>
-
-                    <div class="card group hover:border-brand-red/30 transition-all cursor-default">
-                        <h3 class="text-white/30 text-[10px] font-black uppercase tracking-[0.2em] mb-2">Stock Total</h3>
-                        <div class="text-2xl font-black">{{ stats.stock_total }}</div>
-                        <div class="text-[10px] text-white/40 font-bold mt-1 uppercase">Unidades disponibles</div>
                     </div>
 
                     <div class="card group transition-all cursor-default"
@@ -103,9 +97,14 @@ const movimientoColor = (codigo) => {
                                     <p class="text-white/40 text-xs font-bold uppercase tracking-widest mb-6">
                                         {{ stats.clientes_total }} clientes en el sistema
                                     </p>
-                                    <Link :href="route('ventas.index')" class="btn-primary w-full text-center inline-block bg-white text-black font-black hover:bg-brand-red hover:text-white transition-all">
-                                        ABRIR TERMINAL (POS)
-                                    </Link>
+                                    <div class="flex gap-2">
+                                        <Link :href="route('ventas.index', { nueva: 1 })" class="btn-primary flex-1 text-center inline-block bg-white text-black font-black hover:bg-brand-red hover:text-white transition-all">
+                                            NUEVA VENTA
+                                        </Link>
+                                        <Link :href="route('ventas.index')" class="flex-1 text-center inline-block py-3 rounded-full border border-white/20 text-white/70 font-black text-xs uppercase tracking-widest hover:border-white hover:text-white transition-all">
+                                            HISTORIAL
+                                        </Link>
+                                    </div>
                                 </div>
                             </div>
                         </div>

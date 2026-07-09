@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -179,6 +179,12 @@ const openPos = () => {
     itemCantidad.value = 1;
     showPosModal.value = true;
 };
+
+onMounted(() => {
+    if (new URLSearchParams(window.location.search).get('nueva') === '1') {
+        openPos();
+    }
+});
 
 const handleSearch = () => {
     router.get(route('ventas.index'), { search: search.value }, { preserveState: true });
@@ -441,14 +447,6 @@ const cambiarEstado = () => {
                         <h4 class="text-[10px] font-black uppercase tracking-[0.4em] text-brand-red mb-10 text-center italic">Checkout</h4>
                         
                         <div class="space-y-8">
-                            <div>
-                                <label class="text-[9px] font-black uppercase tracking-widest text-white/40 block mb-3">Canal de Venta</label>
-                                <div class="flex gap-2">
-                                    <button @click="posForm.tipo = 'presencial'" :class="posForm.tipo === 'presencial' ? 'bg-brand-red text-white' : 'bg-white/5 text-white/40 border-white/5'" class="flex-1 py-3 text-[10px] font-black uppercase border rounded transition-all transition-all">Presencial</button>
-                                    <button @click="posForm.tipo = 'online'" :class="posForm.tipo === 'online' ? 'bg-blue-600 text-white' : 'bg-white/5 text-white/40 border-white/5'" class="flex-1 py-3 text-[10px] font-black uppercase border rounded transition-all">Online</button>
-                                </div>
-                            </div>
-
                             <div>
                                 <label class="text-[9px] font-black uppercase tracking-widest text-white/40 block mb-3">Método de Cobro</label>
                                 <select v-model="posForm.medio_pago" class="input-field w-full bg-brand-black text-[10px] font-black uppercase tracking-widest">

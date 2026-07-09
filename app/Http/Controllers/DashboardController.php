@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Venta;
-use App\Models\Stock;
 use App\Models\Cliente;
 use App\Models\MovimientoStock;
 use Illuminate\Http\Request;
@@ -32,7 +31,6 @@ class DashboardController extends Controller
             'ventas_hoy'              => (float) $ventasHoy->recaudacion,
             'cantidad_ventas'         => (int)   $ventasHoy->cantidad,
             'ventas_mes'              => (float) $ventasMes,
-            'stock_total'             => (int)   Stock::sum('cantidad_disponible'),
             'clientes_total'          => (int)   Cliente::count(),
             'pedidos_online_pendientes' => (int) Venta::where('tipo', 'online')
                 ->whereIn('estado', ['pendiente_pago', 'en_preparacion'])
