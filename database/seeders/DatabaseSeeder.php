@@ -21,6 +21,7 @@ class DatabaseSeeder extends Seeder
             PaisSeeder::class,
             GeografiaSeeder::class,
             TipoClienteSeeder::class,
+            TipoMovimientoStockSeeder::class,
         ]);
 
         // 2b. Cargos y permisos (se llama después de crear sucursales y admin user)
