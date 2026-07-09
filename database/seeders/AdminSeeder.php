@@ -13,7 +13,9 @@ class AdminSeeder extends Seeder
 {
     public function run(): void
     {
+        $this->call(GeografiaSeeder::class);
         $this->call(TipoClienteSeeder::class);
+        $this->call(TipoMovimientoStockSeeder::class);
 
         DB::transaction(function () {
             $pais = \App\Models\Pais::firstOrCreate(
