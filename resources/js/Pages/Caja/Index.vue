@@ -162,8 +162,8 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
 
                     <div class="space-y-4 pt-4 border-t border-white/5">
                         <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-2 italic">Monto en Sistema ($)</label>
-                            <input v-model="form.monto_esperado" type="number" step="0.01" class="input-field w-full text-right font-mono text-white/60">
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-2 italic">Monto en Sistema ($) — Automático</label>
+                            <input v-model="form.monto_esperado" type="number" step="0.01" readonly class="input-field w-full text-right font-mono text-white/60 bg-black/60 cursor-not-allowed">
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-2 italic">Efectivo Real en Caja ($)</label>
