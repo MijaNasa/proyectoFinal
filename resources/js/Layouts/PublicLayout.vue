@@ -43,7 +43,6 @@ watch(() => page.props.flash, (flash) => {
                     <!-- Desktop Menu -->
                     <div class="hidden md:flex items-center space-x-6">
                         <Link :href="route('catalogo.index')" class="text-sm font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">Catálogo</Link>
-                        <Link :href="route('nosotros')" class="text-sm font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">Nosotros</Link>
 
                         <!-- Carrito -->
                         <Link :href="route('carrito.index')" class="relative p-2 text-white/60 hover:text-white transition-colors">
@@ -95,7 +94,6 @@ watch(() => page.props.flash, (flash) => {
             <transition name="fade">
                 <div v-if="isMenuOpen" class="md:hidden bg-[#0F0F0F] border-b border-white/5 p-4 space-y-4">
                     <Link :href="route('catalogo.index')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Catálogo</Link>
-                    <Link :href="route('nosotros')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Nosotros</Link>
                     <template v-if="user">
                         <Link :href="route('mi-cuenta.index')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Mi Cuenta</Link>
                         <button @click="logout" class="block text-lg font-bold uppercase text-white/40 hover:text-brand-red">Salir</button>
