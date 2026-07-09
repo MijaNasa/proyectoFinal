@@ -43,35 +43,55 @@ const selectRepartidor = (id) => {
 // ──────────────────────────────────────────
 const showAsignarModal = ref(false);
 const ventaSearch      = ref('');
-const ventaSeleccionada = ref(null);
+const seleccionadas    = ref([]);
 
 const asignarForm = useForm({
-    venta_id:      '',
-    latitud:       '',
-    longitud:      '',
+    venta_ids:     [],
     observaciones: '',
 });
 
 const ventasFiltradas = computed(() => {
-    if (!ventaSearch.value) return props.ventas_disponibles.slice(0, 8);
+    if (!ventaSearch.value) return props.ventas_disponibles;
     const q = ventaSearch.value.toLowerCase();
     return props.ventas_disponibles.filter(v =>
         v.cliente?.user?.name?.toLowerCase().includes(q) ||
         v.cliente?.user?.apellido?.toLowerCase().includes(q) ||
         String(v.id).includes(q) ||
         v.direccion_envio?.toLowerCase().includes(q)
-    ).slice(0, 8);
+    );
 });
 
-const seleccionarVenta = (v) => {
-    ventaSeleccionada.value = v;
-    asignarForm.venta_id    = v.id;
-    ventaSearch.value       = `#${v.id} — ${v.cliente?.user?.name ?? ''} ${v.cliente?.user?.apellido ?? ''}`;
+const toggleVenta = (id) => {
+    const idx = seleccionadas.value.indexOf(id);
+    if (idx === -1) seleccionadas.value.push(id);
+    else seleccionadas.value.splice(idx, 1);
+};
+
+const todasSeleccionadas = computed(() =>
+    ventasFiltradas.value.length > 0 &&
+    ventasFiltradas.value.every(v => seleccionadas.value.includes(v.id))
+);
+
+const toggleTodas = () => {
+    if (todasSeleccionadas.value) {
+        seleccionadas.value = seleccionadas.value.filter(id => !ventasFiltradas.value.some(v => v.id === id));
+    } else {
+        const nuevos = ventasFiltradas.value.map(v => v.id).filter(id => !seleccionadas.value.includes(id));
+        seleccionadas.value.push(...nuevos);
+    }
+};
+
+const cerrarAsignarModal = () => {
+    showAsignarModal.value = false;
+    asignarForm.reset();
+    seleccionadas.value = [];
+    ventaSearch.value = '';
 };
 
 const submitAsignar = () => {
+    asignarForm.venta_ids = seleccionadas.value;
     asignarForm.post(route('rutas-reparto.asignar-venta', props.ruta.id), {
-        onSuccess: () => { showAsignarModal.value = false; asignarForm.reset(); ventaSeleccionada.value = null; ventaSearch.value = ''; },
+        onSuccess: cerrarAsignarModal,
     });
 };
 
@@ -370,85 +390,64 @@ const progressPct = computed(() => {
         <!-- Modal: Agregar Entrega -->
         <Teleport to="body">
             <div v-if="showAsignarModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showAsignarModal = false" />
+                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="cerrarAsignarModal" />
                 <div class="relative bg-[#111] border border-white/10 rounded-2xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
                     <h3 class="text-xl font-black uppercase tracking-tighter mb-6">
-                        Agregar <span class="text-brand-red italic">Entrega</span>
+                        Agregar <span class="text-brand-red italic">Entregas</span>
                     </h3>
 
                     <form @submit.prevent="submitAsignar" class="space-y-4">
-                        <!-- Buscador de ventas -->
-                        <div class="relative">
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">
-                                Venta online (domicilio)
-                            </label>
-                            <input
-                                v-model="ventaSearch"
-                                type="text"
-                                placeholder="Buscar por cliente, dirección o # venta..."
-                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
-                                :class="{ 'border-red-500': asignarForm.errors.venta_id }"
-                                @focus="ventaSeleccionada = null; asignarForm.venta_id = ''"
-                            />
-                            <!-- Dropdown de ventas -->
-                            <div
-                                v-if="ventasFiltradas.length && !asignarForm.venta_id"
-                                class="absolute z-10 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl"
-                            >
+                        <!-- Buscador -->
+                        <input
+                            v-model="ventaSearch"
+                            type="text"
+                            placeholder="Buscar por cliente, dirección o # venta..."
+                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
+                        />
+
+                        <!-- Lista de pedidos pendientes -->
+                        <div>
+                            <div class="flex items-center justify-between mb-2">
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40">
+                                    Pedidos pendientes de entrega ({{ seleccionadas.length }} seleccionados)
+                                </label>
                                 <button
+                                    type="button"
+                                    @click="toggleTodas"
+                                    class="text-[10px] font-black uppercase tracking-widest text-brand-red hover:underline"
+                                >
+                                    {{ todasSeleccionadas ? 'Destildar todas' : 'Tildar todas' }}
+                                </button>
+                            </div>
+
+                            <div class="border border-white/10 rounded-xl overflow-hidden max-h-72 overflow-y-auto divide-y divide-white/5">
+                                <label
                                     v-for="v in ventasFiltradas"
                                     :key="v.id"
-                                    type="button"
-                                    @click="seleccionarVenta(v)"
-                                    class="w-full text-left px-4 py-3 hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
+                                    class="flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
                                 >
-                                    <p class="text-sm font-black text-white">
-                                        #{{ v.id }} — {{ v.cliente?.user?.name }} {{ v.cliente?.user?.apellido }}
-                                    </p>
-                                    <p class="text-xs text-white/40">
-                                        📍 {{ v.direccion_envio ?? 'Sin dirección' }}
-                                        · {{ formatPrecio(v.total) }}
-                                    </p>
-                                </button>
-                                <div v-if="!ventasFiltradas.length" class="px-4 py-3 text-xs text-white/30">
-                                    No hay ventas disponibles
+                                    <input
+                                        type="checkbox"
+                                        :checked="seleccionadas.includes(v.id)"
+                                        @change="toggleVenta(v.id)"
+                                        class="mt-1 w-4 h-4 accent-brand-red"
+                                    />
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-black text-white">
+                                            #{{ v.id }} — {{ v.cliente?.user?.name }} {{ v.cliente?.user?.apellido }}
+                                        </p>
+                                        <p class="text-xs text-white/40">
+                                            📍 {{ v.direccion_envio ?? 'Sin dirección' }}
+                                            · {{ formatPrecio(v.total) }}
+                                        </p>
+                                    </div>
+                                </label>
+                                <div v-if="!ventasFiltradas.length" class="px-4 py-6 text-center text-xs text-white/30">
+                                    No hay pedidos pendientes de entrega
                                 </div>
                             </div>
-                            <p v-if="asignarForm.errors.venta_id" class="text-red-400 text-xs mt-1">{{ asignarForm.errors.venta_id }}</p>
-                        </div>
-
-                        <!-- Info venta seleccionada -->
-                        <div v-if="ventaSeleccionada" class="bg-white/5 border border-white/10 rounded-xl p-4">
-                            <p class="text-xs font-black text-white/40 uppercase tracking-widest mb-2">Venta seleccionada</p>
-                            <p class="font-black text-white text-sm">
-                                {{ ventaSeleccionada.cliente?.user?.name }} {{ ventaSeleccionada.cliente?.user?.apellido }}
-                            </p>
-                            <p class="text-xs text-white/40 mt-1">📍 {{ ventaSeleccionada.direccion_envio }}</p>
-                            <p class="text-xs text-brand-red font-black mt-1">{{ formatPrecio(ventaSeleccionada.total) }}</p>
-                        </div>
-
-                        <!-- Coordenadas opcionales -->
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Latitud (opcional)</label>
-                                <input
-                                    v-model="asignarForm.latitud"
-                                    type="number"
-                                    step="any"
-                                    placeholder="-32.9442"
-                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
-                                />
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Longitud (opcional)</label>
-                                <input
-                                    v-model="asignarForm.longitud"
-                                    type="number"
-                                    step="any"
-                                    placeholder="-60.6505"
-                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
-                                />
-                            </div>
+                            <p v-if="asignarForm.errors.venta_ids" class="text-red-400 text-xs mt-1">{{ asignarForm.errors.venta_ids }}</p>
+                            <p class="text-[10px] text-white/20 mt-1">La ubicación (lat/long) se completa automáticamente a partir de la dirección de envío.</p>
                         </div>
 
                         <div>
@@ -462,15 +461,15 @@ const progressPct = computed(() => {
                         </div>
 
                         <div class="flex gap-3 pt-2">
-                            <button type="button" @click="showAsignarModal = false" class="flex-1 py-3 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/40 hover:bg-white/5 transition-all">
+                            <button type="button" @click="cerrarAsignarModal" class="flex-1 py-3 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/40 hover:bg-white/5 transition-all">
                                 Cancelar
                             </button>
                             <button
                                 type="submit"
-                                :disabled="asignarForm.processing || !asignarForm.venta_id"
+                                :disabled="asignarForm.processing || !seleccionadas.length"
                                 class="flex-1 btn-primary py-3 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
                             >
-                                {{ asignarForm.processing ? 'Agregando...' : 'Agregar a Ruta' }}
+                                {{ asignarForm.processing ? 'Agregando...' : `Agregar ${seleccionadas.length || ''} a Ruta` }}
                             </button>
                         </div>
                     </form>

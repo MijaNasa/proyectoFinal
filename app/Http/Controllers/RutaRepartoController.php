@@ -98,49 +98,82 @@ class RutaRepartoController extends Controller
     public function asignarVenta(Request $request, RutaReparto $rutasReparto)
     {
         $request->validate([
-            'venta_id'     => 'required|exists:ventas,id',
-            'latitud'      => 'nullable|numeric|between:-90,90',
-            'longitud'     => 'nullable|numeric|between:-180,180',
-            'observaciones'=> 'nullable|string|max:500',
+            'venta_ids'      => 'required|array|min:1',
+            'venta_ids.*'    => 'exists:ventas,id',
+            'observaciones'  => 'nullable|string|max:500',
         ]);
 
-        $venta = Venta::findOrFail($request->venta_id);
+        $agregadas = 0;
 
-        if ($venta->tipo !== 'online') {
-            return back()->with('error', 'Solo se pueden agregar ventas online.');
-        }
-        if ($venta->tipo_envio === 'retiro') {
-            return back()->with('error', 'No se pueden agregar ventas de retiro en sucursal.');
-        }
-
-        DB::transaction(function () use ($request, $rutasReparto, $venta) {
-            // Lock the ruta to serialize concurrent asignarVenta calls on the same ruta
+        DB::transaction(function () use ($request, $rutasReparto, &$agregadas) {
+            // Lock the ruta to serialize concurrent asignarVenta calls on la misma ruta
             RutaReparto::lockForUpdate()->find($rutasReparto->id);
 
-            // Check across ALL rutas: a venta can only be in one active ruta at a time
-            $yaAsignada = ParadaReparto::where('venta_id', $venta->id)
-                ->whereIn('estado', ['pendiente', 'en camino', 'entregada'])
-                ->exists();
+            foreach ($request->venta_ids as $ventaId) {
+                $venta = Venta::find($ventaId);
 
-            if ($yaAsignada) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'venta_id' => 'Esa venta ya está asignada a una ruta activa.',
+                if (!$venta || $venta->tipo !== 'online' || $venta->tipo_envio === 'retiro') {
+                    continue;
+                }
+
+                // Una venta solo puede estar en una ruta activa a la vez
+                $yaAsignada = ParadaReparto::where('venta_id', $venta->id)
+                    ->whereIn('estado', ['pendiente', 'en camino', 'entregada'])
+                    ->exists();
+
+                if ($yaAsignada) {
+                    continue;
+                }
+
+                [$latitud, $longitud] = $this->geocodificar($venta->direccion_envio);
+
+                $orden = ($rutasReparto->paradas()->max('orden') ?? 0) + 1;
+
+                $rutasReparto->paradas()->create([
+                    'venta_id'      => $venta->id,
+                    'estado'        => 'pendiente',
+                    'latitud'       => $latitud,
+                    'longitud'      => $longitud,
+                    'orden'         => $orden,
+                    'observaciones' => $request->observaciones,
                 ]);
+
+                $agregadas++;
             }
-
-            $orden = ($rutasReparto->paradas()->max('orden') ?? 0) + 1;
-
-            $rutasReparto->paradas()->create([
-                'venta_id'      => $venta->id,
-                'estado'        => 'pendiente',
-                'latitud'       => $request->latitud,
-                'longitud'      => $request->longitud,
-                'orden'         => $orden,
-                'observaciones' => $request->observaciones,
-            ]);
         });
 
-        return back()->with('message', 'Venta agregada a la ruta');
+        if ($agregadas === 0) {
+            return back()->with('error', 'Ninguna de las ventas seleccionadas pudo agregarse (ya asignadas o no válidas).');
+        }
+
+        return back()->with('message', $agregadas === 1 ? 'Venta agregada a la ruta' : "$agregadas entregas agregadas a la ruta");
+    }
+
+    /**
+     * Geocodifica una dirección usando la API de Google Maps.
+     * Si no hay API key configurada o falla la consulta, devuelve coordenadas nulas
+     * (la parada queda sin ubicación y se puede cargar/optimizar manualmente después).
+     */
+    private function geocodificar(?string $direccion): array
+    {
+        $apiKey = env('GOOGLE_MAPS_API_KEY') ?: env('VITE_GOOGLE_MAPS_API_KEY');
+
+        if (!$apiKey || !$direccion) {
+            return [null, null];
+        }
+
+        try {
+            $response = \Illuminate\Support\Facades\Http::timeout(5)->get('https://maps.googleapis.com/maps/api/geocode/json', [
+                'address' => $direccion,
+                'key'     => $apiKey,
+            ]);
+
+            $location = $response->json('results.0.geometry.location');
+
+            return $location ? [$location['lat'], $location['lng']] : [null, null];
+        } catch (\Throwable $e) {
+            return [null, null];
+        }
     }
 
     public function removeParada(RutaReparto $rutasReparto, ParadaReparto $parada)
