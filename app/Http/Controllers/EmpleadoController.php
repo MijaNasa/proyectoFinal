@@ -159,10 +159,14 @@ class EmpleadoController extends Controller
             abort(403, 'Solo un administrador puede remover el cargo ADMIN.');
         }
 
-        $empleado->cargos()
+        $tieneCargoActivo = $empleado->cargos()
             ->wherePivot('cargo_id', $cargo->id)
             ->whereNull('empleados_cargos.fecha_hasta')
-            ->update(['fecha_hasta' => now()->toDateString()]);
+            ->exists();
+
+        if ($tieneCargoActivo) {
+            $empleado->cargos()->updateExistingPivot($cargo->id, ['fecha_hasta' => now()->toDateString()]);
+        }
 
         return back();
     }

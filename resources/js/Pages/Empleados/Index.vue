@@ -126,12 +126,18 @@ const openAccesosModal = (empleado) => {
     showAccesosModal.value = true;
 };
 
+const sincronizarSeleccionado = () => {
+    const actualizado = props.empleados.data.find(e => e.id === empleadoSeleccionado.value?.id);
+    if (actualizado) empleadoSeleccionado.value = actualizado;
+};
+
 const asignarCargo = () => {
     if (!asignarForm.cargo_id) return;
     asignarForm.post(route('empleados.asignar-cargo', empleadoSeleccionado.value.id), {
         preserveScroll: true,
         onSuccess: () => {
             asignarForm.reset();
+            sincronizarSeleccionado();
             Swal.fire({ title: 'Cargo asignado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
         },
         onError: () => {
@@ -176,7 +182,9 @@ const desasignarCargo = (cargo) => {
     }).then(result => {
         if (result.isConfirmed) {
             desasignarForm.delete(route('empleados.desasignar-cargo', { empleado: empleadoSeleccionado.value.id, cargo: cargo.id }), {
+                preserveScroll: true,
                 onSuccess: () => {
+                    sincronizarSeleccionado();
                     Swal.fire({ title: 'Cargo removido', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
                 },
             });
