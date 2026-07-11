@@ -10,6 +10,7 @@ use App\Http\Controllers\LibroController;
 use App\Http\Controllers\SucursalController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\ClienteController;
+use App\Http\Controllers\SuscripcionController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CierreCajaController;
@@ -121,7 +122,13 @@ Route::middleware('auth')->group(function () {
     // Clientes
     Route::middleware('permiso:clientes.acceder')->group(function () {
         Route::resource('clientes', ClienteController::class)->except(['create', 'edit']);
+        Route::get('clientes/{cliente}/pdf', [ClienteController::class, 'generarResumenPdf'])->name('clientes.pdf');
+        Route::post('clientes/{cliente}/consolidar', [ClienteController::class, 'consolidarPedidos'])->name('clientes.consolidar');
         Route::post('clientes/{cliente}/pago', [ClienteController::class, 'registrarPago'])->name('clientes.pago');
+        Route::delete('clientes/{cliente}/pago/{transaccion}', [ClienteController::class, 'eliminarPago'])->name('clientes.pago.destroy');
+        Route::post('suscripciones', [SuscripcionController::class, 'store'])->name('suscripciones.store');
+        Route::patch('suscripciones/{suscripcion}', [SuscripcionController::class, 'update'])->name('suscripciones.update');
+        Route::delete('suscripciones/{suscripcion}', [SuscripcionController::class, 'destroy'])->name('suscripciones.destroy');
     });
 
     // Empleados

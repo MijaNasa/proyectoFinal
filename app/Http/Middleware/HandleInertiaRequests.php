@@ -36,6 +36,7 @@ class HandleInertiaRequests extends Middleware
             $user->load([
                 'empleado.cargos'          => fn($q) => $q->whereNull('empleados_cargos.fecha_hasta'),
                 'empleado.cargos.permisos' => fn($q) => $q->where('activo', true),
+                'empleado.sucursal',
             ]);
         }
 
@@ -43,6 +44,10 @@ class HandleInertiaRequests extends Middleware
             ...parent::share($request),
             'auth' => [
                 'user'      => $user?->only(['id', 'name', 'apellido', 'email']),
+                'empleado'  => $user?->empleado ? [
+                    'sucursal_id' => $user->empleado->sucursal_id,
+                    'sucursal'    => $user->empleado->sucursal?->only(['id', 'nombre']),
+                ] : null,
                 'permisos'  => $user?->getPermisosActivos() ?? [],
                 'esAdmin'   => $user?->esAdmin() ?? false,
                 'esGerente' => $user?->esGerente() ?? false,

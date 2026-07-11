@@ -61,10 +61,32 @@ class ProveedorController extends Controller
             'cantidad_pagos'  => (int)   $proveedor->transacciones()->count(),
         ];
 
+        // Métrica de suscriptores activos desglosada por sucursal para las series del proveedor
+        $seriesIds = $proveedor->series->pluck('id');
+        $suscripcionesMetricas = [];
+
+        if ($seriesIds->isNotEmpty()) {
+            $suscripcionesMetricas = DB::table('suscripcions')
+                ->join('libro_masters', 'suscripcions.libro_master_id', '=', 'libro_masters.id')
+                ->join('libros', 'libro_masters.id', '=', 'libros.master_id')
+                ->leftJoin('sucursales', 'suscripcions.sucursal_id', '=', 'sucursales.id')
+                ->whereIn('libros.serie_id', $seriesIds)
+                ->where('suscripcions.estado', 'activa')
+                ->select(
+                    'libros.serie_id',
+                    DB::raw('COALESCE(sucursales.nombre, "Sin sucursal asignada") as sucursal'),
+                    DB::raw('count(distinct suscripcions.id) as total')
+                )
+                ->groupBy('libros.serie_id', 'sucursales.nombre')
+                ->get()
+                ->groupBy('serie_id');
+        }
+
         return inertia('Proveedores/Show', [
             'proveedor' => $proveedor,
             'pagos'     => $pagos,
             'stats'     => $stats,
+            'metricasSuscripciones' => $suscripcionesMetricas,
         ]);
     }
 

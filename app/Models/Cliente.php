@@ -42,4 +42,9 @@ class Cliente extends Model
     {
         return $this->morphMany(Transaccion::class, 'transaccionable');
     }
+
+    public function suscripciones(): HasMany
+    {
+        return $this->hasMany(Suscripcion::class);
+    }
 }

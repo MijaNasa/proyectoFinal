@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -28,34 +28,6 @@ const form = useForm({
 const isEditing = ref(false);
 const showModal = ref(false);
 
-const showPagoModal = ref(false);
-const pagoForm = useForm({
-    cliente_id: null,
-    monto: '',
-    metodo_pago: 'Efectivo',
-    descripcion: '',
-});
-
-const openPagoModal = (cliente) => {
-    pagoForm.reset();
-    pagoForm.cliente_id = cliente.id;
-    showPagoModal.value = true;
-};
-
-const submitPago = () => {
-    pagoForm.post(route('clientes.pago', pagoForm.cliente_id), {
-        onSuccess: () => {
-            showPagoModal.value = false;
-            Swal.fire({
-                title: '¡Pago registrado!',
-                text: 'El pago fue registrado y el saldo actualizado',
-                icon: 'success',
-                background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
-            });
-        }
-    });
-};
-
 const openModal = (cliente = null) => {
     if (cliente) {
         isEditing.value = true;
@@ -74,6 +46,100 @@ const openModal = (cliente = null) => {
     }
     showModal.value = true;
 };
+
+const crearClienteRapido = async () => {
+    const { value: formValues } = await Swal.fire({
+        title: 'ALTA DE CLIENTE',
+        html: `
+            <div class="grid grid-cols-2 gap-4 mt-4">
+                <div class="text-left">
+                    <label class="text-[9px] uppercase font-black text-white/50 tracking-widest">Nombre *</label>
+                    <input id="swal-nombre" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white mt-1 text-xs" type="text" autocomplete="off">
+                </div>
+                <div class="text-left">
+                    <label class="text-[9px] uppercase font-black text-white/50 tracking-widest">Apellido</label>
+                    <input id="swal-apellido" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white mt-1 text-xs" type="text" autocomplete="off">
+                </div>
+                <div class="text-left">
+                    <label class="text-[9px] uppercase font-black text-white/50 tracking-widest">DNI / Documento *</label>
+                    <input id="swal-dni" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white mt-1 text-xs" type="text" inputmode="numeric">
+                </div>
+                <div class="text-left">
+                    <label class="text-[9px] uppercase font-black text-white/50 tracking-widest">Teléfono móvil</label>
+                    <input id="swal-telefono" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white mt-1 text-xs" type="text" autocomplete="off">
+                </div>
+                <div class="text-left col-span-2">
+                    <label class="text-[9px] uppercase font-black text-white/50 tracking-widest">Email de Contacto *</label>
+                    <input id="swal-email" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white mt-1 text-xs" type="email" placeholder="ejemplo@correo.com">
+                </div>
+            </div>
+        `,
+        width: 600,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'CONFIRMAR REGISTRO',
+        cancelButtonText: 'CANCELAR',
+        background: '#1A1A1A', color: '#FFF',
+        confirmButtonColor: '#E61919',
+        preConfirm: () => {
+            const name = document.getElementById('swal-nombre').value;
+            const dni = document.getElementById('swal-dni').value;
+            const email = document.getElementById('swal-email').value;
+
+            if (!name || !dni || !email) {
+                Swal.showValidationMessage('Nombre, DNI y Email son obligatorios');
+                return false;
+            }
+            return {
+                name,
+                apellido: document.getElementById('swal-apellido').value,
+                dni,
+                telefono: document.getElementById('swal-telefono').value,
+                email
+            }
+        }
+    });
+
+    if (formValues) {
+        try {
+            await window.axios.post(route('clientes.store'), {
+                name: formValues.name,
+                apellido: formValues.apellido,
+                email: formValues.email,
+                dni: formValues.dni,
+                telefono: formValues.telefono,
+                tipo_cliente_id: 1,
+            });
+            Swal.fire({
+                title: '¡Cliente Guardado!',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
+                background: '#1A1A1A', color: '#FFF'
+            });
+            setTimeout(() => window.location.reload(), 1500);
+        } catch (error) {
+            Swal.fire({
+                title: 'Error',
+                text: 'Error de conexión o el cliente ya existe.',
+                icon: 'error',
+                background: '#1A1A1A', color: '#FFF'
+            });
+        }
+    }
+};
+
+// Automatización: Abre modal de nuevo cliente si viene desde la Terminal POS
+onMounted(() => {
+    setTimeout(() => {
+        if (typeof window !== 'undefined') {
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('action') === 'new') {
+                openModal();
+            }
+        }
+    }, 100);
+});
 
 const submit = () => {
     if (isEditing.value) {
@@ -139,7 +205,7 @@ const formatCurrency = (value) => {
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
                     Base de <span class="text-brand-red italic">Clientes</span>
                 </h2>
-                <button @click="openModal()" class="btn-primary flex items-center gap-2">
+                <button @click="crearClienteRapido()" class="btn-primary flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                     </svg>
@@ -152,11 +218,11 @@ const formatCurrency = (value) => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="card mb-8">
                     <div class="flex items-center gap-4">
-                        <input 
-                            v-model="search" 
+                        <input
+                            v-model="search"
                             @keyup.enter="handleSearch"
-                            type="text" 
-                            placeholder="Buscar por nombre, DNI, email..." 
+                            type="text"
+                            placeholder="Buscar por nombre, DNI, email..."
                             class="input-field flex-1"
                         >
                         <button @click="handleSearch" class="btn-primary py-2 px-6 bg-white/5 hover:bg-brand-red text-white font-black uppercase text-xs">
@@ -173,12 +239,13 @@ const formatCurrency = (value) => {
                                 <div class="bg-brand-red text-white text-[8px] font-black px-2 py-0.5 rounded tracking-widest uppercase">
                                     {{ cliente.tipo_cliente?.nombre }}
                                 </div>
+                                <div class="text-[10px] font-mono text-white/40">ID: {{ cliente.id }}</div>
                             </div>
                             <h3 class="text-xl font-black uppercase text-white mt-4 tracking-tighter group-hover:text-brand-red transition-colors">
                                 {{ cliente.user.name }} {{ cliente.user.apellido }}
                             </h3>
                             <div class="text-xs text-brand-red/60 font-black tracking-widest uppercase italic">DNI: {{ cliente.user.dni || 'S/D' }}</div>
-                            
+
                             <!-- Decorative background -->
                             <div class="absolute -right-4 -bottom-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08s5.97 1.09 6 3.08c-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
@@ -215,13 +282,11 @@ const formatCurrency = (value) => {
                         </div>
 
                         <!-- Card Footer -->
-                        <div class="px-6 py-4 bg-white/[0.02] flex justify-end gap-2 border-t border-white/5 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-                            <Link :href="route('clientes.show', cliente.id)" title="Ver historial" class="p-2 text-white/40 hover:text-blue-400 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z"/><path fill-rule="evenodd" d="M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm3 4a1 1 0 000 2h.01a1 1 0 100-2H7zm3 0a1 1 0 000 2h3a1 1 0 100-2h-3zm-3 4a1 1 0 100 2h.01a1 1 0 100-2H7zm3 0a1 1 0 100 2h3a1 1 0 100-2h-3z" clip-rule="evenodd"/></svg>
+                        <div class="px-6 py-4 bg-white/[0.02] flex justify-end gap-2 border-t border-white/5 relative z-20">
+                            <Link :href="route('clientes.show', cliente.id)" class="btn-primary py-1.5 px-4 text-[10px] w-full text-center">
+                                VER FICHA
                             </Link>
-                            <button @click="openPagoModal(cliente)" title="Registrar pago" class="p-2 text-white/40 hover:text-green-400 transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M4 4a2 2 0 00-2 2v1h16V6a2 2 0 00-2-2H4z"/><path fill-rule="evenodd" d="M18 9H2v5a2 2 0 002 2h12a2 2 0 002-2V9zM4 13a1 1 0 011-1h1a1 1 0 110 2H5a1 1 0 01-1-1zm5-1a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd"/></svg>
-                            </button>
+
                             <button @click="openModal(cliente)" class="p-2 text-white/40 hover:text-brand-red transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                             </button>
@@ -245,14 +310,14 @@ const formatCurrency = (value) => {
             <div class="flex min-h-full items-start justify-center p-4">
             <div class="relative w-full max-w-4xl card p-0 border border-brand-red/50 shadow-[0_0_80px_rgba(230,25,25,0.1)] overflow-hidden transform transition-all my-8">
                 <div class="bg-gradient-to-r from-brand-red to-black p-6 flex justify-between items-center relative shadow-xl">
-                    <h3 class="text-2xl font-black uppercase tracking-tighter italic"> 
+                    <h3 class="text-2xl font-black uppercase tracking-tighter italic">
                         {{ isEditing ? 'Gestionar' : 'Alta de' }} <span class="text-white">Cliente</span>
                     </h3>
                     <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative z-10">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                
+
                 <form @submit.prevent="submit" class="p-10">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <!-- Sección Datos Personales -->
@@ -287,7 +352,7 @@ const formatCurrency = (value) => {
                         <!-- Sección Comercial -->
                         <div class="space-y-6 bg-white/[0.02] p-8 rounded-xl border border-white/5">
                             <h4 class="text-[10px] font-black uppercase tracking-[0.4em] text-brand-red border-b border-brand-red/20 pb-2 mb-6">Ficha ERP</h4>
-                            
+
                             <div>
                                 <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Segmento Cliente</label>
                                 <select v-model="form.tipo_cliente_id" class="input-field w-full bg-brand-black text-xs font-black uppercase">
@@ -318,70 +383,6 @@ const formatCurrency = (value) => {
                         <button type="submit" :disabled="form.processing" class="btn-primary px-20 relative overflow-hidden group shadow-2xl">
                            <span class="relative z-10 tracking-widest">{{ form.processing ? 'PROCESANDO...' : (isEditing ? 'GUARDAR CAMBIOS' : 'CONFIRMAR REGISTRO') }}</span>
                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                        </button>
-                    </div>
-                </form>
-            </div>
-            </div>
-        </div>
-        </template>
-        <!-- Modal Pago -->
-        <template v-if="showPagoModal">
-        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showPagoModal = false"></div>
-        <div class="fixed inset-0 z-[101] overflow-y-auto">
-            <div class="flex min-h-full items-center justify-center p-4">
-            <div class="relative w-full max-w-md card p-0 border border-green-500/30 shadow-[0_0_60px_rgba(34,197,94,0.08)] overflow-hidden my-8">
-                <div class="bg-gradient-to-r from-green-700 to-black p-6 flex justify-between items-center">
-                    <h3 class="text-xl font-black uppercase tracking-tighter italic">
-                        Registrar <span class="text-white">Pago</span>
-                    </h3>
-                    <button @click="showPagoModal = false" class="text-white/80 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-
-                <form @submit.prevent="submitPago" class="p-8 space-y-6">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Monto ($)</label>
-                        <input
-                            v-model="pagoForm.monto"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            placeholder="0.00"
-                            class="input-field w-full text-right font-mono text-xl"
-                            :class="{ 'border-brand-red': pagoForm.errors.monto }"
-                        >
-                        <p v-if="pagoForm.errors.monto" class="text-brand-red text-xs mt-1">{{ pagoForm.errors.monto }}</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Método de Pago</label>
-                        <select v-model="pagoForm.metodo_pago" class="input-field w-full bg-brand-black font-black uppercase text-xs">
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Transferencia">Transferencia</option>
-                            <option value="Tarjeta">Tarjeta de Crédito</option>
-                            <option value="Débito">Débito</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Descripción (opcional)</label>
-                        <input
-                            v-model="pagoForm.descripcion"
-                            type="text"
-                            placeholder="Pago de cuenta corriente..."
-                            class="input-field w-full"
-                            maxlength="255"
-                        >
-                    </div>
-
-                    <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
-                        <button type="button" @click="showPagoModal = false" class="px-6 py-2 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-widest">
-                            Cancelar
-                        </button>
-                        <button type="submit" :disabled="pagoForm.processing" class="px-10 py-3 bg-green-600 hover:bg-green-500 text-white font-black uppercase text-xs tracking-widest rounded-lg transition-colors disabled:opacity-50">
-                            {{ pagoForm.processing ? 'Procesando...' : 'Confirmar Pago' }}
                         </button>
                     </div>
                 </form>

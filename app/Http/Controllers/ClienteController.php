@@ -9,6 +9,7 @@ use App\Http\Requests\StoreClienteRequest;
 use App\Http\Requests\UpdateClienteRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class ClienteController extends Controller
 {
@@ -92,30 +93,41 @@ class ClienteController extends Controller
 
     public function show(Cliente $cliente)
     {
-        $cliente->load(['user', 'tipoCliente']);
+        $cliente->load(['user', 'tipoCliente', 'suscripciones.serie']);
 
         $ventas = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
             ->where('cliente_id', $cliente->id)
             ->latest('fecha')
             ->paginate(10);
 
-        $pagos = $cliente->transacciones()
+        $acumulados = Venta::with(['detalles.libro.master:id,titulo'])
+            ->where('cliente_id', $cliente->id)
+            ->where('motivo_pendiente', 'Acumulación')
             ->latest('fecha')
-            ->get(['id', 'monto', 'metodo_pago', 'descripcion', 'fecha']);
+            ->get();
 
-        $stats = Venta::where('cliente_id', $cliente->id)
-            ->selectRaw('COUNT(*) as cantidad_ventas, COALESCE(SUM(total), 0) as total_comprado')
-            ->first();
+        $pagos = $cliente->transacciones()
+            ->where('tipo', 'ingreso')
+            ->latest()
+            ->get();
+
+        $ultima_compra = Venta::where('cliente_id', $cliente->id)->latest('fecha')->value('fecha');
+
+        $stats = [
+            'total_comprado'  => $ventas->sum('total'),
+            'cantidad_ventas' => $ventas->total(),
+            'total_pagado'    => $pagos->sum('monto'),
+            'ultima_compra'   => $ultima_compra,
+        ];
 
         return inertia('Clientes/Show', [
-            'cliente' => $cliente,
-            'ventas'  => $ventas,
-            'pagos'   => $pagos,
-            'stats'   => [
-                'cantidad_ventas'  => (int) $stats->cantidad_ventas,
-                'total_comprado'   => (float) $stats->total_comprado,
-                'total_pagado'     => (float) $cliente->transacciones()->sum('monto'),
-            ],
+            'cliente'        => $cliente,
+            'ventas'         => $ventas,
+            'acumulados'     => $acumulados,
+            'pagos'          => $pagos,
+            'stats'          => $stats,
+            'libro_masters'  => \App\Models\LibroMaster::orderBy('titulo')->get(['id', 'titulo']),
+            'sucursales'     => \App\Models\Sucursal::get(['id', 'nombre']),
         ]);
     }
 
@@ -123,12 +135,20 @@ class ClienteController extends Controller
     {
         $request->validate([
             'monto'       => 'required|numeric|min:0.01',
-            'metodo_pago' => 'required|in:Efectivo,Transferencia,Tarjeta,Débito',
+            'metodo_pago' => 'required|in:Efectivo,Transferencia,Tarjeta,Débito,Cuenta Corriente',
+            'fecha_real'  => 'required|date|before_or_equal:today',
             'descripcion' => 'nullable|string|max:255',
         ]);
 
         DB::transaction(function () use ($request, $cliente) {
             $cliente->increment('saldo_actual', $request->monto);
+
+            $fechaReal = \Carbon\Carbon::parse($request->fecha_real);
+            $descripcion = $request->descripcion ?: 'Pago de cuenta corriente';
+
+            if ($fechaReal->lt(now()->startOfDay())) {
+                $descripcion = "Pago recibido el " . $fechaReal->format('d/m/Y') . " - Carga diferida. " . $descripcion;
+            }
 
             Transaccion::create([
                 'tipo'                 => 'ingreso',
@@ -138,12 +158,85 @@ class ClienteController extends Controller
                 'sucursal_id'          => auth()->user()->empleado?->sucursal_id,
                 'transaccionable_id'   => $cliente->id,
                 'transaccionable_type' => Cliente::class,
-                'descripcion'          => $request->descripcion ?: 'Pago de cuenta corriente',
+                'descripcion'          => $descripcion,
                 'user_id'              => auth()->id(),
             ]);
         });
 
-        return redirect()->route('clientes.index')->with('message', 'Pago registrado con éxito');
+        return redirect()->back()->with('success', 'Pago registrado con éxito');
+    }
+
+    public function eliminarPago(Cliente $cliente, Transaccion $transaccion)
+    {
+        DB::transaction(function () use ($cliente, $transaccion) {
+            $cliente->decrement('saldo_actual', $transaccion->monto);
+            $transaccion->delete();
+        });
+
+        return redirect()->back()->with('success', 'Pago anulado exitosamente');
+    }
+
+    public function generarResumenPdf(Cliente $cliente)
+    {
+        $cliente->load('user');
+
+        $ventas = Venta::with('sucursal')
+            ->where('cliente_id', $cliente->id)
+            ->where('estado', '!=', 'cancelado')
+            ->get()
+            ->map(function ($venta) {
+                return (object) [
+                    'fecha'       => $venta->fecha,
+                    'tipo_mov'    => 'Compra',
+                    'descripcion' => 'Venta #TK-' . str_pad($venta->id, 6, '0', STR_PAD_LEFT),
+                    'sucursal'    => $venta->sucursal->nombre ?? 'Online',
+                    'monto'       => -$venta->total,
+                ];
+            });
+
+        $pagos = $cliente->transacciones()
+            ->with('sucursal')
+            ->where('tipo', 'ingreso')
+            ->get()
+            ->map(function ($pago) {
+                return (object) [
+                    'fecha'       => $pago->fecha,
+                    'tipo_mov'    => 'Pago',
+                    'descripcion' => $pago->descripcion ?: 'Pago en ' . $pago->metodo_pago,
+                    'sucursal'    => $pago->sucursal->nombre ?? '-',
+                    'monto'       => $pago->monto,
+                ];
+            });
+
+        $historial = $ventas->concat($pagos)->sortBy('fecha')->values();
+
+        $pdf = Pdf::loadView('pdf.resumen_cliente', compact('cliente', 'historial'));
+
+        return $pdf->download('Resumen_Cuenta_' . $cliente->user->apellido . '.pdf');
+    }
+
+    public function consolidarPedidos(Request $request, Cliente $cliente)
+    {
+        $request->validate([
+            'direccion_envio' => 'required|string|max:255',
+        ]);
+
+        DB::transaction(function () use ($cliente, $request) {
+            $ventas = Venta::where('cliente_id', $cliente->id)
+                ->where('motivo_pendiente', 'Acumulación')
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($ventas as $venta) {
+                $venta->update([
+                    'estado_envio'      => 'pendiente',
+                    'direccion_envio'   => $request->direccion_envio,
+                    'motivo_pendiente'  => null,
+                ]);
+            }
+        });
+
+        return back()->with('message', 'Pedidos consolidados y listos para reparto.');
     }
 
     /**

@@ -6,6 +6,7 @@ const props = defineProps({
     proveedor: Object,
     pagos:     Array,
     stats:     Object,
+    metricasSuscripciones: Object,
 });
 
 const formatCurrency = (v) =>
@@ -89,13 +90,23 @@ const formatFecha = (f) =>
                 <!-- Series -->
                 <div v-if="proveedor.series?.length">
                     <h3 class="text-xs font-black uppercase tracking-widest text-white/30 mb-3">Series del proveedor</h3>
-                    <div class="flex flex-wrap gap-2">
-                        <span
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div
                             v-for="serie in proveedor.series"
                             :key="serie.id"
-                            class="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border"
-                            :class="serie.activo ? 'bg-white/5 border-white/10 text-white/60' : 'bg-white/[0.02] border-white/5 text-white/20 line-through'"
-                        >{{ serie.nombre }}</span>
+                            class="card p-4 border flex flex-col justify-between"
+                            :class="serie.activo ? 'bg-white/[0.02] border-white/5' : 'bg-black border-red-500/20 opacity-70'"
+                        >
+                            <h4 class="text-sm font-black uppercase tracking-tighter" :class="serie.activo ? 'text-white' : 'text-white/40 line-through'">{{ serie.nombre }}</h4>
+                            <div v-if="metricasSuscripciones[serie.id] && serie.activo" class="mt-4 pt-3 border-t border-white/5">
+                                <p class="text-[9px] font-black uppercase tracking-widest text-brand-red">
+                                    Suscriptores Activos:
+                                    <span class="text-white/60 ml-1">
+                                        {{ metricasSuscripciones[serie.id].map(m => `${m.total} (${m.sucursal})`).join(' | ') }}
+                                    </span>
+                                </p>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
