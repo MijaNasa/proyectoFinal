@@ -348,7 +348,7 @@ const colorCargo = (nombre) => {
                             <div class="grid grid-cols-2 gap-6">
                                 <div>
                                     <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">DNI</label>
-                                    <input v-model="form.dni" type="text" class="input-field w-full font-mono transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.dni}">
+                                    <input v-model="form.dni" @input="form.dni = form.dni.replace(/\D/g, '')" type="text" inputmode="numeric" maxlength="8" class="input-field w-full font-mono transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.dni}">
                                     <p v-if="form.errors.dni" class="text-[10px] text-brand-red mt-1">{{ form.errors.dni }}</p>
                                 </div>
                                 <div>

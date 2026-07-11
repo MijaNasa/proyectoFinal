@@ -271,7 +271,7 @@ const formatCurrency = (value) => {
                             <div class="grid grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-[10px] font-black uppercase text-white/30 mb-2">DNI / Documento</label>
-                                    <input v-model="form.dni" type="text" class="input-field w-full font-mono border-white/10" :class="{'border-brand-red': form.errors.dni}">
+                                    <input v-model="form.dni" @input="form.dni = form.dni.replace(/[^A-Za-z0-9]/g, '')" type="text" maxlength="20" class="input-field w-full font-mono border-white/10" :class="{'border-brand-red': form.errors.dni}">
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Email de Contacto</label>

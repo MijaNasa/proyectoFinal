@@ -22,7 +22,7 @@ class UpdateEmpleadoRequest extends FormRequest
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $this->empleado->user_id,
             'apellido' => 'nullable|string|max:255',
-            'dni' => 'nullable|string|max:20|unique:users,dni,' . $this->empleado->user_id,
+            'dni' => 'nullable|digits_between:7,8|unique:users,dni,' . $this->empleado->user_id,
             'telefono' => 'nullable|string|max:50',
 
             // Empleado Data
@@ -30,6 +30,13 @@ class UpdateEmpleadoRequest extends FormRequest
             'sucursal_id' => 'required|exists:sucursales,id',
             'fecha_ingreso' => 'required|date',
             'fecha_egreso' => 'nullable|date|after_or_equal:fecha_ingreso',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'dni.digits_between' => 'El DNI debe tener entre 7 y 8 dígitos numéricos.',
         ];
     }
 }

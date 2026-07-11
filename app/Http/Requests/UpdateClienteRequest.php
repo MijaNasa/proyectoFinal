@@ -22,13 +22,20 @@ class UpdateClienteRequest extends FormRequest
             'name' => 'required|string|max:255',
             'email' => 'required|email|max:255|unique:users,email,' . $this->cliente->user_id,
             'apellido' => 'nullable|string|max:255',
-            'dni' => 'nullable|string|max:20|unique:users,dni,' . $this->cliente->user_id,
+            'dni' => 'nullable|regex:/^[A-Za-z0-9]+$/|max:20|unique:users,dni,' . $this->cliente->user_id,
             'telefono' => 'nullable|string|max:50',
             
             // Cliente Data
             'tipo_cliente_id' => 'required|exists:tipos_clientes,id',
             'estado_abono' => 'nullable|string|max:50',
             'saldo_actual' => 'nullable|numeric',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'dni.regex' => 'El documento no puede contener espacios ni símbolos especiales.',
         ];
     }
 }
