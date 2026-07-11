@@ -107,6 +107,20 @@ class EmpleadoController extends Controller
             ->with('message', 'Empleado eliminado con éxito');
     }
 
+    public function resetearPassword(Request $request, Empleado $empleado)
+    {
+        $user = $request->user();
+
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $empleado->sucursal_id) {
+            abort(403, 'Solo podés gestionar empleados de tu sucursal.');
+        }
+
+        $nuevaPassword = $empleado->user->dni ?: \Str::random(8);
+        $empleado->user->update(['password' => \Hash::make($nuevaPassword)]);
+
+        return back()->with('nuevaPassword', $nuevaPassword);
+    }
+
     public function asignarCargo(Request $request, Empleado $empleado)
     {
         $request->validate(['cargo_id' => 'required|exists:cargos,id']);

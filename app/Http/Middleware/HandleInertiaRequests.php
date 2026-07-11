@@ -49,9 +49,10 @@ class HandleInertiaRequests extends Middleware
             ],
             'carritoCount' => CarritoController::getCount(),
             'flash' => [
-                'success' => session('success') ?? session('message'),
-                'warning' => session('warning'),
-                'error'   => session('error'),
+                'success'       => session('success') ?? session('message'),
+                'warning'       => session('warning'),
+                'error'         => session('error'),
+                'nuevaPassword' => session('nuevaPassword'),
             ],
         ];
     }

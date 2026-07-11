@@ -129,6 +129,7 @@ Route::middleware('auth')->group(function () {
         Route::resource('empleados', EmpleadoController::class)->except(['show', 'create', 'edit']);
         Route::post('empleados/{empleado}/cargos', [EmpleadoController::class, 'asignarCargo'])->name('empleados.asignar-cargo');
         Route::delete('empleados/{empleado}/cargos/{cargo}', [EmpleadoController::class, 'desasignarCargo'])->name('empleados.desasignar-cargo');
+        Route::post('empleados/{empleado}/resetear-password', [EmpleadoController::class, 'resetearPassword'])->name('empleados.resetear-password');
     });
 
     // Proveedores y Series

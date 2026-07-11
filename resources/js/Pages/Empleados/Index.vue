@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
@@ -118,6 +118,7 @@ const empleadoSeleccionado = ref(null);
 
 const asignarForm = useForm({ cargo_id: '' });
 const desasignarForm = useForm({});
+const resetPasswordForm = useForm({});
 
 const openAccesosModal = (empleado) => {
     empleadoSeleccionado.value = empleado;
@@ -132,6 +133,32 @@ const asignarCargo = () => {
             asignarForm.reset();
             Swal.fire({ title: 'Cargo asignado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
         },
+    });
+};
+
+const resetearPassword = () => {
+    Swal.fire({
+        title: '¿Restablecer contraseña?',
+        text: `Se generará una nueva contraseña para ${empleadoSeleccionado.value.user.name}.`,
+        icon: 'warning', showCancelButton: true,
+        confirmButtonColor: '#E61919', cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, restablecer',
+        background: '#1A1A1A', color: '#FFF',
+    }).then(result => {
+        if (result.isConfirmed) {
+            resetPasswordForm.post(route('empleados.resetear-password', empleadoSeleccionado.value.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    const nuevaPassword = usePage().props.flash?.nuevaPassword;
+                    Swal.fire({
+                        title: 'Contraseña restablecida',
+                        text: `Nueva contraseña: ${nuevaPassword} — comunicásela al empleado, no queda registrada en ningún otro lado.`,
+                        icon: 'success',
+                        background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
+                    });
+                },
+            });
+        }
     });
 };
 
@@ -422,6 +449,14 @@ const colorCargo = (nombre) => {
                                 Asignar
                             </button>
                         </div>
+                    </div>
+
+                    <!-- Restablecer contraseña -->
+                    <div class="border-t border-white/10 pt-6">
+                        <p class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 mb-3">Credenciales</p>
+                        <button @click="resetearPassword" :disabled="resetPasswordForm.processing" class="w-full py-2.5 rounded-lg border border-brand-red/40 text-brand-red text-[10px] font-black uppercase tracking-widest hover:bg-brand-red/10 transition-colors">
+                            Restablecer Contraseña
+                        </button>
                     </div>
                 </div>
             </div>
