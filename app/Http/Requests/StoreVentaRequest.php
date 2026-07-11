@@ -17,12 +17,24 @@ class StoreVentaRequest extends FormRequest
     {
         return [
             'cliente_id'       => ['nullable', 'exists:clientes,id', Rule::requiredIf($this->medio_pago === 'Cuenta Corriente')],
-            'sucursal_id'      => 'required|exists:sucursales,id',
             'tipo'             => 'required|in:online,presencial',
             'items'            => 'required|array|min:1',
             'items.*.libro_id' => 'required|exists:libros,id',
             'items.*.cantidad' => 'required|integer|min:1|max:9999',
             'medio_pago'       => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
+            'requiere_envio'   => 'nullable|boolean',
+            'destinatario_envio'=> 'nullable|required_if:requiere_envio,true|string|max:255',
+            'telefono_envio'   => 'nullable|required_if:requiere_envio,true|string|max:50',
+            'calle_numero_envio'=> 'nullable|required_if:requiere_envio,true|string|max:255',
+            'piso_depto_envio' => 'nullable|string|max:255',
+            'origen'           => 'nullable|string|in:presencial,whatsapp',
+            'es_excepcional'   => 'nullable|boolean',
+            'motivo_pendiente' => 'nullable|string',
+            'monto_sena'       => 'nullable|numeric|min:0',
+            'acumular_pedido'  => 'nullable|boolean',
+            'guardar_pendiente'=> 'nullable|boolean',
+            'tipo_envio'       => 'nullable|string|in:retiro,domicilio',
+            'usar_saldo_favor' => 'nullable|boolean',
         ];
     }
 

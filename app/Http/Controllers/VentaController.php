@@ -15,12 +15,22 @@ class VentaController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->whereHas('cliente.user', function ($q2) use ($search) {
+            $searchNum = str_replace(['#', 'TK-', 'tk-', 'Tk-', 'tK-'], '', $search);
+
+            $query->where(function ($q) use ($search, $searchNum) {
+                if (is_numeric($searchNum)) {
+                    $q->where('id', 'like', '%' . (int)$searchNum . '%');
+                }
+                $q->orWhereHas('cliente.user', function ($q2) use ($search) {
                     $q2->where('name', 'like', '%' . $search . '%')
                        ->orWhere('apellido', 'like', '%' . $search . '%');
-                })->orWhereNull('cliente_id'); // consumidor final siempre visible
+                });
             });
+        }
+
+        if ($request->boolean('abonadas_pendientes')) {
+            $query->where('estado', 'pagado')
+                  ->where('estado_envio', 'pendiente');
         }
 
         $ventas = $query->latest()->paginate(10)->withQueryString();
@@ -42,7 +52,7 @@ class VentaController extends Controller
             'ventas'     => $ventas,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
             'stats'      => $stats,
-            'filters'    => $request->only(['search']),
+            'filters'    => $request->only(['search', 'abonadas_pendientes']),
         ]);
     }
 
@@ -98,7 +108,7 @@ class VentaController extends Controller
             ->whereHas('master', fn($q2) => $q2->where('titulo', 'like', "%{$q}%"))
             ->orWhere('isbn', 'like', "%{$q}%")
         )
-        ->select('id', 'master_id', 'isbn')
+        ->select('id', 'master_id', 'isbn', 'permite_preventa', 'numero_tomo')
         ->limit(20)
         ->get();
 
@@ -114,7 +124,9 @@ class VentaController extends Controller
         return response()->json($libros->map(fn($l) => [
             'id'               => $l->id,
             'isbn'             => $l->isbn,
+            'numero_tomo'      => $l->numero_tomo,
             'master'           => ['titulo' => $l->master->titulo],
+            'permite_preventa' => $l->permite_preventa,
             'precio_actual'    => $l->precios->first()
                 ? ['precio_venta' => $l->precios->first()->precio_venta]
                 : null,
@@ -125,14 +137,17 @@ class VentaController extends Controller
     public function store(StoreVentaRequest $request)
     {
         $user = \Auth::user();
-        if (!$user->esAdmin() && (int) $request->sucursal_id !== $user->empleado?->sucursal_id) {
-            abort(403);
+        $sucursal_id = $user->empleado?->sucursal_id;
+
+        if (!$sucursal_id) {
+            return redirect()->route('ventas.index')
+                ->with('error', 'El usuario actual no tiene una sucursal asignada para operar.');
         }
 
         $libroIds = collect($request->items)->pluck('libro_id');
 
         try {
-            \DB::transaction(function () use ($request, $libroIds) {
+            \DB::transaction(function () use ($request, $libroIds, $sucursal_id) {
                 // Read prices inside the transaction so no stale-price sale is possible
                 $precios = PrecioLibro::whereIn('libro_id', $libroIds)
                     ->where('activo', true)
@@ -148,71 +163,142 @@ class VentaController extends Controller
                     }
                 }
 
+                $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
+
                 $total = 0;
                 foreach ($request->items as $item) {
                     $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
-                        ->where('sucursal_id', $request->sucursal_id)
+                        ->where('sucursal_id', $sucursal_id)
                         ->lockForUpdate()
                         ->first();
 
-                    if (!$stock || $stock->cantidad_disponible < $item['cantidad']) {
-                        throw new \RuntimeException("Stock insuficiente para el libro ID {$item['libro_id']}.");
+                    if (!$stock) {
+                        throw new \RuntimeException("No existe registro de stock para el libro ID {$item['libro_id']} en esta sucursal.");
+                    }
+
+                    if ($stock->cantidad_disponible <= 0 && !$librosModels[$item['libro_id']]->permite_preventa) {
+                        throw new \RuntimeException("Producto agotado y sin preventa habilitada");
                     }
 
                     $total += $item['cantidad'] * $precios[$item['libro_id']]->precio_venta;
                 }
 
+                $usar_saldo = $request->boolean('usar_saldo_favor');
+                $monto_saldo_usado = 0;
+
                 // Lock and validate CC balance before any writes
                 $cliente = null;
-                if ($request->medio_pago === 'Cuenta Corriente') {
+                if ($request->cliente_id) {
                     $cliente = \App\Models\Cliente::lockForUpdate()->find($request->cliente_id);
-                    if (!$cliente) {
-                        throw new \RuntimeException("El cliente seleccionado no existe.");
-                    }
-                    if ($cliente->saldo_actual < $total) {
-                        throw new \RuntimeException(
-                            'Saldo insuficiente en Cuenta Corriente. Disponible: $' .
-                            number_format($cliente->saldo_actual, 2, ',', '.')
-                        );
+                }
+
+                if ($usar_saldo && $cliente && $cliente->saldo_actual > 0) {
+                    $monto_saldo_usado = min($cliente->saldo_actual, $total);
+                }
+
+                $monto_restante = $total - $monto_saldo_usado;
+
+                $estado = 'pagado';
+                $motivo_pendiente = null;
+                $monto_a_cobrar = $monto_restante;
+
+                if ($request->boolean('es_excepcional') && $request->filled('motivo_pendiente')) {
+                    $estado = 'pendiente_pago';
+                    $motivo_pendiente = $request->motivo_pendiente;
+                    if ($motivo_pendiente === 'Reserva / Seña') {
+                        $monto_a_cobrar = min((float) $request->monto_sena, $monto_restante);
                     }
                 }
 
+                $origen = $request->origen === 'whatsapp' ? 'whatsapp' : 'presencial';
+                if ($origen === 'whatsapp' && $request->boolean('guardar_pendiente')) {
+                    $estado = 'pendiente_pago';
+                    $monto_a_cobrar = 0;
+                }
+
+                $estadoEnvio = 'no_requiere';
+                $direccionEnvio = null;
+
+                if ($request->acumular_pedido) {
+                    $estadoEnvio = 'no_requiere'; // No va a reparto hasta consolidar
+                    $motivo_pendiente = 'Acumulación';
+                } elseif ($request->requiere_envio || $request->tipo_envio === 'domicilio') {
+                    $estadoEnvio = 'pendiente';
+                    $sucursalModel = \App\Models\Sucursal::find($sucursal_id);
+                    $localidad = $sucursalModel ? $sucursalModel->nombre : 'Desconocida';
+
+                    $detallesDireccion = [
+                        $request->destinatario_envio,
+                        "Tel: " . $request->telefono_envio,
+                        $request->calle_numero_envio,
+                    ];
+
+                    if ($request->filled('piso_depto_envio')) {
+                        $detallesDireccion[] = $request->piso_depto_envio;
+                    }
+
+                    $detallesDireccion[] = "Localidad: " . $localidad;
+                    $direccionEnvio = implode(' - ', $detallesDireccion);
+                }
+
                 $venta = Venta::create([
-                    'fecha'       => now(),
-                    'cliente_id'  => $request->cliente_id,
-                    'user_id'     => \Auth::id(),
-                    'sucursal_id' => $request->sucursal_id,
-                    'tipo'        => 'presencial',
-                    'total'       => $total,
+                    'fecha'            => now(),
+                    'cliente_id'       => $request->cliente_id,
+                    'user_id'          => \Auth::id(),
+                    'sucursal_id'      => $sucursal_id,
+                    'tipo'             => 'presencial', // kept for retro-compatibility
+                    'origen'           => $origen,
+                    'estado'           => $estado,
+                    'estado_envio'     => $estadoEnvio,
+                    'direccion_envio'  => $direccionEnvio,
+                    'motivo_pendiente' => $motivo_pendiente,
+                    'total'            => $total,
                 ]);
 
                 foreach ($request->items as $item) {
                     $precio = $precios[$item['libro_id']]->precio_venta;
+                    $costo = $precios[$item['libro_id']]->precio_compra;
 
                     $venta->detalles()->create([
                         'libro_id'        => $item['libro_id'],
                         'cantidad'        => $item['cantidad'],
                         'precio_unitario' => $precio,
+                        'costo_unitario'  => $costo,
                         'subtotal'        => $item['cantidad'] * $precio,
                     ]);
 
                     \App\Models\Stock::where('libro_id', $item['libro_id'])
-                        ->where('sucursal_id', $request->sucursal_id)
+                        ->where('sucursal_id', $sucursal_id)
                         ->decrement('cantidad_disponible', $item['cantidad']);
                 }
 
-                $venta->transacciones()->create([
-                    'fecha'        => now(),
-                    'tipo'         => 'ingreso',
-                    'monto'        => $total,
-                    'metodo_pago'  => $request->medio_pago,
-                    'sucursal_id'  => $request->sucursal_id,
-                    'user_id'      => \Auth::id(),
-                    'descripcion'  => "[Venta #{$venta->id}]",
-                ]);
+                if ($monto_saldo_usado > 0) {
+                    $venta->transacciones()->create([
+                        'fecha'        => now(),
+                        'tipo'         => 'ingreso',
+                        'monto'        => $monto_saldo_usado,
+                        'metodo_pago'  => 'Cuenta Corriente',
+                        'sucursal_id'  => $sucursal_id,
+                        'user_id'      => \Auth::id(),
+                        'descripcion'  => "[Venta #{$venta->id}] - Pago con saldo a favor",
+                    ]);
+                    $cliente->decrement('saldo_actual', $monto_saldo_usado);
+                }
 
-                if ($cliente) {
-                    $cliente->decrement('saldo_actual', $total);
+                if ($monto_a_cobrar > 0) {
+                    $venta->transacciones()->create([
+                        'fecha'        => now(),
+                        'tipo'         => 'ingreso',
+                        'monto'        => $monto_a_cobrar,
+                        'metodo_pago'  => $request->medio_pago,
+                        'sucursal_id'  => $sucursal_id,
+                        'user_id'      => \Auth::id(),
+                        'descripcion'  => "[Venta #{$venta->id}]",
+                    ]);
+
+                    if ($request->medio_pago === 'Cuenta Corriente') {
+                        $cliente->decrement('saldo_actual', $monto_a_cobrar);
+                    }
                 }
             });
         } catch (\RuntimeException $e) {
@@ -237,7 +323,7 @@ class VentaController extends Controller
             'sucursal:id,nombre,calle,numero,telefono',
             'detalles.libro.master:id,titulo',
             'detalles.libro:id,master_id,isbn',
-            'transacciones:id,transaccionable_id,transaccionable_type,metodo_pago,monto',
+            'transacciones',
         ]);
 
         return inertia('Ventas/Show', ['venta' => $venta]);
@@ -274,13 +360,14 @@ class VentaController extends Controller
                     ->increment('cantidad_disponible', $detalle->cantidad);
             }
 
-            $trans = $fresh->transacciones->firstWhere('metodo_pago', 'Cuenta Corriente');
-            if ($trans && $fresh->cliente) {
-                $fresh->cliente->increment('saldo_actual', $trans->monto);
+            if ($fresh->cliente) {
+                // Devolver exactamente la suma de los montos ingresados para este ticket
+                $montoPagado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
+                if ($montoPagado > 0) {
+                    $fresh->cliente->increment('saldo_actual', $montoPagado);
+                }
             }
 
-            // Eliminar transacciones para que no inflen el monto esperado del cierre de caja
-            $fresh->transacciones()->delete();
             $fresh->delete();
         });
 
@@ -297,10 +384,55 @@ class VentaController extends Controller
         }
 
         $request->validate([
-            'estado' => 'required|in:pendiente_pago,en_preparacion,pagado,listo_para_retirar,enviado,entregado,retirado,cancelado',
+            'estado' => 'sometimes|required|in:pendiente_pago,pagado,cancelado',
+            'estado_envio' => 'sometimes|required|in:no_requiere,pendiente,enviado,entregado',
         ]);
 
-        $venta->update(['estado' => $request->estado]);
+        if ($request->estado === 'cancelado' && $venta->estado !== 'cancelado') {
+            \DB::transaction(function () use ($venta) {
+                $fresh = Venta::with(['detalles', 'cliente', 'transacciones'])
+                    ->lockForUpdate()
+                    ->find($venta->id);
+
+                if (in_array($fresh->estado_envio, ['enviado', 'entregado'])) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'estado' => 'No se puede cancelar una venta que ya fue enviada o entregada.',
+                    ]);
+                }
+
+                foreach ($fresh->detalles as $detalle) {
+                    \App\Models\Stock::where('libro_id', $detalle->libro_id)
+                        ->where('sucursal_id', $fresh->sucursal_id)
+                        ->increment('cantidad_disponible', $detalle->cantidad);
+                }
+
+                if ($fresh->cliente) {
+                    $montoPagado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
+                    if ($montoPagado > 0) {
+                        $fresh->cliente->increment('saldo_actual', $montoPagado);
+                    }
+                }
+
+                $fresh->update(['estado' => 'cancelado']);
+            });
+            return back()->with('message', 'Venta cancelada y stock revertido.');
+        }
+
+        if ($venta->estado === 'cancelado' && $request->estado !== 'cancelado') {
+            return back()->with('error', 'No se puede modificar el estado de una venta cancelada.');
+        }
+
+        $updates = [];
+        if ($request->has('estado')) {
+            $updates['estado'] = $request->estado;
+        }
+        if ($request->has('estado_envio')) {
+            $updates['estado_envio'] = $request->estado_envio;
+        }
+
+        if (!empty($updates)) {
+            $venta->update($updates);
+        }
 
         return back()->with('message', 'Estado de venta actualizado.');
     }

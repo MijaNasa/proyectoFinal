@@ -1,15 +1,14 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
-    stocks: Object,
+    obras: Object,
     sucursales: Array,
     libros: Array,
-    tiposMovimiento: Array,
     stocksExistentes: Array,
     filters: Object
 });
@@ -24,7 +23,6 @@ const form = useForm({
     cantidad_disponible: 0,
     ubicacion_text: '',
     activo: true,
-    tipo_movimiento_id: null,
     motivo: '',
 });
 
@@ -37,22 +35,37 @@ const nuevoTotal = computed(() => {
     return Math.max(0, cantidadActual.value + delta);
 });
 
-const tipoIngreso = computed(() => props.tiposMovimiento.find(t => t.codigo === 'INGRESO_MANUAL'));
-const tiposEgreso = computed(() => props.tiposMovimiento.filter(t => t.codigo.startsWith('EGRESO_')));
-
 watch(() => ajusteTipo.value, (tipo) => {
     if (tipo === '+') {
-        form.tipo_movimiento_id = tipoIngreso.value?.id ?? null;
         form.motivo = '';
-    } else {
-        form.tipo_movimiento_id = null;
     }
 });
 
 const isEditing = ref(false);
 const showModal = ref(false);
 
-// --- Buscador de libros ---
+// --- Buscador Automático (Debounce) ---
+let debounceTimeout = null;
+watch(search, (value) => {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+        router.get(
+            route('stocks.index'),
+            { search: value, sucursal_id: sucursal_id.value },
+            { preserveState: true, preserveScroll: true }
+        );
+    }, 300);
+});
+
+const handleSucursalChange = () => {
+    router.get(
+        route('stocks.index'),
+        { search: search.value, sucursal_id: sucursal_id.value },
+        { preserveState: true, preserveScroll: true }
+    );
+};
+
+// --- Buscador de libros modal ---
 const libroSearch = ref('');
 const showLibroDropdown = ref(false);
 
@@ -93,7 +106,6 @@ watch([() => form.libro_id, () => form.sucursal_id], ([libro_id, sucursal_id]) =
 const openModal = (stock = null) => {
     ajusteTipo.value = '+';
     ajusteCantidad.value = 0;
-    form.tipo_movimiento_id = tipoIngreso.value?.id ?? null;
     form.motivo = '';
     if (stock) {
         isEditing.value = true;
@@ -114,6 +126,22 @@ const openModal = (stock = null) => {
     showModal.value = true;
 };
 
+const openModalFromGrid = (tomo, sucursal) => {
+    // Buscar si ya existe el registro de stock para ese tomo y sucursal
+    const stockObj = tomo.stocks.find(st => st.sucursal_id === sucursal.id);
+
+    if (stockObj) {
+        openModal(stockObj);
+    } else {
+        openModal(null);
+        form.libro_id = tomo.id;
+        form.sucursal_id = sucursal.id;
+        const libroActual = props.libros.find(l => l.id === tomo.id);
+        libroSearch.value = libroActual ? libroActual.label : '';
+        cantidadActual.value = 0;
+    }
+};
+
 const submit = () => {
     if (!form.libro_id) {
         form.setError('libro_id', 'Seleccioná un libro antes de continuar.');
@@ -123,8 +151,8 @@ const submit = () => {
         form.setError('sucursal_id', 'Seleccioná una sucursal antes de continuar.');
         return;
     }
-    if (ajusteTipo.value === '-' && !form.tipo_movimiento_id) {
-        form.setError('tipo_movimiento_id', 'Seleccioná el motivo del egreso.');
+    if (ajusteTipo.value === '-' && !form.motivo) {
+        form.setError('motivo', 'Indicá el motivo del egreso.');
         return;
     }
     form.cantidad_disponible = nuevoTotal.value;
@@ -156,7 +184,7 @@ const submit = () => {
     }
 };
 
-const deleteStock = (id) => {
+const deleteStock = () => {
     Swal.fire({
         title: '¿Eliminar registro?',
         text: "Ten en cuenta que esto borrará la trazabilidad de stock para este ítem en esta sucursal.",
@@ -168,16 +196,44 @@ const deleteStock = (id) => {
         background: '#1A1A1A', color: '#FFF'
     }).then((result) => {
         if (result.isConfirmed) {
-            form.delete(route('stocks.destroy', id));
+            form.delete(route('stocks.destroy', form.id), {
+                onSuccess: () => {
+                    showModal.value = false;
+                }
+            });
         }
     });
 };
 
-const handleSearch = () => {
-    window.location.href = route('stocks.index', { 
-        search: search.value, 
-        sucursal_id: sucursal_id.value 
+// --- Jerarquía Obra -> Tomos ---
+const expandedObras = ref([]);
+const toggleObra = (id) => {
+    const idx = expandedObras.value.indexOf(id);
+    if (idx > -1) expandedObras.value.splice(idx, 1);
+    else expandedObras.value.push(id);
+};
+
+const getObraTotal = (obra) => {
+    let total = 0;
+    obra.libros.forEach(tomo => {
+        tomo.stocks.forEach(st => {
+            // Si hay un filtro de sucursal activo, sumar solo de esa sucursal
+            if (sucursal_id.value && st.sucursal_id != sucursal_id.value) return;
+            total += st.cantidad_disponible;
+        });
     });
+    return total;
+};
+
+const getTomoStock = (tomo, suc_id) => {
+    const st = tomo.stocks.find(s => s.sucursal_id === suc_id);
+    return st ? st.cantidad_disponible : 0;
+};
+
+const getTomoStockColor = (qty) => {
+    if (qty > 5) return 'text-white';
+    if (qty > 0) return 'text-orange-500';
+    return 'text-white/20';
 };
 </script>
 
@@ -206,81 +262,95 @@ const handleSearch = () => {
                     <div class="flex flex-col md:flex-row items-center gap-4">
                         <div class="w-full md:w-1/3">
                             <label class="block text-[10px] font-black uppercase text-brand-red mb-1 ml-1 tracking-widest">Sucursal</label>
-                            <select v-model="sucursal_id" @change="handleSearch" class="input-field w-full bg-brand-surface font-bold uppercase text-xs">
+                            <select v-model="sucursal_id" @change="handleSucursalChange" class="input-field w-full bg-brand-surface font-bold uppercase text-xs">
                                 <option value="">Todas las sucursales</option>
                                 <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
                             </select>
                         </div>
                         <div class="flex-1 w-full">
                             <label class="block text-[10px] font-black uppercase text-brand-red mb-1 ml-1 tracking-widest">Buscar Título o ISBN</label>
-                            <div class="flex gap-2">
-                                <input 
-                                    v-model="search" 
-                                    @keyup.enter="handleSearch"
-                                    type="text" 
-                                    placeholder="Inicie su búsqueda..." 
-                                    class="input-field flex-1"
-                                >
-                                <button @click="handleSearch" class="btn-primary py-2 px-6 bg-white/5 hover:bg-brand-red text-white uppercase font-black text-xs tracking-widest transition-all">
-                                    Filtrar
-                                </button>
-                            </div>
+                            <input
+                                v-model="search"
+                                type="text"
+                                placeholder="Inicie su búsqueda..."
+                                class="input-field w-full"
+                            >
                         </div>
                     </div>
                 </div>
 
                 <div class="card p-0 overflow-hidden">
-                    <table class="w-full text-left border-collapse">
+                    <table class="w-full text-left border-collapse table-fixed">
                         <thead>
                             <tr class="bg-brand-red text-white border-b border-white/10 uppercase text-[10px] font-black tracking-widest">
-                                <th class="p-4">Obra / Edición</th>
-                                <th class="p-4">Sucursal</th>
-                                <th class="p-4">Ubicación</th>
-                                <th class="p-4 text-center">Disponible</th>
-                                <th class="p-4 text-center">Reservado</th>
-                                <th class="p-4 text-right">Acciones</th>
+                                <th class="p-4 w-12 text-center"></th>
+                                <th class="p-4 w-1/2">Obra</th>
+                                <th class="p-4 w-1/4">Autor</th>
+                                <th class="p-4 w-1/4 text-center">Total Disponible</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr v-for="stock in stocks.data" :key="stock.id" class="hover:bg-white/[0.02] transition-colors group">
-                                <td class="p-4">
-                                    <div class="font-black text-sm uppercase group-hover:text-brand-red transition-colors">{{ stock.libro?.master?.titulo }}</div>
-                                    <div class="text-[10px] text-white/40 font-mono mt-0.5">ISBN: {{ stock.libro?.isbn || 'N/A' }}</div>
-                                    <div class="text-[9px] text-brand-red/60 uppercase font-black tracking-tighter italic">Autor: {{ stock.libro?.master?.autor?.apellido }}</div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="text-xs font-black uppercase tracking-wider bg-white/5 px-2 py-1 rounded text-white/70">{{ stock.sucursal?.nombre }}</span>
-                                </td>
-                                <td class="p-4 text-xs italic text-white/50">
-                                    {{ stock.ubicacion_text || 'Sin asignar' }}
-                                </td>
-                                <td class="p-4 text-center">
-                                    <span class="text-xl font-black" :class="stock.cantidad_disponible > 5 ? 'text-white' : (stock.cantidad_disponible > 0 ? 'text-orange-500' : 'text-brand-red')">
-                                        {{ stock.cantidad_disponible }}
-                                    </span>
-                                </td>
-                                <td class="p-4 text-center">
-                                    <span class="text-sm font-bold text-white/30">
-                                        {{ stock.cantidad_reservada || 0 }}
-                                    </span>
-                                </td>
-                                <td class="p-4 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <button @click="openModal(stock)" class="p-2 text-white/40 hover:text-brand-red transition-colors">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                            </svg>
-                                        </button>
-                                        <button @click="deleteStock(stock.id)" class="p-2 text-white/40 hover:text-brand-red transition-colors">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr v-if="stocks.data.length === 0">
-                                <td colspan="6" class="p-20 text-center text-white/20 italic tracking-widest uppercase text-sm font-black">
+                            <template v-for="obra in obras.data" :key="obra.id">
+                                <!-- Obra Row -->
+                                <tr @click="toggleObra(obra.id)" class="hover:bg-white/[0.02] transition-colors cursor-pointer group">
+                                    <td class="p-4 text-center text-white/30 group-hover:text-brand-red transition-colors">
+                                        <svg v-if="!expandedObras.includes(obra.id)" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mx-auto" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                        <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mx-auto text-brand-red" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="font-black text-sm uppercase group-hover:text-brand-red transition-colors">{{ obra.titulo }}</div>
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="text-[10px] uppercase font-black tracking-tighter italic text-white/50">
+                                            {{ obra.autor?.apellido || 'Sin Autor' }}, {{ obra.autor?.nombre || '' }}
+                                        </div>
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <span class="text-xl font-black" :class="getObraTotal(obra) > 5 ? 'text-white' : (getObraTotal(obra) > 0 ? 'text-orange-500' : 'text-brand-red')">
+                                            {{ getObraTotal(obra) }}
+                                        </span>
+                                    </td>
+                                </tr>
+
+                                <!-- Tomos (Expanded) -->
+                                <tr v-if="expandedObras.includes(obra.id)">
+                                    <td colspan="4" class="p-0 border-b border-white/10 bg-black/40">
+                                        <div class="p-4 pl-12 border-l-4 border-brand-red overflow-x-auto">
+                                            <table class="w-full text-left table-fixed min-w-[600px]">
+                                                <thead>
+                                                    <tr class="text-[9px] uppercase tracking-widest text-brand-red border-b border-white/5">
+                                                        <th class="py-2 pr-4 font-black w-[30%]">Tomo / Edición</th>
+                                                        <th class="py-2 px-4 text-center font-black leading-tight" v-for="s in sucursales" :key="s.id">{{ s.nombre }}</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr v-for="tomo in obra.libros" :key="tomo.id" class="border-b border-white/5 last:border-0 hover:bg-white/5 transition-colors">
+                                                        <td class="py-3 pr-4">
+                                                            <div class="font-bold text-sm text-white">Tomo {{ tomo.numero_tomo || 'Único' }}</div>
+                                                            <div class="text-[10px] text-white/40 font-mono">ISBN: {{ tomo.isbn || 'S/I' }}</div>
+                                                        </td>
+                                                        <td class="py-3 px-4 text-center cursor-pointer" v-for="s in sucursales" :key="s.id" @click="openModalFromGrid(tomo, s)" title="Click para asignar / ajustar stock">
+                                                            <div
+                                                                class="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded hover:bg-white/10 transition-colors"
+                                                            >
+                                                                <span class="font-black text-sm" :class="getTomoStockColor(getTomoStock(tomo, s.id))">
+                                                                    {{ getTomoStock(tomo, s.id) }}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr v-if="obras.data.length === 0">
+                                <td colspan="4" class="p-20 text-center text-white/20 italic tracking-widest uppercase text-sm font-black">
                                     No se registraron existencias para los criterios seleccionados
                                 </td>
                             </tr>
@@ -290,7 +360,7 @@ const handleSearch = () => {
 
                 <!-- Paginación -->
                 <div class="mt-8 flex justify-center gap-2">
-                    <Link v-for="link in stocks.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-[10px] font-black uppercase" :class="{'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20': !link.url}">{{ decodeLabel(link.label) }}</Link>
+                    <Link v-for="link in obras.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-[10px] font-black uppercase" :class="{'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20': !link.url}">{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
         </div>
@@ -302,7 +372,7 @@ const handleSearch = () => {
             <div class="flex min-h-full items-start justify-center p-4">
             <div class="relative w-full max-w-2xl card p-0 border border-brand-red shadow-[0_0_50px_rgba(230,25,25,0.2)] overflow-hidden transform transition-all group my-8">
                 <div class="bg-brand-red p-4 flex justify-between items-center relative overflow-hidden">
-                    <h3 class="text-xl font-black uppercase tracking-tighter"> 
+                    <h3 class="text-xl font-black uppercase tracking-tighter">
                         {{ isEditing ? 'Ajuste de' : 'Nueva Asignación de' }} <span class="italic text-white">Stock</span>
                     </h3>
                     <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative z-10">
@@ -311,7 +381,7 @@ const handleSearch = () => {
                     <!-- Decorative element -->
                     <div class="absolute right-0 top-0 bottom-0 w-32 bg-white/10 skew-x-[-20deg] translate-x-12"></div>
                 </div>
-                
+
                 <form @submit.prevent="submit" class="p-8">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <div class="md:col-span-2">
@@ -384,21 +454,14 @@ const handleSearch = () => {
 
                         <div v-if="ajusteTipo === '-'" class="md:col-span-2">
                             <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2 leading-none">Motivo del Egreso</label>
-                            <select
-                                v-model="form.tipo_movimiento_id"
-                                class="input-field w-full bg-brand-black uppercase font-bold text-xs"
-                                :class="{'border-brand-red': form.errors.tipo_movimiento_id}"
-                            >
-                                <option :value="null">Seleccionar motivo...</option>
-                                <option v-for="t in tiposEgreso" :key="t.id" :value="t.id">{{ t.nombre }}</option>
-                            </select>
-                            <div v-if="form.errors.tipo_movimiento_id" class="text-brand-red text-[10px] mt-1 uppercase font-bold">{{ form.errors.tipo_movimiento_id }}</div>
                             <textarea
                                 v-model="form.motivo"
-                                placeholder="Detalle adicional (opcional)..."
+                                placeholder="Ej: Daño, robo, ajuste por conteo físico, devolución a proveedor..."
                                 rows="2"
-                                class="input-field w-full text-xs mt-2 resize-none"
+                                class="input-field w-full text-xs resize-none"
+                                :class="{'border-brand-red': form.errors.motivo}"
                             ></textarea>
+                            <div v-if="form.errors.motivo" class="text-brand-red text-[10px] mt-1 uppercase font-bold">{{ form.errors.motivo }}</div>
                         </div>
 
                         <div class="flex items-center gap-3">
@@ -408,6 +471,7 @@ const handleSearch = () => {
                     </div>
 
                     <div class="mt-10 flex justify-end gap-3 border-t border-white/10 pt-8">
+                        <button v-if="isEditing" type="button" @click="deleteStock" class="px-8 py-3 rounded font-black text-brand-red/70 hover:text-brand-red transition-colors uppercase text-xs tracking-widest">Eliminar Registro</button>
                         <button type="button" @click="showModal = false" class="px-8 py-3 rounded font-black text-white/20 hover:text-white transition-colors uppercase text-xs tracking-widest">Anular</button>
                         <button type="submit" :disabled="form.processing" class="btn-primary px-16 relative overflow-hidden group">
                            <span class="relative z-10">{{ form.processing ? 'Sincronizando...' : (isEditing ? 'ACTUALIZAR VALORES' : 'CONFIRMAR INGRESO') }}</span>

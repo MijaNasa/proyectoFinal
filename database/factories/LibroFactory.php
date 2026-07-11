@@ -3,8 +3,6 @@
 namespace Database\Factories;
 
 use App\Models\LibroMaster;
-use App\Models\Editorial;
-use App\Models\Idioma;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -22,12 +20,11 @@ class LibroFactory extends Factory
         return [
             'isbn' => $this->faker->unique()->isbn13(),
             'master_id' => LibroMaster::factory(),
-            'editorial_id' => Editorial::factory(),
-            'idioma_id' => Idioma::factory(),
+            'numero_tomo' => $this->faker->numberBetween(1, 20),
             'año_edicion' => $this->faker->year(),
             'cantidad_paginas' => $this->faker->numberBetween(100, 1000),
-            'synopsis' => $this->faker->paragraphs(3, true),
             'activo' => true,
+            'permite_preventa' => false,
         ];
     }
 }

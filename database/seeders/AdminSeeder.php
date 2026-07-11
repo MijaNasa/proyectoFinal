@@ -16,7 +16,6 @@ class AdminSeeder extends Seeder
         $this->call(PaisSeeder::class);
         $this->call(GeografiaSeeder::class);
         $this->call(TipoClienteSeeder::class);
-        $this->call(TipoMovimientoStockSeeder::class);
 
         DB::transaction(function () {
             $pais = \App\Models\Pais::firstOrCreate(

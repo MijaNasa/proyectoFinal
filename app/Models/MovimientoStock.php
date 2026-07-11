@@ -2,11 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\Model;
 
 class MovimientoStock extends Model
 {
@@ -15,29 +12,30 @@ class MovimientoStock extends Model
     protected $table = 'movimientos_stock';
 
     protected $fillable = [
-        'stock_id', 'tipo_movimiento_id', 'cantidad', 
-        'cantidad_anterior', 'cantidad_nueva', 'motivo', 
-        'referencia_id', 'referencia_type', 'user_id', 
-        'fecha_movimiento', 'activo'
+        'tipo',
+        'sucursal_origen_id',
+        'sucursal_destino_id',
+        'user_id',
+        'motivo',
     ];
 
-    public function stock(): BelongsTo
+    public function origen()
     {
-        return $this->belongsTo(Stock::class);
+        return $this->belongsTo(Sucursal::class, 'sucursal_origen_id');
     }
 
-    public function tipoMovimiento(): BelongsTo
+    public function destino()
     {
-        return $this->belongsTo(TipoMovimientoStock::class, 'tipo_movimiento_id');
+        return $this->belongsTo(Sucursal::class, 'sucursal_destino_id');
     }
 
-    public function user(): BelongsTo
+    public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    public function referencia(): MorphTo
+    public function detalles()
     {
-        return $this->morphTo();
+        return $this->hasMany(MovimientoStockDetalle::class, 'movimiento_id');
     }
 }

@@ -14,14 +14,25 @@ class LibroController extends Controller
      */
     public function index(Request $request)
     {
-        $libros = Libro::query()
-            ->with(['master.autor', 'editorial', 'idioma', 'precios'])
-            ->latest()
-            ->get();
+        $query = \App\Models\LibroMaster::query()
+            ->with(['autor:id,nombre,apellido', 'categoria:id,nombre', 'editorial:id,nombre', 'idioma:id,nombre', 'libros.precios', 'libros.stocks']);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('titulo', 'like', "%{$search}%")
+                  ->orWhereHas('autor', fn($sq) => $sq->where('nombre', 'like', "%{$search}%")
+                      ->orWhere('apellido', 'like', "%{$search}%"))
+                  ->orWhereHas('libros', fn($sq) => $sq->where('isbn', 'like', "%{$search}%"));
+            });
+        }
+
+        $obras = $query->orderBy('titulo')->get();
 
         return inertia('Libros/Index', [
-            'libros'      => $libros,
-            'masters'     => \App\Models\LibroMaster::orderBy('titulo')->get(['id', 'titulo']),
+            'obras'       => $obras,
+            'autores'     => \App\Models\Autor::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
+            'categorias'  => \App\Models\Categoria::orderBy('nombre')->get(['id', 'nombre']),
             'editoriales' => \App\Models\Editorial::orderBy('nombre')->get(['id', 'nombre']),
             'idiomas'     => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
             'sucursales'  => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
@@ -38,22 +49,22 @@ class LibroController extends Controller
             $libro = Libro::create($request->validated());
 
             $libro->precios()->create([
-                'precio_compra' => $request->precio_compra,
+                'precio_compra' => $request->precio_compra ?? 0,
                 'precio_venta'  => $request->precio_venta,
                 'fecha_desde'   => now(),
                 'activo'        => true,
             ]);
 
-            foreach ($request->stock_inicial ?? [] as $sucursalId => $cantidad) {
-                if ($cantidad > 0) {
-                    \App\Models\Stock::create([
-                        'libro_id'            => $libro->id,
-                        'sucursal_id'         => $sucursalId,
-                        'cantidad_disponible' => $cantidad,
-                        'cantidad_reservada'  => 0,
-                        'activo'              => true,
-                    ]);
-                }
+            // Al crear, el stock inicial será estrictamente 0 en todas las sucursales.
+            $sucursales = \App\Models\Sucursal::where('activo', true)->pluck('id');
+            foreach ($sucursales as $sucursalId) {
+                \App\Models\Stock::create([
+                    'libro_id'            => $libro->id,
+                    'sucursal_id'         => $sucursalId,
+                    'cantidad_disponible' => 0,
+                    'cantidad_reservada'  => 0,
+                    'activo'              => true,
+                ]);
             }
         });
 
@@ -69,12 +80,14 @@ class LibroController extends Controller
         \DB::transaction(function() use ($request, $libro) {
             $libro->update($request->validated());
 
-            $currentPrice = $libro->precio_actual;
-            
-            if (!$currentPrice || 
-                (float)$currentPrice->precio_venta != (float)$request->precio_venta || 
-                (float)$currentPrice->precio_compra != (float)$request->precio_compra) {
-                
+            $currentPrice = $libro->precioActual; // Note: using relationship property
+
+            // Retain the existing precio_compra if updating just the sale price
+            $newPrecioCompra = $currentPrice ? $currentPrice->precio_compra : ($request->precio_compra ?? 0);
+
+            if (!$currentPrice ||
+                (float)$currentPrice->precio_venta != (float)$request->precio_venta) {
+
                 // Desactivar precio anterior si existe
                 if ($currentPrice) {
                     $currentPrice->update([
@@ -85,7 +98,7 @@ class LibroController extends Controller
 
                 // Crear nuevo registro de precio
                 $libro->precios()->create([
-                    'precio_compra' => $request->precio_compra,
+                    'precio_compra' => $newPrecioCompra,
                     'precio_venta' => $request->precio_venta,
                     'fecha_desde' => now(),
                     'activo' => true,
@@ -96,7 +109,7 @@ class LibroController extends Controller
         return redirect()->route('libros.index')
             ->with('message', 'Edición de libro actualizada con éxito');
     }
-    
+
 
     public function destroy(Libro $libro)
     {

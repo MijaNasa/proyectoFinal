@@ -26,6 +26,30 @@ class Venta extends Model
         'pago_expira_at' => 'datetime',
     ];
 
+    protected $appends = ['atendido_por'];
+
+    public function getAtendidoPorAttribute()
+    {
+        if ($this->user) {
+            return $this->user;
+        }
+
+        if ($this->sucursal_id) {
+            $adminEmpleado = Empleado::where('sucursal_id', $this->sucursal_id)
+                ->whereHas('cargos', function ($q) {
+                    $q->where('nombre', 'ADMIN');
+                })
+                ->with('user:id,name,apellido')
+                ->first();
+
+            if ($adminEmpleado && $adminEmpleado->user) {
+                return $adminEmpleado->user;
+            }
+        }
+
+        return null;
+    }
+
     public function cliente(): BelongsTo
     {
         return $this->belongsTo(Cliente::class);

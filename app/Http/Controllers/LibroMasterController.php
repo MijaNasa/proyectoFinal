@@ -9,20 +9,71 @@ use Illuminate\Http\Request;
 
 class LibroMasterController extends Controller
 {
+    private function processRelations(&$data)
+    {
+        if (!is_numeric($data['autor_id'])) {
+            $autorStr = trim($data['autor_id']);
+            $parts = explode(' ', $autorStr);
+            $apellido = count($parts) > 1 ? array_pop($parts) : null;
+            $nombre = implode(' ', $parts);
+
+            $autor = \App\Models\Autor::where('nombre', $nombre)
+                ->where('apellido', $apellido)
+                ->first();
+
+            if (!$autor) {
+                $autor = \App\Models\Autor::create(['nombre' => $nombre, 'apellido' => $apellido]);
+            }
+            $data['autor_id'] = $autor->id;
+        }
+
+        if (!is_numeric($data['categoria_id'])) {
+            $catStr = trim($data['categoria_id']);
+            $categoria = \App\Models\Categoria::where('nombre', $catStr)->first();
+            if (!$categoria) {
+                $categoria = \App\Models\Categoria::create(['nombre' => $catStr]);
+            }
+            $data['categoria_id'] = $categoria->id;
+        }
+
+        if (!empty($data['editorial_id']) && !is_numeric($data['editorial_id'])) {
+            $edStr = trim($data['editorial_id']);
+            $editorial = \App\Models\Editorial::where('nombre', $edStr)->first();
+            if (!$editorial) {
+                $editorial = \App\Models\Editorial::create(['nombre' => $edStr]);
+            }
+            $data['editorial_id'] = $editorial->id;
+        }
+
+        if (!empty($data['idioma_id']) && !is_numeric($data['idioma_id'])) {
+            $idStr = trim($data['idioma_id']);
+            $idioma = \App\Models\Idioma::where('nombre', $idStr)->first();
+            if (!$idioma) {
+                // Generar un código dummy para el idioma (ej: si es "Inglés", el código podría ser "ING")
+                $codigo = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $idStr), 0, 3));
+                // Asegurarse de que el código sea único o intentar un fallback
+                if (\App\Models\Idioma::where('codigo', $codigo)->exists()) {
+                    $codigo = substr(md5(uniqid()), 0, 5);
+                }
+                $idioma = \App\Models\Idioma::create(['nombre' => $idStr, 'codigo' => $codigo]);
+            }
+            $data['idioma_id'] = $idioma->id;
+        }
+    }
+
     /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
         $query = LibroMaster::query()
-            ->with(['autor:id,nombre,apellido', 'categoria:id,nombre'])
-            ->select(['id', 'titulo', 'titulo_original', 'portada', 'autor_id', 'categoria_id', 'activo']);
+            ->with(['autor:id,nombre,apellido', 'categoria:id,nombre', 'editorial:id,nombre', 'idioma:id,nombre'])
+            ->select(['id', 'titulo', 'portada', 'autor_id', 'categoria_id', 'editorial_id', 'idioma_id', 'formato', 'synopsis', 'activo']);
 
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('titulo', 'like', "%{$search}%")
-                  ->orWhere('titulo_original', 'like', "%{$search}%")
                   ->orWhereHas('autor', fn($sq) => $sq->where('nombre', 'like', "%{$search}%")
                       ->orWhere('apellido', 'like', "%{$search}%"));
             });
@@ -34,16 +85,16 @@ class LibroMasterController extends Controller
             'librosMaster' => $librosMaster,
             'autores' => \App\Models\Autor::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'categorias' => \App\Models\Categoria::orderBy('nombre')->get(['id', 'nombre']),
+            'editoriales' => \App\Models\Editorial::orderBy('nombre')->get(['id', 'nombre']),
+            'idiomas' => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
             'filters' => $request->only(['search'])
         ]);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     */
     public function store(StoreLibroMasterRequest $request)
     {
         $data = $request->validated();
+        $this->processRelations($data);
 
         if ($request->hasFile('portada')) {
             $data['portada'] = $request->file('portada')->store('portadas', 'public');
@@ -51,8 +102,8 @@ class LibroMasterController extends Controller
 
         LibroMaster::create($data);
 
-        return redirect()->route('libro-masters.index')
-            ->with('message', 'Libro Master creado con éxito');
+        return redirect()->route('libros.index')
+            ->with('message', 'Obra maestra (título) creada con éxito');
     }
 
     /**
@@ -61,6 +112,7 @@ class LibroMasterController extends Controller
     public function update(UpdateLibroMasterRequest $request, LibroMaster $libroMaster)
     {
         $data = $request->validated();
+        $this->processRelations($data);
 
         if ($request->hasFile('portada')) {
             // Eliminar imagen anterior si existe
@@ -72,8 +124,8 @@ class LibroMasterController extends Controller
 
         $libroMaster->update($data);
 
-        return redirect()->route('libro-masters.index')
-            ->with('message', 'Libro Master actualizado con éxito');
+        return redirect()->route('libros.index')
+            ->with('message', 'Obra maestra actualizada con éxito');
     }
 
     /**
@@ -83,7 +135,7 @@ class LibroMasterController extends Controller
     {
         $libroMaster->delete();
 
-        return redirect()->route('libro-masters.index')
-            ->with('message', 'Libro Master eliminado con éxito');
+        return redirect()->route('libros.index')
+            ->with('message', 'Obra maestra eliminada con éxito');
     }
 }

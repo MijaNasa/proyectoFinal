@@ -115,15 +115,6 @@ const getIdiomas = (libro) =>
     [...new Set(libro.libros?.map(l => l.idioma?.nombre).filter(Boolean) ?? [])];
 
 const tieneVariasEdiciones = (libro) => (libro.libros?.length ?? 0) > 1;
-
-const agregarAlCarrito = (libro) => {
-    const variante = libro.libros?.[0];
-    if (!variante || getStockStatus(libro) === 'sin_stock') return;
-    router.post(route('carrito.agregar'), {
-        libro_id: variante.id,
-        cantidad: 1,
-    }, { preserveScroll: true, preserveState: true });
-};
 </script>
 
 <template>
@@ -271,24 +262,9 @@ const agregarAlCarrito = (libro) => {
 
                     <!-- Grid -->
                     <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5">
-                        <component
-                            :is="getStockStatus(libro) === 'sin_stock' ? 'div' : Link"
-                            v-for="libro in libros.data"
-                            :key="libro.id"
-                            :href="getStockStatus(libro) === 'sin_stock' ? undefined : route('catalogo.show', libro.id)"
-                            class="group"
-                            :class="{ 'cursor-not-allowed': getStockStatus(libro) === 'sin_stock' }"
-                        >
-                            <div
-                                class="relative aspect-[2/3] overflow-hidden rounded-xl bg-white/5 border border-white/10 transition-all duration-500"
-                                :class="getStockStatus(libro) === 'sin_stock' ? 'opacity-50' : 'group-hover:border-brand-red group-hover:-translate-y-1 group-hover:shadow-[0_12px_30px_rgba(230,25,25,0.15)]'"
-                            >
-                                <img
-                                    :src="libro.portada_url"
-                                    :alt="libro.titulo"
-                                    class="w-full h-full object-cover grayscale transition-all duration-700"
-                                    :class="getStockStatus(libro) === 'sin_stock' ? '' : 'group-hover:grayscale-0 scale-100 group-hover:scale-105'"
-                                >
+                        <Link v-for="libro in libros.data" :key="libro.id" :href="route('catalogo.show', libro.id)" class="group">
+                            <div class="relative aspect-[2/3] overflow-hidden rounded-xl bg-white/5 border border-white/10 transition-all duration-500 group-hover:border-brand-red group-hover:-translate-y-1 group-hover:shadow-[0_12px_30px_rgba(230,25,25,0.15)]">
+                                <img :src="libro.portada_url" :alt="libro.titulo" class="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-700 scale-100 group-hover:scale-105">
                                 <div v-if="getStockStatus(libro) === 'sin_stock'" class="absolute inset-0 bg-black/60 flex items-center justify-center">
                                     <span class="text-[9px] font-black uppercase tracking-widest text-white/50 bg-black/80 px-2 py-1 rounded">Sin Stock</span>
                                 </div>
@@ -297,12 +273,12 @@ const agregarAlCarrito = (libro) => {
                                 </div>
                             </div>
                             <div class="mt-3 space-y-1">
-                                <h3 class="font-black uppercase tracking-tighter text-sm leading-tight transition-colors line-clamp-2" :class="{ 'group-hover:text-brand-red': getStockStatus(libro) !== 'sin_stock', 'text-white/40': getStockStatus(libro) === 'sin_stock' }">{{ libro.titulo }}</h3>
+                                <h3 class="font-black uppercase tracking-tighter text-sm leading-tight group-hover:text-brand-red transition-colors line-clamp-2">{{ libro.titulo }}</h3>
                                 <div class="flex flex-col gap-1">
                                     <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 line-clamp-1">{{ libro.autor ? libro.autor.apellido + ', ' + libro.autor.nombre : 'Autor Desconocido' }}</span>
                                     <div class="flex items-center justify-between">
                                         <span class="text-base font-black text-brand-red italic">{{ getPrecio(libro) }}</span>
-                                        <span v-if="getStockStatus(libro) !== 'disponible'" :class="['text-[8px] font-black uppercase tracking-widest', stockClass[getStockStatus(libro)]]">{{ stockLabel[getStockStatus(libro)] }}</span>
+                                        <span :class="['text-[8px] font-black uppercase tracking-widest', stockClass[getStockStatus(libro)]]">{{ stockLabel[getStockStatus(libro)] }}</span>
                                     </div>
                                     <div v-if="tieneVariasEdiciones(libro)" class="flex gap-1 flex-wrap">
                                         <span
@@ -311,14 +287,9 @@ const agregarAlCarrito = (libro) => {
                                             class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-white/40"
                                         >{{ idioma }}</span>
                                     </div>
-                                    <button
-                                        v-if="!tieneVariasEdiciones(libro) && getStockStatus(libro) !== 'sin_stock'"
-                                        @click.stop.prevent="agregarAlCarrito(libro)"
-                                        class="mt-1 w-full py-2 rounded-lg bg-brand-red/10 border border-brand-red/30 text-brand-red text-[9px] font-black uppercase tracking-widest hover:bg-brand-red hover:text-white transition-all"
-                                    >Agregar al Carrito</button>
                                 </div>
                             </div>
-                        </component>
+                        </Link>
                     </div>
 
                     <!-- Sin resultados -->

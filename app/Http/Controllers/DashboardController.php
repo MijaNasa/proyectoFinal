@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Venta;
+use App\Models\Stock;
 use App\Models\Cliente;
 use App\Models\MovimientoStock;
 use Illuminate\Http\Request;
@@ -31,6 +32,7 @@ class DashboardController extends Controller
             'ventas_hoy'              => (float) $ventasHoy->recaudacion,
             'cantidad_ventas'         => (int)   $ventasHoy->cantidad,
             'ventas_mes'              => (float) $ventasMes,
+            'stock_total'             => (int)   Stock::sum('cantidad_disponible'),
             'clientes_total'          => (int)   Cliente::count(),
             'pedidos_online_pendientes' => (int) Venta::where('tipo', 'online')
                 ->whereIn('estado', ['pendiente_pago', 'en_preparacion'])
@@ -40,13 +42,13 @@ class DashboardController extends Controller
                 ->take(6)
                 ->get(['id', 'fecha', 'total', 'estado', 'tipo', 'cliente_id', 'user_id', 'sucursal_id']),
             'ultimos_movimientos' => MovimientoStock::with([
-                    'stock.libro.master:id,titulo',
-                    'stock.sucursal:id,nombre',
-                    'tipoMovimiento:id,nombre,codigo',
+                    'origen:id,nombre',
+                    'destino:id,nombre',
+                    'detalles.libro.master:id,titulo'
                 ])
-                ->latest('fecha_movimiento')
+                ->latest()
                 ->take(6)
-                ->get(['id', 'stock_id', 'tipo_movimiento_id', 'cantidad', 'cantidad_nueva', 'fecha_movimiento']),
+                ->get(['id', 'tipo', 'sucursal_origen_id', 'sucursal_destino_id', 'created_at']),
         ];
 
         return Inertia::render('Dashboard', [

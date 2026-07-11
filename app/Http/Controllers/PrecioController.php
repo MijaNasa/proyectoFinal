@@ -6,21 +6,82 @@ use App\Models\Libro;
 use App\Models\PrecioLibro;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Carbon\Carbon;
 
 class PrecioController extends Controller
 {
-    public function index(Request $request): \Inertia\Response
+    public function bulkUpdate(Request $request)
+    {
+        // 1. Validamos que lleguen los datos obligatorios
+        $request->validate([
+            'criterio'     => 'required|in:serie,editorial_formato,libro_individual',
+            'nuevo_precio' => 'required|numeric|min:0',
+            'libro_id'     => 'nullable|exists:libros,id'
+        ]);
+
+        $query = \App\Models\Libro::query();
+
+        // 2. Filtramos según lo que eligió el usuario
+        if ($request->criterio === 'serie') {
+            $query->whereHas('serie', function ($q) use ($request) {
+                $q->where('nombre', $request->serie);
+            });
+        } elseif ($request->criterio === 'libro_individual') {
+            $query->where('id', $request->libro_id);
+        } else {
+            // Editorial y formato ahora viven en LibroMaster (la obra), no en Libro (la edición).
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('formato', $request->formato)
+                  ->whereHas('editorial', function ($eq) use ($request) {
+                      $eq->where('nombre', $request->editorial);
+                  });
+            });
+        }
+
+        $libros = $query->get();
+
+        // 3. Aplicamos el aumento a todos los libros encontrados
+        foreach ($libros as $libro) {
+            // Capturamos el precio viejo para no perder el dato del costo original
+            $precioViejo = $libro->precios()->where('activo', true)->first();
+            $costoActual = $precioViejo ? $precioViejo->precio_compra : 0;
+
+            // Desactivamos el historial viejo
+            $libro->precios()->update(['activo' => false]);
+
+            // Creamos el nuevo precio (usando la misma estructura de tu LibroController)
+            $libro->precios()->create([
+                'precio_compra' => $costoActual,
+                'precio_venta'  => $request->nuevo_precio,
+                'motivo'        => $request->motivo ?? 'Aumento masivo',
+                'fecha_desde'   => now(),
+                'activo'        => true,
+            ]);
+        }
+
+        return redirect()->back();
+    }
+
+public function index(Request $request): \Inertia\Response
     {
         $filtro = $request->get('filtro', 'todos');
         $search = $request->get('search', '');
 
         $query = Libro::with([
-            'master:id,titulo,autor_id',
+            'master:id,titulo,autor_id,editorial_id,formato',
             'master.autor:id,nombre,apellido',
-            'editorial:id,nombre',
+            'master.editorial:id,nombre',
+            'serie:id,nombre', // <-- ¡AGREGADO! Para que funcione el filtro masivo por Serie
             'precios' => fn($q) => $q->orderByDesc('fecha_desde')->limit(5),
         ])
-        ->select('libros.id', 'libros.isbn', 'libros.master_id', 'libros.editorial_id', 'libros.año_edicion', 'libros.activo');
+        ->select(
+            'libros.id',
+            'libros.isbn',
+            'libros.master_id',
+            'libros.serie_id', // <-- ¡AGREGADO! Necesario para la relación de arriba
+            'libros.año_edicion',
+            'libros.activo'
+        );
 
         if ($search) {
             $query->whereHas('master', fn($q) => $q
@@ -50,9 +111,23 @@ class PrecioController extends Controller
             'sin_precio' => Libro::whereDoesntHave('precios', fn($q) => $q->where('activo', true))->count(),
         ];
 
+        $opcionesMasivas = [
+            // El formato ahora es un atributo de LibroMaster (la obra), no de Libro (la edición).
+            'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
+            'series' => \App\Models\Serie::orderBy('nombre')->pluck('nombre'),
+            'editoriales' => \App\Models\Editorial::orderBy('nombre')->pluck('nombre'),
+            'libros' => Libro::with('master:id,titulo')->select('id', 'master_id', 'isbn')->get()->map(function($l) {
+                return [
+                    'id' => $l->id,
+                    'titulo' => $l->master->titulo . ($l->isbn ? ' (ISBN: ' . $l->isbn . ')' : '')
+                ];
+            })->sortBy('titulo')->values()
+        ];
+
         return inertia('Precios/Index', [
             'libros'  => $libros,
             'stats'   => $stats,
+            'opcionesMasivas' => $opcionesMasivas,
             'filters' => compact('filtro', 'search'),
         ]);
     }

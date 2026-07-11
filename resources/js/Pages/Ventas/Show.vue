@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
+import Swal from 'sweetalert2';
 
 const props = defineProps({
     venta: Object,
@@ -11,19 +12,42 @@ const puedeEditarEstado = page.props.auth?.esAdmin || page.props.auth?.esGerente
 
 const estados = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago' },
-    { value: 'en_preparacion',     label: 'En preparación' },
     { value: 'pagado',             label: 'Pagado' },
-    { value: 'listo_para_retirar', label: 'Listo para retirar' },
-    { value: 'enviado',            label: 'Enviado' },
-    { value: 'entregado',          label: 'Entregado' },
-    { value: 'retirado',           label: 'Retirado' },
     { value: 'cancelado',          label: 'Cancelado' },
 ];
 
-const estadoForm = useForm({ estado: props.venta.estado });
+const estadosEnvio = [
+    { value: 'no_requiere', label: 'No requiere' },
+    { value: 'pendiente',   label: 'Pendiente' },
+    { value: 'enviado',     label: 'Enviado' },
+    { value: 'entregado',   label: 'Entregado' },
+];
 
-const cambiarEstado = () => {
-    if (estadoForm.estado === props.venta.estado) return;
+const estadoForm = useForm({ 
+    estado: props.venta.estado,
+    estado_envio: props.venta.estado_envio 
+});
+
+const cambiarEstado = async () => {
+    if (estadoForm.estado === props.venta.estado && estadoForm.estado_envio === props.venta.estado_envio) return;
+
+    if (estadoForm.estado === 'cancelado' && props.venta.estado !== 'cancelado') {
+        const { isConfirmed } = await Swal.fire({
+            title: '¿Confirmar cancelación?',
+            text: 'Esta acción anulará la venta y devolverá el stock de todos los artículos.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, cancelar',
+            cancelButtonText: 'No, mantener',
+            background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
+        });
+        
+        if (!isConfirmed) {
+            estadoForm.estado = props.venta.estado;
+            return;
+        }
+    }
+
     estadoForm.patch(route('ventas.estado', props.venta.id));
 };
 
@@ -58,17 +82,25 @@ const print = () => window.print();
         </Link>
         <div class="flex items-center gap-3">
             <!-- Cambiar estado (solo admin/gerente) -->
-            <div v-if="puedeEditarEstado" class="flex items-center gap-2">
+            <div v-if="puedeEditarEstado" class="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                 <select
                     v-model="estadoForm.estado"
-                    class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-white/30 transition-colors"
+                    title="Estado del Pago"
+                    class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-white/30 transition-colors w-full sm:w-auto"
                 >
                     <option v-for="e in estados" :key="e.value" :value="e.value">{{ e.label }}</option>
                 </select>
+                <select
+                    v-model="estadoForm.estado_envio"
+                    title="Estado Logístico"
+                    class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-white/30 transition-colors w-full sm:w-auto"
+                >
+                    <option v-for="e in estadosEnvio" :key="e.value" :value="e.value">{{ e.label }}</option>
+                </select>
                 <button
                     @click="cambiarEstado"
-                    :disabled="estadoForm.estado === venta.estado || estadoForm.processing"
-                    class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    :disabled="(estadoForm.estado === venta.estado && estadoForm.estado_envio === venta.estado_envio) || estadoForm.processing"
+                    class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors w-full sm:w-auto"
                 >
                     Guardar
                 </button>
@@ -111,6 +143,10 @@ const print = () => window.print();
                                 : 'border-gray-300 text-gray-600 bg-gray-50'">
                             {{ venta.tipo === 'online' ? 'Venta Online' : 'Venta Presencial' }}
                         </span>
+                        <div class="mt-2 text-right">
+                            <span class="text-[9px] font-black uppercase tracking-widest text-gray-500 mr-2">PAGO: {{ estados.find(e => e.value === venta.estado)?.label || venta.estado }}</span>
+                            <span class="text-[9px] font-black uppercase tracking-widest text-gray-500">ENVÍO: {{ estadosEnvio.find(e => e.value === venta.estado_envio)?.label || venta.estado_envio }}</span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -119,9 +155,10 @@ const print = () => window.print();
             <div class="grid grid-cols-2 gap-6 mb-6 text-sm">
                 <div>
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Cliente</p>
-                    <p class="font-bold text-black">
+                    <Link v-if="venta.cliente_id" :href="route('clientes.show', venta.cliente_id)" class="font-bold text-black hover:text-brand-red transition-colors block">
                         {{ venta.cliente?.user?.name }} {{ venta.cliente?.user?.apellido }}
-                    </p>
+                    </Link>
+                    <p v-else class="font-bold text-black">Cliente Mostrador</p>
                     <p v-if="venta.cliente?.user?.email" class="text-gray-500 text-xs">
                         {{ venta.cliente.user.email }}
                     </p>
@@ -130,10 +167,10 @@ const print = () => window.print();
                     </p>
                 </div>
                 <div>
-                    <template v-if="venta.tipo === 'presencial'">
+                    <div>
                         <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Atendido por</p>
-                        <p class="font-bold text-black">{{ venta.user?.name }} {{ venta.user?.apellido }}</p>
-                    </template>
+                        <p class="font-bold text-black">{{ venta.atendido_por?.name || '—' }} {{ venta.atendido_por?.apellido || '' }}</p>
+                    </div>
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1 mt-3">Método de pago</p>
                     <p class="font-bold text-black">{{ metodoPago }}</p>
                 </div>

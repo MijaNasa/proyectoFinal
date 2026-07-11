@@ -19,8 +19,10 @@ class PublicCatalogoController extends Controller
             ->with([
                 'autor',
                 'categoria',
+                'editorial',
+                'idioma',
                 'libros' => function ($q) {
-                    $q->with(['precioActual', 'serie', 'editorial', 'idioma', 'stocks.sucursal']);
+                    $q->with(['precioActual', 'serie', 'stocks.sucursal']);
                 },
             ])
             ->where('activo', true);
@@ -46,11 +48,13 @@ class PublicCatalogoController extends Controller
         }
 
         if ($request->filled('editorial')) {
-            $query->whereHas('libros', fn($q) => $q->where('editorial_id', $request->editorial));
+            // editorial_id ahora vive en libro_masters (la obra), no en libros (la edición).
+            $query->where('editorial_id', $request->editorial);
         }
 
         if ($request->filled('idioma')) {
-            $query->whereHas('libros', fn($q) => $q->where('idioma_id', $request->idioma));
+            // idioma_id ahora vive en libro_masters (la obra), no en libros (la edición).
+            $query->where('idioma_id', $request->idioma);
         }
 
         $libros = $query->latest()->paginate(24)->withQueryString();
@@ -71,8 +75,10 @@ class PublicCatalogoController extends Controller
         $libroMaster = LibroMaster::where('activo', true)->with([
             'autor',
             'categoria',
+            'editorial',
+            'idioma',
             'libros' => function ($q) {
-                $q->with(['editorial', 'idioma', 'serie', 'precioActual', 'stocks.sucursal']);
+                $q->with(['serie', 'precioActual', 'stocks.sucursal']);
             },
         ])->findOrFail($id);
 

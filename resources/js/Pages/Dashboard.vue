@@ -26,12 +26,19 @@ const estadoVenta = {
     cancelado:          { label: 'Cancelado',       color: 'text-brand-red' },
 };
 
-const movimientoColor = (codigo) => {
-    if (!codigo) return 'text-white/40';
-    if (codigo.includes('VENTA') || codigo.includes('EGRESO')) return 'text-brand-red';
-    if (codigo.includes('INGRESO') || codigo.includes('ENTRADA')) return 'text-green-400';
-    if (codigo.includes('TRANSFER')) return 'text-blue-400';
+const movimientoColor = (tipo) => {
+    if (!tipo) return 'text-white/40';
+    if (tipo === 'ajuste') return 'text-brand-red';
+    if (tipo === 'ingreso_proveedor') return 'text-green-400';
+    if (tipo === 'transferencia') return 'text-blue-400';
     return 'text-white/40';
+};
+
+const formatTipoMovimiento = (tipo) => {
+    if (tipo === 'ingreso_proveedor') return 'Ingreso Prov.';
+    if (tipo === 'transferencia') return 'Transferencia';
+    if (tipo === 'ajuste') return 'Ajuste';
+    return tipo;
 };
 </script>
 
@@ -54,8 +61,8 @@ const movimientoColor = (codigo) => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
 
                 <!-- Stats -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div class="card bg-brand-red/5 border-brand-red/20 group hover:bg-brand-red transition-all cursor-default">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    <div class="md:col-span-2 card bg-brand-red/5 border-brand-red/20 group hover:bg-brand-red transition-all cursor-default">
                         <h3 class="text-brand-red group-hover:text-white text-[10px] font-black uppercase tracking-[0.2em] mb-2 transition-colors">Ventas Hoy</h3>
                         <div class="text-2xl font-black group-hover:scale-105 transition-transform">{{ formatCurrency(stats.ventas_hoy) }}</div>
                         <div class="text-[10px] text-white/40 group-hover:text-white/70 font-bold mt-1 uppercase">{{ stats.cantidad_ventas }} operaciones</div>
@@ -97,12 +104,13 @@ const movimientoColor = (codigo) => {
                                     <p class="text-white/40 text-xs font-bold uppercase tracking-widest mb-6">
                                         {{ stats.clientes_total }} clientes en el sistema
                                     </p>
-                                    <div class="flex gap-2">
-                                        <Link :href="route('ventas.index', { nueva: 1 })" class="btn-primary flex-1 text-center inline-block bg-white text-black font-black hover:bg-brand-red hover:text-white transition-all">
-                                            NUEVA VENTA
+
+                                    <div class="space-y-3">
+                                        <Link :href="route('ventas.index', { open: 'pos' })" class="w-full text-center inline-block bg-white text-black font-black hover:bg-brand-red hover:text-white transition-all py-2.5 rounded uppercase text-xs tracking-wider">
+                                            Nueva Venta
                                         </Link>
-                                        <Link :href="route('ventas.index')" class="flex-1 text-center inline-block py-3 rounded-full border border-white/20 text-white/70 font-black text-xs uppercase tracking-widest hover:border-white hover:text-white transition-all">
-                                            HISTORIAL
+                                        <Link :href="route('ventas.index')" class="w-full text-center inline-block bg-white/10 text-white font-bold hover:bg-white/20 transition-all py-2.5 rounded uppercase text-xs tracking-wider border border-white/10">
+                                            Historial de Ventas
                                         </Link>
                                     </div>
                                 </div>
@@ -164,7 +172,7 @@ const movimientoColor = (codigo) => {
                         <div>
                             <div class="flex justify-between items-center mb-3">
                                 <h3 class="text-xs font-black uppercase tracking-[0.3em] text-white/40">Movimientos de Stock</h3>
-                                <Link :href="route('stocks.index')" class="text-[10px] font-black text-brand-red hover:underline uppercase tracking-widest">Ver stocks</Link>
+                                <Link :href="route('logistica.index')" class="text-[10px] font-black text-brand-red hover:underline uppercase tracking-widest">Ver logística</Link>
                             </div>
                             <div class="card p-0 overflow-hidden border-white/5">
                                 <table class="w-full text-left">
@@ -172,23 +180,24 @@ const movimientoColor = (codigo) => {
                                         <tr v-for="mov in stats.ultimos_movimientos" :key="mov.id" class="hover:bg-white/[0.02] transition-colors">
                                             <td class="p-3 pl-4">
                                                 <div class="text-[8px] font-black uppercase tracking-widest mb-0.5"
-                                                    :class="movimientoColor(mov.tipo_movimiento?.codigo)">
-                                                    {{ mov.tipo_movimiento?.nombre ?? '—' }}
+                                                    :class="movimientoColor(mov.tipo)">
+                                                    {{ formatTipoMovimiento(mov.tipo) }}
                                                 </div>
                                                 <div class="text-xs font-bold uppercase leading-tight line-clamp-1">
-                                                    {{ mov.stock?.libro?.master?.titulo ?? 'Libro' }}
+                                                    {{ mov.detalles?.length === 1 ? (mov.detalles[0].libro?.master?.titulo ?? 'Libro') : ((mov.detalles?.length || 0) + ' títulos') }}
                                                 </div>
-                                                <div class="text-[9px] text-white/30 font-bold">{{ mov.stock?.sucursal?.nombre }}</div>
+                                                <div class="text-[9px] text-white/30 font-bold">
+                                                    {{ mov.tipo === 'transferencia' ? (mov.origen?.nombre + ' -> ' + mov.destino?.nombre) : (mov.destino?.nombre ?? 'General') }}
+                                                </div>
                                             </td>
                                             <td class="p-3 text-center hidden sm:table-cell">
-                                                <div class="text-[10px] font-mono text-white/30">{{ formatHora(mov.fecha_movimiento) }}</div>
-                                                <div class="text-[9px] font-mono text-white/20">{{ formatFecha(mov.fecha_movimiento) }}</div>
+                                                <div class="text-[10px] font-mono text-white/30">{{ formatHora(mov.created_at) }}</div>
+                                                <div class="text-[9px] font-mono text-white/20">{{ formatFecha(mov.created_at) }}</div>
                                             </td>
                                             <td class="p-3 pr-4 text-right">
-                                                <div class="text-sm font-black" :class="movimientoColor(mov.tipo_movimiento?.codigo)">
-                                                    {{ mov.cantidad > 0 ? '+' : '' }}{{ mov.cantidad }}
+                                                <div class="text-sm font-black" :class="movimientoColor(mov.tipo)">
+                                                    {{ mov.detalles?.reduce((acc, d) => acc + d.cantidad, 0) }}
                                                 </div>
-                                                <div class="text-[9px] text-white/30 font-mono">stock: {{ mov.cantidad_nueva }}</div>
                                             </td>
                                         </tr>
                                         <tr v-if="stats.ultimos_movimientos.length === 0">

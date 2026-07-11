@@ -19,10 +19,13 @@ class UpdateLibroMasterRequest extends FormRequest
     {
         return [
             'titulo' => ['required', 'string', 'max:255'],
-            'titulo_original' => ['nullable', 'string', 'max:255'],
             'portada' => ['nullable', 'image', 'mimes:jpg,jpeg,png,gif,webp', 'max:2048'],
-            'autor_id' => ['required', 'exists:autores,id'],
-            'categoria_id' => ['required', 'exists:categorias,id'],
+            'autor_id' => ['required', 'string'],
+            'categoria_id' => ['required', 'string'],
+            'editorial_id' => ['required', 'string'],
+            'idioma_id' => ['required', 'string'],
+            'formato' => ['nullable', 'string', 'max:255'],
+            'synopsis' => ['nullable', 'string'],
             'activo' => ['boolean']
         ];
     }

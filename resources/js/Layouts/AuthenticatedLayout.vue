@@ -81,8 +81,7 @@ const toggleGroup = (group) => {
                         <svg :class="{'rotate-180': expandedGroups.books}" class="h-4 w-4 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <div v-show="expandedGroups.books" class="pl-4 space-y-1">
-                        <DropdownLink :href="route('libro-masters.index')" :active="route().current('libro-masters.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Títulos</DropdownLink>
-                        <DropdownLink :href="route('libros.index')" :active="route().current('libros.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Ediciones</DropdownLink>
+                        <DropdownLink :href="route('libros.index')" :active="route().current('libros.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Catálogo</DropdownLink>
                         <DropdownLink :href="route('precios.index')" :active="route().current('precios.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Precios</DropdownLink>
                     </div>
                 </div>
@@ -109,7 +108,7 @@ const toggleGroup = (group) => {
                     <div v-show="expandedGroups.inventory" class="pl-4 space-y-1">
                         <DropdownLink :href="route('sucursales.index')" :active="route().current('sucursales.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Sucursales</DropdownLink>
                         <DropdownLink :href="route('stocks.index')" :active="route().current('stocks.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Control de Stock</DropdownLink>
-                        <DropdownLink :href="route('transferencias-stock.index')" :active="route().current('transferencias-stock.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Transferencias</DropdownLink>
+                        <DropdownLink :href="route('logistica.index')" :active="route().current('logistica.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Logística</DropdownLink>
                     </div>
                 </div>
 

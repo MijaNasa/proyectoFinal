@@ -21,7 +21,8 @@ use App\Http\Controllers\RutaRepartoController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\PrecioController;
 use App\Http\Controllers\GastoController;
-use App\Http\Controllers\TransferenciaStockController;
+use App\Http\Controllers\LogisticaController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrdenCompraController;
 use App\Http\Controllers\PublicCatalogoController;
 use App\Http\Controllers\CarritoController;
@@ -71,6 +72,10 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // Notificaciones
+    Route::get('/notificaciones', [NotificationController::class, 'index'])->name('notificaciones.index');
+    Route::patch('/notificaciones/{id}/read', [NotificationController::class, 'markAsRead'])->name('notificaciones.read');
+
     // Catálogo Base
     Route::middleware('permiso:catalogo.acceder')->group(function () {
         Route::resource('categorias', CategoriaController::class)->except(['show', 'create', 'edit']);
@@ -81,9 +86,10 @@ Route::middleware('auth')->group(function () {
 
     // Colecciones
     Route::middleware('permiso:colecciones.acceder')->group(function () {
-        Route::resource('libro-masters', LibroMasterController::class)->except(['show', 'create', 'edit']);
+        Route::resource('libro-masters', LibroMasterController::class)->except(['index', 'show', 'create', 'edit']);
         Route::resource('libros', LibroController::class)->except(['show', 'create', 'edit']);
         Route::get('precios', [PrecioController::class, 'index'])->name('precios.index');
+        Route::post('precios/bulk', [PrecioController::class, 'bulkUpdate'])->name('precios.bulk');
         Route::post('libros/{libro}/precios', [PrecioController::class, 'store'])->name('precios.store');
         Route::get('libros/{libro}/precios/historial', [PrecioController::class, 'historial'])->name('precios.historial');
     });
@@ -116,9 +122,8 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permiso:stock.acceder')->group(function () {
         Route::resource('sucursales', SucursalController::class)->except(['show', 'create', 'edit'])->parameters(['sucursales' => 'sucursal']);
         Route::resource('stocks', StockController::class)->except(['show', 'create', 'edit']);
-        Route::get('transferencias-stock/search-libros', [TransferenciaStockController::class, 'searchLibros'])->name('transferencias-stock.search-libros');
-        Route::get('transferencias-stock', [TransferenciaStockController::class, 'index'])->name('transferencias-stock.index');
-        Route::post('transferencias-stock', [TransferenciaStockController::class, 'store'])->name('transferencias-stock.store');
+        Route::get('logistica', [LogisticaController::class, 'index'])->name('logistica.index');
+        Route::post('logistica', [LogisticaController::class, 'store'])->name('logistica.store');
     });
 
     // Clientes

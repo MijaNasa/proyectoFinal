@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Stock;
 use App\Models\MovimientoStock;
-use App\Models\TipoMovimientoStock;
 use App\Http\Requests\StoreStockRequest;
 use App\Http\Requests\UpdateStockRequest;
 use Illuminate\Http\Request;
@@ -13,28 +12,40 @@ class StockController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Stock::query()->with(['libro.master.autor', 'sucursal']);
+        $query = \App\Models\LibroMaster::query()
+            ->with([
+                'autor:id,nombre,apellido',
+                'libros' => function($q) {
+                    $q->orderBy('numero_tomo', 'asc');
+                },
+                'libros.stocks' => function($q) use ($request) {
+                    if ($request->filled('sucursal_id')) {
+                        $q->where('sucursal_id', $request->sucursal_id);
+                    }
+                },
+                'libros.stocks.sucursal:id,nombre'
+            ]);
 
-        if ($request->has('sucursal_id')) {
-            $query->where('sucursal_id', $request->sucursal_id);
-        }
 
-        if ($request->has('search')) {
+
+        if ($request->filled('search')) {
             $search = $request->search;
-            $query->whereHas('libro', function($q) use ($search) {
-                $q->where('isbn', 'like', '%' . $search . '%')
-                  ->orWhereHas('master', function($sq) use ($search) {
-                      $sq->where('titulo', 'like', '%' . $search . '%');
+            $query->where(function($q) use ($search) {
+                $q->where('titulo', 'like', "%{$search}%")
+                  ->orWhereHas('autor', function($sq) use ($search) {
+                      $sq->where('nombre', 'like', "%{$search}%")
+                         ->orWhere('apellido', 'like', "%{$search}%");
+                  })
+                  ->orWhereHas('libros', function($sq) use ($search) {
+                      $sq->where('isbn', 'like', "%{$search}%");
                   });
             });
         }
 
-        $stocks = $query->latest()->paginate(10)->withQueryString();
-
-        $tiposMovimiento = TipoMovimientoStock::where('activo', true)->get(['id', 'codigo', 'nombre']);
+        $obras = $query->latest()->paginate(10)->withQueryString();
 
         return inertia('Stocks/Index', [
-            'stocks' => $stocks,
+            'obras' => $obras,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
             'libros' => \App\Models\Libro::with([
                     'master:id,titulo,autor_id',
@@ -48,8 +59,7 @@ class StockController extends Controller
                     'autor'  => $l->master->autor?->apellido ?? '',
                 ];
             }),
-            'tiposMovimiento' => $tiposMovimiento,
-            'stocksExistentes' => \App\Models\Stock::select(['libro_id', 'sucursal_id', 'cantidad_disponible'])->get(),
+            'stocksExistentes' => \App\Models\Stock::select(['id', 'libro_id', 'sucursal_id', 'cantidad_disponible'])->get(),
             'filters' => $request->only(['search', 'sucursal_id']),
         ]);
     }
@@ -58,20 +68,20 @@ class StockController extends Controller
     {
         $stock = Stock::create($request->safe()->except(['motivo']));
 
-        $tipoIngreso = TipoMovimientoStock::where('codigo', 'INGRESO_MANUAL')->first();
+        // Cabecera + detalle del movimiento (el esquema de movimientos_stock ya no
+        // acepta libro_id/cantidad directo en la cabecera: eso ahora vive en
+        // movimiento_stock_detalles).
+        $movimiento = MovimientoStock::create([
+            'tipo' => 'ajuste',
+            'sucursal_destino_id' => $stock->sucursal_id,
+            'user_id' => auth()->id(),
+            'motivo' => $request->motivo ?? 'Ingreso manual inicial desde panel de Stock',
+        ]);
 
-        if ($tipoIngreso) {
-            MovimientoStock::create([
-                'stock_id'          => $stock->id,
-                'tipo_movimiento_id' => $tipoIngreso->id,
-                'cantidad'          => $stock->cantidad_disponible,
-                'cantidad_anterior' => 0,
-                'cantidad_nueva'    => $stock->cantidad_disponible,
-                'motivo'            => $request->motivo,
-                'user_id'           => auth()->id(),
-                'fecha_movimiento'  => now(),
-            ]);
-        }
+        $movimiento->detalles()->create([
+            'libro_id' => $stock->libro_id,
+            'cantidad' => $stock->cantidad_disponible,
+        ]);
 
         return redirect()->route('stocks.index')->with('message', 'Stock registrado con éxito');
     }
@@ -85,21 +95,22 @@ class StockController extends Controller
 
         $cantidadAnterior = $stock->cantidad_disponible;
 
-        $stock->update($request->safe()->except(['tipo_movimiento_id', 'motivo']));
+        $stock->update($request->safe()->except(['motivo']));
 
         $cantidadNueva = $stock->cantidad_disponible;
-        $delta = abs($cantidadNueva - $cantidadAnterior);
+        $delta = $cantidadNueva - $cantidadAnterior;
 
-        if ($delta > 0) {
-            MovimientoStock::create([
-                'stock_id'          => $stock->id,
-                'tipo_movimiento_id' => $request->tipo_movimiento_id,
-                'cantidad'          => $delta,
-                'cantidad_anterior' => $cantidadAnterior,
-                'cantidad_nueva'    => $cantidadNueva,
-                'motivo'            => $request->motivo,
-                'user_id'           => auth()->id(),
-                'fecha_movimiento'  => now(),
+        if ($delta !== 0) {
+            $movimiento = MovimientoStock::create([
+                'tipo' => 'ajuste',
+                'sucursal_destino_id' => $stock->sucursal_id,
+                'user_id' => auth()->id(),
+                'motivo' => $request->motivo ?? 'Ajuste manual desde panel de Stock',
+            ]);
+
+            $movimiento->detalles()->create([
+                'libro_id' => $stock->libro_id,
+                'cantidad' => $delta,
             ]);
         }
 

@@ -5,8 +5,9 @@ import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 
 const props = defineProps({
-    libros: Array,
-    masters: Array,
+    obras: Array,
+    autores: Array,
+    categorias: Array,
     editoriales: Array,
     idiomas: Array,
     sucursales: Array,
@@ -15,96 +16,93 @@ const props = defineProps({
 
 const search = ref('');
 
-const filteredLibros = computed(() => {
-    if (!search.value) return props.libros;
-    
+const filteredObras = computed(() => {
+    if (!search.value) return props.obras;
+
     const term = search.value.toLowerCase();
-    return props.libros.filter(l => 
-        (l.isbn && l.isbn.toLowerCase().includes(term)) ||
-        (l.master && l.master.titulo.toLowerCase().includes(term)) ||
-        (l.editorial && l.editorial.nombre.toLowerCase().includes(term)) ||
-        (l.master && l.master.autor && (l.master.autor.nombre.toLowerCase().includes(term) || l.master.autor.apellido.toLowerCase().includes(term)))
-    );
+    return props.obras.filter(obra => {
+        const matchesObra =
+            (obra.titulo && obra.titulo.toLowerCase().includes(term)) ||
+            (obra.autor && (obra.autor.nombre.toLowerCase().includes(term) || obra.autor.apellido.toLowerCase().includes(term)));
+
+        const matchesTomo = obra.libros && obra.libros.some(l =>
+            (l.isbn && l.isbn.toLowerCase().includes(term))
+        );
+
+        return matchesObra || matchesTomo;
+    });
 });
 
-const form = useForm({
+const expandedMasters = ref([]);
+
+const toggleMaster = (masterId) => {
+    const index = expandedMasters.value.indexOf(masterId);
+    if (index > -1) {
+        expandedMasters.value.splice(index, 1);
+    } else {
+        expandedMasters.value.push(masterId);
+    }
+};
+
+// --- LOGICA DE OBRA (LibroMaster) ---
+const showObraModal = ref(false);
+const isEditingObra = ref(false);
+
+const obraForm = useForm({
     id: null,
-    isbn: '',
-    master_id: '',
+    titulo: '',
+    portada: null,
+    autor_id: '',
+    categoria_id: '',
     editorial_id: '',
     idioma_id: '',
-    año_edicion: '',
-    cantidad_paginas: '',
+    formato: '',
     synopsis: '',
     activo: true,
-    precio_compra: 0,
-    precio_venta: 0,
-    stock_inicial: {},
 });
 
-const isEditing = ref(false);
-const showModal = ref(false);
-
-const openModal = (libro = null) => {
-    if (libro) {
-        isEditing.value = true;
-        form.id = libro.id;
-        form.isbn = libro.isbn || '';
-        form.master_id = libro.master_id;
-        form.editorial_id = libro.editorial_id;
-        form.idioma_id = libro.idioma_id;
-        form.año_edicion = libro.año_edicion || '';
-        form.cantidad_paginas = libro.cantidad_paginas || '';
-        form.synopsis = libro.synopsis || '';
-        form.activo = !!libro.activo;
-        
-        // Cargar precio actual
-        const currentPrice = libro.precios?.find(p => p.activo);
-        form.precio_compra = currentPrice ? currentPrice.precio_compra : 0;
-        form.precio_venta = currentPrice ? currentPrice.precio_venta : 0;
+const openObraModal = (obra = null) => {
+    if (obra) {
+        isEditingObra.value = true;
+        obraForm.id = obra.id;
+        obraForm.titulo = obra.titulo;
+        obraForm.autor_id = obra.autor ? `${obra.autor.nombre} ${obra.autor.apellido || ''}`.trim() : '';
+        obraForm.categoria_id = obra.categoria ? obra.categoria.nombre : '';
+        obraForm.editorial_id = obra.editorial ? obra.editorial.nombre : '';
+        obraForm.idioma_id = obra.idioma ? obra.idioma.nombre : '';
+        obraForm.formato = obra.formato || '';
+        obraForm.synopsis = obra.synopsis || '';
+        obraForm.activo = !!obra.activo;
     } else {
-        isEditing.value = false;
-        form.reset();
-        const stockInit = {};
-        props.sucursales.forEach(s => { stockInit[s.id] = 0; });
-        form.stock_inicial = stockInit;
+        isEditingObra.value = false;
+        obraForm.reset();
     }
-    showModal.value = true;
+    showObraModal.value = true;
 };
 
-const submit = () => {
-    if (isEditing.value) {
-        form.put(route('libros.update', form.id), {
+const submitObra = () => {
+    if (isEditingObra.value) {
+        obraForm.put(route('libro-masters.update', obraForm.id), {
             onSuccess: () => {
-                showModal.value = false;
-                Swal.fire({
-                    title: '¡Éxito!',
-                    text: 'Edición actualizada correctamente',
-                    icon: 'success',
-                    background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
-                });
+                showObraModal.value = false;
+                Swal.fire({ title: '¡Éxito!', text: 'Obra actualizada correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
             }
         });
     } else {
-        form.post(route('libros.store'), {
+        obraForm.post(route('libro-masters.store'), {
             onSuccess: () => {
-                showModal.value = false;
-                form.reset();
-                Swal.fire({
-                    title: '¡Éxito!',
-                    text: 'Nueva edición registrada correctamente',
-                    icon: 'success',
-                    background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
-                });
+                showObraModal.value = false;
+                obraForm.reset();
+                Swal.fire({ title: '¡Éxito!', text: 'Nueva obra registrada correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
             }
         });
     }
 };
 
-const deleteLibro = (id) => {
+const deleteObra = (id) => {
     Swal.fire({
         title: '¿Estás seguro?',
-        text: "Esto eliminará esta edición específica (ISBN). Los registros maestros no se verán afectados.",
+        text: "Esto eliminará la obra y TODOS sus tomos asociados. Es irreversible.",
         icon: 'warning',
         showCancelButton: true,
         confirmButtonColor: '#E61919',
@@ -113,11 +111,97 @@ const deleteLibro = (id) => {
         background: '#1A1A1A', color: '#FFF'
     }).then((result) => {
         if (result.isConfirmed) {
-            form.delete(route('libros.destroy', id));
+            obraForm.delete(route('libro-masters.destroy', id));
         }
     });
 };
 
+
+// --- LOGICA DE TOMO (Libro) ---
+const showTomoModal = ref(false);
+const isEditingTomo = ref(false);
+const currentStocks = ref({});
+
+const tomoForm = useForm({
+    id: null,
+    isbn: '',
+    master_id: '',
+    numero_tomo: '',
+    año_edicion: '',
+    cantidad_paginas: '',
+    activo: true,
+    permite_preventa: false,
+    precio_compra: 0,
+    precio_venta: 0,
+});
+
+const openTomoModal = (tomo = null, masterId = null) => {
+    if (tomo) {
+        isEditingTomo.value = true;
+        tomoForm.id = tomo.id;
+        tomoForm.isbn = tomo.isbn || '';
+        tomoForm.master_id = tomo.master_id;
+        tomoForm.numero_tomo = tomo.numero_tomo || '';
+        tomoForm.año_edicion = tomo.año_edicion || '';
+        tomoForm.cantidad_paginas = tomo.cantidad_paginas || '';
+        tomoForm.activo = !!tomo.activo;
+        tomoForm.permite_preventa = !!tomo.permite_preventa;
+
+        const currentPrice = tomo.precios?.find(p => p.activo);
+        tomoForm.precio_compra = currentPrice ? currentPrice.precio_compra : 0;
+        tomoForm.precio_venta = currentPrice ? currentPrice.precio_venta : 0;
+
+        const stockData = {};
+        if (tomo.stocks) {
+            tomo.stocks.forEach(st => {
+                stockData[st.sucursal_id] = st.cantidad_disponible;
+            });
+        }
+        currentStocks.value = stockData;
+    } else {
+        isEditingTomo.value = false;
+        currentStocks.value = {};
+        tomoForm.reset();
+        tomoForm.master_id = masterId; // Pre-seleccionar la obra
+    }
+    showTomoModal.value = true;
+};
+
+const submitTomo = () => {
+    if (isEditingTomo.value) {
+        tomoForm.put(route('libros.update', tomoForm.id), {
+            onSuccess: () => {
+                showTomoModal.value = false;
+                Swal.fire({ title: '¡Éxito!', text: 'Tomo actualizado correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+            }
+        });
+    } else {
+        tomoForm.post(route('libros.store'), {
+            onSuccess: () => {
+                showTomoModal.value = false;
+                tomoForm.reset();
+                Swal.fire({ title: '¡Éxito!', text: 'Nuevo tomo registrado correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+            }
+        });
+    }
+};
+
+const deleteTomo = (id) => {
+    Swal.fire({
+        title: '¿Estás seguro?',
+        text: "Esto eliminará este tomo específico. La obra maestra se mantendrá.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, eliminar',
+        background: '#1A1A1A', color: '#FFF'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            tomoForm.delete(route('libros.destroy', id));
+        }
+    });
+};
 
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
@@ -125,19 +209,19 @@ const formatCurrency = (value) => {
 </script>
 
 <template>
-    <Head title="Ediciones (Libros)" />
+    <Head title="Catálogo" />
 
     <AuthenticatedLayout>
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Gestión de <span class="text-brand-red italic">Ediciones</span> (ISBN)
+                    Catálogo <span class="text-brand-red italic">Principal</span>
                 </h2>
-                <button @click="openModal()" class="btn-primary flex items-center gap-2">
+                <button @click="openObraModal()" class="btn-primary flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                     </svg>
-                    Añadir Edición
+                    Nueva Obra
                 </button>
             </div>
         </template>
@@ -146,10 +230,10 @@ const formatCurrency = (value) => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="card mb-8">
                     <div class="flex items-center gap-4">
-                        <input 
-                            v-model="search" 
-                            type="text" 
-                            placeholder="Buscar por ISBN, título, autor o editorial (filtrado instantáneo)..." 
+                        <input
+                            v-model="search"
+                            type="text"
+                            placeholder="Buscar por título de obra, autor o ISBN..."
                             class="input-field flex-1"
                         >
                     </div>
@@ -159,50 +243,107 @@ const formatCurrency = (value) => {
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-brand-red/10 border-b border-brand-red/20">
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Obra / Título</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Editorial / Idioma</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">ISBN</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Precio</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Acciones</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Obra (Franquicia)</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Autor</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-center">Cantidad de Tomos</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-center">Editorial</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Acciones Obra</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr v-for="libro in filteredLibros" :key="libro.id" class="hover:bg-white/[0.02] transition-colors">
-                                <td class="p-4">
-                                    <div class="font-bold text-lg leading-tight uppercase">{{ libro.master ? libro.master.titulo : 'N/A' }}</div>
-                                    <div class="text-xs text-white/40 italic">Autor: {{ libro.master && libro.master.autor ? libro.master.autor.apellido : 'S/A' }}</div>
-                                </td>
-                                <td class="p-4">
-                                    <div class="text-sm font-medium">{{ libro.editorial ? libro.editorial.nombre : 'S/E' }}</div>
-                                    <div class="text-xs text-white/40 uppercase tracking-widest font-black">{{ libro.idioma ? libro.idioma.nombre : 'S/I' }}</div>
-                                </td>
-                                <td class="p-4">
-                                    <span class="font-mono text-xs bg-white/5 px-2 py-1 rounded border border-white/5">{{ libro.isbn || 'SIN ISBN' }}</span>
-                                    <div class="text-[10px] text-white/30 mt-1 uppercase">Año: {{ libro.año_edicion || 'N/A' }}</div>
-                                </td>
-                                <td class="p-4">
-                                     <div v-if="libro.precios && libro.precios.find(p => p.activo)" class="text-lg font-black text-white">
-                                        {{ formatCurrency(libro.precios.find(p => p.activo).precio_venta) }}
-                                     </div>
-                                     <div v-else class="text-[10px] font-black uppercase text-brand-red opacity-50 italic">Sin Precio</div>
-                                </td>
-                                <td class="p-4 text-right">
-                                    <div class="flex justify-end gap-2">
-                                        <button @click="openModal(libro)" class="p-2 text-white/50 hover:text-brand-red transition-colors">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                            <template v-for="obra in filteredObras" :key="obra.id">
+                                <!-- Master Row -->
+                                <tr @click="toggleMaster(obra.id)" class="hover:bg-white/[0.05] transition-colors cursor-pointer group-row">
+                                    <td class="p-4">
+                                        <div class="font-black text-xl leading-tight uppercase text-white">{{ obra.titulo }}</div>
+                                        <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1">{{ obra.categoria ? obra.categoria.nombre : '' }}</div>
+                                    </td>
+                                    <td class="p-4">
+                                        <div class="text-sm text-white/60 italic font-medium">{{ obra.autor ? obra.autor.nombre + ' ' + obra.autor.apellido : 'S/A' }}</div>
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <span class="bg-brand-red/20 text-brand-red px-3 py-1 rounded-full text-xs font-black">{{ obra.libros ? obra.libros.length : 0 }}</span>
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <span class="text-sm font-bold text-white/80 uppercase">{{ obra.editorial ? obra.editorial.nombre : 'S/E' }}</span>
+                                    </td>
+                                    <td class="p-4 text-right">
+                                        <div class="flex justify-end gap-2 items-center">
+                                            <button @click.stop="openObraModal(obra)" class="p-2 text-white/40 hover:text-white transition-colors" title="Editar Obra">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                                            </button>
+                                            <button @click.stop="deleteObra(obra.id)" class="p-2 text-brand-red/40 hover:text-brand-red transition-colors" title="Eliminar Obra">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                            </button>
+                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                                 class="h-6 w-6 ml-2 text-white/30 transition-transform duration-300"
+                                                 :class="{'rotate-180 text-brand-red': expandedMasters.includes(obra.id)}"
+                                                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                             </svg>
-                                        </button>
-                                        <button @click="deleteLibro(libro.id)" class="p-2 text-white/50 hover:text-brand-red transition-colors">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                            <tr v-if="filteredLibros.length === 0">
-                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron ediciones registradas</td>
+                                        </div>
+                                    </td>
+                                </tr>
+
+                                <!-- Detail Row -->
+                                <tr v-show="expandedMasters.includes(obra.id)" class="bg-black/40">
+                                    <td colspan="5" class="p-0 border-b border-brand-red/10">
+                                        <div class="p-4 pl-12 border-l-2 border-brand-red/50 relative">
+
+                                            <div class="flex justify-between items-end mb-4">
+                                                <h4 class="text-xs font-black text-white/40 uppercase tracking-widest">Tomos Registrados</h4>
+                                                <button @click.stop="openTomoModal(null, obra.id)" class="text-xs bg-white/5 hover:bg-brand-red/20 text-white hover:text-brand-red transition-colors px-3 py-1 rounded font-bold flex items-center gap-1 border border-white/10 hover:border-brand-red/50">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                                                    Añadir Tomo
+                                                </button>
+                                            </div>
+
+                                            <table class="w-full text-left border-collapse" v-if="obra.libros && obra.libros.length > 0">
+                                                <thead>
+                                                    <tr class="text-[10px] text-white/40 uppercase tracking-widest border-b border-white/5">
+                                                        <th class="pb-2">Tomo N°</th>
+                                                        <th class="pb-2">ISBN</th>
+                                                        <th class="pb-2 text-right">Precio</th>
+                                                        <th class="pb-2 text-right">Acciones</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr v-for="libro in obra.libros" :key="libro.id" class="hover:bg-white/[0.02] border-b border-white/5 last:border-0">
+                                                        <td class="py-3 pr-4">
+                                                            <div class="text-[12px] font-black text-brand-red uppercase tracking-widest">{{ libro.numero_tomo ? 'Tomo ' + libro.numero_tomo : 'Único' }}</div>
+                                                        </td>
+                                                        <td class="py-3 pr-4">
+                                                            <span class="font-mono text-xs bg-white/5 px-2 py-1 rounded border border-white/10 text-white/70">{{ libro.isbn || 'SIN ISBN' }}</span>
+                                                            <div class="text-[9px] text-white/30 mt-1 uppercase">Año: {{ libro.año_edicion || 'N/A' }}</div>
+                                                        </td>
+                                                        <td class="py-3 pr-4 text-right">
+                                                            <div v-if="libro.precios && libro.precios.find(p => p.activo)" class="text-base font-black text-white">
+                                                                {{ formatCurrency(libro.precios.find(p => p.activo).precio_venta) }}
+                                                            </div>
+                                                            <div v-else class="text-[10px] font-black uppercase text-brand-red opacity-50 italic">Sin Precio</div>
+                                                        </td>
+                                                        <td class="py-3 text-right">
+                                                            <div class="flex justify-end gap-1">
+                                                                <button @click.stop="openTomoModal(libro, obra.id)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Editar Tomo">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                                                                </button>
+                                                                <button @click.stop="deleteTomo(libro.id)" class="p-1.5 text-brand-red/40 hover:text-brand-red hover:bg-brand-red/10 rounded transition-colors" title="Eliminar Tomo">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                                </button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                            <div v-else class="text-white/30 text-xs italic py-4 text-center border-t border-white/5">
+                                                Esta obra aún no tiene tomos registrados.
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                            <tr v-if="filteredObras.length === 0">
+                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron obras registradas en el catálogo.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -211,109 +352,84 @@ const formatCurrency = (value) => {
             </div>
         </div>
 
-        <!-- Modal -->
-        <template v-if="showModal">
-        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showModal = false"></div>
+        <!-- Modal OBRA -->
+        <template v-if="showObraModal">
+        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showObraModal = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-start justify-center p-4">
-            <div class="relative w-full max-w-2xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
+            <div class="relative w-full max-w-xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
                 <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
-                    <div class="absolute inset-0 opacity-10 pointer-events-none">
-                        <div class="bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')] h-full w-full"></div>
-                    </div>
-                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditing ? 'Editar' : 'Nueva' }} <span class="italic text-white">Edición</span></h3>
-                    <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingObra ? 'Editar' : 'Nueva' }} <span class="italic text-white">Obra</span></h3>
+                    <button @click="showObraModal = false" class="text-white/80 hover:text-white transition-colors relative">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-                
-                <form @submit.prevent="submit" class="p-6">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div class="md:col-span-2">
-                            <label class="block text-xs font-bold uppercase tracking-widest text-brand-red mb-1">Título Maestro (Obra)</label>
-                            <select v-model="form.master_id" class="input-field w-full bg-brand-black uppercase font-bold" :class="{'border-brand-red': form.errors.master_id}">
-                                <option value="">Seleccionar Obra</option>
-                                <option v-for="m in masters" :key="m.id" :value="m.id">{{ m.titulo }}</option>
-                            </select>
-                            <div v-if="form.errors.master_id" class="text-brand-red text-[10px] mt-1 uppercase font-bold">{{ form.errors.master_id }}</div>
-                        </div>
 
+                <form @submit.prevent="submitObra" class="p-6">
+                    <div class="grid grid-cols-1 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-brand-red mb-1">Título de la Obra</label>
+                            <input v-model="obraForm.titulo" type="text" class="input-field w-full font-bold text-lg" placeholder="Ej: Dragon Ball" required>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Autor</label>
+                            <input v-model="obraForm.autor_id" list="lista-autores" class="input-field w-full" placeholder="Seleccionar o escribir nuevo autor" required>
+                            <datalist id="lista-autores">
+                                <option v-for="a in autores" :key="a.id" :value="a.nombre + ' ' + (a.apellido || '')">{{ a.nombre + ' ' + (a.apellido || '') }}</option>
+                            </datalist>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Categoría</label>
+                            <input v-model="obraForm.categoria_id" list="lista-categorias" class="input-field w-full" placeholder="Seleccionar o escribir nueva categoría" required>
+                            <datalist id="lista-categorias">
+                                <option v-for="c in categorias" :key="c.id" :value="c.nombre">{{ c.nombre }}</option>
+                            </datalist>
+                        </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Editorial</label>
-                            <select v-model="form.editorial_id" class="input-field w-full bg-brand-black">
-                                <option value="">Seleccionar Editorial</option>
-                                <option v-for="e in editoriales" :key="e.id" :value="e.id">{{ e.nombre }}</option>
-                            </select>
+                            <input v-model="obraForm.editorial_id" list="lista-editoriales" class="input-field w-full" placeholder="Seleccionar o escribir nueva editorial" required>
+                            <datalist id="lista-editoriales">
+                                <option v-for="e in editoriales" :key="e.id" :value="e.nombre">{{ e.nombre }}</option>
+                            </datalist>
                         </div>
-
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Idioma</label>
-                            <select v-model="form.idioma_id" class="input-field w-full bg-brand-black">
-                                <option value="">Seleccionar Idioma</option>
-                                <option v-for="i in idiomas" :key="i.id" :value="i.id">{{ i.nombre }}</option>
-                            </select>
+                            <input v-model="obraForm.idioma_id" list="lista-idiomas" class="input-field w-full" placeholder="Seleccionar o escribir nuevo idioma" required>
+                            <datalist id="lista-idiomas">
+                                <option v-for="i in idiomas" :key="i.id" :value="i.nombre">{{ i.nombre }}</option>
+                            </datalist>
                         </div>
-
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">ISBN</label>
-                            <input v-model="form.isbn" type="text" class="input-field w-full font-mono" placeholder="Ej: 978-...">
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Formato</label>
+                            <input
+                                v-model="obraForm.formato"
+                                list="opciones-formatos-obra"
+                                type="text"
+                                placeholder="Ej: Tankobon, B6..."
+                                class="input-field w-full uppercase"
+                            />
+                            <datalist id="opciones-formatos-obra">
+                                <option value="Tankobon">Tankobon</option>
+                                <option value="B6">B6</option>
+                                <option value="A5">A5</option>
+                                <option value="Kanzenban">Kanzenban</option>
+                                <option value="Omnibus">Omnibus</option>
+                            </datalist>
                         </div>
-
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Año</label>
-                                <input v-model="form.año_edicion" type="number" class="input-field w-full" placeholder="2024">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Páginas</label>
-                                <input v-model="form.cantidad_paginas" type="number" class="input-field w-full">
-                            </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Sinopsis</label>
+                            <textarea v-model="obraForm.synopsis" class="input-field w-full h-24 resize-none" placeholder="Breve descripción..."></textarea>
                         </div>
-
-                        <div class="md:col-span-2">
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Sinopsis / Descripción Corta</label>
-                            <textarea v-model="form.synopsis" class="input-field w-full h-24 resize-none" placeholder="Breve descripción de esta edición particular..."></textarea>
-                        </div>
-
-                        <div class="flex items-center gap-2 bg-white/5 p-3 rounded border border-white/5">
-                            <input type="checkbox" v-model="form.activo" id="libro_activo" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
-                            <label for="libro_activo" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer">Edición Activa</label>
-                        </div>
-
-                        <div class="md:col-span-2 grid grid-cols-2 gap-6 p-4 bg-brand-red/5 border border-brand-red/20 rounded-lg">
-                            <div>
-                                <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2">Precio de Venta ($)</label>
-                                <input v-model="form.precio_venta" type="number" step="0.01" class="input-field w-full text-right font-black text-xl" placeholder="0.00">
-                                <div v-if="form.errors.precio_venta" class="text-brand-red text-[10px] mt-1">{{ form.errors.precio_venta }}</div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-2">Precio de Compra (Costo)</label>
-                                <input v-model="form.precio_compra" type="number" step="0.01" class="input-field w-full text-right font-mono" placeholder="0.00">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Stock inicial (solo al crear) -->
-                    <div v-if="!isEditing" class="mt-6 p-4 bg-white/[0.03] border border-white/10 rounded-lg">
-                        <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-3">Stock Inicial por Sucursal</label>
-                        <div class="space-y-2">
-                            <div v-for="sucursal in sucursales" :key="sucursal.id" class="flex items-center gap-4">
-                                <span class="text-sm text-white/60 font-bold flex-1">{{ sucursal.nombre }}</span>
-                                <input
-                                    v-model.number="form.stock_inicial[sucursal.id]"
-                                    type="number"
-                                    min="0"
-                                    class="input-field w-28 text-right font-mono"
-                                    placeholder="0"
-                                />
-                            </div>
+                        <div class="flex items-center gap-2 bg-white/5 p-3 rounded border border-white/5 mt-2">
+                            <input type="checkbox" v-model="obraForm.activo" id="obra_activa" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
+                            <label for="obra_activa" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer">Obra Activa en Catálogo</label>
                         </div>
                     </div>
 
                     <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
-                        <button type="button" @click="showModal = false" class="px-6 py-2 rounded-lg font-bold text-white/50 hover:bg-white/5 transition-colors uppercase text-xs">Cancelar</button>
-                        <button type="submit" :disabled="form.processing" class="btn-primary px-10 relative overflow-hidden group">
-                           <span class="relative z-10">{{ form.processing ? 'PROCESANDO...' : (isEditing ? 'ACTUALIZAR' : 'REGISTRAR') }}</span>
+                        <button type="button" @click="showObraModal = false" class="px-6 py-2 rounded-lg font-bold text-white/50 hover:bg-white/5 transition-colors uppercase text-xs">Cancelar</button>
+                        <button type="submit" :disabled="obraForm.processing" class="btn-primary px-10 relative overflow-hidden group">
+                           <span class="relative z-10">{{ obraForm.processing ? 'PROCESANDO...' : (isEditingObra ? 'ACTUALIZAR' : 'GUARDAR OBRA') }}</span>
                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
                         </button>
                     </div>
@@ -322,5 +438,86 @@ const formatCurrency = (value) => {
             </div>
         </div>
         </template>
+
+
+        <!-- Modal TOMO -->
+        <template v-if="showTomoModal">
+        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showTomoModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-start justify-center p-4">
+            <div class="relative w-full max-w-2xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
+                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingTomo ? 'Editar' : 'Añadir' }} <span class="italic text-white">Tomo</span></h3>
+                    <button @click="showTomoModal = false" class="text-white/80 hover:text-white transition-colors relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                </div>
+
+                <form @submit.prevent="submitTomo" class="p-6">
+                    <!-- Master Id oculto o bloqueado ya que se asigna automáticamente -->
+                    <input type="hidden" v-model="tomoForm.master_id">
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Volumen / Tomo N°</label>
+                            <input v-model="tomoForm.numero_tomo" type="number" min="0" class="input-field w-full" placeholder="Ej: 1, 2, 3...">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">ISBN</label>
+                            <input v-model="tomoForm.isbn" type="text" class="input-field w-full font-mono" placeholder="Ej: 978-...">
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Año</label>
+                                <input v-model="tomoForm.año_edicion" type="number" class="input-field w-full" placeholder="2024">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Páginas</label>
+                                <input v-model="tomoForm.cantidad_paginas" type="number" class="input-field w-full">
+                            </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2 bg-white/5 p-3 rounded border border-white/5">
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" v-model="tomoForm.activo" id="tomo_activo" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
+                                <label for="tomo_activo" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer">Tomo Activo</label>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox" v-model="tomoForm.permite_preventa" id="tomo_preventa" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
+                                <label for="tomo_preventa" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer">Habilitar Preventa</label>
+                            </div>
+                        </div>
+
+                        <div class="md:col-span-2 grid grid-cols-1 p-4 bg-brand-red/5 border border-brand-red/20 rounded-lg">
+                            <div>
+                                <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2">Precio Venta ($)</label>
+                                <input v-model="tomoForm.precio_venta" type="number" step="0.01" class="input-field w-full text-right font-black text-xl" placeholder="0.00" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="isEditingTomo" class="mt-6 p-4 bg-white/[0.03] border border-white/10 rounded-lg">
+                        <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-3">Stock Actual</label>
+                        <div class="space-y-2">
+                            <div v-for="sucursal in sucursales" :key="sucursal.id" class="flex items-center justify-between gap-4 p-2 bg-black/20 rounded">
+                                <span class="text-sm text-white/60 font-bold">{{ sucursal.nombre }}</span>
+                                <span class="text-brand-red font-black text-lg">{{ currentStocks[sucursal.id] || 0 }} <span class="text-[10px] text-white/30 uppercase">uds</span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
+                        <button type="button" @click="showTomoModal = false" class="px-6 py-2 rounded-lg font-bold text-white/50 hover:bg-white/5 transition-colors uppercase text-xs">Cancelar</button>
+                        <button type="submit" :disabled="tomoForm.processing" class="btn-primary px-10 relative overflow-hidden group">
+                           <span class="relative z-10">{{ tomoForm.processing ? 'PROCESANDO...' : (isEditingTomo ? 'ACTUALIZAR' : 'REGISTRAR TOMO') }}</span>
+                           <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            </div>
+        </div>
+        </template>
+
     </AuthenticatedLayout>
 </template>
