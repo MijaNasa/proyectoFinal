@@ -52,6 +52,15 @@ const openModal = (empleado = null) => {
 };
 
 const submit = () => {
+    const onError = () => {
+        Swal.fire({
+            title: 'Revisá los datos',
+            text: 'Hay campos con errores, corregilos para continuar.',
+            icon: 'error',
+            background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
+        });
+    };
+
     if (isEditing.value) {
         form.put(route('empleados.update', form.id), {
             onSuccess: () => {
@@ -62,7 +71,8 @@ const submit = () => {
                     icon: 'success',
                     background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
                 });
-            }
+            },
+            onError
         });
     } else {
         form.post(route('empleados.store'), {
@@ -75,7 +85,8 @@ const submit = () => {
                     icon: 'success',
                     background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
                 });
-            }
+            },
+            onError
         });
     }
 };
@@ -285,10 +296,12 @@ const colorCargo = (nombre) => {
                                     <div>
                                         <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nombre</label>
                                         <input v-model="form.name" type="text" class="input-field w-full font-bold uppercase transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.name}">
+                                        <p v-if="form.errors.name" class="text-[10px] text-brand-red mt-1">{{ form.errors.name }}</p>
                                     </div>
                                     <div>
                                         <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Apellido</label>
-                                        <input v-model="form.apellido" type="text" class="input-field w-full font-bold uppercase transition-all focus:border-brand-red">
+                                        <input v-model="form.apellido" type="text" class="input-field w-full font-bold uppercase transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.apellido}">
+                                        <p v-if="form.errors.apellido" class="text-[10px] text-brand-red mt-1">{{ form.errors.apellido }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -297,16 +310,19 @@ const colorCargo = (nombre) => {
                                 <div>
                                     <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">DNI</label>
                                     <input v-model="form.dni" type="text" class="input-field w-full font-mono transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.dni}">
+                                    <p v-if="form.errors.dni" class="text-[10px] text-brand-red mt-1">{{ form.errors.dni }}</p>
                                 </div>
                                 <div>
                                     <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Email Corporativo</label>
                                     <input v-model="form.email" type="email" class="input-field w-full transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.email}">
+                                    <p v-if="form.errors.email" class="text-[10px] text-brand-red mt-1">{{ form.errors.email }}</p>
                                 </div>
                             </div>
 
                             <div>
                                 <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Teléfono / WhatsApp</label>
-                                <input v-model="form.telefono" type="text" class="input-field w-full transition-all focus:border-brand-red">
+                                <input v-model="form.telefono" type="text" class="input-field w-full transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.telefono}">
+                                <p v-if="form.errors.telefono" class="text-[10px] text-brand-red mt-1">{{ form.errors.telefono }}</p>
                             </div>
                         </div>
 
@@ -315,29 +331,37 @@ const colorCargo = (nombre) => {
                                 <h4 class="text-[9px] font-black uppercase tracking-[0.4em] text-brand-red mb-6 border-b border-brand-red/20 pb-1">Datos RRHH</h4>
                                 <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nro de Legajo</label>
                                 <input v-model="form.legajo" type="text" class="input-field w-full font-black text-center text-lg bg-black/40 border-brand-red/30 tracking-widest" :class="{'border-brand-red': form.errors.legajo}">
+                                <p v-if="form.errors.legajo" class="text-[10px] text-brand-red mt-1">{{ form.errors.legajo }}</p>
                             </div>
 
                             <div>
                                 <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Sucursal Destino</label>
-                                <select v-model="form.sucursal_id" class="input-field w-full bg-brand-black font-bold uppercase text-xs">
+                                <select v-model="form.sucursal_id" class="input-field w-full bg-brand-black font-bold uppercase text-xs" :class="{'border-brand-red': form.errors.sucursal_id}">
                                     <option value="">Seleccionar Sucursal</option>
                                     <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
                                 </select>
+                                <p v-if="form.errors.sucursal_id" class="text-[10px] text-brand-red mt-1">{{ form.errors.sucursal_id }}</p>
                             </div>
 
                             <div class="space-y-4">
                                 <div class="grid grid-cols-1 gap-4">
                                     <div>
                                         <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Fecha Ingreso</label>
-                                        <input v-model="form.fecha_ingreso" type="date" class="input-field w-full text-xs uppercase bg-black/20">
+                                        <input v-model="form.fecha_ingreso" type="date" class="input-field w-full text-xs uppercase bg-black/20" :class="{'border-brand-red': form.errors.fecha_ingreso}">
+                                        <p v-if="form.errors.fecha_ingreso" class="text-[10px] text-brand-red mt-1">{{ form.errors.fecha_ingreso }}</p>
                                     </div>
                                     <div v-if="isEditing">
                                         <label class="block text-[10px] font-black uppercase text-brand-red mb-2 tracking-widest">Fecha Baja</label>
-                                        <input v-model="form.fecha_egreso" type="date" class="input-field w-full text-xs uppercase bg-brand-red/5 border-brand-red/20">
+                                        <input v-model="form.fecha_egreso" type="date" class="input-field w-full text-xs uppercase bg-brand-red/5 border-brand-red/20" :class="{'border-brand-red': form.errors.fecha_egreso}">
+                                        <p v-if="form.errors.fecha_egreso" class="text-[10px] text-brand-red mt-1">{{ form.errors.fecha_egreso }}</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    </div>
+
+                    <div v-if="Object.keys(form.errors).length" class="mt-6 p-4 rounded-lg bg-brand-red/10 border border-brand-red/30 text-[11px] text-brand-red font-bold uppercase tracking-wider">
+                        Revisá los campos marcados en rojo antes de continuar.
                     </div>
 
                     <div class="mt-12 flex justify-end gap-5 border-t border-white/10 pt-10">
