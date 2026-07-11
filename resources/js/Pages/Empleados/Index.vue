@@ -129,9 +129,13 @@ const openAccesosModal = (empleado) => {
 const asignarCargo = () => {
     if (!asignarForm.cargo_id) return;
     asignarForm.post(route('empleados.asignar-cargo', empleadoSeleccionado.value.id), {
+        preserveScroll: true,
         onSuccess: () => {
             asignarForm.reset();
             Swal.fire({ title: 'Cargo asignado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+        },
+        onError: () => {
+            Swal.fire({ title: 'No se pudo asignar', text: asignarForm.errors.cargo_id || 'Revisá los datos e intentá de nuevo.', icon: 'error', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
         },
     });
 };
@@ -449,6 +453,7 @@ const colorCargo = (nombre) => {
                                 Asignar
                             </button>
                         </div>
+                        <p v-if="asignarForm.errors.cargo_id" class="text-[10px] text-brand-red mt-2">{{ asignarForm.errors.cargo_id }}</p>
                     </div>
 
                     <!-- Restablecer contraseña -->

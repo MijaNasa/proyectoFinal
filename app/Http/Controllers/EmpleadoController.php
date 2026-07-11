@@ -137,12 +137,14 @@ class EmpleadoController extends Controller
         }
 
         if ($empleado->cargos()->where('cargo_id', $request->cargo_id)->whereNull('empleados_cargos.fecha_hasta')->exists()) {
-            return back()->with('error', 'El empleado ya tiene ese cargo activo.');
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'cargo_id' => 'El empleado ya tiene ese cargo activo.',
+            ]);
         }
 
         $empleado->cargos()->attach($request->cargo_id, ['fecha_desde' => now()->toDateString()]);
 
-        return back()->with('message', 'Cargo asignado con éxito');
+        return back();
     }
 
     public function desasignarCargo(Request $request, Empleado $empleado, Cargo $cargo)
@@ -162,6 +164,6 @@ class EmpleadoController extends Controller
             ->whereNull('empleados_cargos.fecha_hasta')
             ->update(['fecha_hasta' => now()->toDateString()]);
 
-        return back()->with('message', 'Cargo removido');
+        return back();
     }
 }
