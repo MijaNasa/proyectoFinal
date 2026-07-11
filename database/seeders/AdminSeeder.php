@@ -56,6 +56,9 @@ class AdminSeeder extends Seeder
 
         // Asignar cargo ADMIN al usuario admin
         $this->promoverAdmin();
+
+        // Unifica libro_masters duplicados por tomo (idempotente, ya normalizado no matchea de nuevo)
+        \Illuminate\Support\Facades\Artisan::call('db:normalize-masters');
     }
 
     private function promoverAdmin(): void

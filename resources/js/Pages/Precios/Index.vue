@@ -25,6 +25,11 @@ const fmt = (n) => n != null
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
+const margen = (venta, compra) => {
+    if (!venta || !compra || compra <= 0) return null;
+    return Math.round(((venta - compra) / compra) * 100);
+};
+
 // Modal actualizar precio individual
 const showModal = ref(false);
 const selectedLibro = ref(null);
@@ -33,6 +38,7 @@ const loadingHist = ref(false);
 
 const form = useForm({
     precio_venta: '',
+    precio_compra: '',
     motivo: ''
 });
 
@@ -40,6 +46,7 @@ const openModal = async (libro) => {
     selectedLibro.value = libro;
     const actual = libro.precio_actual;
     form.precio_venta = actual?.precio_venta ?? '';
+    form.precio_compra = actual?.precio_compra ?? '';
     form.motivo = '';
     historial.value = [];
     showModal.value = true;
@@ -239,7 +246,9 @@ const submitBulk = () => {
                     <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-white/30">
                         <th class="text-left px-6 py-4">Libro</th>
                         <th class="text-left px-6 py-4">ISBN</th>
+                        <th class="text-right px-6 py-4">Costo</th>
                         <th class="text-right px-6 py-4">Precio Venta</th>
+                        <th class="text-right px-6 py-4">Margen</th>
                         <th class="text-center px-6 py-4">Acciones</th>
                     </tr>
                 </thead>
@@ -250,7 +259,23 @@ const submitBulk = () => {
                             <p class="text-[10px] text-white/30 font-bold uppercase">{{ libro.master?.editorial?.nombre }}</p>
                         </td>
                         <td class="px-6 py-4 font-mono text-xs">{{ libro.isbn || 'SIN ISBN' }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <span v-if="libro.precio_actual?.precio_compra" class="text-white/50 font-mono text-sm">{{ fmt(libro.precio_actual.precio_compra) }}</span>
+                            <span v-else class="text-white/20 text-xs">-</span>
+                        </td>
                         <td class="px-6 py-4 text-right font-black">{{ libro.precio_actual ? fmt(libro.precio_actual.precio_venta) : 'Sin precio' }}</td>
+                        <td class="px-6 py-4 text-right">
+                            <template v-if="libro.precio_actual?.precio_compra && libro.precio_actual?.precio_venta">
+                                <span class="text-xs font-black"
+                                    :class="margen(libro.precio_actual.precio_venta, libro.precio_actual.precio_compra) >= 30
+                                        ? 'text-green-400'
+                                        : margen(libro.precio_actual.precio_venta, libro.precio_actual.precio_compra) >= 10
+                                            ? 'text-yellow-400' : 'text-red-400'">
+                                    {{ margen(libro.precio_actual.precio_venta, libro.precio_actual.precio_compra) }}%
+                                </span>
+                            </template>
+                            <span v-else class="text-white/20 text-xs">-</span>
+                        </td>
                         <td class="px-6 py-4 text-right">
                             <button @click="openModal(libro)" class="text-[10px] font-black uppercase px-3 py-2 rounded-lg bg-white/5 hover:bg-brand-red">Actualizar</button>
                         </td>
@@ -285,10 +310,23 @@ const submitBulk = () => {
 
                     <div class="px-8 py-6 space-y-6">
                         <form @submit.prevent="submit" class="space-y-4">
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Precio Venta *</label>
-                                <input v-model="form.precio_venta" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_venta }" placeholder="0.00" />
-                                <p v-if="form.errors.precio_venta" class="text-red-400 text-xs mt-1">{{ form.errors.precio_venta }}</p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Costo (Compra)</label>
+                                    <input v-model="form.precio_compra" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_compra }" placeholder="0.00" />
+                                    <p v-if="form.errors.precio_compra" class="text-red-400 text-xs mt-1">{{ form.errors.precio_compra }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Precio Venta *</label>
+                                    <input v-model="form.precio_venta" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_venta }" placeholder="0.00" />
+                                    <p v-if="form.errors.precio_venta" class="text-red-400 text-xs mt-1">{{ form.errors.precio_venta }}</p>
+                                </div>
+                            </div>
+                            <div v-if="form.precio_venta > 0 && form.precio_compra > 0" class="text-xs font-bold">
+                                <span :class="margen(form.precio_venta, form.precio_compra) >= 30 ? 'text-green-400' : margen(form.precio_venta, form.precio_compra) >= 10 ? 'text-yellow-400' : 'text-red-400'">
+                                    Margen: {{ margen(form.precio_venta, form.precio_compra) }}%
+                                </span>
+                                <span class="text-white/30 ml-2">Ganancia: {{ fmt(form.precio_venta - form.precio_compra) }}</span>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Motivo del cambio</label>
