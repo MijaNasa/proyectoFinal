@@ -98,13 +98,62 @@ class CierreCajaController extends Controller
     public function destroy(CierreCaja $cierreCaja)
     {
         $user = \Auth::user();
-        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $cierreCaja->sucursal_id) {
-            abort(403);
+        if (!$user->esAdmin() && !$user->esGerente()) {
+            abort(403, 'Sólo los administradores pueden reabrir una caja.');
         }
 
         $cierreCaja->delete();
 
         return redirect()->route('cierre-cajas.index')
-            ->with('message', 'Registro de cierre eliminado');
+            ->with('message', 'Cierre eliminado correctamente. Caja reabierta.');
+    }
+
+    public function auditoria(Request $request, CierreCaja $cierreCaja)
+    {
+        $user = \Auth::user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $cierreCaja->sucursal_id) {
+            abort(403);
+        }
+
+        $transacciones = \App\Models\Transaccion::with('user:id,name')
+            ->where('sucursal_id', $cierreCaja->sucursal_id)
+            ->whereDate('fecha', $cierreCaja->fecha)
+            ->get();
+
+        $totalesMetodo = [
+            'Efectivo' => 0,
+            'Tarjeta' => 0,
+            'Transferencia' => 0,
+            'Cuenta Corriente' => 0,
+        ];
+
+        $movimientosManuales = [];
+
+        foreach ($transacciones as $t) {
+            $signo = $t->tipo === 'ingreso' ? 1 : -1;
+
+            if (array_key_exists($t->metodo_pago, $totalesMetodo)) {
+                $totalesMetodo[$t->metodo_pago] += ($t->monto * $signo);
+            } else {
+                $totalesMetodo[$t->metodo_pago] = ($t->monto * $signo);
+            }
+
+            if (!str_starts_with($t->descripcion, '[Venta #')) {
+                $movimientosManuales[] = [
+                    'hora'        => \Carbon\Carbon::parse($t->fecha)->format('H:i:s'),
+                    'tipo'        => $t->tipo,
+                    'monto'       => $t->monto,
+                    'metodo_pago' => $t->metodo_pago,
+                    'descripcion' => $t->descripcion,
+                    'usuario'     => $t->user?->name ?? 'Sistema',
+                ];
+            }
+        }
+
+        return response()->json([
+            'cierre'               => $cierreCaja,
+            'totales_metodo'       => $totalesMetodo,
+            'movimientos_manuales' => $movimientosManuales,
+        ]);
     }
 }

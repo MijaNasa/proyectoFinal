@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
@@ -12,6 +12,10 @@ const props = defineProps({
     sucursales:   Array,
     filters:      Object,
 });
+
+const page = usePage();
+const auth = page.props.auth;
+const userSucursalId = auth.empleado?.sucursal_id || '';
 
 // ── Filtros ───────────────────────────────────────────────
 const desde      = ref(props.filters.desde);
@@ -32,6 +36,15 @@ const aplicar = () => router.get(route('gastos.index'), {
     desde: desde.value, hasta: hasta.value,
     sucursal_id: sucursalId.value, categoria: categoria.value,
 }, { preserveState: false });
+
+const imprimirPdf = () => {
+    const url = new URL(route('gastos.pdf'));
+    if (desde.value) url.searchParams.append('desde', desde.value);
+    if (hasta.value) url.searchParams.append('hasta', hasta.value);
+    if (sucursalId.value) url.searchParams.append('sucursal_id', sucursalId.value);
+    if (categoria.value) url.searchParams.append('categoria', categoria.value);
+    window.open(url.toString(), '_blank');
+};
 
 // ── Categorías ────────────────────────────────────────────
 const categorias = [
@@ -84,7 +97,7 @@ const openCrear = () => {
     form.fecha       = new Date().toISOString().slice(0, 10);
     form.metodo_pago = 'Efectivo';
     form.categoria   = 'otros';
-    form.sucursal_id = props.sucursales[0]?.id ?? '';
+    form.sucursal_id = userSucursalId || sucursalId.value || (props.sucursales[0]?.id ?? '');
     showModal.value  = true;
 };
 
@@ -277,13 +290,11 @@ const eliminar = (gasto) => {
                             </td>
                             <td class="px-6 py-4 text-right">
                                 <div class="flex items-center justify-end gap-2">
-                                    <button @click="openEditar(g)"
-                                        class="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-white/5 hover:bg-brand-red hover:text-white transition-all">
-                                        Editar
+                                    <button @click="openEditar(g)" class="p-2 text-white/20 hover:text-brand-red transition-colors bg-white/5 rounded" title="Editar Gasto">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                     </button>
-                                    <button @click="eliminar(g)"
-                                        class="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-white/5 hover:bg-red-900/50 hover:text-red-400 transition-all">
-                                        Eliminar
+                                    <button @click="eliminar(g)" class="p-2 text-white/20 hover:text-brand-red transition-colors bg-white/5 rounded" title="Eliminar Gasto">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     </button>
                                 </div>
                             </td>
@@ -299,6 +310,16 @@ const eliminar = (gasto) => {
                     :class="{ 'bg-brand-red text-white border-brand-red': link.active, 'text-white/30 pointer-events-none': !link.url }">
                     {{ decodeLabel(link.label) }}
                 </Link>
+            </div>
+
+            <!-- Botón de Imprimir -->
+            <div class="flex justify-end mt-4">
+                <button @click="imprimirPdf" class="bg-white/10 hover:bg-white/20 border border-white/20 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                    </svg>
+                    Imprimir Reporte PDF
+                </button>
             </div>
         </div>
 

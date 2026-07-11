@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import Swal from 'sweetalert2';
 import axios from 'axios';
@@ -19,12 +19,146 @@ const form = useForm({
     observaciones: ''
 });
 
+const page = usePage();
+const auth = page.props.auth;
+const userSucursalId = auth.empleado?.sucursal_id || '';
+const isAdmin = auth.esAdmin || auth.esGerente;
+
 const showModal = ref(false);
 
 const openModal = () => {
     form.reset();
     form.fecha = new Date().toISOString().substr(0, 10);
+    if (userSucursalId) {
+        form.sucursal_id = userSucursalId;
+    }
     showModal.value = true;
+};
+
+const verDetalleCierre = async (cierre) => {
+    try {
+        Swal.fire({
+            title: 'Cargando Auditoría...',
+            text: 'Obteniendo desglose de caja...',
+            allowOutsideClick: false,
+            didOpen: () => {
+                Swal.showLoading();
+            },
+            background: '#1A1A1A',
+            color: '#FFF',
+        });
+
+        const response = await axios.get(route('cierre-cajas.auditoria', cierre.id));
+        const data = response.data;
+        const totales = data.totales_metodo;
+        const totalFacturado = (totales.Efectivo || 0) + (totales.Tarjeta || 0) + (totales.Transferencia || 0) + (totales['Cuenta Corriente'] || 0);
+        const movimientos = data.movimientos_manuales;
+
+        let movimientosHtml = '';
+        if (movimientos.length === 0) {
+            movimientosHtml = '<div class="text-white/30 italic text-xs">No hubo movimientos manuales.</div>';
+        } else {
+            movimientosHtml = movimientos.map(m => `
+                <div class="flex justify-between items-center bg-black/40 p-2 rounded mb-1">
+                    <div>
+                        <div class="text-[9px] text-white/50">${m.hora} - ${m.usuario}</div>
+                        <div class="text-xs font-bold">${m.descripcion}</div>
+                    </div>
+                    <div class="text-xs font-black ${m.tipo === 'ingreso' ? 'text-green-500' : 'text-brand-red'}">
+                        ${m.tipo === 'ingreso' ? '+' : '-'}${formatCurrency(m.monto)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        Swal.fire({
+            title: `Cierre de caja del día ${cierre.fecha}`,
+            html: `
+                <div class="text-left space-y-4 mt-4 text-sm max-h-[60vh] overflow-y-auto pr-2">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><strong class="text-brand-red uppercase text-[10px] tracking-widest">Sucursal:</strong><br/> ${cierre.sucursal?.nombre || '-'}</div>
+                        <div><strong class="text-brand-red uppercase text-[10px] tracking-widest">Responsable:</strong><br/> ${cierre.user?.name || '-'}</div>
+                    </div>
+
+                    <div class="p-3 bg-white/5 rounded border border-white/10">
+                        <strong class="text-white/50 text-[10px] uppercase tracking-widest block mb-2 border-b border-white/10 pb-1">Desglose por Método (Ventas y Egresos):</strong>
+                        <div class="grid grid-cols-2 gap-2 text-xs mt-2">
+                            <div class="flex justify-between"><span>Efectivo:</span> <strong>${formatCurrency(totales.Efectivo)}</strong></div>
+                            <div class="flex justify-between"><span>Tarjeta:</span> <strong>${formatCurrency(totales.Tarjeta)}</strong></div>
+                            <div class="flex justify-between"><span>Transferencia:</span> <strong>${formatCurrency(totales.Transferencia)}</strong></div>
+                            <div class="flex justify-between"><span>Cta. Corriente:</span> <strong>${formatCurrency(totales['Cuenta Corriente'])}</strong></div>
+                        </div>
+                        <div class="mt-3 pt-2 border-t border-white/10 flex justify-between text-sm">
+                            <strong class="text-brand-red uppercase tracking-widest text-[10px]">Total Facturado en el Turno:</strong>
+                            <strong class="text-white">${formatCurrency(totalFacturado)}</strong>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4 border-y border-white/5 py-3">
+                        <div>
+                            <strong class="text-white/40 uppercase text-[9px] tracking-widest">Efectivo Esperado en Caja:</strong><br/> 
+                            <span class="font-mono text-white/60">${formatCurrency(cierre.monto_esperado)}</span>
+                        </div>
+                        <div>
+                            <strong class="text-white/40 uppercase text-[9px] tracking-widest">Efectivo Real (Físico):</strong><br/> 
+                            <span class="font-mono font-black">${formatCurrency(cierre.monto_real)}</span>
+                        </div>
+                        <div class="col-span-2">
+                            <strong class="text-white/40 uppercase text-[9px] tracking-widest">Diferencia de Efectivo:</strong><br/> 
+                            <span class="font-mono font-black ${cierre.diferencia < 0 ? 'text-brand-red' : (cierre.diferencia > 0 ? 'text-green-500' : 'text-white/20')}">${formatCurrency(cierre.diferencia)}</span>
+                        </div>
+                    </div>
+
+
+
+                    <div class="mt-4 p-3 bg-brand-red/10 rounded border border-brand-red/20">
+                        <strong class="text-brand-red text-[9px] uppercase tracking-widest block mb-1">Observaciones de Cierre:</strong>
+                        <div class="text-xs text-white/80">${cierre.observaciones ? cierre.observaciones.replace(/\n/g, '<br>') : '<span class="italic text-white/20">Ninguna</span>'}</div>
+                    </div>
+                </div>
+            `,
+            background: '#1A1A1A',
+            color: '#FFF',
+            confirmButtonColor: '#E61919',
+            confirmButtonText: 'Cerrar',
+            width: 600
+        });
+    } catch (error) {
+        Swal.fire({
+            title: 'Error',
+            text: 'No se pudo cargar la información de la auditoría.',
+            icon: 'error',
+            background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
+        });
+    }
+};
+
+const deleteCierre = (id) => {
+    Swal.fire({
+        title: '¿Reabrir Caja?',
+        text: 'Al eliminar el cierre, el estado de la caja de ese día volverá a estar "Abierta".',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, Reabrir',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(route('cierre-cajas.destroy', id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({
+                        title: 'Caja Reabierta',
+                        icon: 'success',
+                        toast: true, position: 'top-end', showConfirmButton: false, timer: 3000,
+                        background: '#1A1A1A', color: '#FFF'
+                    });
+                }
+            });
+        }
+    });
 };
 
 const submit = () => {
@@ -117,9 +251,14 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
                                     </div>
                                 </td>
                                 <td class="p-6 text-center">
-                                    <button class="text-white/20 hover:text-white transition-colors" :title="cierre.observaciones">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                    </button>
+                                    <div class="flex items-center justify-center gap-2">
+                                        <button @click="verDetalleCierre(cierre)" class="p-2 text-white/20 hover:text-brand-red transition-colors bg-white/5 rounded" title="Ver Auditoría Completa">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                        </button>
+                                        <button v-if="isAdmin" @click="deleteCierre(cierre.id)" class="p-2 text-white/20 hover:text-brand-red transition-colors bg-white/5 rounded" title="Eliminar Cierre / Reabrir Caja">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                             <tr v-if="cierres.data.length === 0">
@@ -150,24 +289,27 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Fecha del Cierre</label>
                             <input v-model="form.fecha" type="date" class="input-field w-full bg-black/40 text-xs">
+                            <p v-if="form.errors.fecha" class="text-[10px] text-brand-red font-bold mt-1">{{ form.errors.fecha }}</p>
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Sucursal</label>
-                            <select v-model="form.sucursal_id" class="input-field w-full bg-black/40 text-xs uppercase font-black">
+                            <select v-model="form.sucursal_id" :disabled="!!userSucursalId" class="input-field w-full bg-black/80 text-xs uppercase font-black disabled:opacity-50 disabled:cursor-not-allowed">
                                 <option value="">Seleccionar...</option>
                                 <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
                             </select>
+                            <p v-if="form.errors.sucursal_id" class="text-[10px] text-brand-red font-bold mt-1">{{ form.errors.sucursal_id }}</p>
                         </div>
                     </div>
 
                     <div class="space-y-4 pt-4 border-t border-white/5">
                         <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-2 italic">Monto en Sistema ($) — Automático</label>
-                            <input v-model="form.monto_esperado" type="number" step="0.01" readonly class="input-field w-full text-right font-mono text-white/60 bg-black/60 cursor-not-allowed">
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-2 italic">Monto en Sistema ($)</label>
+                            <input v-model="form.monto_esperado" type="number" step="0.01" readonly class="input-field w-full text-right font-mono text-white/60 bg-black/80 cursor-not-allowed">
                         </div>
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-green-500 mb-2 italic">Efectivo Real en Caja ($)</label>
                             <input v-model="form.monto_real" type="number" step="0.01" class="input-field w-full text-right font-mono text-xl font-black bg-white/5 border-white/20">
+                            <p v-if="form.errors.monto_real" class="text-[10px] text-brand-red font-bold mt-1">{{ form.errors.monto_real }}</p>
                         </div>
                     </div>
 

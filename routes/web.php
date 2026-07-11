@@ -98,6 +98,7 @@ Route::middleware('auth')->group(function () {
 
     // Gastos
     Route::middleware('permiso:gastos.acceder')->group(function () {
+        Route::get('gastos/pdf', [GastoController::class, 'generarPdf'])->name('gastos.pdf');
         Route::get('gastos', [GastoController::class, 'index'])->name('gastos.index');
         Route::post('gastos', [GastoController::class, 'store'])->name('gastos.store');
         Route::put('gastos/{gasto}', [GastoController::class, 'update'])->name('gastos.update');
@@ -107,6 +108,7 @@ Route::middleware('auth')->group(function () {
     // Cierres de Caja
     Route::middleware('permiso:caja.acceder')->group(function () {
         Route::get('cierre-cajas/monto-sistema', [CierreCajaController::class, 'getMontoSistema'])->name('cierre-cajas.monto-sistema');
+        Route::get('cierre-cajas/{cierre_caja}/auditoria', [CierreCajaController::class, 'auditoria'])->name('cierre-cajas.auditoria');
         Route::resource('cierre-cajas', CierreCajaController::class)->except(['show', 'create', 'edit', 'update']);
     });
 

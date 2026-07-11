@@ -24,19 +24,22 @@ class GastoController extends Controller
         $categoria  = $request->get('categoria');
 
         $query = Gasto::with(['sucursal:id,nombre', 'user:id,name,apellido'])
-            ->whereBetween('fecha', [$desde, $hasta])
+            ->where('fecha', '>=', $desde)
+            ->where('fecha', '<=', $hasta . ' 23:59:59')
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
             ->when($categoria,  fn($q) => $q->where('categoria', $categoria))
-            ->latest('fecha');
+            ->orderByDesc('fecha')->orderByDesc('id');
 
         $gastos = $query->paginate(25)->withQueryString();
 
-        $stats = Gasto::whereBetween('fecha', [$desde, $hasta])
+        $stats = Gasto::where('fecha', '>=', $desde)
+            ->where('fecha', '<=', $hasta . ' 23:59:59')
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
             ->selectRaw('COUNT(*) as cantidad, SUM(monto) as total')
             ->first();
 
-        $porCategoria = Gasto::whereBetween('fecha', [$desde, $hasta])
+        $porCategoria = Gasto::where('fecha', '>=', $desde)
+            ->where('fecha', '<=', $hasta . ' 23:59:59')
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
             ->select('categoria', DB::raw('SUM(monto) as total'), DB::raw('COUNT(*) as cantidad'))
             ->groupBy('categoria')
@@ -143,5 +146,39 @@ class GastoController extends Controller
         });
 
         return back()->with('message', 'Gasto eliminado correctamente');
+    }
+
+    public function generarPdf(Request $request)
+    {
+        $request->validate([
+            'desde'      => 'nullable|date',
+            'hasta'      => 'nullable|date',
+            'sucursal_id'=> 'nullable|integer|exists:sucursales,id',
+            'categoria'  => 'nullable|string',
+        ]);
+
+        $desde      = $request->get('desde', now()->startOfMonth()->toDateString());
+        $hasta      = $request->get('hasta', now()->toDateString());
+        $sucursalId = $request->get('sucursal_id');
+        $categoria  = $request->get('categoria');
+
+        $query = Gasto::with(['sucursal:id,nombre', 'user:id,name,apellido'])
+            ->where('fecha', '>=', $desde)
+            ->where('fecha', '<=', $hasta . ' 23:59:59')
+            ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
+            ->when($categoria,  fn($q) => $q->where('categoria', $categoria))
+            ->orderByDesc('fecha')->orderByDesc('id');
+
+        $gastos = $query->get();
+        $sucursal = $sucursalId ? Sucursal::find($sucursalId) : null;
+
+        $stats = [
+            'total'    => $gastos->sum('monto'),
+            'cantidad' => $gastos->count(),
+        ];
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.gastos', compact('gastos', 'desde', 'hasta', 'sucursal', 'categoria', 'stats'));
+
+        return $pdf->download('reporte_gastos_' . now()->format('Ymd_His') . '.pdf');
     }
 }
