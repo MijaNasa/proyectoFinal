@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -16,8 +16,7 @@ const search = ref(props.filters.search || '');
 const form = useForm({
     id: null,
     nombre: '',
-    codigo: '',
-    ciudad_id: '',
+    ciudad_nombre: '',
     calle: '',
     numero: '',
     piso: '',
@@ -37,8 +36,7 @@ const openModal = (sucursal = null) => {
         isEditing.value = true;
         form.id = sucursal.id;
         form.nombre = sucursal.nombre;
-        form.codigo = sucursal.codigo || '';
-        form.ciudad_id = sucursal.ciudad_id;
+        form.ciudad_nombre = sucursal.ciudad?.nombre || '';
         form.calle = sucursal.calle || '';
         form.numero = sucursal.numero || '';
         form.piso = sucursal.piso || '';
@@ -101,9 +99,17 @@ const deleteSucursal = (id) => {
     });
 };
 
-const handleSearch = () => {
-    window.location.href = route('sucursales.index', { search: search.value });
-};
+let debounceTimeout = null;
+watch(search, (value) => {
+    clearTimeout(debounceTimeout);
+    debounceTimeout = setTimeout(() => {
+        router.get(
+            route('sucursales.index'),
+            { search: value },
+            { preserveState: true, preserveScroll: true }
+        );
+    }, 300);
+});
 </script>
 
 <template>
@@ -130,14 +136,10 @@ const handleSearch = () => {
                     <div class="flex items-center gap-4">
                         <input 
                             v-model="search" 
-                            @keyup.enter="handleSearch"
                             type="text" 
-                            placeholder="Buscar por nombre, código o email..." 
+                            placeholder="Buscar por nombre o email..." 
                             class="input-field flex-1"
                         >
-                        <button @click="handleSearch" class="btn-primary py-2 px-4 bg-white/5 hover:bg-white/10 text-white font-bold">
-                            BUSCAR
-                        </button>
                     </div>
                 </div>
 
@@ -146,10 +148,7 @@ const handleSearch = () => {
                         <div class="bg-gradient-to-r p-1" :class="sucursal.es_deposito_central ? 'from-brand-red to-orange-600' : 'from-white/10 to-white/5'">
                             <div class="bg-brand-surface p-6 rounded-sm h-full flex flex-col justify-between">
                                 <div>
-                                    <div class="flex justify-between items-start mb-4">
-                                        <div class="bg-white/5 px-2 py-1 rounded text-[10px] font-black uppercase tracking-widest text-white/40">
-                                            #{{ sucursal.codigo || sucursal.id }}
-                                        </div>
+                                    <div class="flex justify-end items-start mb-4">
                                         <div v-if="sucursal.es_deposito_central" class="bg-brand-red text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
                                             Depósito Central
                                         </div>
@@ -213,50 +212,66 @@ const handleSearch = () => {
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                         <!-- Col 1 -->
                         <div class="space-y-6 md:col-span-2">
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div class="md:col-span-3">
+                            <div class="grid grid-cols-1 gap-4">
+                                <div>
                                     <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Nombre de la Sucursal</label>
                                     <input v-model="form.nombre" type="text" class="input-field w-full font-black uppercase border-white/10" :class="{'border-brand-red': form.errors.nombre}" placeholder="Ej: Rosario Centro, Funes Express...">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Código</label>
-                                    <input v-model="form.codigo" type="text" class="input-field w-full font-mono text-center uppercase" placeholder="ROS-01">
+                                    <p v-if="form.errors.nombre" class="text-brand-red text-[10px] mt-1">{{ form.errors.nombre }}</p>
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                                <div class="lg:col-span-2">
-                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Calle / Avenida</label>
-                                    <input v-model="form.calle" type="text" class="input-field w-full">
+                            <div class="grid grid-cols-4 gap-4">
+                                <div class="col-span-3">
+                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Calle</label>
+                                    <input v-model="form.calle" type="text" class="input-field w-full" :class="{'border-brand-red': form.errors.calle}">
+                                    <p v-if="form.errors.calle" class="text-brand-red text-[10px] mt-1">{{ form.errors.calle }}</p>
                                 </div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div><label class="block text-[8px] font-bold uppercase text-white/30">Nº</label><input v-model="form.numero" type="text" class="input-field w-full text-center"></div>
-                                    <div><label class="block text-[8px] font-bold uppercase text-white/30">CP</label><input v-model="form.codigo_postal" type="text" class="input-field w-full text-center"></div>
+                                <div class="col-span-1">
+                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Nº</label>
+                                    <input v-model="form.numero" type="text" class="input-field w-full text-center" :class="{'border-brand-red': form.errors.numero}">
+                                    <p v-if="form.errors.numero" class="text-brand-red text-[10px] mt-1">{{ form.errors.numero }}</p>
                                 </div>
-                                <div class="grid grid-cols-2 gap-2">
-                                    <div><label class="block text-[8px] font-bold uppercase text-white/30">Piso</label><input v-model="form.piso" type="text" class="input-field w-full text-center"></div>
-                                    <div><label class="block text-[8px] font-bold uppercase text-white/30">Depto</label><input v-model="form.departamento" type="text" class="input-field w-full text-center"></div>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">CP</label>
+                                    <input v-model="form.codigo_postal" type="text" class="input-field w-full text-center" :class="{'border-brand-red': form.errors.codigo_postal}">
+                                    <p v-if="form.errors.codigo_postal" class="text-brand-red text-[10px] mt-1">{{ form.errors.codigo_postal }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Piso</label>
+                                    <input v-model="form.piso" type="text" class="input-field w-full text-center" :class="{'border-brand-red': form.errors.piso}">
+                                    <p v-if="form.errors.piso" class="text-brand-red text-[10px] mt-1">{{ form.errors.piso }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Depto</label>
+                                    <input v-model="form.departamento" type="text" class="input-field w-full text-center" :class="{'border-brand-red': form.errors.departamento}">
+                                    <p v-if="form.errors.departamento" class="text-brand-red text-[10px] mt-1">{{ form.errors.departamento }}</p>
                                 </div>
                             </div>
                             
                             <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Ciudad / Localidad (Santa Fe)</label>
-                                <select v-model="form.ciudad_id" class="input-field w-full bg-brand-black">
-                                    <option value="">Seleccionar Ciudad</option>
-                                    <option v-for="c in ciudades" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-                                </select>
+                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Email</label>
+                                <input v-model="form.email" type="email" class="input-field w-full" placeholder="sucursal@purocomic.com" :class="{'border-brand-red': form.errors.email}">
+                                <p v-if="form.errors.email" class="text-brand-red text-[10px] mt-1">{{ form.errors.email }}</p>
                             </div>
                         </div>
 
                         <!-- Col 2 -->
-                        <div class="space-y-6 bg-white/[0.02] p-6 rounded-lg border border-white/5">
+                        <div class="space-y-6">
                             <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Teléfono</label>
-                                <input v-model="form.telefono" type="text" class="input-field w-full" placeholder="+54 341 ...">
+                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Teléfono</label>
+                                <input v-model="form.telefono" type="text" class="input-field w-full" placeholder="+54 341 ..." :class="{'border-brand-red': form.errors.telefono}">
+                                <p v-if="form.errors.telefono" class="text-brand-red text-[10px] mt-1">{{ form.errors.telefono }}</p>
                             </div>
                             <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Email</label>
-                                <input v-model="form.email" type="email" class="input-field w-full" placeholder="sucursal@purocomic.com">
+                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Ciudad / Localidad (Santa Fe)</label>
+                                <input v-model="form.ciudad_nombre" list="ciudades-list" type="text" class="input-field w-full" placeholder="Ej: Rosario, Funes..." :class="{'border-brand-red': form.errors.ciudad_nombre}">
+                                <datalist id="ciudades-list">
+                                    <option v-for="c in ciudades" :key="c.id" :value="c.nombre"></option>
+                                </datalist>
+                                <p v-if="form.errors.ciudad_nombre" class="text-brand-red text-xs mt-1">{{ form.errors.ciudad_nombre }}</p>
                             </div>
 
                             <div class="space-y-4 pt-4 border-t border-white/5">

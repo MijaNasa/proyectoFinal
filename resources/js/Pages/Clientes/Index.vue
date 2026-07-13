@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref, onMounted } from 'vue';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { ref, onMounted, watch } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -41,8 +41,6 @@ const openModal = (cliente = null) => {
         form.estado_abono = cliente.estado_abono || 'Activo';
         form.saldo_actual = cliente.saldo_actual;
     } else {
-        isEditing.value = false;
-        form.reset();
     }
     showModal.value = true;
 };
@@ -62,10 +60,10 @@ const crearClienteRapido = async () => {
                 </div>
                 <div class="text-left">
                     <label class="text-[9px] uppercase font-black text-white/50 tracking-widest">DNI / Documento *</label>
-                    <input id="swal-dni" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white mt-1 text-xs" type="text" inputmode="numeric">
+                    <input id="swal-dni" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white mt-1 text-xs" type="number">
                 </div>
                 <div class="text-left">
-                    <label class="text-[9px] uppercase font-black text-white/50 tracking-widest">Teléfono móvil</label>
+                    <label class="text-[9px] uppercase font-black text-white/50 tracking-widest">Teléfono móvil *</label>
                     <input id="swal-telefono" class="w-full bg-black/40 border border-white/10 rounded p-2 text-white mt-1 text-xs" type="text" autocomplete="off">
                 </div>
                 <div class="text-left col-span-2">
@@ -85,17 +83,18 @@ const crearClienteRapido = async () => {
             const name = document.getElementById('swal-nombre').value;
             const dni = document.getElementById('swal-dni').value;
             const email = document.getElementById('swal-email').value;
+            const telefono = document.getElementById('swal-telefono').value;
 
-            if (!name || !dni || !email) {
-                Swal.showValidationMessage('Nombre, DNI y Email son obligatorios');
+            if (!name || !dni || !email || !telefono) {
+                Swal.showValidationMessage('Nombre, DNI, Email y Teléfono son obligatorios');
                 return false;
             }
-            return {
-                name,
+            return { 
+                name, 
                 apellido: document.getElementById('swal-apellido').value,
-                dni,
-                telefono: document.getElementById('swal-telefono').value,
-                email
+                dni, 
+                telefono,
+                email 
             }
         }
     });
@@ -170,25 +169,31 @@ const submit = () => {
     }
 };
 
-const deleteCliente = (id) => {
-    Swal.fire({
-        title: '¿Dar de baja cliente?',
-        text: "Esto desactivará su acceso al sistema y eliminará su ficha comercial.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
-        confirmButtonText: 'Sí, dar de baja',
-        background: '#1A1A1A', color: '#FFF'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            form.delete(route('clientes.destroy', id));
-        }
-    });
-};
+const sortField = ref(props.filters.sort || '');
+const sortDirection = ref(props.filters.direction || 'desc');
 
-const handleSearch = () => {
-    window.location.href = route('clientes.index', { search: search.value });
+let searchTimeout = null;
+watch([search, sortField, sortDirection], () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        router.get(route('clientes.index'), {
+            search: search.value,
+            sort: sortField.value,
+            direction: sortDirection.value
+        }, {
+            preserveState: true,
+            replace: true
+        });
+    }, 300);
+});
+
+const handleSort = (field) => {
+    if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField.value = field;
+        sortDirection.value = 'asc';
+    }
 };
 
 const formatCurrency = (value) => {
@@ -218,82 +223,89 @@ const formatCurrency = (value) => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="card mb-8">
                     <div class="flex items-center gap-4">
-                        <input
-                            v-model="search"
-                            @keyup.enter="handleSearch"
-                            type="text"
-                            placeholder="Buscar por nombre, DNI, email..."
+                        <input 
+                            v-model="search" 
+                            type="text" 
+                            placeholder="Buscar por nombre, DNI, email..." 
                             class="input-field flex-1"
                         >
-                        <button @click="handleSearch" class="btn-primary py-2 px-6 bg-white/5 hover:bg-brand-red text-white font-black uppercase text-xs">
-                            BUSCAR
-                        </button>
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <div v-for="cliente in clientes.data" :key="cliente.id" class="card p-0 overflow-hidden border-white/5 hover:border-brand-red group transition-all duration-300">
-                        <!-- Card Header -->
-                        <div class="bg-white/[0.03] p-6 border-b border-white/5 relative overflow-hidden">
-                            <div class="flex justify-between items-start relative z-10">
-                                <div class="bg-brand-red text-white text-[8px] font-black px-2 py-0.5 rounded tracking-widest uppercase">
-                                    {{ cliente.tipo_cliente?.nombre }}
-                                </div>
-                                <div class="text-[10px] font-mono text-white/40">ID: {{ cliente.id }}</div>
-                            </div>
-                            <h3 class="text-xl font-black uppercase text-white mt-4 tracking-tighter group-hover:text-brand-red transition-colors">
-                                {{ cliente.user.name }} {{ cliente.user.apellido }}
-                            </h3>
-                            <div class="text-xs text-brand-red/60 font-black tracking-widest uppercase italic">DNI: {{ cliente.user.dni || 'S/D' }}</div>
-
-                            <!-- Decorative background -->
-                            <div class="absolute -right-4 -bottom-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08s5.97 1.09 6 3.08c-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
-                            </div>
-                        </div>
-
-                        <!-- Card Body -->
-                        <div class="p-6 space-y-4">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-[8px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Saldo Actual</label>
-                                    <div class="text-sm font-black" :class="cliente.saldo_actual < 0 ? 'text-brand-red' : 'text-green-500'">
-                                        {{ formatCurrency(cliente.saldo_actual) }}
-                                    </div>
-                                </div>
-                                <div>
-                                    <label class="block text-[8px] font-black text-white/30 uppercase tracking-[0.2em] mb-1">Estado Abono</label>
-                                    <div class="text-xs font-bold uppercase" :class="cliente.estado_abono === 'Activo' ? 'text-white' : 'text-white/40'">
-                                        {{ cliente.estado_abono }}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="text-xs text-white/50 space-y-2">
-                                <div class="flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                    {{ cliente.user.email }}
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                                    {{ cliente.user.telefono || 'Sin teléfono' }}
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Card Footer -->
-                        <div class="px-6 py-4 bg-white/[0.02] flex justify-end gap-2 border-t border-white/5 relative z-20">
-                            <Link :href="route('clientes.show', cliente.id)" class="btn-primary py-1.5 px-4 text-[10px] w-full text-center">
-                                VER FICHA
-                            </Link>
-
-                            <button @click="openModal(cliente)" class="p-2 text-white/40 hover:text-brand-red transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                            </button>
-                            <button @click="deleteCliente(cliente.id)" class="p-2 text-white/40 hover:text-brand-red transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                            </button>
-                        </div>
+                <div class="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-brand-red">
+                                    <th class="p-4 cursor-pointer hover:text-white transition-colors" @click="handleSort('cliente')">
+                                        Cliente
+                                        <span v-if="sortField === 'cliente'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                    </th>
+                                    <th class="p-4 cursor-pointer hover:text-white transition-colors" @click="handleSort('dni')">
+                                        DNI / Documento
+                                        <span v-if="sortField === 'dni'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                    </th>
+                                    <th class="p-4 cursor-pointer hover:text-white transition-colors" @click="handleSort('contacto')">
+                                        Contacto
+                                        <span v-if="sortField === 'contacto'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                    </th>
+                                    <th class="p-4 text-center cursor-pointer hover:text-white transition-colors" @click="handleSort('saldo_actual')">
+                                        Saldo Actual
+                                        <span v-if="sortField === 'saldo_actual'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
+                                    </th>
+                                    <th class="p-4 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5 text-sm">
+                                <tr v-if="clientes.data.length === 0">
+                                    <td colspan="5" class="p-8 text-center text-white/30 font-bold uppercase tracking-widest text-xs">
+                                        No se encontraron clientes
+                                    </td>
+                                </tr>
+                                <tr v-for="cliente in clientes.data" :key="cliente.id" class="hover:bg-white/[0.01] transition-colors group">
+                                    <td class="p-4">
+                                        <div class="font-black text-white uppercase group-hover:text-brand-red transition-colors">
+                                            {{ cliente.user.apellido ? cliente.user.apellido + ', ' : '' }}{{ cliente.user.name }}
+                                        </div>
+                                    </td>
+                                    <td class="p-4 text-white/70 font-mono text-xs">
+                                        {{ cliente.user.dni || 'S/D' }}
+                                    </td>
+                                    <td class="p-4 text-white/50 text-xs space-y-1">
+                                        <div class="flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-brand-red/70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                                            {{ cliente.user.email }}
+                                        </div>
+                                        <div v-if="cliente.user.telefono" class="flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-brand-red/70" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
+                                            {{ cliente.user.telefono }}
+                                        </div>
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <div class="text-sm font-black" :class="cliente.saldo_actual < 0 ? 'text-brand-red' : (cliente.saldo_actual > 0 ? 'text-green-500' : 'text-white/50')">
+                                            {{ formatCurrency(cliente.saldo_actual) }}
+                                        </div>
+                                    </td>
+                                    <td class="p-4 text-right">
+                                        <div class="flex justify-end gap-2">
+                                            <button 
+                                                @click="openModal(cliente)"
+                                                class="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/80 rounded-lg text-xs font-black uppercase tracking-wider transition-colors border border-white/10 flex items-center justify-center gap-1"
+                                                title="Editar"
+                                            >
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                                            </button>
+                                            <Link 
+                                                :href="route('clientes.show', cliente.id)" 
+                                                class="px-4 py-1.5 bg-brand-red/10 hover:bg-brand-red text-brand-red hover:text-white rounded-lg text-xs font-black uppercase tracking-wider transition-colors border border-brand-red/20 hover:border-transparent flex items-center justify-center"
+                                            >
+                                                Ver Ficha
+                                            </Link>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
@@ -310,14 +322,14 @@ const formatCurrency = (value) => {
             <div class="flex min-h-full items-start justify-center p-4">
             <div class="relative w-full max-w-4xl card p-0 border border-brand-red/50 shadow-[0_0_80px_rgba(230,25,25,0.1)] overflow-hidden transform transition-all my-8">
                 <div class="bg-gradient-to-r from-brand-red to-black p-6 flex justify-between items-center relative shadow-xl">
-                    <h3 class="text-2xl font-black uppercase tracking-tighter italic">
-                        {{ isEditing ? 'Gestionar' : 'Alta de' }} <span class="text-white">Cliente</span>
+                    <h3 class="text-2xl font-black uppercase tracking-tighter italic"> 
+                        Gestionar <span class="text-white">Cliente</span>
                     </h3>
                     <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative z-10">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-
+                
                 <form @submit.prevent="submit" class="p-10">
                     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                         <!-- Sección Datos Personales -->
@@ -344,38 +356,12 @@ const formatCurrency = (value) => {
                                 </div>
                             </div>
                             <div>
-                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Teléfono Móvil</label>
-                                <input v-model="form.telefono" type="text" class="input-field w-full border-white/10">
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Teléfono Móvil *</label>
+                                <input v-model="form.telefono" type="text" class="input-field w-full border-white/10" required>
+                                <p v-if="form.errors.telefono" class="text-brand-red text-xs mt-1">{{ form.errors.telefono }}</p>
                             </div>
                         </div>
 
-                        <!-- Sección Comercial -->
-                        <div class="space-y-6 bg-white/[0.02] p-8 rounded-xl border border-white/5">
-                            <h4 class="text-[10px] font-black uppercase tracking-[0.4em] text-brand-red border-b border-brand-red/20 pb-2 mb-6">Ficha ERP</h4>
-
-                            <div>
-                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Segmento Cliente</label>
-                                <select v-model="form.tipo_cliente_id" class="input-field w-full bg-brand-black text-xs font-black uppercase">
-                                    <option value="">Seleccionar Tipo</option>
-                                    <option v-for="t in tipos_clientes" :key="t.id" :value="t.id">{{ t.nombre }}</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Estado Suscripción</label>
-                                <select v-model="form.estado_abono" class="input-field w-full bg-brand-black text-xs font-black uppercase">
-                                    <option value="Activo">Abono Activo</option>
-                                    <option value="Inactivo">Sin Abono</option>
-                                    <option value="Moroso">En Deuda</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Saldo Inicial ($)</label>
-                                <input v-model="form.saldo_actual" type="number" step="0.01" class="input-field w-full text-right font-mono bg-black/40">
-                                <p class="text-[8px] text-white/20 mt-2 italic uppercase">Use valores negativos para deudas preexistentes.</p>
-                            </div>
-                        </div>
                     </div>
 
                     <div class="mt-12 flex justify-end gap-4 border-t border-white/10 pt-10">
@@ -390,5 +376,6 @@ const formatCurrency = (value) => {
             </div>
         </div>
         </template>
+
     </AuthenticatedLayout>
 </template>

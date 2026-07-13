@@ -131,7 +131,7 @@ class CierreCajaController extends Controller
 
         foreach ($transacciones as $t) {
             $signo = $t->tipo === 'ingreso' ? 1 : -1;
-
+            
             if (array_key_exists($t->metodo_pago, $totalesMetodo)) {
                 $totalesMetodo[$t->metodo_pago] += ($t->monto * $signo);
             } else {
@@ -140,20 +140,20 @@ class CierreCajaController extends Controller
 
             if (!str_starts_with($t->descripcion, '[Venta #')) {
                 $movimientosManuales[] = [
-                    'hora'        => \Carbon\Carbon::parse($t->fecha)->format('H:i:s'),
-                    'tipo'        => $t->tipo,
-                    'monto'       => $t->monto,
+                    'hora' => \Carbon\Carbon::parse($t->fecha)->format('H:i:s'),
+                    'tipo' => $t->tipo,
+                    'monto' => $t->monto,
                     'metodo_pago' => $t->metodo_pago,
                     'descripcion' => $t->descripcion,
-                    'usuario'     => $t->user?->name ?? 'Sistema',
+                    'usuario' => $t->user?->name ?? 'Sistema'
                 ];
             }
         }
 
         return response()->json([
-            'cierre'               => $cierreCaja,
-            'totales_metodo'       => $totalesMetodo,
-            'movimientos_manuales' => $movimientosManuales,
+            'cierre' => $cierreCaja,
+            'totales_metodo' => $totalesMetodo,
+            'movimientos_manuales' => $movimientosManuales
         ]);
     }
 }

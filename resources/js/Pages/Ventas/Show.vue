@@ -167,10 +167,10 @@ const print = () => window.print();
                     </p>
                 </div>
                 <div>
-                    <div>
+                    <template v-if="venta.tipo === 'presencial' || venta.origen === 'whatsapp' || venta.origen === 'redes'">
                         <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Atendido por</p>
                         <p class="font-bold text-black">{{ venta.atendido_por?.name || '—' }} {{ venta.atendido_por?.apellido || '' }}</p>
-                    </div>
+                    </template>
                     <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1 mt-3">Método de pago</p>
                     <p class="font-bold text-black">{{ metodoPago }}</p>
                 </div>

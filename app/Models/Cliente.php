@@ -38,13 +38,18 @@ class Cliente extends Model
         return $this->hasMany(Venta::class);
     }
 
+    public function compras()
+    {
+        return $this->hasMany(Venta::class, 'cliente_id');
+    }
+
+    public function suscripciones()
+    {
+        return $this->hasMany(Suscripcion::class);
+    }
+
     public function transacciones(): MorphMany
     {
         return $this->morphMany(Transaccion::class, 'transaccionable');
-    }
-
-    public function suscripciones(): HasMany
-    {
-        return $this->hasMany(Suscripcion::class);
     }
 }

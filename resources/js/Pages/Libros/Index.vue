@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 
@@ -18,17 +18,17 @@ const search = ref('');
 
 const filteredObras = computed(() => {
     if (!search.value) return props.obras;
-
+    
     const term = search.value.toLowerCase();
     return props.obras.filter(obra => {
-        const matchesObra =
+        const matchesObra = 
             (obra.titulo && obra.titulo.toLowerCase().includes(term)) ||
             (obra.autor && (obra.autor.nombre.toLowerCase().includes(term) || obra.autor.apellido.toLowerCase().includes(term)));
-
-        const matchesTomo = obra.libros && obra.libros.some(l =>
+            
+        const matchesTomo = obra.libros && obra.libros.some(l => 
             (l.isbn && l.isbn.toLowerCase().includes(term))
         );
-
+        
         return matchesObra || matchesTomo;
     });
 });
@@ -61,23 +61,257 @@ const obraForm = useForm({
     activo: true,
 });
 
+const formatosLocal = ref(['Tankobon', 'B6', 'A5', 'Kanzenban', 'Omnibus', 'Pocket', 'Novela Ligera', 'Otro']);
+
 const openObraModal = (obra = null) => {
     if (obra) {
         isEditingObra.value = true;
         obraForm.id = obra.id;
         obraForm.titulo = obra.titulo;
-        obraForm.autor_id = obra.autor ? `${obra.autor.nombre} ${obra.autor.apellido || ''}`.trim() : '';
-        obraForm.categoria_id = obra.categoria ? obra.categoria.nombre : '';
-        obraForm.editorial_id = obra.editorial ? obra.editorial.nombre : '';
-        obraForm.idioma_id = obra.idioma ? obra.idioma.nombre : '';
+        obraForm.autor_id = obra.autor_id || '';
+        obraForm.categoria_id = obra.categoria_id || '';
+        obraForm.editorial_id = obra.editorial_id || '';
+        obraForm.idioma_id = obra.idioma_id || '';
         obraForm.formato = obra.formato || '';
         obraForm.synopsis = obra.synopsis || '';
         obraForm.activo = !!obra.activo;
+
+        if (obra.formato && !formatosLocal.value.includes(obra.formato)) {
+            formatosLocal.value.unshift(obra.formato);
+        }
     } else {
         isEditingObra.value = false;
         obraForm.reset();
     }
     showObraModal.value = true;
+};
+
+const agregarAutor = () => {
+    Swal.fire({
+        title: 'Agregar Nuevo Autor',
+        html: `
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
+                    <input id="swal-autor-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Eiichiro">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Apellido *</label>
+                    <input id="swal-autor-apellido" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Oda">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF',
+        preConfirm: () => {
+            const nombre = document.getElementById('swal-autor-nombre').value.trim();
+            const apellido = document.getElementById('swal-autor-apellido').value.trim();
+            if (!nombre || !apellido) {
+                Swal.showValidationMessage('Nombre y Apellido son obligatorios');
+                return false;
+            }
+            return { nombre, apellido };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.axios.post(route('autores.store'), result.value)
+                .then(() => {
+                    router.reload({ 
+                        only: ['autores'],
+                        onSuccess: () => {
+                            Swal.fire({ title: 'Autor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                            const newObj = props.autores.find(x => x.nombre === result.value.nombre && x.apellido === result.value.apellido);
+                            if (newObj) obraForm.autor_id = newObj.id;
+                        }
+                    });
+                })
+                .catch(err => {
+                    Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
+                });
+        }
+    });
+};
+
+const agregarCategoria = () => {
+    Swal.fire({
+        title: 'Agregar Nueva Categoría',
+        html: `
+            <div class="text-left">
+                <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
+                <input id="swal-cat-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Shonen">
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF',
+        preConfirm: () => {
+            const nombre = document.getElementById('swal-cat-nombre').value.trim();
+            if (!nombre) {
+                Swal.showValidationMessage('El nombre es obligatorio');
+                return false;
+            }
+            return { nombre };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.axios.post(route('categorias.store'), result.value)
+                .then(() => {
+                    router.reload({ 
+                        only: ['categorias'],
+                        onSuccess: () => {
+                            Swal.fire({ title: 'Categoría Creada', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                            const newObj = props.categorias.find(x => x.nombre === result.value.nombre);
+                            if (newObj) obraForm.categoria_id = newObj.id;
+                        }
+                    });
+                })
+                .catch(err => {
+                    Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
+                });
+        }
+    });
+};
+
+const agregarEditorial = () => {
+    Swal.fire({
+        title: 'Agregar Nueva Editorial',
+        html: `
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
+                    <input id="swal-ed-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Ivrea">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Email de Contacto *</label>
+                    <input id="swal-ed-email" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="email" placeholder="Ej: contacto@editorial.com">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF',
+        preConfirm: () => {
+            const nombre = document.getElementById('swal-ed-nombre').value.trim();
+            const email = document.getElementById('swal-ed-email').value.trim();
+            if (!nombre || !email) {
+                Swal.showValidationMessage('Nombre y Email de contacto son obligatorios');
+                return false;
+            }
+            return { nombre, email };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.axios.post(route('editoriales.store'), result.value)
+                .then(() => {
+                    router.reload({ 
+                        only: ['editoriales'],
+                        onSuccess: () => {
+                            Swal.fire({ title: 'Editorial Creada', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                            const newObj = props.editoriales.find(x => x.nombre === result.value.nombre);
+                            if (newObj) obraForm.editorial_id = newObj.id;
+                        }
+                    });
+                })
+                .catch(err => {
+                    Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
+                });
+        }
+    });
+};
+
+const agregarIdioma = () => {
+    Swal.fire({
+        title: 'Agregar Nuevo Idioma',
+        html: `
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
+                    <input id="swal-id-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Japonés">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Código (3 letras) *</label>
+                    <input id="swal-id-codigo" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1 uppercase" type="text" maxlength="10" placeholder="Ej: JAP">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF',
+        preConfirm: () => {
+            const nombre = document.getElementById('swal-id-nombre').value.trim();
+            const codigo = document.getElementById('swal-id-codigo').value.trim().toUpperCase();
+            if (!nombre || !codigo) {
+                Swal.showValidationMessage('Nombre y Código son obligatorios');
+                return false;
+            }
+            return { nombre, codigo };
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            window.axios.post(route('idiomas.store'), result.value)
+                .then(() => {
+                    router.reload({ 
+                        only: ['idiomas'],
+                        onSuccess: () => {
+                            Swal.fire({ title: 'Idioma Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                            const newObj = props.idiomas.find(x => x.nombre === result.value.nombre);
+                            if (newObj) obraForm.idioma_id = newObj.id;
+                        }
+                    });
+                })
+                .catch(err => {
+                    Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
+                });
+        }
+    });
+};
+
+const agregarFormato = () => {
+    Swal.fire({
+        title: 'Agregar Nuevo Formato',
+        html: `
+            <div class="text-left">
+                <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre del Formato *</label>
+                <input id="swal-formato-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: A4, Deluxe...">
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Agregar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF',
+        preConfirm: () => {
+            const nombre = document.getElementById('swal-formato-nombre').value.trim();
+            if (!nombre) {
+                Swal.showValidationMessage('El nombre es obligatorio');
+                return false;
+            }
+            return nombre;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const nuevo = result.value;
+            if (!formatosLocal.value.includes(nuevo)) {
+                formatosLocal.value.unshift(nuevo);
+            }
+            obraForm.formato = nuevo;
+            Swal.fire({ title: 'Formato Añadido', icon: 'success', timer: 1000, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+        }
+    });
 };
 
 const submitObra = () => {
@@ -146,11 +380,11 @@ const openTomoModal = (tomo = null, masterId = null) => {
         tomoForm.cantidad_paginas = tomo.cantidad_paginas || '';
         tomoForm.activo = !!tomo.activo;
         tomoForm.permite_preventa = !!tomo.permite_preventa;
-
+        
         const currentPrice = tomo.precios?.find(p => p.activo);
         tomoForm.precio_compra = currentPrice ? currentPrice.precio_compra : 0;
         tomoForm.precio_venta = currentPrice ? currentPrice.precio_venta : 0;
-
+        
         const stockData = {};
         if (tomo.stocks) {
             tomo.stocks.forEach(st => {
@@ -230,10 +464,10 @@ const formatCurrency = (value) => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="card mb-8">
                     <div class="flex items-center gap-4">
-                        <input
-                            v-model="search"
-                            type="text"
-                            placeholder="Buscar por título de obra, autor o ISBN..."
+                        <input 
+                            v-model="search" 
+                            type="text" 
+                            placeholder="Buscar por título de obra, autor o ISBN..." 
                             class="input-field flex-1"
                         >
                     </div>
@@ -275,21 +509,21 @@ const formatCurrency = (value) => {
                                             <button @click.stop="deleteObra(obra.id)" class="p-2 text-brand-red/40 hover:text-brand-red transition-colors" title="Eliminar Obra">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                                             </button>
-                                            <svg xmlns="http://www.w3.org/2000/svg"
+                                            <svg xmlns="http://www.w3.org/2000/svg" 
                                                  class="h-6 w-6 ml-2 text-white/30 transition-transform duration-300"
-                                                 :class="{'rotate-180 text-brand-red': expandedMasters.includes(obra.id)}"
+                                                 :class="{'rotate-180 text-brand-red': expandedMasters.includes(obra.id)}" 
                                                  fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                             </svg>
                                         </div>
                                     </td>
                                 </tr>
-
+                                
                                 <!-- Detail Row -->
                                 <tr v-show="expandedMasters.includes(obra.id)" class="bg-black/40">
                                     <td colspan="5" class="p-0 border-b border-brand-red/10">
                                         <div class="p-4 pl-12 border-l-2 border-brand-red/50 relative">
-
+                                            
                                             <div class="flex justify-between items-end mb-4">
                                                 <h4 class="text-xs font-black text-white/40 uppercase tracking-widest">Tomos Registrados</h4>
                                                 <button @click.stop="openTomoModal(null, obra.id)" class="text-xs bg-white/5 hover:bg-brand-red/20 text-white hover:text-brand-red transition-colors px-3 py-1 rounded font-bold flex items-center gap-1 border border-white/10 hover:border-brand-red/50">
@@ -364,7 +598,7 @@ const formatCurrency = (value) => {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-
+                
                 <form @submit.prevent="submitObra" class="p-6">
                     <div class="grid grid-cols-1 gap-6">
                         <div>
@@ -373,48 +607,57 @@ const formatCurrency = (value) => {
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Autor</label>
-                            <input v-model="obraForm.autor_id" list="lista-autores" class="input-field w-full" placeholder="Seleccionar o escribir nuevo autor" required>
-                            <datalist id="lista-autores">
-                                <option v-for="a in autores" :key="a.id" :value="a.nombre + ' ' + (a.apellido || '')">{{ a.nombre + ' ' + (a.apellido || '') }}</option>
-                            </datalist>
+                            <div class="flex gap-2">
+                                <select v-model="obraForm.autor_id" class="input-field flex-1 text-xs font-bold bg-brand-black" required>
+                                    <option value="" disabled>-- Seleccionar Autor --</option>
+                                    <option v-for="a in autores" :key="a.id" :value="a.id">{{ a.nombre }} {{ a.apellido || '' }}</option>
+                                </select>
+                                <button type="button" @click="agregarAutor" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Autor">+</button>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Categoría</label>
-                            <input v-model="obraForm.categoria_id" list="lista-categorias" class="input-field w-full" placeholder="Seleccionar o escribir nueva categoría" required>
-                            <datalist id="lista-categorias">
-                                <option v-for="c in categorias" :key="c.id" :value="c.nombre">{{ c.nombre }}</option>
-                            </datalist>
+                            <div class="flex gap-2">
+                                <select v-model="obraForm.categoria_id" class="input-field flex-1 text-xs font-bold bg-brand-black" required>
+                                    <option value="" disabled>-- Seleccionar Categoría --</option>
+                                    <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+                                </select>
+                                <button type="button" @click="agregarCategoria" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Categoría">+</button>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Editorial</label>
-                            <input v-model="obraForm.editorial_id" list="lista-editoriales" class="input-field w-full" placeholder="Seleccionar o escribir nueva editorial" required>
-                            <datalist id="lista-editoriales">
-                                <option v-for="e in editoriales" :key="e.id" :value="e.nombre">{{ e.nombre }}</option>
-                            </datalist>
+                            <div class="flex gap-2">
+                                <select v-model="obraForm.editorial_id" class="input-field flex-1 text-xs font-bold bg-brand-black" required>
+                                    <option value="" disabled>-- Seleccionar Editorial --</option>
+                                    <option v-for="e in editoriales" :key="e.id" :value="e.id">{{ e.nombre }}</option>
+                                </select>
+                                <button type="button" @click="agregarEditorial" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Editorial">+</button>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Idioma</label>
-                            <input v-model="obraForm.idioma_id" list="lista-idiomas" class="input-field w-full" placeholder="Seleccionar o escribir nuevo idioma" required>
-                            <datalist id="lista-idiomas">
-                                <option v-for="i in idiomas" :key="i.id" :value="i.nombre">{{ i.nombre }}</option>
-                            </datalist>
+                            <div class="flex gap-2">
+                                <select v-model="obraForm.idioma_id" class="input-field flex-1 text-xs font-bold bg-brand-black" required>
+                                    <option value="" disabled>-- Seleccionar Idioma --</option>
+                                    <option v-for="i in idiomas" :key="i.id" :value="i.id">{{ i.nombre }}</option>
+                                </select>
+                                <button type="button" @click="agregarIdioma" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Idioma">+</button>
+                            </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Formato</label>
-                            <input
-                                v-model="obraForm.formato"
-                                list="opciones-formatos-obra"
-                                type="text"
-                                placeholder="Ej: Tankobon, B6..."
-                                class="input-field w-full uppercase"
-                            />
-                            <datalist id="opciones-formatos-obra">
-                                <option value="Tankobon">Tankobon</option>
-                                <option value="B6">B6</option>
-                                <option value="A5">A5</option>
-                                <option value="Kanzenban">Kanzenban</option>
-                                <option value="Omnibus">Omnibus</option>
-                            </datalist>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Formato *</label>
+                            <div class="flex gap-2">
+                                <select 
+                                    v-model="obraForm.formato" 
+                                    class="input-field flex-1 text-xs font-bold"
+                                    required
+                                >
+                                    <option value="" disabled>-- Selecciona Formato --</option>
+                                    <option v-for="fmt in formatosLocal" :key="fmt" :value="fmt">{{ fmt }}</option>
+                                </select>
+                                <button type="button" @click="agregarFormato" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Formato">+</button>
+                            </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Sinopsis</label>
@@ -452,7 +695,7 @@ const formatCurrency = (value) => {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
-
+                
                 <form @submit.prevent="submitTomo" class="p-6">
                     <!-- Master Id oculto o bloqueado ya que se asigna automáticamente -->
                     <input type="hidden" v-model="tomoForm.master_id">
@@ -488,7 +731,7 @@ const formatCurrency = (value) => {
                             </div>
                         </div>
 
-                        <div class="md:col-span-2 grid grid-cols-1 p-4 bg-brand-red/5 border border-brand-red/20 rounded-lg">
+                        <div v-if="!isEditingTomo" class="md:col-span-2 grid grid-cols-1 p-4 bg-brand-red/5 border border-brand-red/20 rounded-lg">
                             <div>
                                 <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2">Precio Venta ($)</label>
                                 <input v-model="tomoForm.precio_venta" type="number" step="0.01" class="input-field w-full text-right font-black text-xl" placeholder="0.00" required>

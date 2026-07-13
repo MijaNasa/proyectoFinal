@@ -68,19 +68,13 @@ class StockController extends Controller
     {
         $stock = Stock::create($request->safe()->except(['motivo']));
 
-        // Cabecera + detalle del movimiento (el esquema de movimientos_stock ya no
-        // acepta libro_id/cantidad directo en la cabecera: eso ahora vive en
-        // movimiento_stock_detalles).
-        $movimiento = MovimientoStock::create([
+        MovimientoStock::create([
+            'libro_id' => $stock->libro_id,
             'tipo' => 'ajuste',
+            'cantidad' => $stock->cantidad_disponible,
             'sucursal_destino_id' => $stock->sucursal_id,
             'user_id' => auth()->id(),
-            'motivo' => $request->motivo ?? 'Ingreso manual inicial desde panel de Stock',
-        ]);
-
-        $movimiento->detalles()->create([
-            'libro_id' => $stock->libro_id,
-            'cantidad' => $stock->cantidad_disponible,
+            'motivo' => $request->motivo ?? 'Ingreso manual inicial desde panel de Stock'
         ]);
 
         return redirect()->route('stocks.index')->with('message', 'Stock registrado con éxito');
@@ -95,22 +89,19 @@ class StockController extends Controller
 
         $cantidadAnterior = $stock->cantidad_disponible;
 
-        $stock->update($request->safe()->except(['motivo']));
+        $stock->update($request->safe()->except(['tipo_movimiento_id', 'motivo']));
 
         $cantidadNueva = $stock->cantidad_disponible;
         $delta = $cantidadNueva - $cantidadAnterior;
 
         if ($delta !== 0) {
-            $movimiento = MovimientoStock::create([
+            MovimientoStock::create([
+                'libro_id' => $stock->libro_id,
                 'tipo' => 'ajuste',
+                'cantidad' => $delta,
                 'sucursal_destino_id' => $stock->sucursal_id,
                 'user_id' => auth()->id(),
-                'motivo' => $request->motivo ?? 'Ajuste manual desde panel de Stock',
-            ]);
-
-            $movimiento->detalles()->create([
-                'libro_id' => $stock->libro_id,
-                'cantidad' => $delta,
+                'motivo' => $request->motivo ?? 'Ajuste manual desde panel de Stock'
             ]);
         }
 

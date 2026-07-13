@@ -60,19 +60,11 @@ const toggleGroup = (group) => {
                     <span class="text-[11px] font-black uppercase tracking-widest">Dashboard</span>
                 </NavLink>
 
-                <!-- Group: Catálogo -->
-                <div v-if="hasPermiso('catalogo.acceder')" class="space-y-1">
-                    <button @click="toggleGroup('catalog')" class="w-full flex items-center justify-between px-4 py-3 rounded-lg text-white/40 hover:text-white hover:bg-white/5 transition-all group">
-                        <span class="text-[10px] font-black uppercase tracking-[0.2em]">Catálogo Base</span>
-                        <svg :class="{'rotate-180': expandedGroups.catalog}" class="h-4 w-4 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                    </button>
-                    <div v-show="expandedGroups.catalog" class="pl-4 space-y-1 overflow-hidden transition-all duration-300">
-                        <DropdownLink :href="route('categorias.index')" :active="route().current('categorias.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Categorías</DropdownLink>
-                        <DropdownLink :href="route('autores.index')" :active="route().current('autores.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Autores</DropdownLink>
-                        <DropdownLink :href="route('editoriales.index')" :active="route().current('editoriales.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Editoriales</DropdownLink>
-                        <DropdownLink :href="route('idiomas.index')" :active="route().current('idiomas.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Idiomas</DropdownLink>
-                    </div>
-                </div>
+                <NavLink :href="route('notificaciones.index')" :active="route().current('notificaciones.index')" class="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-white/5 transition-all group">
+                    <span class="text-[11px] font-black uppercase tracking-widest group-hover:text-brand-red transition-colors">Notificaciones</span>
+                </NavLink>
+
+
 
                 <!-- Group: Libros -->
                 <div v-if="hasPermiso('colecciones.acceder')" class="space-y-1">
@@ -81,8 +73,9 @@ const toggleGroup = (group) => {
                         <svg :class="{'rotate-180': expandedGroups.books}" class="h-4 w-4 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                     </button>
                     <div v-show="expandedGroups.books" class="pl-4 space-y-1">
-                        <DropdownLink :href="route('libros.index')" :active="route().current('libros.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Catálogo</DropdownLink>
+                        <DropdownLink :href="route('libros.index')" :active="route().current('libros.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Catálogo Principal</DropdownLink>
                         <DropdownLink :href="route('precios.index')" :active="route().current('precios.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Precios</DropdownLink>
+                        <DropdownLink v-if="$page.props.auth.esAdmin" :href="route('catalogo.ajustes.index')" :active="route().current('catalogo.ajustes.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Ajustes de Catálogo</DropdownLink>
                     </div>
                 </div>
 
@@ -108,7 +101,7 @@ const toggleGroup = (group) => {
                     <div v-show="expandedGroups.inventory" class="pl-4 space-y-1">
                         <DropdownLink :href="route('sucursales.index')" :active="route().current('sucursales.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Sucursales</DropdownLink>
                         <DropdownLink :href="route('stocks.index')" :active="route().current('stocks.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Control de Stock</DropdownLink>
-                        <DropdownLink :href="route('logistica.index')" :active="route().current('logistica.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Logística</DropdownLink>
+                        <DropdownLink :href="route('logistica.index')" :active="route().current('logistica.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Logística de Stock</DropdownLink>
                     </div>
                 </div>
 

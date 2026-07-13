@@ -15,7 +15,7 @@ class LibroMaster extends Model
 
     protected $table = 'libro_masters';
 
-    protected $fillable = ['titulo', 'titulo_original', 'portada', 'autor_id', 'categoria_id', 'editorial_id', 'idioma_id', 'formato', 'synopsis', 'activo'];
+    protected $fillable = ['titulo', 'portada', 'autor_id', 'categoria_id', 'editorial_id', 'idioma_id', 'formato', 'synopsis', 'activo'];
 
     protected $appends = ['portada_url'];
 

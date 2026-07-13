@@ -14,9 +14,9 @@ class LogisticaController extends Controller
     public function index(Request $request)
     {
         $movimientos = MovimientoStock::with([
-            'detalles.libro.master',
-            'origen',
-            'destino',
+            'detalles.libro.master', 
+            'origen', 
+            'destino', 
             'user'
         ])->latest()->paginate(15);
 
@@ -104,7 +104,7 @@ class LogisticaController extends Controller
                     if (!$stockOrigen || $stockOrigen->cantidad_disponible < $cantidad) {
                         throw new \Exception('Stock insuficiente en la sucursal de origen para el libro ' . $libro->master->titulo);
                     }
-
+                    
                     $stockOrigen->cantidad_disponible -= $cantidad;
                     $stockOrigen->save();
                 }
@@ -117,7 +117,7 @@ class LogisticaController extends Controller
                     );
 
                     $stockDestino->cantidad_disponible += $cantidad;
-
+                    
                     if ($stockDestino->cantidad_disponible < 0) {
                         throw new \Exception('El ajuste resultaría en stock negativo para ' . $libro->master->titulo);
                     }
@@ -140,16 +140,13 @@ class LogisticaController extends Controller
                 if ($tipo === 'ingreso_proveedor') {
                     $suscripciones = \App\Models\Suscripcion::where('libro_master_id', $libro->master_id)
                         ->where('estado', 'activa')
-                        ->where(function($q) use ($request) {
-                            $q->whereNull('sucursal_id')
-                              ->orWhere('sucursal_id', $request->sucursal_destino_id);
-                        })
+                        ->where('sucursal_id', $request->sucursal_destino_id)
                         ->with('cliente.user')
                         ->get();
 
-                    foreach ($suscripciones as $susc) {
-                        // Se avisa al cliente suscripto (no al empleado que carga el stock).
-                        $susc->cliente->user->notify(new \App\Notifications\TomoIngresadoNotification($susc->cliente, $libro, $request->sucursal_destino_id));
+                    if ($suscripciones->isNotEmpty()) {
+                        $clientes = $suscripciones->map(fn($s) => $s->cliente);
+                        $request->user()->notify(new \App\Notifications\ClientesNotificadosIngresoNotification($libro, $request->sucursal_destino_id, $clientes));
                     }
                 }
             }

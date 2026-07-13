@@ -46,7 +46,7 @@ class HandleInertiaRequests extends Middleware
                 'user'      => $user?->only(['id', 'name', 'apellido', 'email']),
                 'empleado'  => $user?->empleado ? [
                     'sucursal_id' => $user->empleado->sucursal_id,
-                    'sucursal'    => $user->empleado->sucursal?->only(['id', 'nombre']),
+                    'sucursal' => $user->empleado->sucursal ? $user->empleado->sucursal->only(['id', 'nombre']) : null,
                 ] : null,
                 'permisos'  => $user?->getPermisosActivos() ?? [],
                 'esAdmin'   => $user?->esAdmin() ?? false,
@@ -54,9 +54,9 @@ class HandleInertiaRequests extends Middleware
             ],
             'carritoCount' => CarritoController::getCount(),
             'flash' => [
-                'success'       => session('success') ?? session('message'),
-                'warning'       => session('warning'),
-                'error'         => session('error'),
+                'success' => session('success') ?? session('message'),
+                'warning' => session('warning'),
+                'error'   => session('error'),
                 'nuevaPassword' => session('nuevaPassword'),
             ],
         ];

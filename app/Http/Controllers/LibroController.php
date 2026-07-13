@@ -81,13 +81,13 @@ class LibroController extends Controller
             $libro->update($request->validated());
 
             $currentPrice = $libro->precioActual; // Note: using relationship property
-
+            
             // Retain the existing precio_compra if updating just the sale price
             $newPrecioCompra = $currentPrice ? $currentPrice->precio_compra : ($request->precio_compra ?? 0);
 
-            if (!$currentPrice ||
+            if (!$currentPrice || 
                 (float)$currentPrice->precio_venta != (float)$request->precio_venta) {
-
+                
                 // Desactivar precio anterior si existe
                 if ($currentPrice) {
                     $currentPrice->update([
@@ -109,7 +109,7 @@ class LibroController extends Controller
         return redirect()->route('libros.index')
             ->with('message', 'Edición de libro actualizada con éxito');
     }
-
+    
 
     public function destroy(Libro $libro)
     {

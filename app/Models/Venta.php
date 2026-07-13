@@ -17,9 +17,9 @@ class Venta extends Model
     protected $fillable = [
         'fecha', 'cliente_id', 'user_id',
         'sucursal_id', 'tipo', 'total',
-        'estado', 'tipo_envio', 'direccion_envio',
+        'estado', 'estado_envio', 'tipo_envio', 'direccion_envio',
         'pago_expira_at', 'payment_id',
-        'estado_envio', 'motivo_pendiente', 'origen',
+        'origen', 'motivo_pendiente'
     ];
 
     protected $casts = [
@@ -41,12 +41,12 @@ class Venta extends Model
                 })
                 ->with('user:id,name,apellido')
                 ->first();
-
+            
             if ($adminEmpleado && $adminEmpleado->user) {
                 return $adminEmpleado->user;
             }
         }
-
+        
         return null;
     }
 

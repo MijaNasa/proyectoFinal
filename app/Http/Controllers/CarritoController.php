@@ -24,7 +24,7 @@ class CarritoController extends Controller
             'cantidad' => 'required|integer|min:1|max:5',
         ]);
 
-        $libro = Libro::with(['master.editorial', 'precioActual', 'stocks'])->findOrFail($request->libro_id);
+        $libro = Libro::with(['master', 'precioActual', 'stocks', 'editorial'])->findOrFail($request->libro_id);
 
         $stockTotal = $libro->stocks->sum('cantidad_disponible');
         if ($stockTotal === 0) {
@@ -51,7 +51,7 @@ class CarritoController extends Controller
             'titulo'      => $libro->master->titulo,
             'portada_url' => $libro->master->portada_url,
             'isbn'        => $libro->isbn,
-            'editorial'   => $libro->master->editorial->nombre ?? '',
+            'editorial'   => $libro->editorial->nombre ?? '',
         ];
 
         session([self::SESSION_KEY => $carrito]);

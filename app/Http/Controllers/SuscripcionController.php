@@ -13,7 +13,7 @@ class SuscripcionController extends Controller
         $request->validate([
             'cliente_id' => 'required|exists:clientes,id',
             'libro_master_id' => 'required|exists:libro_masters,id',
-            'sucursal_id' => 'nullable|exists:sucursales,id',
+            'sucursal_id' => 'required|exists:sucursales,id',
         ]);
 
         $exists = Suscripcion::where('cliente_id', $request->cliente_id)

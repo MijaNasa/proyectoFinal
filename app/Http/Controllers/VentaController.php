@@ -11,7 +11,7 @@ class VentaController extends Controller
 {
     public function index(Request $request)
     {
-        $query = Venta::with(['cliente.user', 'sucursal', 'detalles.libro.master']);
+        $query = Venta::with(['cliente.user', 'sucursal', 'detalles.libro.master', 'transacciones']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -33,6 +33,13 @@ class VentaController extends Controller
                   ->where('estado_envio', 'pendiente');
         }
 
+        $tab = $request->get('tab', 'activas');
+        if ($tab === 'canceladas') {
+            $query->where('estado', 'cancelado');
+        } else {
+            $query->where('estado', '!=', 'cancelado');
+        }
+
         $ventas = $query->latest()->paginate(10)->withQueryString();
 
         $hoy      = now();
@@ -42,17 +49,19 @@ class VentaController extends Controller
             ->first();
 
         $stats = [
-            'ventas_hoy'      => (int)   $statsHoy->cantidad,
-            'recaudacion'     => (float) $statsHoy->recaudacion,
-            'promedio_ticket' => (float) $statsHoy->promedio,
-            'stock_total'     => (int)   \App\Models\Stock::sum('cantidad_disponible'),
+            'ventas_hoy'       => (int)   $statsHoy->cantidad,
+            'recaudacion'      => (float) $statsHoy->recaudacion,
+            'promedio_ticket'  => (float) $statsHoy->promedio,
+            'stock_total'      => (int)   \App\Models\Stock::sum('cantidad_disponible'),
+            'total_activas'    => Venta::where('estado', '!=', 'cancelado')->count(),
+            'total_canceladas' => Venta::where('estado', 'cancelado')->count(),
         ];
 
         return inertia('Ventas/Index', [
             'ventas'     => $ventas,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
             'stats'      => $stats,
-            'filters'    => $request->only(['search', 'abonadas_pendientes']),
+            'filters'    => $request->only(['search', 'abonadas_pendientes', 'tab']),
         ]);
     }
 
@@ -183,7 +192,7 @@ class VentaController extends Controller
                     $total += $item['cantidad'] * $precios[$item['libro_id']]->precio_venta;
                 }
 
-                $usar_saldo = $request->boolean('usar_saldo_favor');
+                $usar_saldo = $request->boolean('usar_saldo_favor') && $request->medio_pago !== 'Cuenta Corriente';
                 $monto_saldo_usado = 0;
 
                 // Lock and validate CC balance before any writes
@@ -286,18 +295,59 @@ class VentaController extends Controller
                 }
 
                 if ($monto_a_cobrar > 0) {
-                    $venta->transacciones()->create([
-                        'fecha'        => now(),
-                        'tipo'         => 'ingreso',
-                        'monto'        => $monto_a_cobrar,
-                        'metodo_pago'  => $request->medio_pago,
-                        'sucursal_id'  => $sucursal_id,
-                        'user_id'      => \Auth::id(),
-                        'descripcion'  => "[Venta #{$venta->id}]",
-                    ]);
+                    if ($request->medio_pago === 'Cuenta Corriente' && $cliente) {
+                        $excedenteMetodo = $request->input('metodo_pago_excedente');
+                        $nuevoSaldoProyectado = $cliente->saldo_actual - $monto_a_cobrar;
 
-                    if ($request->medio_pago === 'Cuenta Corriente') {
-                        $cliente->decrement('saldo_actual', $monto_a_cobrar);
+                        if ($nuevoSaldoProyectado < 0 && in_array($excedenteMetodo, ['Efectivo', 'Tarjeta', 'Transferencia'])) {
+                            // Separar el pago: lo que cubre el saldo a favor disponible + el excedente en otro medio
+                            $montoCC = max(0, $cliente->saldo_actual);
+                            $montoRestanteExcedente = $monto_a_cobrar - $montoCC;
+
+                            if ($montoCC > 0) {
+                                $venta->transacciones()->create([
+                                    'fecha'        => now(),
+                                    'tipo'         => 'ingreso',
+                                    'monto'        => $montoCC,
+                                    'metodo_pago'  => 'Cuenta Corriente',
+                                    'sucursal_id'  => $sucursal_id,
+                                    'user_id'      => \Auth::id(),
+                                    'descripcion'  => "[Venta #{$venta->id}] - Pago parcial Cuenta Corriente",
+                                ]);
+                                $cliente->decrement('saldo_actual', $montoCC);
+                            }
+
+                            $venta->transacciones()->create([
+                                'fecha'        => now(),
+                                'tipo'         => 'ingreso',
+                                'monto'        => $montoRestanteExcedente,
+                                'metodo_pago'  => $excedenteMetodo,
+                                'sucursal_id'  => $sucursal_id,
+                                'user_id'      => \Auth::id(),
+                                'descripcion'  => "[Venta #{$venta->id}] - Excedente pagado con {$excedenteMetodo}",
+                            ]);
+                        } else {
+                            $venta->transacciones()->create([
+                                'fecha'        => now(),
+                                'tipo'         => 'ingreso',
+                                'monto'        => $monto_a_cobrar,
+                                'metodo_pago'  => 'Cuenta Corriente',
+                                'sucursal_id'  => $sucursal_id,
+                                'user_id'      => \Auth::id(),
+                                'descripcion'  => "[Venta #{$venta->id}]",
+                            ]);
+                            $cliente->decrement('saldo_actual', $monto_a_cobrar);
+                        }
+                    } else {
+                        $venta->transacciones()->create([
+                            'fecha'        => now(),
+                            'tipo'         => 'ingreso',
+                            'monto'        => $monto_a_cobrar,
+                            'metodo_pago'  => $request->medio_pago,
+                            'sucursal_id'  => $sucursal_id,
+                            'user_id'      => \Auth::id(),
+                            'descripcion'  => "[Venta #{$venta->id}]",
+                        ]);
                     }
                 }
             });
@@ -354,17 +404,20 @@ class VentaController extends Controller
                 ]);
             }
 
-            foreach ($fresh->detalles as $detalle) {
-                \App\Models\Stock::where('libro_id', $detalle->libro_id)
-                    ->where('sucursal_id', $fresh->sucursal_id)
-                    ->increment('cantidad_disponible', $detalle->cantidad);
-            }
+            // Solo revertimos stock y devolvemos saldo si no estaba ya cancelada (evita doble reverso)
+            if ($fresh->estado !== 'cancelado') {
+                foreach ($fresh->detalles as $detalle) {
+                    \App\Models\Stock::where('libro_id', $detalle->libro_id)
+                        ->where('sucursal_id', $fresh->sucursal_id)
+                        ->increment('cantidad_disponible', $detalle->cantidad);
+                }
 
-            if ($fresh->cliente) {
-                // Devolver exactamente la suma de los montos ingresados para este ticket
-                $montoPagado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
-                if ($montoPagado > 0) {
-                    $fresh->cliente->increment('saldo_actual', $montoPagado);
+                if ($fresh->cliente) {
+                    // Devolver exactamente la suma de los montos ingresados para este ticket
+                    $montoPagado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
+                    if ($montoPagado > 0) {
+                        $fresh->cliente->increment('saldo_actual', $montoPagado);
+                    }
                 }
             }
 

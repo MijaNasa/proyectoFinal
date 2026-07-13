@@ -8,10 +8,6 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
-     *
-     * Nota: 'formato' ya vive en libro_masters desde la migración
-     * add_formato_to_libros_table, por eso acá solo se mueven
-     * editorial_id, idioma_id y synopsis.
      */
     public function up(): void
     {
@@ -19,6 +15,7 @@ return new class extends Migration
         Schema::table('libro_masters', function (Blueprint $table) {
             $table->foreignId('editorial_id')->nullable()->constrained('editoriales');
             $table->foreignId('idioma_id')->nullable()->constrained('idiomas');
+            $table->string('formato')->nullable();
             $table->text('synopsis')->nullable();
         });
 
@@ -30,6 +27,7 @@ return new class extends Migration
                 $master->update([
                     'editorial_id' => $primerLibro->editorial_id,
                     'idioma_id' => $primerLibro->idioma_id,
+                    'formato' => $primerLibro->formato,
                     'synopsis' => $primerLibro->synopsis,
                 ]);
             }
@@ -39,7 +37,7 @@ return new class extends Migration
         Schema::table('libros', function (Blueprint $table) {
             $table->dropForeign(['editorial_id']);
             $table->dropForeign(['idioma_id']);
-            $table->dropColumn(['editorial_id', 'idioma_id', 'synopsis']);
+            $table->dropColumn(['editorial_id', 'idioma_id', 'formato', 'synopsis']);
         });
     }
 
@@ -52,6 +50,7 @@ return new class extends Migration
         Schema::table('libros', function (Blueprint $table) {
             $table->foreignId('editorial_id')->nullable()->constrained('editoriales');
             $table->foreignId('idioma_id')->nullable()->constrained('idiomas');
+            $table->string('formato')->nullable();
             $table->text('synopsis')->nullable();
         });
 
@@ -63,6 +62,7 @@ return new class extends Migration
                 $libro->update([
                     'editorial_id' => $master->editorial_id,
                     'idioma_id' => $master->idioma_id,
+                    'formato' => $master->formato,
                     'synopsis' => $master->synopsis,
                 ]);
             }
@@ -72,7 +72,7 @@ return new class extends Migration
         Schema::table('libro_masters', function (Blueprint $table) {
             $table->dropForeign(['editorial_id']);
             $table->dropForeign(['idioma_id']);
-            $table->dropColumn(['editorial_id', 'idioma_id', 'synopsis']);
+            $table->dropColumn(['editorial_id', 'idioma_id', 'formato', 'synopsis']);
         });
     }
 };

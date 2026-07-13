@@ -10,7 +10,6 @@ use App\Http\Controllers\LibroController;
 use App\Http\Controllers\SucursalController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\ClienteController;
-use App\Http\Controllers\SuscripcionController;
 use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CierreCajaController;
@@ -22,18 +21,20 @@ use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\PrecioController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\LogisticaController;
-use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\OrdenCompraController;
 use App\Http\Controllers\PublicCatalogoController;
+use App\Http\Controllers\SuscripcionController;
 use App\Http\Controllers\CarritoController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\MiCuentaController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\CatalogoAjustesController;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 // Rutas Públicas de E-commerce
 Route::get('/catalogo', [PublicCatalogoController::class, 'index'])->name('catalogo.index');
-Route::get('/catalogo/{id}', [PublicCatalogoController::class, 'show'])->name('catalogo.show');
+Route::get('/catalogo/{id}', [PublicCatalogoController::class, 'show'])->where('id', '[0-9]+')->name('catalogo.show');
 Route::get('/nosotros', fn() => \Inertia\Inertia::render('Nosotros'))->name('nosotros');
 
 // Carrito (no requiere login)
@@ -75,14 +76,7 @@ Route::middleware('auth')->group(function () {
     // Notificaciones
     Route::get('/notificaciones', [NotificationController::class, 'index'])->name('notificaciones.index');
     Route::patch('/notificaciones/{id}/read', [NotificationController::class, 'markAsRead'])->name('notificaciones.read');
-
-    // Catálogo Base
-    Route::middleware('permiso:catalogo.acceder')->group(function () {
-        Route::resource('categorias', CategoriaController::class)->except(['show', 'create', 'edit']);
-        Route::resource('autores', AutorController::class)->except(['show', 'create', 'edit'])->parameters(['autores' => 'autor']);
-        Route::resource('editoriales', EditorialController::class)->except(['show', 'create', 'edit'])->parameters(['editoriales' => 'editorial']);
-        Route::resource('idiomas', IdiomaController::class)->except(['show', 'create', 'edit']);
-    });
+    Route::delete('/notificaciones/{id}', [NotificationController::class, 'destroy'])->name('notificaciones.destroy');
 
     // Colecciones
     Route::middleware('permiso:colecciones.acceder')->group(function () {
@@ -92,6 +86,11 @@ Route::middleware('auth')->group(function () {
         Route::post('precios/bulk', [PrecioController::class, 'bulkUpdate'])->name('precios.bulk');
         Route::post('libros/{libro}/precios', [PrecioController::class, 'store'])->name('precios.store');
         Route::get('libros/{libro}/precios/historial', [PrecioController::class, 'historial'])->name('precios.historial');
+        
+        // Ajustes de Catálogo (Sólo Administradores)
+        Route::get('catalogo/ajustes', [CatalogoAjustesController::class, 'index'])->name('catalogo.ajustes.index');
+        Route::put('catalogo/ajustes/{type}/{id}', [CatalogoAjustesController::class, 'update'])->name('catalogo.ajustes.update');
+        Route::delete('catalogo/ajustes/{type}/{id}', [CatalogoAjustesController::class, 'destroy'])->name('catalogo.ajustes.destroy');
     });
 
     // Terminal de Ventas
@@ -133,6 +132,8 @@ Route::middleware('auth')->group(function () {
         Route::post('clientes/{cliente}/consolidar', [ClienteController::class, 'consolidarPedidos'])->name('clientes.consolidar');
         Route::post('clientes/{cliente}/pago', [ClienteController::class, 'registrarPago'])->name('clientes.pago');
         Route::delete('clientes/{cliente}/pago/{transaccion}', [ClienteController::class, 'eliminarPago'])->name('clientes.pago.destroy');
+        Route::delete('clientes/{cliente}/ventas-canceladas', [ClienteController::class, 'destroyCanceladas'])->name('clientes.ventas-canceladas.destroy');
+        
         Route::post('suscripciones', [SuscripcionController::class, 'store'])->name('suscripciones.store');
         Route::patch('suscripciones/{suscripcion}', [SuscripcionController::class, 'update'])->name('suscripciones.update');
         Route::delete('suscripciones/{suscripcion}', [SuscripcionController::class, 'destroy'])->name('suscripciones.destroy');

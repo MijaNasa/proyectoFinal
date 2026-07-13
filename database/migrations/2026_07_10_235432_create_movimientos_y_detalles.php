@@ -8,21 +8,13 @@ return new class extends Migration
 {
     /**
      * Run the migrations.
-     *
-     * Reemplaza el diseño viejo de movimientos de stock (movimientos_stock +
-     * tipos_movimientos_stock + transferencias_stock) por el nuevo esquema
-     * cabecera/detalle: movimientos_stock (tipo/origen/destino/usuario/motivo)
-     * + movimiento_stock_detalles (libro/cantidad/costo_unitario).
      */
     public function up(): void
     {
-        Schema::disableForeignKeyConstraints();
-
+        // Drop details first to avoid foreign key constraint errors in PostgreSQL
+        Schema::dropIfExists('movimiento_stock_detalles');
+        // Drop the recent table to rebuild as Master/Detail
         Schema::dropIfExists('movimientos_stock');
-        Schema::dropIfExists('transferencias_stock');
-        Schema::dropIfExists('tipos_movimientos_stock');
-
-        Schema::enableForeignKeyConstraints();
 
         // Master (Cabecera)
         Schema::create('movimientos_stock', function (Blueprint $table) {

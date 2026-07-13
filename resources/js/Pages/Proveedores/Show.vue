@@ -100,7 +100,7 @@ const formatFecha = (f) =>
                             <h4 class="text-sm font-black uppercase tracking-tighter" :class="serie.activo ? 'text-white' : 'text-white/40 line-through'">{{ serie.nombre }}</h4>
                             <div v-if="metricasSuscripciones[serie.id] && serie.activo" class="mt-4 pt-3 border-t border-white/5">
                                 <p class="text-[9px] font-black uppercase tracking-widest text-brand-red">
-                                    Suscriptores Activos:
+                                    Suscriptores Activos: 
                                     <span class="text-white/60 ml-1">
                                         {{ metricasSuscripciones[serie.id].map(m => `${m.total} (${m.sucursal})`).join(' | ') }}
                                     </span>

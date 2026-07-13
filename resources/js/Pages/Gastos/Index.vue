@@ -311,7 +311,7 @@ const eliminar = (gasto) => {
                     {{ decodeLabel(link.label) }}
                 </Link>
             </div>
-
+            
             <!-- Botón de Imprimir -->
             <div class="flex justify-end mt-4">
                 <button @click="imprimirPdf" class="bg-white/10 hover:bg-white/20 border border-white/20 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 transition-colors">

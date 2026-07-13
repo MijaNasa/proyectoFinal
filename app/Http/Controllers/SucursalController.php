@@ -16,11 +16,10 @@ class SucursalController extends Controller
     {
         $query = Sucursal::query()->with('ciudad.provincia.pais');
 
-        if ($request->has('search')) {
+        if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function($q) use ($search) {
                 $q->where('nombre', 'like', '%' . $search . '%')
-                  ->orWhere('codigo', 'like', '%' . $search . '%')
                   ->orWhere('email', 'like', '%' . $search . '%');
             });
         }
@@ -30,7 +29,7 @@ class SucursalController extends Controller
         return inertia('Sucursales/Index', [
             'sucursales' => $sucursales,
             'ciudades' => \App\Models\Ciudad::with('provincia.pais')
-                ->whereHas('provincia', fn($q) => $q->where('nombre', 'Santa Fe'))
+                ->whereHas('provincia', fn($q) => $q->where('nombre', 'like', '%Santa Fe%'))
                 ->orderBy('nombre')->get(),
             'filters' => $request->only(['search'])
         ]);
@@ -41,7 +40,17 @@ class SucursalController extends Controller
      */
     public function store(StoreSucursalRequest $request)
     {
-        Sucursal::create($request->validated());
+        $data = $request->validated();
+        
+        $provincia = \App\Models\Provincia::first();
+        $ciudad = \App\Models\Ciudad::firstOrCreate([
+            'nombre' => $data['ciudad_nombre'],
+            'provincia_id' => $provincia->id
+        ]);
+        $data['ciudad_id'] = $ciudad->id;
+        unset($data['ciudad_nombre']);
+
+        Sucursal::create($data);
 
         return redirect()->route('sucursales.index')
             ->with('message', 'Sucursal creada con éxito');
@@ -52,7 +61,17 @@ class SucursalController extends Controller
      */
     public function update(UpdateSucursalRequest $request, Sucursal $sucursal)
     {
-        $sucursal->update($request->validated());
+        $data = $request->validated();
+        
+        $provincia = \App\Models\Provincia::first();
+        $ciudad = \App\Models\Ciudad::firstOrCreate([
+            'nombre' => $data['ciudad_nombre'],
+            'provincia_id' => $provincia->id
+        ]);
+        $data['ciudad_id'] = $ciudad->id;
+        unset($data['ciudad_nombre']);
+
+        $sucursal->update($data);
 
         return redirect()->route('sucursales.index')
             ->with('message', 'Sucursal actualizada con éxito');
@@ -67,6 +86,15 @@ class SucursalController extends Controller
 
         if ($tieneStock) {
             return redirect()->back()->with('error', 'No se puede eliminar la sucursal porque todavía tiene stock disponible.');
+        }
+
+        // Verificar si hay ventas con envíos pendientes
+        $tieneEnviosPendientes = \App\Models\Venta::where('sucursal_id', $sucursal->id)
+            ->where('estado_envio', 'pendiente')
+            ->exists();
+
+        if ($tieneEnviosPendientes) {
+            return redirect()->back()->with('error', 'No se puede eliminar la sucursal porque tiene ventas con envíos pendientes.');
         }
 
         $sucursal->delete();

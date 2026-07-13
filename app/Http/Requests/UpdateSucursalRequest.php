@@ -19,9 +19,8 @@ class UpdateSucursalRequest extends FormRequest
     {
         return [
             'nombre' => 'required|string|max:255',
-            'codigo' => 'nullable|string|max:10|unique:sucursales,codigo,' . $this->sucursal->id,
-            'ciudad_id' => 'required|exists:ciudades,id',
-            'calle' => 'nullable|string|max:255',
+            'ciudad_nombre' => 'required|string|max:255',
+            'calle' => 'required|string|max:255',
             'numero' => 'nullable|string|max:20',
             'piso' => 'nullable|string|max:20',
             'departamento' => 'nullable|string|max:20',
@@ -30,6 +29,16 @@ class UpdateSucursalRequest extends FormRequest
             'email' => 'nullable|email|max:255',
             'es_deposito_central' => 'boolean',
             'activo' => 'boolean'
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'nombre.required' => 'El nombre de la sucursal es obligatorio.',
+            'ciudad_nombre.required' => 'La ciudad es obligatoria.',
+            'calle.required' => 'La calle es obligatoria.',
+            'email.email' => 'El formato del correo electrónico no es válido.',
         ];
     }
 }

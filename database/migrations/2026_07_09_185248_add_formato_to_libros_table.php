@@ -8,16 +8,15 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // El formato (Tankobon, B6, A5, etc.) es un atributo de la obra (LibroMaster),
-        // no de la edición (Libro): todas las ediciones/tomos de una obra comparten formato.
-        Schema::table('libro_masters', function (Blueprint $table) {
-            $table->string('formato')->nullable()->after('categoria_id');
+        Schema::table('libros', function (Blueprint $table) {
+            // Agregamos la columna 'formato' justo después de 'editorial_id'
+            $table->string('formato')->nullable()->after('editorial_id');
         });
     }
 
     public function down(): void
     {
-        Schema::table('libro_masters', function (Blueprint $table) {
+        Schema::table('libros', function (Blueprint $table) {
             $table->dropColumn('formato');
         });
     }

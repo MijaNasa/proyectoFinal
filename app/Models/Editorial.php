@@ -30,4 +30,9 @@ class Editorial extends Model
     {
         return $this->hasMany(Libro::class);
     }
+
+    public function libroMasters(): HasMany
+    {
+        return $this->hasMany(LibroMaster::class);
+    }
 }

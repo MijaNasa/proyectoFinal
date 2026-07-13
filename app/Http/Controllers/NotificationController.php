@@ -8,8 +8,8 @@ class NotificationController extends Controller
 {
     public function index(Request $request)
     {
-        // Get all unread notifications for the user
-        $notifications = $request->user()->unreadNotifications()->paginate(10);
+        // Get all notifications for the user
+        $notifications = $request->user()->notifications()->paginate(10);
 
         return inertia('Notificaciones/Index', [
             'notificaciones' => $notifications
@@ -20,6 +20,14 @@ class NotificationController extends Controller
     {
         $notification = $request->user()->notifications()->findOrFail($id);
         $notification->markAsRead(); // This updates read_at
+
+        return redirect()->back();
+    }
+
+    public function destroy(Request $request, $id)
+    {
+        $notification = $request->user()->notifications()->findOrFail($id);
+        $notification->delete();
 
         return redirect()->back();
     }

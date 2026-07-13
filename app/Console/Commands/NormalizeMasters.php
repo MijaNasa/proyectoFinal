@@ -39,13 +39,13 @@ class NormalizeMasters extends Command
             foreach ($mastersToFix as $master) {
                 // Extraemos el titulo real (ej: "Dragon Ball" de "Dragon Ball Tomo 1")
                 $cleanTitle = preg_replace('/ Tomo \d+$/i', '', $master->titulo);
-
+                
                 // Buscamos si ya existe un Master unificado con ese titulo, autor y categoria
                 $unifiedMaster = LibroMaster::where('titulo', $cleanTitle)
                                             ->where('autor_id', $master->autor_id)
                                             ->where('categoria_id', $master->categoria_id)
                                             ->first();
-
+                
                 // Si no existe, creamos uno nuevo como base
                 if (!$unifiedMaster) {
                     $unifiedMaster = LibroMaster::create([
@@ -66,7 +66,7 @@ class NormalizeMasters extends Command
 
             // Eliminamos los masters viejos que ya no tienen libros
             $deletedCount = LibroMaster::doesntHave('libros')->delete();
-
+            
             $this->info("Se eliminaron {$deletedCount} LibroMasters redundantes (vacios).");
         });
 

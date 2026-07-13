@@ -171,14 +171,14 @@ class GastoController extends Controller
 
         $gastos = $query->get();
         $sucursal = $sucursalId ? Sucursal::find($sucursalId) : null;
-
+        
         $stats = [
-            'total'    => $gastos->sum('monto'),
+            'total' => $gastos->sum('monto'),
             'cantidad' => $gastos->count(),
         ];
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.gastos', compact('gastos', 'desde', 'hasta', 'sucursal', 'categoria', 'stats'));
-
+        
         return $pdf->download('reporte_gastos_' . now()->format('Ymd_His') . '.pdf');
     }
 }

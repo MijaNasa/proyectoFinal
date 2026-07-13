@@ -18,24 +18,44 @@ class ClienteController extends Controller
      */
     public function index(Request $request)
     {
-        $query = Cliente::query()->with(['user', 'tipoCliente']);
+        $query = Cliente::query()
+            ->join('users', 'clientes.user_id', '=', 'users.id')
+            ->select('clientes.*') // Select only cliente columns to avoid ID conflicts
+            ->with(['user', 'tipoCliente']);
 
-        if ($request->has('search')) {
+        if ($request->has('search') && $request->search != '') {
             $search = $request->search;
-            $query->whereHas('user', function($q) use ($search) {
-                $q->where('name', 'like', '%' . $search . '%')
-                  ->orWhere('apellido', 'like', '%' . $search . '%')
-                  ->orWhere('dni', 'like', '%' . $search . '%')
-                  ->orWhere('email', 'like', '%' . $search . '%');
+            $query->where(function($q) use ($search) {
+                $q->where('users.name', 'like', '%' . $search . '%')
+                  ->orWhere('users.apellido', 'like', '%' . $search . '%')
+                  ->orWhere('users.dni', 'like', '%' . $search . '%')
+                  ->orWhere('users.email', 'like', '%' . $search . '%');
             });
         }
 
-        $clientes = $query->latest()->paginate(10)->withQueryString();
+        // Sorting
+        $sortField = $request->get('sort', 'clientes.created_at');
+        $sortDirection = $request->get('direction', 'desc');
+
+        $sortableFields = [
+            'cliente' => 'users.name',
+            'dni' => 'users.dni',
+            'contacto' => 'users.email',
+            'saldo_actual' => 'clientes.saldo_actual',
+        ];
+
+        if (array_key_exists($sortField, $sortableFields)) {
+            $query->orderBy($sortableFields[$sortField], $sortDirection);
+        } else {
+            $query->orderBy('clientes.created_at', 'desc');
+        }
+
+        $clientes = $query->paginate(10)->withQueryString();
 
         return inertia('Clientes/Index', [
             'clientes' => $clientes,
             'tipos_clientes' => \App\Models\TipoCliente::get(['id', 'nombre', 'descuento_porcentaje']),
-            'filters' => $request->only(['search'])
+            'filters' => $request->only(['search', 'sort', 'direction'])
         ]);
     }
 
@@ -55,9 +75,11 @@ class ClienteController extends Controller
                 'activo' => true,
             ]);
 
+            $tipoClienteId = $request->tipo_cliente_id ?? \App\Models\TipoCliente::first()?->id ?? 1;
+
             $user->cliente()->create([
-                'tipo_cliente_id' => $request->tipo_cliente_id,
-                'estado_abono' => $request->estado_abono,
+                'tipo_cliente_id' => $tipoClienteId,
+                'estado_abono' => $request->estado_abono ?? 'Activo',
                 'saldo_actual' => $request->saldo_actual ?? 0,
             ]);
         });
@@ -81,9 +103,9 @@ class ClienteController extends Controller
             ]);
 
             $cliente->update([
-                'tipo_cliente_id' => $request->tipo_cliente_id,
-                'estado_abono' => $request->estado_abono,
-                'saldo_actual' => $request->saldo_actual,
+                'tipo_cliente_id' => $request->tipo_cliente_id ?? $cliente->tipo_cliente_id,
+                'estado_abono' => $request->estado_abono ?? $cliente->estado_abono,
+                'saldo_actual' => $request->saldo_actual ?? $cliente->saldo_actual,
             ]);
         });
 
@@ -93,16 +115,24 @@ class ClienteController extends Controller
 
     public function show(Cliente $cliente)
     {
-        $cliente->load(['user', 'tipoCliente', 'suscripciones.serie']);
+        $cliente->load(['user', 'tipoCliente', 'suscripciones.serie', 'suscripciones.sucursal']);
 
         $ventas = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
             ->where('cliente_id', $cliente->id)
+            ->where('estado', '!=', 'cancelado')
             ->latest('fecha')
             ->paginate(10);
 
+        $canceladas = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
+            ->where('cliente_id', $cliente->id)
+            ->where('estado', 'cancelado')
+            ->latest('fecha')
+            ->paginate(10, ['*'], 'canceladas_page');
+            
         $acumulados = Venta::with(['detalles.libro.master:id,titulo'])
             ->where('cliente_id', $cliente->id)
             ->where('motivo_pendiente', 'Acumulación')
+            ->where('estado', '!=', 'cancelado')
             ->latest('fecha')
             ->get();
 
@@ -114,20 +144,21 @@ class ClienteController extends Controller
         $ultima_compra = Venta::where('cliente_id', $cliente->id)->latest('fecha')->value('fecha');
 
         $stats = [
-            'total_comprado'  => $ventas->sum('total'),
+            'total_comprado' => $ventas->sum('total'),
             'cantidad_ventas' => $ventas->total(),
-            'total_pagado'    => $pagos->sum('monto'),
-            'ultima_compra'   => $ultima_compra,
+            'total_pagado' => $pagos->sum('monto'),
+            'ultima_compra' => $ultima_compra,
         ];
 
         return inertia('Clientes/Show', [
-            'cliente'        => $cliente,
-            'ventas'         => $ventas,
-            'acumulados'     => $acumulados,
-            'pagos'          => $pagos,
-            'stats'          => $stats,
-            'libro_masters'  => \App\Models\LibroMaster::orderBy('titulo')->get(['id', 'titulo']),
-            'sucursales'     => \App\Models\Sucursal::get(['id', 'nombre']),
+            'cliente' => $cliente,
+            'ventas' => $ventas,
+            'canceladas' => $canceladas,
+            'acumulados' => $acumulados,
+            'pagos' => $pagos,
+            'stats' => $stats,
+            'libro_masters' => \App\Models\LibroMaster::orderBy('titulo')->get(['id', 'titulo']),
+            'sucursales' => \App\Models\Sucursal::get(['id', 'nombre'])
         ]);
     }
 
@@ -144,9 +175,10 @@ class ClienteController extends Controller
             $cliente->increment('saldo_actual', $request->monto);
 
             $fechaReal = \Carbon\Carbon::parse($request->fecha_real);
+            $hoy = now();
             $descripcion = $request->descripcion ?: 'Pago de cuenta corriente';
 
-            if ($fechaReal->lt(now()->startOfDay())) {
+            if ($fechaReal->lt($hoy->copy()->startOfDay())) {
                 $descripcion = "Pago recibido el " . $fechaReal->format('d/m/Y') . " - Carga diferida. " . $descripcion;
             }
 
@@ -185,7 +217,7 @@ class ClienteController extends Controller
             ->where('estado', '!=', 'cancelado')
             ->get()
             ->map(function ($venta) {
-                return (object) [
+                return (object)[
                     'fecha'       => $venta->fecha,
                     'tipo_mov'    => 'Compra',
                     'descripcion' => 'Venta #TK-' . str_pad($venta->id, 6, '0', STR_PAD_LEFT),
@@ -199,7 +231,7 @@ class ClienteController extends Controller
             ->where('tipo', 'ingreso')
             ->get()
             ->map(function ($pago) {
-                return (object) [
+                return (object)[
                     'fecha'       => $pago->fecha,
                     'tipo_mov'    => 'Pago',
                     'descripcion' => $pago->descripcion ?: 'Pago en ' . $pago->metodo_pago,
@@ -221,7 +253,7 @@ class ClienteController extends Controller
             'direccion_envio' => 'required|string|max:255',
         ]);
 
-        DB::transaction(function () use ($cliente, $request) {
+        \DB::transaction(function () use ($cliente, $request) {
             $ventas = Venta::where('cliente_id', $cliente->id)
                 ->where('motivo_pendiente', 'Acumulación')
                 ->lockForUpdate()
@@ -229,14 +261,31 @@ class ClienteController extends Controller
 
             foreach ($ventas as $venta) {
                 $venta->update([
-                    'estado_envio'      => 'pendiente',
-                    'direccion_envio'   => $request->direccion_envio,
-                    'motivo_pendiente'  => null,
+                    'estado_envio' => 'pendiente',
+                    'direccion_envio' => $request->direccion_envio,
+                    'motivo_pendiente' => null, // Ya no está en acumulación
                 ]);
             }
         });
 
         return back()->with('message', 'Pedidos consolidados y listos para reparto.');
+    }
+
+    public function destroyCanceladas(Cliente $cliente)
+    {
+        \DB::transaction(function() use ($cliente) {
+            $canceladas = \App\Models\Venta::where('cliente_id', $cliente->id)
+                ->where('estado', 'cancelado')
+                ->get();
+                
+            foreach ($canceladas as $venta) {
+                $venta->transacciones()->delete();
+                $venta->detalles()->delete();
+                $venta->delete();
+            }
+        });
+
+        return back()->with('message', 'Todas las ventas canceladas han sido eliminadas permanentemente.');
     }
 
     /**

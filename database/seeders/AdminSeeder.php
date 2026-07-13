@@ -34,11 +34,10 @@ class AdminSeeder extends Seeder
             );
 
             \App\Models\Sucursal::firstOrCreate(
-                ['codigo' => 'CENTRAL'],
+                ['es_deposito_central' => true],
                 [
                     'nombre'              => 'Sucursal Central',
                     'ciudad_id'           => $ciudad->id,
-                    'es_deposito_central' => true,
                     'activo'              => true,
                 ]
             );

@@ -146,6 +146,26 @@ const asignarCargo = () => {
     });
 };
 
+const desasignarCargo = (cargo) => {
+    Swal.fire({
+        title: `¿Quitar cargo ${cargo.nombre}?`,
+        icon: 'warning', showCancelButton: true,
+        confirmButtonColor: '#E61919', cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, quitar',
+        background: '#1A1A1A', color: '#FFF',
+    }).then(result => {
+        if (result.isConfirmed) {
+            desasignarForm.delete(route('empleados.desasignar-cargo', { empleado: empleadoSeleccionado.value.id, cargo: cargo.id }), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    sincronizarSeleccionado();
+                    Swal.fire({ title: 'Cargo removido', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                },
+            });
+        }
+    });
+};
+
 const resetearPassword = () => {
     Swal.fire({
         title: '¿Restablecer contraseña?',
@@ -166,26 +186,6 @@ const resetearPassword = () => {
                         icon: 'success',
                         background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
                     });
-                },
-            });
-        }
-    });
-};
-
-const desasignarCargo = (cargo) => {
-    Swal.fire({
-        title: `¿Quitar cargo ${cargo.nombre}?`,
-        icon: 'warning', showCancelButton: true,
-        confirmButtonColor: '#E61919', cancelButtonColor: '#333',
-        confirmButtonText: 'Sí, quitar',
-        background: '#1A1A1A', color: '#FFF',
-    }).then(result => {
-        if (result.isConfirmed) {
-            desasignarForm.delete(route('empleados.desasignar-cargo', { empleado: empleadoSeleccionado.value.id, cargo: cargo.id }), {
-                preserveScroll: true,
-                onSuccess: () => {
-                    sincronizarSeleccionado();
-                    Swal.fire({ title: 'Cargo removido', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
                 },
             });
         }

@@ -29,12 +29,11 @@ class PrecioController extends Controller
         } elseif ($request->criterio === 'libro_individual') {
             $query->where('id', $request->libro_id);
         } else {
-            // Editorial y formato ahora viven en LibroMaster (la obra), no en Libro (la edición).
+            $query->whereHas('master.editorial', function ($q) use ($request) {
+                $q->where('nombre', $request->editorial);
+            });
             $query->whereHas('master', function ($q) use ($request) {
-                $q->where('formato', $request->formato)
-                  ->whereHas('editorial', function ($eq) use ($request) {
-                      $eq->where('nombre', $request->editorial);
-                  });
+                $q->where('formato', $request->formato);
             });
         }
 
@@ -62,7 +61,7 @@ class PrecioController extends Controller
         return redirect()->back();
     }
 
-public function index(Request $request): \Inertia\Response
+    public function index(Request $request): \Inertia\Response
     {
         $filtro = $request->get('filtro', 'todos');
         $search = $request->get('search', '');
@@ -71,15 +70,16 @@ public function index(Request $request): \Inertia\Response
             'master:id,titulo,autor_id,editorial_id,formato',
             'master.autor:id,nombre,apellido',
             'master.editorial:id,nombre',
-            'serie:id,nombre', // <-- ¡AGREGADO! Para que funcione el filtro masivo por Serie
+            'serie:id,nombre',
             'precios' => fn($q) => $q->orderByDesc('fecha_desde')->limit(5),
         ])
         ->select(
-            'libros.id',
-            'libros.isbn',
-            'libros.master_id',
-            'libros.serie_id', // <-- ¡AGREGADO! Necesario para la relación de arriba
-            'libros.año_edicion',
+            'libros.id', 
+            'libros.isbn', 
+            'libros.master_id', 
+            'libros.serie_id', 
+            'libros.numero_tomo',
+            'libros.año_edicion', 
             'libros.activo'
         );
 
@@ -112,7 +112,6 @@ public function index(Request $request): \Inertia\Response
         ];
 
         $opcionesMasivas = [
-            // El formato ahora es un atributo de LibroMaster (la obra), no de Libro (la edición).
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
             'series' => \App\Models\Serie::orderBy('nombre')->pluck('nombre'),
             'editoriales' => \App\Models\Editorial::orderBy('nombre')->pluck('nombre'),

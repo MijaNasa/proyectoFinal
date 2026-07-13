@@ -24,7 +24,7 @@ class StoreLibroMasterRequest extends FormRequest
             'categoria_id' => ['required', 'string'],
             'editorial_id' => ['required', 'string'],
             'idioma_id' => ['required', 'string'],
-            'formato' => ['nullable', 'string', 'max:255'],
+            'formato' => ['required', 'string', 'max:255'],
             'synopsis' => ['nullable', 'string'],
             'activo' => ['boolean']
         ];

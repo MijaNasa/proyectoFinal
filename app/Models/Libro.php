@@ -58,12 +58,12 @@ class Libro extends Model
     public function recalcularCostoPPP(float $nuevoCosto, int $cantidadNueva): void
     {
         $currentPrice = $this->precioActual;
-
+        
         $stockActual = $this->stocks()->sum('cantidad_disponible');
         $costoPromedioActual = $currentPrice ? (float) $currentPrice->precio_compra : 0;
-
+        
         $nuevoCostoPromedio = 0;
-
+        
         if ($stockActual + $cantidadNueva > 0) {
             $nuevoCostoPromedio = (($stockActual * $costoPromedioActual) + ($cantidadNueva * $nuevoCosto)) / ($stockActual + $cantidadNueva);
         }

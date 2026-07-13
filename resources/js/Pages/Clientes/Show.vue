@@ -8,6 +8,7 @@ import Swal from 'sweetalert2';
 const props = defineProps({
     cliente: Object,
     ventas:  Object,
+    canceladas: Object,
     acumulados: Array,
     pagos:   Array,
     stats:   Object,
@@ -15,7 +16,8 @@ const props = defineProps({
     sucursales: Array,
 });
 
-const tabActiva = ref('compras');
+const urlParams = new URLSearchParams(window.location.search);
+const tabActiva = ref(urlParams.get('tabActiva') || 'compras');
 
 const suscripcionForm = useForm({
     cliente_id: props.cliente.id,
@@ -68,6 +70,39 @@ const submitConsolidar = () => {
     });
 };
 
+const showEditModal = ref(false);
+const editForm = useForm({
+    name: props.cliente.user.name,
+    apellido: props.cliente.user.apellido || '',
+    email: props.cliente.user.email,
+    dni: props.cliente.user.dni || '',
+    telefono: props.cliente.user.telefono || '',
+});
+
+const openEditModal = () => {
+    editForm.name = props.cliente.user.name;
+    editForm.apellido = props.cliente.user.apellido || '';
+    editForm.email = props.cliente.user.email;
+    editForm.dni = props.cliente.user.dni || '';
+    editForm.telefono = props.cliente.user.telefono || '';
+    showEditModal.value = true;
+};
+
+const submitEdit = () => {
+    editForm.put(route('clientes.update', props.cliente.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showEditModal.value = false;
+            Swal.fire({
+                title: '¡Cliente actualizado!',
+                text: 'Los datos del cliente han sido modificados',
+                icon: 'success',
+                background: '#1A1A1A', color: '#FFF'
+            });
+        }
+    });
+};
+
 const eliminarPago = (pago) => {
     Swal.fire({
         title: '¿Anular este pago?',
@@ -87,6 +122,66 @@ const eliminarPago = (pago) => {
                     Swal.fire({
                         title: 'Anulado',
                         text: 'El pago ha sido anulado correctamente.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        background: '#1A1A1A', color: '#FFF'
+                    });
+                }
+            });
+        }
+    });
+};
+
+const eliminarVenta = (ventaId) => {
+    Swal.fire({
+        title: '¿Eliminar venta permanentemente?',
+        text: 'Esta acción borrará la venta cancelada de la base de datos de forma permanente.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(route('ventas.destroy', ventaId), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({
+                        title: 'Eliminada',
+                        text: 'La venta ha sido eliminada permanentemente.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        background: '#1A1A1A', color: '#FFF'
+                    });
+                }
+            });
+        }
+    });
+};
+
+const eliminarTodasCanceladas = () => {
+    Swal.fire({
+        title: '¿Eliminar todas las canceladas?',
+        text: 'Esta acción borrará permanentemente TODAS las ventas canceladas de este cliente de la base de datos.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, eliminar todas',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(route('clientes.ventas-canceladas.destroy', props.cliente.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({
+                        title: 'Eliminadas',
+                        text: 'Todas las ventas canceladas han sido eliminadas.',
                         icon: 'success',
                         timer: 1500,
                         showConfirmButton: false,
@@ -122,7 +217,6 @@ const suscribir = () => {
     });
 };
 
-
 const eliminarSuscripcion = (suscripcion) => {
     Swal.fire({
         title: '¿Dar de baja suscripción?',
@@ -151,6 +245,22 @@ const eliminarSuscripcion = (suscripcion) => {
     });
 };
 
+const toggleSuscripcion = (susc) => {
+    const nuevoEstado = susc.estado === 'activa' ? 'pausada' : 'activa';
+    router.patch(route('suscripciones.update', susc.id), { estado: nuevoEstado }, {
+        preserveScroll: true,
+        onSuccess: () => {
+            Swal.fire({
+                title: '¡Actualizada!',
+                text: `La suscripción ha sido ${nuevoEstado === 'activa' ? 'activada' : 'pausada'}.`,
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
+                background: '#1A1A1A', color: '#FFF'
+            });
+        }
+    });
+};
 
 const formatCurrency = (v) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v);
@@ -204,9 +314,6 @@ const estadoConfig = {
                                     <h3 class="text-2xl font-black uppercase tracking-tighter">
                                         {{ cliente.user.name }} {{ cliente.user.apellido }}
                                     </h3>
-                                    <span class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 bg-brand-red text-white rounded">
-                                        {{ cliente.tipo_cliente?.nombre ?? 'Sin tipo' }}
-                                    </span>
                                 </div>
                                 <div class="flex flex-wrap gap-4 text-xs text-white/40 font-bold">
                                     <span>{{ cliente.user.email }}</span>
@@ -227,6 +334,9 @@ const estadoConfig = {
                                 <a :href="route('clientes.pdf', cliente.id)" target="_blank" class="mt-2 block text-center w-full py-2 bg-white/5 hover:bg-white/10 text-white transition-colors text-[10px] font-black uppercase tracking-widest rounded-lg border border-white/10 hover:border-white/20">
                                     Informe de balance
                                 </a>
+                                <button @click="openEditModal" class="mt-2 w-full py-2 bg-blue-600/20 hover:bg-blue-600 text-blue-400 hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest rounded-lg border border-blue-500/50 hover:border-transparent">
+                                    Editar Datos
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -270,6 +380,14 @@ const estadoConfig = {
                         :class="tabActiva === 'acumulados' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
                     >
                         Acumulados ({{ acumulados.length }})
+                    </button>
+
+                    <button
+                        @click="tabActiva = 'canceladas'"
+                        class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
+                        :class="tabActiva === 'canceladas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                    >
+                        Canceladas ({{ canceladas.total }})
                     </button>
                     <button
                         @click="tabActiva = 'suscripciones'"
@@ -324,7 +442,65 @@ const estadoConfig = {
                             <Link
                                 v-for="link in ventas.links"
                                 :key="link.label"
-                                :href="link.url || '#'"
+                                :href="(link.url || '#') + '&tabActiva=compras'"
+                                class="px-4 py-2 rounded-lg border border-white/5 text-sm font-black uppercase tracking-tighter transition-all"
+                                :class="{ 'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20 pointer-events-none': !link.url }"
+                            >{{ decodeLabel(link.label) }}</Link>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Tab: Canceladas -->
+                <div v-if="tabActiva === 'canceladas'">
+                    <div v-if="canceladas.data.length === 0" class="card py-16 text-center text-white/20 italic">
+                        No hay ventas canceladas para este cliente.
+                    </div>
+
+                    <div v-else class="space-y-4">
+                        <div class="flex justify-end mb-4">
+                            <button @click="eliminarTodasCanceladas" class="px-4 py-2 bg-brand-red/20 hover:bg-brand-red text-brand-red hover:text-white transition-colors text-[10px] font-black uppercase tracking-widest rounded-lg border border-brand-red/50 hover:border-transparent">
+                                Eliminar todas las canceladas
+                            </button>
+                        </div>
+                        <div
+                            v-for="venta in canceladas.data"
+                            :key="venta.id"
+                            class="card p-0 overflow-hidden border border-brand-red/30 opacity-70 hover:opacity-100 transition-opacity"
+                        >
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-5 border-b border-white/5 bg-brand-red/5">
+                                <div class="flex items-center gap-4">
+                                    <Link :href="route('ventas.index', { search: '#TK-' + String(venta.id).padStart(6, '0'), view: venta.id, return_client: cliente.id })" class="text-white/20 hover:text-brand-red text-xs font-mono transition-colors" title="Ver en historial de ventas">#TK-{{ String(venta.id).padStart(6, '0') }}</Link>
+                                    <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-brand-red text-white">CANCELADO</span>
+                                    <span class="text-xs text-white/30 font-bold">{{ formatFecha(venta.fecha) }}</span>
+                                    <span v-if="venta.sucursal" class="text-xs text-white/20 font-bold">{{ venta.sucursal.nombre }}</span>
+                                </div>
+                                <div class="flex items-center gap-4">
+                                    <p class="text-xl font-black text-brand-red italic line-through">{{ formatCurrency(venta.total) }}</p>
+                                    <button @click="eliminarVenta(venta.id)" class="text-white/30 hover:text-brand-red transition-colors" title="Eliminar Permanentemente">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="px-5 py-3 space-y-1.5">
+                                <div
+                                    v-for="detalle in venta.detalles"
+                                    :key="detalle.id"
+                                    class="flex justify-between text-sm"
+                                >
+                                    <span class="text-white/60 line-clamp-1">
+                                        {{ detalle.libro?.master?.titulo ?? 'Libro' }}
+                                        <span class="text-white/30 text-xs ml-1">x{{ detalle.cantidad }}</span>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Paginación canceladas -->
+                        <div v-if="canceladas.links?.length > 3" class="flex justify-center gap-2 pt-2">
+                            <Link
+                                v-for="link in canceladas.links"
+                                :key="link.label"
+                                :href="(link.url || '#') + '&tabActiva=canceladas'"
                                 class="px-4 py-2 rounded-lg border border-white/5 text-sm font-black uppercase tracking-tighter transition-all"
                                 :class="{ 'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20 pointer-events-none': !link.url }"
                             >{{ decodeLabel(link.label) }}</Link>
@@ -408,33 +584,36 @@ const estadoConfig = {
                 </div>
 
                 <!-- Tab: Suscripciones -->
-                <div v-if="tabActiva === 'suscripciones'">
-                    <!-- Crear Suscripción -->
-                    <div class="card p-6 mb-6">
-                        <h4 class="text-[10px] font-black uppercase tracking-[0.4em] text-brand-red border-b border-brand-red/20 pb-2 mb-6">Nueva Suscripción</h4>
+                <div v-if="tabActiva === 'suscripciones'" class="space-y-6">
+                    <!-- Formulario de Suscripción -->
+                    <div class="card p-6 bg-white/[0.02] border border-white/10 rounded-xl">
+                        <h4 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-4">Nueva Suscripción a Serie</h4>
                         <form @submit.prevent="suscribir" class="flex flex-col md:flex-row gap-4 items-end">
-                            <div class="flex-1">
-                                <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-2">Colección / Serie</label>
+                            <div class="flex-1 w-full text-left">
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Seleccione Serie *</label>
                                 <select v-model="suscripcionForm.libro_master_id" required class="input-field w-full text-xs" :class="{'border-brand-red': suscripcionForm.errors.libro_master_id}">
-                                    <option value="">Seleccione una serie...</option>
-                                    <option v-for="s in libro_masters" :key="s.id" :value="s.id">{{ s.titulo }}</option>
+                                    <option value="" disabled>-- Selecciona Serie --</option>
+                                    <option v-for="lm in libro_masters" :key="lm.id" :value="lm.id">{{ lm.titulo }}</option>
                                 </select>
                                 <div v-if="suscripcionForm.errors.libro_master_id" class="text-brand-red text-[10px] mt-1">{{ suscripcionForm.errors.libro_master_id }}</div>
                             </div>
-                            <div class="w-full md:w-1/4">
-                                <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-2">Sucursal de Retiro</label>
-                                <select v-model="suscripcionForm.sucursal_id" required class="input-field w-full text-xs">
-                                    <option value="">Seleccione...</option>
+                            <div class="flex-1 w-full text-left">
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Sucursal de Retiro *</label>
+                                <select v-model="suscripcionForm.sucursal_id" required class="input-field w-full text-xs" :class="{'border-brand-red': suscripcionForm.errors.sucursal_id}">
+                                    <option value="" disabled>-- Selecciona Sucursal --</option>
                                     <option v-for="suc in sucursales" :key="suc.id" :value="suc.id">{{ suc.nombre }}</option>
                                 </select>
+                                <div v-if="suscripcionForm.errors.sucursal_id" class="text-brand-red text-[10px] mt-1">{{ suscripcionForm.errors.sucursal_id }}</div>
                             </div>
-                            <button type="submit" class="btn-primary" :disabled="suscripcionForm.processing">Suscribir</button>
+                            <button type="submit" class="btn-primary py-3 px-8 text-xs font-black tracking-widest uppercase rounded-lg disabled:opacity-50" :disabled="suscripcionForm.processing">
+                                {{ suscripcionForm.processing ? 'Procesando...' : 'Suscribir' }}
+                            </button>
                         </form>
                     </div>
 
                     <!-- Lista de Suscripciones -->
                     <div v-if="!cliente.suscripciones?.length" class="card py-16 text-center text-white/20 italic">
-                        Este cliente no tiene suscripciones activas.
+                        Este cliente no tiene suscripciones registradas.
                     </div>
                     
                     <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -443,18 +622,27 @@ const estadoConfig = {
                                 <div>
                                     <h5 class="text-sm font-black uppercase">{{ susc.serie?.titulo || 'Serie' }}</h5>
                                     <p class="text-[10px] text-white/40 font-mono mt-1">Suscrito el {{ formatFecha(susc.created_at) }}</p>
-                                    <p v-if="susc.sucursal" class="text-[10px] text-brand-red font-bold mt-1 uppercase">Sucursal: {{ susc.sucursal.nombre }}</p>
+                                    <p class="text-[10px] text-brand-red font-bold mt-1 uppercase">
+                                        Sucursal: {{ susc.sucursal?.nombre || 'Todas' }}
+                                    </p>
                                 </div>
                                 <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded" :class="susc.estado === 'activa' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'">
                                     {{ susc.estado }}
                                 </span>
                             </div>
                             <div class="flex gap-2 justify-end border-t border-white/5 pt-4 mt-auto">
-                                <button @click="eliminarSuscripcion(susc)" class="text-[10px] font-black uppercase text-white/40 hover:text-brand-red transition-colors px-3 py-1 bg-white/5 rounded">Baja</button>
+                                <button @click="toggleSuscripcion(susc)" class="text-[10px] font-black uppercase px-3 py-1 rounded transition-colors" :class="susc.estado === 'activa' ? 'text-yellow-400 bg-yellow-500/10 hover:bg-yellow-500/20' : 'text-green-400 bg-green-500/10 hover:bg-green-500/20'">
+                                    {{ susc.estado === 'activa' ? 'Pausar' : 'Activar' }}
+                                </button>
+                                <button @click="eliminarSuscripcion(susc)" class="text-[10px] font-black uppercase text-white/40 hover:text-brand-red transition-colors px-3 py-1 bg-white/5 rounded">
+                                    Baja
+                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
+
+
 
             </div>
         </div>
@@ -583,6 +771,66 @@ const estadoConfig = {
                         </button>
                         <button type="submit" :disabled="consolidarForm.processing" class="px-10 py-3 btn-primary uppercase text-xs tracking-widest rounded-lg transition-colors disabled:opacity-50">
                             {{ consolidarForm.processing ? 'Procesando...' : 'Confirmar Envío' }}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        </template>
+
+        <!-- Modal Editar Cliente -->
+        <template v-if="showEditModal">
+        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showEditModal = false"></div>
+        <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
+            <div class="w-full max-w-lg card p-0 overflow-hidden shadow-2xl pointer-events-auto border border-white/10">
+                <div class="bg-gradient-to-r from-blue-600/20 to-transparent p-6 border-b border-white/5 flex justify-between items-center">
+                    <h3 class="text-xl font-black uppercase tracking-tighter italic">
+                        Editar <span class="text-white">Cliente</span>
+                    </h3>
+                    <button @click="showEditModal = false" class="text-white/30 hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                </div>
+                
+                <form @submit.prevent="submitEdit" class="p-8 space-y-6">
+                    <div class="space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Nombre</label>
+                                <input v-model="editForm.name" type="text" class="input-field w-full font-bold uppercase border-white/10" required>
+                                <p v-if="editForm.errors.name" class="text-brand-red text-xs mt-1">{{ editForm.errors.name }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Apellido</label>
+                                <input v-model="editForm.apellido" type="text" class="input-field w-full font-bold uppercase border-white/10">
+                                <p v-if="editForm.errors.apellido" class="text-brand-red text-xs mt-1">{{ editForm.errors.apellido }}</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">DNI / Documento</label>
+                                <input v-model="editForm.dni" @input="editForm.dni = editForm.dni.replace(/[^A-Za-z0-9]/g, '')" type="text" maxlength="20" class="input-field w-full font-mono border-white/10">
+                                <p v-if="editForm.errors.dni" class="text-brand-red text-xs mt-1">{{ editForm.errors.dni }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Email de Contacto</label>
+                                <input v-model="editForm.email" type="email" class="input-field w-full border-white/10" required>
+                                <p v-if="editForm.errors.email" class="text-brand-red text-xs mt-1">{{ editForm.errors.email }}</p>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Teléfono Móvil *</label>
+                            <input v-model="editForm.telefono" type="text" class="input-field w-full border-white/10" required>
+                            <p v-if="editForm.errors.telefono" class="text-brand-red text-xs mt-1">{{ editForm.errors.telefono }}</p>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end gap-4 pt-6 border-t border-white/5">
+                        <button type="button" @click="showEditModal = false" class="px-6 py-2 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-widest">
+                            Cancelar
+                        </button>
+                        <button type="submit" :disabled="editForm.processing" class="px-10 py-3 bg-blue-600 hover:bg-blue-500 text-white font-black uppercase text-xs tracking-widest rounded-lg transition-colors disabled:opacity-50">
+                            {{ editForm.processing ? 'Procesando...' : 'Guardar Cambios' }}
                         </button>
                     </div>
                 </form>

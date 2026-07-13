@@ -6,9 +6,14 @@ import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
 const props = defineProps({
     items: Array,
     total: Number,
+    saldo_actual: Number,
+    sucursales: Array,
 });
 
 const tipoEnvio           = ref('retiro');
+const sucursalId          = ref('');
+const medioPago           = ref('Tarjeta');
+const metodoPagoExcedente = ref(null);
 const direccionInput      = ref('');
 const direccionFormatted  = ref('');
 const addressSelected     = ref(false);
@@ -66,12 +71,25 @@ watch(tipoEnvio, (val) => {
     addressSelected.value    = false;
     piso.value  = '';
     depto.value = '';
-    if (val === 'domicilio' && usaMaps) nextTick(initAutocomplete);
+    
+    if (val === 'domicilio') {
+        sucursalId.value = '';
+        if (usaMaps) nextTick(initAutocomplete);
+    }
+    
+    // Si cambia a domicilio o acumulación, remover efectivo
+    if (['domicilio', 'acumulacion'].includes(val)) {
+        if (medioPago.value === 'Efectivo') {
+            medioPago.value = 'Tarjeta';
+        }
+        if (metodoPagoExcedente.value === 'Efectivo') {
+            metodoPagoExcedente.value = null;
+        }
+    }
 });
 
 watch(direccionInput, (val) => {
     if (!usaMaps) {
-        // Sin Maps: la dirección es válida si tiene más de 5 caracteres
         addressSelected.value    = val.trim().length > 5;
         direccionFormatted.value = val;
     } else if (addressSelected.value && val !== direccionFormatted.value) {
@@ -84,9 +102,15 @@ onUnmounted(() => {
     if (placeListener) window.google?.maps?.event?.removeListener(placeListener);
 });
 
-const puedeEnviar = computed(() =>
-    tipoEnvio.value === 'retiro' || (tipoEnvio.value === 'domicilio' && addressSelected.value)
-);
+const puedeEnviar = computed(() => {
+    if (tipoEnvio.value === 'domicilio') {
+        return addressSelected.value;
+    }
+    if (tipoEnvio.value === 'retiro' || tipoEnvio.value === 'acumulacion') {
+        return !!sucursalId.value;
+    }
+    return false;
+});
 
 const confirmar = () => {
     if (!puedeEnviar.value || procesando.value) return;
@@ -97,8 +121,11 @@ const confirmar = () => {
     if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
 
     router.post(route('checkout.store'), {
-        tipo_envio:      tipoEnvio.value,
-        direccion_envio: tipoEnvio.value === 'domicilio' ? direccion : null,
+        tipo_envio:            tipoEnvio.value,
+        sucursal_id:           (tipoEnvio.value === 'retiro' || tipoEnvio.value === 'acumulacion') ? sucursalId.value : null,
+        direccion_envio:       tipoEnvio.value === 'domicilio' ? direccion : null,
+        medio_pago:            medioPago.value,
+        metodo_pago_excedente: (medioPago.value === 'Cuenta Corriente' && (props.saldo_actual - props.total) < 0) ? metodoPagoExcedente.value : null,
     }, {
         onError: () => { procesando.value = false; },
     });
@@ -147,7 +174,36 @@ const confirmar = () => {
                                     <p class="text-white/40 text-xs mt-1">Coordinaremos el envío a tu dirección.</p>
                                 </div>
                             </label>
+
+                            <label
+                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                :class="tipoEnvio === 'acumulacion' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
+                            >
+                                <input type="radio" v-model="tipoEnvio" value="acumulacion" class="mt-1 accent-red-600" />
+                                <div class="flex-1">
+                                    <p class="font-black uppercase tracking-wider text-sm">Acumulación de envío</p>
+                                    <p class="text-white/40 text-xs mt-1">Acumulá tu pedido en sucursal para coordinar un solo envío más tarde.</p>
+                                </div>
+                            </label>
                         </div>
+
+                        <!-- Selector de Sucursal (para retiro o acumulacion) -->
+                        <transition name="fade">
+                            <div v-if="tipoEnvio === 'retiro' || tipoEnvio === 'acumulacion'" class="mt-6">
+                                <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
+                                    Sucursal para Retiro / Acumulación *
+                                </label>
+                                <select
+                                    v-model="sucursalId"
+                                    class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider"
+                                >
+                                    <option value="" disabled>-- Selecciona una sucursal --</option>
+                                    <option v-for="suc in sucursales" :key="suc.id" :value="suc.id" :disabled="!suc.tiene_stock">
+                                        📍 {{ suc.nombre }} {{ !suc.tiene_stock ? '(Sin stock para tu carrito)' : '' }}
+                                    </option>
+                                </select>
+                            </div>
+                        </transition>
 
                         <!-- Dirección (solo si domicilio) -->
                         <transition name="fade">
@@ -215,18 +271,98 @@ const confirmar = () => {
                         </transition>
                     </div>
 
+                    <!-- Método de pago -->
+                    <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
+                        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-6 underline decoration-2 underline-offset-4">
+                            Método de Pago
+                        </h2>
+
+                        <div class="space-y-3">
+                            <label
+                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                :class="medioPago === 'Tarjeta' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
+                            >
+                                <input type="radio" v-model="medioPago" value="Tarjeta" class="mt-1 accent-red-600" />
+                                <div>
+                                    <p class="font-black uppercase tracking-wider text-sm">💳 Tarjeta (Crédito / Débito)</p>
+                                    <p class="text-white/40 text-xs mt-1">Aboná online de manera segura con Mercado Pago.</p>
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                :class="medioPago === 'Transferencia' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
+                            >
+                                <input type="radio" v-model="medioPago" value="Transferencia" class="mt-1 accent-red-600" />
+                                <div>
+                                    <p class="font-black uppercase tracking-wider text-sm">📱 Transferencia / Mercado Pago</p>
+                                    <p class="text-white/40 text-xs mt-1">Transferencia directa o usando saldo de Mercado Pago.</p>
+                                </div>
+                            </label>
+
+                            <label
+                                v-if="tipoEnvio === 'retiro'"
+                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                :class="medioPago === 'Efectivo' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
+                            >
+                                <input type="radio" v-model="medioPago" value="Efectivo" class="mt-1 accent-red-600" />
+                                <div>
+                                    <p class="font-black uppercase tracking-wider text-sm">💵 Efectivo Cash</p>
+                                    <p class="text-white/40 text-xs mt-1">Abonás en efectivo presencialmente al retirar en la sucursal.</p>
+                                </div>
+                            </label>
+
+                            <label
+                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                :class="medioPago === 'Cuenta Corriente' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
+                            >
+                                <input type="radio" v-model="medioPago" value="Cuenta Corriente" class="mt-1 accent-red-600" />
+                                <div class="flex-1">
+                                    <p class="font-black uppercase tracking-wider text-sm">🏛️ Cuenta Corriente</p>
+                                    <p class="text-white/40 text-xs mt-1">
+                                        Usá tu saldo actual a favor: <span class="text-green-400 font-bold font-mono">{{ formatPrecio(saldo_actual) }}</span>.
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+
+                        <!-- Selector de Excedente si la cuenta corriente queda negativa -->
+                        <transition name="fade">
+                            <div v-if="medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0" class="mt-6 bg-brand-red/10 border border-brand-red/20 p-4 rounded-xl space-y-3">
+                                <label class="text-[10px] font-black uppercase tracking-widest text-brand-red block mb-1">
+                                    El excedente ({{ formatPrecio(Math.abs(saldo_actual - total)) }}) dejará tu cuenta en negativo. ¿Cómo deseás abonar la diferencia?
+                                </label>
+                                <select
+                                    v-model="metodoPagoExcedente"
+                                    class="w-full bg-black border border-white/20 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase"
+                                >
+                                    <option :value="null">Dejar el restante como deuda en Cuenta Corriente</option>
+                                    <option v-if="tipoEnvio === 'retiro'" value="Efectivo">💵 Abonar diferencia en Efectivo (al retirar)</option>
+                                    <option value="Tarjeta">💳 Abonar diferencia con Tarjeta (Mercado Pago)</option>
+                                    <option value="Transferencia">📱 Abonar diferencia con Transferencia (Mercado Pago)</option>
+                                </select>
+                            </div>
+                        </transition>
+                    </div>
+
                     <!-- Error flash -->
+                    <div v-if="$page.props.errors && Object.keys($page.props.errors).length" class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm font-bold text-red-400 space-y-1">
+                        <div v-for="(err, key) in $page.props.errors" :key="key">
+                            ⚠️ {{ err }}
+                        </div>
+                    </div>
+
                     <div v-if="$page.props.flash?.error" class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm font-bold text-red-400">
-                        {{ $page.props.flash.error }}
+                        ⚠️ {{ $page.props.flash.error }}
                     </div>
 
                     <!-- Info de contacto -->
                     <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
                         <p class="text-xs font-black uppercase tracking-widest text-white/30 mb-1">
-                            Pagás con tu cuenta de Mercado Pago
+                            {{ (medioPago === 'Tarjeta' || medioPago === 'Transferencia' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta' || metodoPagoExcedente === 'Transferencia'))) ? 'Mercado Pago Seguro' : 'Confirmación de Compra' }}
                         </p>
                         <p class="text-white/50 text-sm">
-                            Al confirmar, te redirigimos a la página segura de Mercado Pago para completar el pago.
+                            {{ (medioPago === 'Tarjeta' || medioPago === 'Transferencia' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta' || metodoPagoExcedente === 'Transferencia'))) ? 'Al confirmar, te redirigimos a la pasarela de pagos segura de Mercado Pago.' : 'Confirmá tu compra para registrarla en nuestro sistema. El pedido se procesará de inmediato.' }}
                         </p>
                         <div class="flex items-center gap-2 mt-4">
                             <svg class="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -279,7 +415,15 @@ const confirmar = () => {
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
                             </svg>
-                            <span>{{ procesando ? 'Redirigiendo...' : 'Pagar con Mercado Pago' }}</span>
+                            <span>
+                                {{
+                                    procesando 
+                                        ? 'Procesando...' 
+                                        : ((medioPago === 'Tarjeta' || medioPago === 'Transferencia' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta' || metodoPagoExcedente === 'Transferencia')))
+                                            ? 'Pagar con Mercado Pago'
+                                            : 'Confirmar Compra')
+                                }}
+                            </span>
                         </button>
 
                         <Link

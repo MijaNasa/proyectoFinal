@@ -9,6 +9,7 @@ const props = defineProps({
     obras: Object,
     sucursales: Array,
     libros: Array,
+    tiposMovimiento: Array,
     stocksExistentes: Array,
     filters: Object
 });
@@ -23,6 +24,7 @@ const form = useForm({
     cantidad_disponible: 0,
     ubicacion_text: '',
     activo: true,
+    tipo_movimiento_id: null,
     motivo: '',
 });
 
@@ -35,9 +37,15 @@ const nuevoTotal = computed(() => {
     return Math.max(0, cantidadActual.value + delta);
 });
 
+const tipoIngreso = computed(() => props.tiposMovimiento.find(t => t.codigo === 'INGRESO_MANUAL'));
+const tiposEgreso = computed(() => props.tiposMovimiento.filter(t => t.codigo.startsWith('EGRESO_')));
+
 watch(() => ajusteTipo.value, (tipo) => {
     if (tipo === '+') {
+        form.tipo_movimiento_id = tipoIngreso.value?.id ?? null;
         form.motivo = '';
+    } else {
+        form.tipo_movimiento_id = null;
     }
 });
 
@@ -106,6 +114,7 @@ watch([() => form.libro_id, () => form.sucursal_id], ([libro_id, sucursal_id]) =
 const openModal = (stock = null) => {
     ajusteTipo.value = '+';
     ajusteCantidad.value = 0;
+    form.tipo_movimiento_id = tipoIngreso.value?.id ?? null;
     form.motivo = '';
     if (stock) {
         isEditing.value = true;
@@ -129,7 +138,7 @@ const openModal = (stock = null) => {
 const openModalFromGrid = (tomo, sucursal) => {
     // Buscar si ya existe el registro de stock para ese tomo y sucursal
     const stockObj = tomo.stocks.find(st => st.sucursal_id === sucursal.id);
-
+    
     if (stockObj) {
         openModal(stockObj);
     } else {
@@ -151,8 +160,8 @@ const submit = () => {
         form.setError('sucursal_id', 'Seleccioná una sucursal antes de continuar.');
         return;
     }
-    if (ajusteTipo.value === '-' && !form.motivo) {
-        form.setError('motivo', 'Indicá el motivo del egreso.');
+    if (ajusteTipo.value === '-' && !form.tipo_movimiento_id) {
+        form.setError('tipo_movimiento_id', 'Seleccioná el motivo del egreso.');
         return;
     }
     form.cantidad_disponible = nuevoTotal.value;
@@ -246,12 +255,7 @@ const getTomoStockColor = (qty) => {
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
                     Control de <span class="text-brand-red italic">Stock</span>
                 </h2>
-                <button @click="openModal()" class="btn-primary flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                    </svg>
-                    Asignar Stock
-                </button>
+
             </div>
         </template>
 
@@ -269,10 +273,10 @@ const getTomoStockColor = (qty) => {
                         </div>
                         <div class="flex-1 w-full">
                             <label class="block text-[10px] font-black uppercase text-brand-red mb-1 ml-1 tracking-widest">Buscar Título o ISBN</label>
-                            <input
-                                v-model="search"
-                                type="text"
-                                placeholder="Inicie su búsqueda..."
+                            <input 
+                                v-model="search" 
+                                type="text" 
+                                placeholder="Inicie su búsqueda..." 
                                 class="input-field w-full"
                             >
                         </div>
@@ -333,9 +337,9 @@ const getTomoStockColor = (qty) => {
                                                             <div class="font-bold text-sm text-white">Tomo {{ tomo.numero_tomo || 'Único' }}</div>
                                                             <div class="text-[10px] text-white/40 font-mono">ISBN: {{ tomo.isbn || 'S/I' }}</div>
                                                         </td>
-                                                        <td class="py-3 px-4 text-center cursor-pointer" v-for="s in sucursales" :key="s.id" @click="openModalFromGrid(tomo, s)" title="Click para asignar / ajustar stock">
-                                                            <div
-                                                                class="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded hover:bg-white/10 transition-colors"
+                                                        <td class="py-3 px-4 text-center" v-for="s in sucursales" :key="s.id">
+                                                            <div 
+                                                                class="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded"
                                                             >
                                                                 <span class="font-black text-sm" :class="getTomoStockColor(getTomoStock(tomo, s.id))">
                                                                     {{ getTomoStock(tomo, s.id) }}
@@ -365,123 +369,5 @@ const getTomoStockColor = (qty) => {
             </div>
         </div>
 
-        <!-- Modal -->
-        <template v-if="showModal">
-        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showModal = false"></div>
-        <div class="fixed inset-0 z-[101] overflow-y-auto">
-            <div class="flex min-h-full items-start justify-center p-4">
-            <div class="relative w-full max-w-2xl card p-0 border border-brand-red shadow-[0_0_50px_rgba(230,25,25,0.2)] overflow-hidden transform transition-all group my-8">
-                <div class="bg-brand-red p-4 flex justify-between items-center relative overflow-hidden">
-                    <h3 class="text-xl font-black uppercase tracking-tighter">
-                        {{ isEditing ? 'Ajuste de' : 'Nueva Asignación de' }} <span class="italic text-white">Stock</span>
-                    </h3>
-                    <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative z-10">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                    <!-- Decorative element -->
-                    <div class="absolute right-0 top-0 bottom-0 w-32 bg-white/10 skew-x-[-20deg] translate-x-12"></div>
-                </div>
-
-                <form @submit.prevent="submit" class="p-8">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div class="md:col-span-2">
-                            <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2 leading-none">Edición (Libro / ISBN)</label>
-                            <div class="relative">
-                                <input
-                                    v-model="libroSearch"
-                                    @input="showLibroDropdown = true"
-                                    @focus="showLibroDropdown = true"
-                                    type="text"
-                                    placeholder="Buscar por título, ISBN o autor..."
-                                    autocomplete="off"
-                                    class="input-field w-full bg-brand-black text-xs font-bold"
-                                    :class="{'border-brand-red': form.errors.libro_id}"
-                                >
-                                <div v-if="showLibroDropdown && librosFiltrados.length" class="absolute z-[300] w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
-                                    <div
-                                        v-for="l in librosFiltrados"
-                                        :key="l.id"
-                                        @mousedown.prevent="selectLibro(l)"
-                                        class="px-4 py-3 cursor-pointer hover:bg-brand-red/10 hover:text-brand-red transition-colors border-b border-white/5 last:border-0"
-                                    >
-                                        <div class="text-xs font-black uppercase">{{ l.titulo }}</div>
-                                        <div class="text-[9px] text-white/30 font-mono">ISBN: {{ l.isbn || 'S/I' }} — {{ l.autor }}</div>
-                                    </div>
-                                </div>
-                                <div v-if="showLibroDropdown" class="fixed inset-0 z-[299]" @click="showLibroDropdown = false"></div>
-                            </div>
-                            <div v-if="form.errors.libro_id" class="text-brand-red text-[10px] mt-1 uppercase font-bold">{{ form.errors.libro_id }}</div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/30 mb-2 leading-none">Sucursal de Destino</label>
-                            <select v-model="form.sucursal_id" class="input-field w-full bg-brand-black uppercase font-bold text-xs" :class="{'border-brand-red': form.errors.sucursal_id}">
-                                <option value="">Seleccionar Sucursal</option>
-                                <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
-                            </select>
-                            <div v-if="form.errors.sucursal_id" class="text-brand-red text-[10px] mt-1 uppercase font-bold">{{ form.errors.sucursal_id }}</div>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/30 mb-2 leading-none">Referencia Ubicación</label>
-                            <input v-model="form.ubicacion_text" type="text" class="input-field w-full text-xs" placeholder="Ej: Estante A-4, Vitrina Frontal...">
-                        </div>
-
-                        <div class="md:col-span-2 bg-white/[0.03] p-4 rounded-lg border border-white/5">
-                            <div class="grid grid-cols-3 gap-4 items-center">
-                                <div class="text-center">
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-3">Stock Actual</label>
-                                    <div class="text-5xl font-black tabular-nums" :class="cantidadActual > 5 ? 'text-white' : (cantidadActual > 0 ? 'text-orange-500' : 'text-white/20')">
-                                        {{ cantidadActual }}
-                                    </div>
-                                </div>
-                                <div class="text-center">
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-3">Movimiento</label>
-                                    <div class="flex gap-2 mb-3 justify-center">
-                                        <button type="button" @click="ajusteTipo = '+'" class="px-3 py-1 rounded text-[10px] font-black uppercase transition-all" :class="ajusteTipo === '+' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' : 'bg-white/5 text-white/20 border border-white/10'">+ Ingreso</button>
-                                        <button type="button" @click="ajusteTipo = '-'" class="px-3 py-1 rounded text-[10px] font-black uppercase transition-all" :class="ajusteTipo === '-' ? 'bg-brand-red/20 text-brand-red border border-brand-red/40' : 'bg-white/5 text-white/20 border border-white/10'">− Egreso</button>
-                                    </div>
-                                    <input v-model="ajusteCantidad" type="number" min="0" class="input-field w-full text-center text-lg font-black bg-black/40">
-                                </div>
-                                <div class="text-center">
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-3">Nuevo Total</label>
-                                    <div class="text-5xl font-black tabular-nums transition-colors" :class="nuevoTotal > 5 ? 'text-white' : (nuevoTotal > 0 ? 'text-orange-500' : 'text-brand-red')">
-                                        {{ nuevoTotal }}
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div v-if="ajusteTipo === '-'" class="md:col-span-2">
-                            <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2 leading-none">Motivo del Egreso</label>
-                            <textarea
-                                v-model="form.motivo"
-                                placeholder="Ej: Daño, robo, ajuste por conteo físico, devolución a proveedor..."
-                                rows="2"
-                                class="input-field w-full text-xs resize-none"
-                                :class="{'border-brand-red': form.errors.motivo}"
-                            ></textarea>
-                            <div v-if="form.errors.motivo" class="text-brand-red text-[10px] mt-1 uppercase font-bold">{{ form.errors.motivo }}</div>
-                        </div>
-
-                        <div class="flex items-center gap-3">
-                            <input type="checkbox" v-model="form.activo" id="stk_activo" class="w-5 h-5 rounded-sm border-white/20 bg-brand-black text-brand-red focus:ring-brand-red transition-all cursor-pointer">
-                            <label for="stk_activo" class="text-xs font-black uppercase tracking-widest text-white/80 cursor-pointer select-none">Habilitar Disponibilidad</label>
-                        </div>
-                    </div>
-
-                    <div class="mt-10 flex justify-end gap-3 border-t border-white/10 pt-8">
-                        <button v-if="isEditing" type="button" @click="deleteStock" class="px-8 py-3 rounded font-black text-brand-red/70 hover:text-brand-red transition-colors uppercase text-xs tracking-widest">Eliminar Registro</button>
-                        <button type="button" @click="showModal = false" class="px-8 py-3 rounded font-black text-white/20 hover:text-white transition-colors uppercase text-xs tracking-widest">Anular</button>
-                        <button type="submit" :disabled="form.processing" class="btn-primary px-16 relative overflow-hidden group">
-                           <span class="relative z-10">{{ form.processing ? 'Sincronizando...' : (isEditing ? 'ACTUALIZAR VALORES' : 'CONFIRMAR INGRESO') }}</span>
-                           <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
-                        </button>
-                    </div>
-                </form>
-            </div>
-            </div>
-        </div>
-        </template>
     </AuthenticatedLayout>
 </template>

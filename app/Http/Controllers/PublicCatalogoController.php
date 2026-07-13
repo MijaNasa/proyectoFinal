@@ -48,13 +48,11 @@ class PublicCatalogoController extends Controller
         }
 
         if ($request->filled('editorial')) {
-            // editorial_id ahora vive en libro_masters (la obra), no en libros (la edición).
-            $query->where('editorial_id', $request->editorial);
+            $query->whereHas('libros', fn($q) => $q->where('editorial_id', $request->editorial));
         }
 
         if ($request->filled('idioma')) {
-            // idioma_id ahora vive en libro_masters (la obra), no en libros (la edición).
-            $query->where('idioma_id', $request->idioma);
+            $query->whereHas('libros', fn($q) => $q->where('idioma_id', $request->idioma));
         }
 
         $libros = $query->latest()->paginate(24)->withQueryString();

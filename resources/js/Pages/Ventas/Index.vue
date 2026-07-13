@@ -58,6 +58,9 @@ const showDetailModal = ref(false);
 const selectedVenta = ref(null);
 const expandedVentas = ref([]);
 
+const urlParams = new URLSearchParams(window.location.search);
+const currentTab = ref(urlParams.get('tab') || 'activas');
+
 const toggleExpand = (id) => {
     if (expandedVentas.value.includes(id)) {
         expandedVentas.value = expandedVentas.value.filter(v => v !== id);
@@ -91,14 +94,13 @@ const posForm = useForm({
     telefono_envio: '',
     calle_numero_envio: '',
     piso_depto_envio: '',
-    usar_saldo_favor: false,
     motivo_pendiente: null,
     origen: 'presencial',
     es_excepcional: false,
-    monto_sena: 0,
     acumular_pedido: false,
     guardar_pendiente: false,
     tipo_envio: 'retiro',
+    metodo_pago_excedente: null,
     items: [] // {libro_id, cantidad, precio, titulo}
 });
 
@@ -129,10 +131,9 @@ const seleccionarCliente = (cliente) => {
 const limpiarCliente = () => {
     clienteSeleccionado.value = null;
     posForm.cliente_id = '';
-    posForm.usar_saldo_favor = false;
     posForm.motivo_pendiente = null;
     posForm.es_excepcional = false;
-    posForm.monto_sena = 0;
+    posForm.metodo_pago_excedente = null;
     clienteSearch.value = '';
     clientesResults.value = [];
 };
@@ -408,6 +409,30 @@ const subtotalPos = computed(() => {
     return posForm.items.reduce((acc, item) => acc + (item.cantidad * item.precio), 0);
 });
 
+// Watchers para el POS Checkout
+watch(() => posForm.tipo_envio, (val) => {
+    if (val === 'acumulacion') {
+        posForm.acumular_pedido = true;
+    } else {
+        posForm.acumular_pedido = false;
+    }
+});
+
+watch(() => posForm.medio_pago, (val) => {
+    if (val === 'Cuenta Corriente') {
+        posForm.guardar_pendiente = false;
+    }
+});
+
+watch(() => posForm.origen, (val) => {
+    if (val === 'presencial') {
+        posForm.guardar_pendiente = false;
+        posForm.tipo_envio = 'retiro';
+        posForm.acumular_pedido = false;
+        posForm.requiere_envio = false;
+    }
+});
+
 const submitVenta = () => {
     if (posForm.items.length === 0) {
         Swal.fire('Error', 'Debe agregar al menos un item', 'error');
@@ -434,10 +459,9 @@ const formatCurrency = (value) => {
 
 const openPos = () => {
     posForm.reset();
-    posForm.usar_saldo_favor = false;
     posForm.motivo_pendiente = null;
     posForm.es_excepcional = false;
-    posForm.monto_sena = 0;
+    posForm.metodo_pago_excedente = null;
     posForm.acumular_pedido = false;
     posForm.guardar_pendiente = false;
     posForm.tipo_envio = 'retiro';
@@ -449,11 +473,23 @@ const openPos = () => {
     showPosModal.value = true;
 };
 
+onMounted(() => {
+    if (new URLSearchParams(window.location.search).get('nueva') === '1') {
+        openPos();
+    }
+});
+
 const handleSearch = () => {
-    router.get(route('ventas.index'), { 
+    router.get(route('ventas.index'), {
         search: search.value,
-        abonadas_pendientes: abonadasPendientes.value ? '1' : null
-    }, { preserveState: true });
+        abonadas_pendientes: abonadasPendientes.value ? 1 : null,
+        tab: currentTab.value
+    }, { preserveState: true, preserveScroll: true, replace: true });
+};
+
+const switchTab = (tab) => {
+    currentTab.value = tab;
+    handleSearch();
 };
 
 const viewVenta = (venta) => {
@@ -573,7 +609,26 @@ onMounted(() => {
                         </button>
                     </div>
                 </div>
-                <div class="card p-0 overflow-hidden border-white/5">
+
+                <!-- Tabs (Activas / Canceladas) -->
+                <div class="flex gap-1 border-b border-white/10 mb-4">
+                    <button
+                        @click="switchTab('activas')"
+                        class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
+                        :class="currentTab === 'activas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                    >
+                        Ventas Activas ({{ stats.total_activas }})
+                    </button>
+                    <button
+                        @click="switchTab('canceladas')"
+                        class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
+                        :class="currentTab === 'canceladas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                    >
+                        Canceladas ({{ stats.total_canceladas }})
+                    </button>
+                </div>
+
+                <div class="card p-0 overflow-hidden border-white/5" :class="{'opacity-70': currentTab === 'canceladas'}">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-white/[0.02] text-[9px] font-black uppercase tracking-widest text-white/50 border-b border-white/5">
@@ -589,7 +644,7 @@ onMounted(() => {
                             <template v-for="venta in ventas.data" :key="venta.id">
                                 <tr @click="toggleExpand(venta.id)" class="hover:bg-white/[0.01] transition-colors group cursor-pointer">
                                     <td class="p-6">
-                                        <div class="text-xs font-black text-brand-red group-hover:text-red-400 transition-colors">#TK-{{ String(venta.id).padStart(6, '0') }}</div>
+                                        <div class="text-xs font-black transition-colors" :class="venta.estado === 'cancelado' ? 'text-white/40 line-through' : 'text-brand-red group-hover:text-red-400'">#TK-{{ String(venta.id).padStart(6, '0') }}</div>
                                         <div class="text-[9px] text-white/40 mt-1">{{ venta.fecha }}</div>
                                     </td>
                                     <td class="p-6">
@@ -707,9 +762,6 @@ onMounted(() => {
                                         <button type="button" @click="simularEscaneo" class="px-3 py-1.5 bg-white/5 hover:bg-brand-red text-white text-[9px] font-black uppercase tracking-widest rounded border border-white/5 transition-colors flex items-center gap-1" title="Escanear código">
                                             📷 ESCANEAR
                                         </button>
-                                        <Link :href="route('libros.index')" class="px-3 py-1.5 bg-white/5 hover:bg-green-600 text-white text-[9px] font-black uppercase tracking-widest rounded border border-white/5 transition-colors flex items-center gap-1" title="Cargar nuevo libro">
-                                            + NUEVO PRODUCTO
-                                        </Link>
                                     </div>
                                 </div>
                                 
@@ -807,15 +859,6 @@ onMounted(() => {
                     <div>
                         <h4 class="text-[10px] font-black uppercase tracking-[0.4em] text-brand-red mb-6 text-center italic">Checkout</h4>
                         
-                        <div class="mb-6 flex p-1 bg-black/40 rounded-lg border border-white/10">
-                            <button type="button" @click="posForm.origen = 'presencial'" class="flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded transition-colors" :class="posForm.origen === 'presencial' ? 'bg-brand-red text-white' : 'text-white/40 hover:text-white'">
-                                Presencial
-                            </button>
-                            <button type="button" @click="posForm.origen = 'whatsapp'" class="flex-1 py-2 text-[9px] font-black uppercase tracking-widest rounded transition-colors" :class="posForm.origen === 'whatsapp' ? 'bg-[#25D366] text-white' : 'text-white/40 hover:text-white'">
-                                WhatsApp
-                            </button>
-                        </div>
-
                         <div class="space-y-6">
                             <div>
                                 <label class="text-[9px] font-black uppercase tracking-widest text-white/40 block mb-3">Método de Cobro</label>
@@ -826,68 +869,6 @@ onMounted(() => {
                                     <option value="Cuenta Corriente">🏛️ Cuenta Corriente</option>
                                 </select>
                             </div>
-                            
-                            <div class="border-t border-white/5 pt-6">
-                                <div v-if="clienteSeleccionado && clienteSeleccionado.saldo_actual > 0" class="mb-4 bg-green-500/10 border border-green-500/20 p-3 rounded-lg">
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <input type="checkbox" v-model="posForm.usar_saldo_favor" class="rounded bg-black/40 border-green-500/50 text-green-500 focus:ring-green-500/50">
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-green-400">
-                                            Utilizar Saldo a Favor ({{ formatCurrency(clienteSeleccionado.saldo_actual) }})
-                                        </span>
-                                    </label>
-                                    <p class="text-[8px] text-green-500/60 mt-1 uppercase font-bold pl-5">
-                                        Se descontará del total automáticamente.
-                                    </p>
-                                </div>
-
-                                <label class="flex items-center gap-2 cursor-pointer mb-4">
-                                    <input type="checkbox" v-model="posForm.requiere_envio" class="rounded bg-black/40 border-white/20 text-brand-red focus:ring-brand-red/50">
-                                    <span class="text-[10px] font-black uppercase tracking-widest text-white/70">Requiere Envío (Logística)</span>
-                                </label>
-                                
-                                <div v-if="posForm.requiere_envio" class="space-y-3 bg-white/5 p-4 rounded-lg border border-white/10 animate-fade-in mb-4">
-                                    <div v-if="posForm.origen === 'whatsapp'">
-                                        <label class="text-[8px] font-black uppercase tracking-widest text-white/30 block mb-1">Método de Envío *</label>
-                                        <select v-model="posForm.tipo_envio" class="input-field w-full bg-black/40 text-xs px-2 py-1.5">
-                                            <option value="retiro">Retiro en Local</option>
-                                            <option value="domicilio">Envío a Domicilio</option>
-                                        </select>
-                                    </div>
-                                    <div v-if="posForm.tipo_envio === 'domicilio' || posForm.origen === 'presencial'">
-                                        <div>
-                                            <label class="text-[8px] font-black uppercase tracking-widest text-white/30 block mb-1">Destinatario *</label>
-                                            <input v-model="posForm.destinatario_envio" type="text" placeholder="Nombre completo" class="input-field w-full bg-black/40 text-xs px-2 py-1.5" :required="posForm.tipo_envio === 'domicilio' || posForm.origen === 'presencial'">
-                                        </div>
-                                        <div class="mt-3">
-                                            <label class="text-[8px] font-black uppercase tracking-widest text-white/30 block mb-1">Teléfono *</label>
-                                            <input v-model="posForm.telefono_envio" type="text" placeholder="Cod. área y número" class="input-field w-full bg-black/40 text-xs px-2 py-1.5" :required="posForm.tipo_envio === 'domicilio' || posForm.origen === 'presencial'">
-                                        </div>
-                                        <div class="mt-3">
-                                            <label class="text-[8px] font-black uppercase tracking-widest text-white/30 block mb-1">Calle y Número *</label>
-                                            <input v-model="posForm.calle_numero_envio" type="text" placeholder="Ej: San Martín 123" class="input-field w-full bg-black/40 text-xs px-2 py-1.5" :required="posForm.tipo_envio === 'domicilio' || posForm.origen === 'presencial'">
-                                        </div>
-                                        <div class="mt-3">
-                                            <label class="text-[8px] font-black uppercase tracking-widest text-white/30 block mb-1">Piso/Depto/Barrio (Opcional)</label>
-                                            <input v-model="posForm.piso_depto_envio" type="text" placeholder="Ej: Piso 2 Depto A" class="input-field w-full bg-black/40 text-xs px-2 py-1.5">
-                                        </div>
-                                        <div class="mt-3">
-                                            <label class="text-[8px] font-black uppercase tracking-widest text-white/30 block mb-1">Localidad</label>
-                                            <input :value="$page.props.auth.empleado?.sucursal?.nombre || 'Desconocida'" type="text" class="input-field w-full bg-black/80 text-xs px-2 py-1.5 text-white/50 cursor-not-allowed italic font-bold" readonly>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div v-if="posForm.origen === 'whatsapp'" class="space-y-2 mt-4 bg-[#25D366]/10 border border-[#25D366]/20 p-3 rounded-lg">
-                                    <label class="flex items-center gap-2 cursor-pointer">
-                                        <input type="checkbox" v-model="posForm.guardar_pendiente" class="rounded bg-black/40 border-[#25D366]/50 text-[#25D366] focus:ring-[#25D366]/50">
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-[#25D366]">Guardar como Pendiente de Pago</span>
-                                    </label>
-                                    <label class="flex items-center gap-2 cursor-pointer mt-2">
-                                        <input type="checkbox" v-model="posForm.acumular_pedido" class="rounded bg-black/40 border-[#25D366]/50 text-[#25D366] focus:ring-[#25D366]/50">
-                                        <span class="text-[10px] font-black uppercase tracking-widest text-[#25D366]">Acumular Pedido (No enviar a reparto aún)</span>
-                                    </label>
-                                </div>
-                            </div>
                         </div>
                     </div>
 
@@ -895,43 +876,30 @@ onMounted(() => {
                         <div class="space-y-2">
                             <div class="flex justify-between items-end">
                                 <span class="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Total:</span>
-                                <span class="text-3xl font-black text-white tracking-tighter italic" :class="{'line-through opacity-50': posForm.usar_saldo_favor && posForm.medio_pago !== 'Cuenta Corriente' && clienteSeleccionado?.saldo_actual > 0}">{{ formatCurrency(subtotalPos) }}</span>
+                                <span class="text-3xl font-black text-white tracking-tighter italic">{{ formatCurrency(subtotalPos) }}</span>
                             </div>
-                            
-                            <div v-if="posForm.usar_saldo_favor && clienteSeleccionado?.saldo_actual > 0" class="flex justify-between items-end border-t border-white/10 pt-2 text-brand-red">
-                                <span class="text-[12px] font-black uppercase tracking-[0.3em]">Resta abonar:</span>
-                                <span class="text-4xl font-black tracking-tighter italic">{{ formatCurrency(Math.max(0, subtotalPos - clienteSeleccionado.saldo_actual)) }}</span>
+
+                            <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado" class="flex justify-between items-end border-t border-white/10 pt-2 text-brand-red">
+                                <span class="text-[12px] font-black uppercase tracking-[0.3em]">Saldo en cuenta luego de la operación:</span>
+                                <span class="text-4xl font-black tracking-tighter italic" :class="(clienteSeleccionado.saldo_actual - subtotalPos) < 0 ? 'text-brand-red' : 'text-green-400'">
+                                    {{ formatCurrency(clienteSeleccionado.saldo_actual - subtotalPos) }}
+                                </span>
                             </div>
-                            
-                            <div v-if="posForm.es_excepcional && posForm.motivo_pendiente === 'Reserva / Seña'" class="flex justify-between items-end border-t border-white/10 pt-2 text-brand-red">
-                                <span class="text-[12px] font-black uppercase tracking-[0.3em]">Seña abonada:</span>
-                                <span class="text-3xl font-black tracking-tighter italic">{{ formatCurrency(posForm.monto_sena) }}</span>
-                            </div>
-                        </div>
-                        
-                        <div class="flex flex-col gap-3" v-if="posForm.origen === 'presencial'">
-                            <label class="flex items-center gap-2 cursor-pointer mt-2">
-                                <input type="checkbox" v-model="posForm.es_excepcional" class="rounded bg-black/40 border-brand-red/50 text-brand-red focus:ring-brand-red/50">
-                                <span class="text-[10px] font-black uppercase tracking-widest text-white/70">Marcar como Excepción (Pendiente)</span>
-                            </label>
-                            
-                            <div v-if="posForm.es_excepcional" class="space-y-3 bg-white/5 p-4 rounded-lg border border-white/10 animate-fade-in">
-                                <label class="text-[8px] font-black uppercase tracking-widest text-white/40 block mb-1">Motivo</label>
-                                <select v-model="posForm.motivo_pendiente" class="input-field w-full text-xs font-black uppercase bg-black/40 text-white border border-white/20 focus:border-brand-red/50 focus:ring-brand-red/20">
-                                    <option :value="null" disabled>Seleccionar Motivo...</option>
-                                    <option value="Reserva / Seña">Reserva / Seña</option>
-                                    <option value="Transferencia a verificar">Transferencia a verificar</option>
+
+                            <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado && (clienteSeleccionado.saldo_actual - subtotalPos) < 0" class="mt-4 bg-brand-red/10 border border-brand-red/20 p-4 rounded-lg space-y-3">
+                                <label class="text-[8px] font-black uppercase tracking-widest text-brand-red block mb-1">
+                                    El saldo restante ({{ formatCurrency(Math.abs(clienteSeleccionado.saldo_actual - subtotalPos)) }}) dejará la cuenta en negativo. ¿Desea abonar el excedente ahora?
+                                </label>
+                                <select v-model="posForm.metodo_pago_excedente" class="input-field w-full text-xs font-black uppercase bg-black/40 text-white border border-white/20 focus:border-brand-red/50 focus:ring-brand-red/20">
+                                    <option :value="null">Dejar como deuda en Cuenta Corriente</option>
+                                    <option value="Efectivo">💵 Pagar excedente en Efectivo</option>
+                                    <option value="Tarjeta">💳 Pagar excedente con Tarjeta / Posnet</option>
+                                    <option value="Transferencia">📱 Pagar excedente con Transferencia / MP</option>
                                 </select>
-                                
-                                <div v-if="posForm.motivo_pendiente === 'Reserva / Seña'" class="mt-3">
-                                    <label class="text-[8px] font-black uppercase tracking-widest text-white/40 block mb-1">Monto de Seña (Abonado Hoy)</label>
-                                    <input type="number" v-model="posForm.monto_sena" class="input-field w-full bg-black/40 text-xs px-2 py-1.5" min="0" :max="Math.max(0, subtotalPos - (posForm.usar_saldo_favor ? clienteSeleccionado?.saldo_actual : 0))">
-                                </div>
                             </div>
                         </div>
 
                         <div class="flex flex-col gap-3 mt-4">
-
                             <button @click="submitVenta" :disabled="posForm.processing || posForm.items.length === 0" class="btn-primary w-full py-4 text-sm mt-2 disabled:opacity-40 shadow-[0_0_30px_rgba(230,25,25,0.4)] hover:shadow-[0_0_50px_rgba(230,25,25,0.6)] animate-pulse hover:animate-none">
                                {{ posForm.processing ? 'SINCRONIZANDO...' : 'CONFIRMAR PAGO' }}
                             </button>
@@ -941,13 +909,15 @@ onMounted(() => {
                 </div>
             </div>
         </div>
-
         <!-- Sales Detail Modal -->
         <div v-if="showDetailModal && selectedVenta" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="closeDetailModal"></div>
             <div class="relative w-full max-w-2xl card p-0 border border-brand-red/30 overflow-hidden shadow-2xl">
                 <div class="bg-brand-red p-6 flex justify-between items-center">
-                    <h3 class="text-xl font-black uppercase tracking-tighter italic">Detalle de <span class="text-white">Ticket</span></h3>
+                    <div class="flex items-center gap-3">
+                        <h3 class="text-xl font-black uppercase tracking-tighter italic">Detalle de <span class="text-white">Ticket</span></h3>
+                        <span v-if="selectedVenta.motivo_pendiente === 'Acumulación'" class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-[#25D366]/20 text-white border border-[#25D366]">Acumulado</span>
+                    </div>
                     <div class="text-[10px] font-mono text-white/50 uppercase">#TK-{{ String(selectedVenta.id).padStart(6, '0') }}</div>
                 </div>
 
@@ -989,8 +959,22 @@ onMounted(() => {
                     </table>
 
                     <div class="flex justify-between items-center bg-white/[0.02] p-6 border border-white/5 rounded-xl mt-4">
-                        <div class="text-xs font-black uppercase tracking-[0.4em] text-white/20 italic">Total Operado</div>
+                        <div class="text-xs font-black uppercase tracking-[0.4em] text-white/20 italic">Total Bruto</div>
                         <div class="text-3xl font-black italic text-white">{{ formatCurrency(selectedVenta.total) }}</div>
+                    </div>
+                    
+                    <div v-if="selectedVenta.estado === 'pendiente_pago' && (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0) > 0" class="flex justify-between items-center bg-white/[0.02] p-6 border border-white/5 rounded-xl mt-4">
+                        <div class="text-xs font-black uppercase tracking-[0.4em] text-white/20 italic">Abonado (Saldo a favor/Parcial)</div>
+                        <div class="text-2xl font-black italic text-brand-red">
+                            {{ formatCurrency(selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0) }}
+                        </div>
+                    </div>
+
+                    <div v-if="selectedVenta.estado === 'pendiente_pago'" class="flex justify-between items-center bg-white/[0.02] p-6 border border-brand-red/20 rounded-xl mt-4">
+                        <div class="text-xs font-black uppercase tracking-[0.4em] text-brand-red italic">Resta a pagar</div>
+                        <div class="text-3xl font-black italic text-brand-red">
+                            {{ formatCurrency(selectedVenta.total - (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0)) }}
+                        </div>
                     </div>
 
                     <div v-if="puedeEditarEstado" class="mt-6 flex flex-col sm:flex-row items-end gap-3 border-t border-white/5 pt-6">
