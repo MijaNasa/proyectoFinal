@@ -146,6 +146,13 @@ class LogisticaController extends Controller
 
                     if ($suscripciones->isNotEmpty()) {
                         $clientes = $suscripciones->map(fn($s) => $s->cliente);
+
+                        // Avisar a cada cliente suscripto
+                        foreach ($clientes as $cliente) {
+                            $cliente->user?->notify(new \App\Notifications\TomoIngresadoNotification($cliente, $libro, $request->sucursal_destino_id));
+                        }
+
+                        // Y un resumen al empleado que cargo el stock
                         $request->user()->notify(new \App\Notifications\ClientesNotificadosIngresoNotification($libro, $request->sucursal_destino_id, $clientes));
                     }
                 }

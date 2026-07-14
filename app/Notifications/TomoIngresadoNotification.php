@@ -44,9 +44,9 @@ class TomoIngresadoNotification extends Notification
             'cliente_id' => $this->cliente->id,
             'cliente_nombre' => $this->cliente->user->name . ' ' . $this->cliente->user->apellido,
             'libro_id' => $this->libro->id,
-            'libro_titulo' => $this->libro->titulo,
+            'libro_titulo' => $this->libro->master?->titulo,
             'sucursal_id' => $this->sucursal_id,
-            'mensaje' => 'El tomo "' . $this->libro->titulo . '" que esperaba ' . $this->cliente->user->name . ' ya ingresó a stock.',
+            'mensaje' => 'El tomo "' . $this->libro->master?->titulo . '" que esperabas ya ingresó a stock.',
             'tipo' => 'aviso_suscripcion'
         ];
     }

@@ -84,6 +84,11 @@ const fmt = (n) => n != null
 
 const fmtDate = (d) => d ? new Date(d).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }) : '-';
 
+const margen = (venta, compra) => {
+    if (!venta || !compra || compra <= 0) return null;
+    return Math.round(((venta - compra) / compra) * 100);
+};
+
 // Modal actualizar precio individual
 const showModal = ref(false);
 const selectedLibro = ref(null);
@@ -92,6 +97,7 @@ const loadingHist = ref(false);
 
 const form = useForm({
     precio_venta: '',
+    precio_compra: '',
     motivo: ''
 });
 
@@ -99,6 +105,7 @@ const openModal = async (libro) => {
     selectedLibro.value = libro;
     const actual = libro.precio_actual;
     form.precio_venta = actual?.precio_venta ?? '';
+    form.precio_compra = actual?.precio_compra ?? '';
     form.motivo = '';
     historial.value = [];
     showModal.value = true;
@@ -298,7 +305,9 @@ const submitBulk = () => {
                     <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-white/30">
                         <th class="text-left px-6 py-4">Libro</th>
                         <th class="text-left px-6 py-4">ISBN</th>
+                        <th class="text-right px-6 py-4">Costo</th>
                         <th class="text-right px-6 py-4">Precio Venta</th>
+                        <th class="text-right px-6 py-4">Margen</th>
                         <th class="text-center px-6 py-4">Acciones</th>
                     </tr>
                 </thead>
@@ -319,7 +328,9 @@ const submitBulk = () => {
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-white/20 italic text-xs">-</td>
-                            <!-- La serie principal no debería mostrar el precio de venta -->
+                            <!-- La serie principal no debería mostrar costo/precio/margen -->
+                            <td class="px-6 py-4 text-right text-white/20 italic text-xs">-</td>
+                            <td class="px-6 py-4 text-right text-white/20 italic text-xs">-</td>
                             <td class="px-6 py-4 text-right text-white/20 italic text-xs">-</td>
                             <td class="px-6 py-4 text-center">
                                 <button class="text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-white/70">
@@ -335,7 +346,19 @@ const submitBulk = () => {
                                 <p class="text-[9px] text-white/30 font-bold uppercase">{{ tomo.master?.editorial?.nombre || 'S/E' }}</p>
                             </td>
                             <td class="px-6 py-4 font-mono text-xs pl-6">{{ tomo.isbn || 'SIN ISBN' }}</td>
+                            <td class="px-6 py-4 text-right text-xs">
+                                <span v-if="tomo.precio_actual?.precio_compra" class="text-white/50 font-mono">{{ fmt(tomo.precio_actual.precio_compra) }}</span>
+                                <span v-else class="text-white/20">-</span>
+                            </td>
                             <td class="px-6 py-4 text-right font-black text-xs">{{ tomo.precio_actual ? fmt(tomo.precio_actual.precio_venta) : 'Sin precio' }}</td>
+                            <td class="px-6 py-4 text-right text-xs">
+                                <template v-if="tomo.precio_actual?.precio_compra && tomo.precio_actual?.precio_venta">
+                                    <span class="font-black" :class="margen(tomo.precio_actual.precio_venta, tomo.precio_actual.precio_compra) >= 30 ? 'text-green-400' : margen(tomo.precio_actual.precio_venta, tomo.precio_actual.precio_compra) >= 10 ? 'text-yellow-400' : 'text-red-400'">
+                                        {{ margen(tomo.precio_actual.precio_venta, tomo.precio_actual.precio_compra) }}%
+                                    </span>
+                                </template>
+                                <span v-else class="text-white/20">-</span>
+                            </td>
                             <td class="px-6 py-4 text-center">
                                 <button @click.stop="openModal(tomo)" class="text-[10px] font-black uppercase px-3 py-2 rounded-lg bg-brand-red/20 hover:bg-brand-red text-brand-red hover:text-white transition-colors border border-brand-red/30">Actualizar</button>
                             </td>
@@ -351,7 +374,19 @@ const submitBulk = () => {
                                 <p class="text-[10px] text-white/30 font-bold uppercase">{{ item.master?.editorial?.nombre }} • ÚNICO</p>
                             </td>
                             <td class="px-6 py-4 font-mono text-xs">{{ item.isbn || 'SIN ISBN' }}</td>
+                            <td class="px-6 py-4 text-right text-xs">
+                                <span v-if="item.precio_actual?.precio_compra" class="text-white/50 font-mono">{{ fmt(item.precio_actual.precio_compra) }}</span>
+                                <span v-else class="text-white/20">-</span>
+                            </td>
                             <td class="px-6 py-4 text-right font-black">{{ item.precio_actual ? fmt(item.precio_actual.precio_venta) : 'Sin precio' }}</td>
+                            <td class="px-6 py-4 text-right text-xs">
+                                <template v-if="item.precio_actual?.precio_compra && item.precio_actual?.precio_venta">
+                                    <span class="font-black" :class="margen(item.precio_actual.precio_venta, item.precio_actual.precio_compra) >= 30 ? 'text-green-400' : margen(item.precio_actual.precio_venta, item.precio_actual.precio_compra) >= 10 ? 'text-yellow-400' : 'text-red-400'">
+                                        {{ margen(item.precio_actual.precio_venta, item.precio_actual.precio_compra) }}%
+                                    </span>
+                                </template>
+                                <span v-else class="text-white/20">-</span>
+                            </td>
                             <td class="px-6 py-4 text-center">
                                 <button @click="openModal(item)" class="text-[10px] font-black uppercase px-3 py-2 rounded-lg bg-white/5 hover:bg-brand-red">Actualizar</button>
                             </td>
@@ -390,10 +425,23 @@ const submitBulk = () => {
                     
                     <div class="px-8 py-6 space-y-6">
                         <form @submit.prevent="submit" class="space-y-4">
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Precio Venta *</label>
-                                <input v-model="form.precio_venta" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_venta }" placeholder="0.00" />
-                                <p v-if="form.errors.precio_venta" class="text-red-400 text-xs mt-1">{{ form.errors.precio_venta }}</p>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Costo (Compra)</label>
+                                    <input v-model="form.precio_compra" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_compra }" placeholder="0.00" />
+                                    <p v-if="form.errors.precio_compra" class="text-red-400 text-xs mt-1">{{ form.errors.precio_compra }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Precio Venta *</label>
+                                    <input v-model="form.precio_venta" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_venta }" placeholder="0.00" />
+                                    <p v-if="form.errors.precio_venta" class="text-red-400 text-xs mt-1">{{ form.errors.precio_venta }}</p>
+                                </div>
+                            </div>
+                            <div v-if="form.precio_venta > 0 && form.precio_compra > 0" class="text-xs font-bold">
+                                <span :class="margen(form.precio_venta, form.precio_compra) >= 30 ? 'text-green-400' : margen(form.precio_venta, form.precio_compra) >= 10 ? 'text-yellow-400' : 'text-red-400'">
+                                    Margen: {{ margen(form.precio_venta, form.precio_compra) }}%
+                                </span>
+                                <span class="text-white/30 ml-2">Ganancia: {{ fmt(form.precio_venta - form.precio_compra) }}</span>
                             </div>
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Motivo del cambio</label>

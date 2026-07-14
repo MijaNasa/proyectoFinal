@@ -267,10 +267,10 @@ watch(search, (value) => {
                             </div>
                             <div>
                                 <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Ciudad / Localidad (Santa Fe)</label>
-                                <input v-model="form.ciudad_nombre" list="ciudades-list" type="text" class="input-field w-full" placeholder="Ej: Rosario, Funes..." :class="{'border-brand-red': form.errors.ciudad_nombre}">
-                                <datalist id="ciudades-list">
-                                    <option v-for="c in ciudades" :key="c.id" :value="c.nombre"></option>
-                                </datalist>
+                                <select v-model="form.ciudad_nombre" class="input-field w-full bg-brand-black" :class="{'border-brand-red': form.errors.ciudad_nombre}">
+                                    <option value="" disabled>Seleccionar ciudad...</option>
+                                    <option v-for="c in ciudades" :key="c.id" :value="c.nombre">{{ c.nombre }}</option>
+                                </select>
                                 <p v-if="form.errors.ciudad_nombre" class="text-brand-red text-xs mt-1">{{ form.errors.ciudad_nombre }}</p>
                             </div>
 
