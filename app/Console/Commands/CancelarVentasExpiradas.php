@@ -27,8 +27,26 @@ class CancelarVentasExpiradas extends Command
             ]);
         }
 
-        $canceladas = $base->update(['estado' => 'cancelado']);
+        $canceladas = 0;
 
-        $this->info("Ventas expiradas canceladas: {$canceladas}");
+        foreach ($base->get() as $venta) {
+            // Si no tiene payment_id, es una reserva en efectivo cuyo stock fue descontado
+            if (is_null($venta->payment_id)) {
+                foreach ($venta->detalles as $detalle) {
+                    $stock = \App\Models\Stock::where('libro_id', $detalle->libro_id)
+                        ->where('sucursal_id', $venta->sucursal_id)
+                        ->first();
+                    
+                    if ($stock) {
+                        $stock->increment('cantidad_disponible', $detalle->cantidad);
+                    }
+                }
+            }
+
+            $venta->update(['estado' => 'cancelado']);
+            $canceladas++;
+        }
+
+        $this->info("Ventas expiradas canceladas y stock restituido: {$canceladas}");
     }
 }

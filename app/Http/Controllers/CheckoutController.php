@@ -95,7 +95,6 @@ class CheckoutController extends Controller
             'sucursal_id'           => 'required|exists:sucursales,id',
             'direccion_envio'       => 'required_if:tipo_envio,domicilio|nullable|string|max:255',
             'medio_pago'            => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
-            'metodo_pago_excedente' => 'nullable|string|in:Efectivo,Tarjeta,Transferencia',
         ], [
             'tipo_envio.required'         => 'Seleccioná el tipo de entrega.',
             'direccion_envio.required_if' => 'Ingresá la dirección de entrega.',
@@ -106,9 +105,6 @@ class CheckoutController extends Controller
         if (in_array($request->tipo_envio, ['domicilio', 'acumulacion'])) {
             if ($request->medio_pago === 'Efectivo') {
                 return back()->withErrors(['medio_pago' => 'El pago en Efectivo solo está disponible para retiro en sucursal.']);
-            }
-            if ($request->medio_pago === 'Cuenta Corriente' && $request->metodo_pago_excedente === 'Efectivo') {
-                return back()->withErrors(['metodo_pago_excedente' => 'El pago del excedente en Efectivo solo está disponible para retiro en sucursal.']);
             }
         }
 
@@ -241,33 +237,15 @@ class CheckoutController extends Controller
                 $montoCC = 0;
 
                 if ($request->medio_pago === 'Cuenta Corriente' && $cliente) {
-                    $excedenteMetodo = $request->input('metodo_pago_excedente');
-                    $nuevoSaldoProyectado = $cliente->saldo_actual - $total;
-
-                    if ($nuevoSaldoProyectado >= 0) {
-                        // Saldo suficiente, se paga todo con Cuenta Corriente
-                        $montoCC = $total;
-                        $montoMercadoPago = 0;
-                        $estado = 'en_preparacion';
-                    } else {
-                        // Saldo insuficiente
-                        if (in_array($excedenteMetodo, ['Tarjeta', 'Transferencia'])) {
-                            $montoCC = max(0, $cliente->saldo_actual);
-                            $montoMercadoPago = $total - $montoCC;
-                            $estado = 'pendiente_pago';
-                        } elseif ($excedenteMetodo === 'Efectivo') {
-                            $montoCC = max(0, $cliente->saldo_actual);
-                            $montoMercadoPago = 0;
-                            $estado = 'pendiente_pago';
-                        } else {
-                            // Dejar todo como deuda en Cuenta Corriente
-                            $montoCC = $total;
-                            $montoMercadoPago = 0;
-                            $estado = 'en_preparacion';
-                        }
+                    if ($cliente->saldo_actual < $total) {
+                        throw new \RuntimeException("Saldo insuficiente en Cuenta Corriente para cubrir el total.");
                     }
+                    $montoCC = $total;
+                    $montoMercadoPago = 0;
+                    $estado = 'en_preparacion';
                 } elseif ($request->medio_pago === 'Efectivo') {
                     $montoMercadoPago = 0;
+                    $estado = 'pendiente_pago'; // Se reserva stock abajo
                 }
 
                 $venta = Venta::create([
@@ -282,7 +260,7 @@ class CheckoutController extends Controller
                     'tipo_envio'      => $request->tipo_envio,
                     'direccion_envio' => $request->direccion_envio,
                     'motivo_pendiente'=> $motivo_pendiente,
-                    'pago_expira_at'  => $estado === 'pendiente_pago' ? now()->addHours(24) : null,
+                    'pago_expira_at'  => ($estado === 'pendiente_pago' && $request->medio_pago === 'Efectivo') ? now()->addHours(48) : ($estado === 'pendiente_pago' ? now()->addHours(24) : null),
                 ]);
 
                 foreach ($processedItems as $item) {
@@ -308,8 +286,8 @@ class CheckoutController extends Controller
                     $cliente->decrement('saldo_actual', $montoCC);
                 }
 
-                // Si se resolvió el pago inmediatamente (con Cuenta Corriente), hacer los traslados y descuentos
-                if ($estado === 'en_preparacion' || $estado === 'esperando_traslado') {
+                // Si se resolvió el pago inmediatamente o si es Efectivo (reserva), hacer los traslados y descuentos
+                if ($estado === 'en_preparacion' || $estado === 'esperando_traslado' || $request->medio_pago === 'Efectivo') {
                     $requiereTraslados = false;
 
                     foreach ($requerido as $libroId => $cantFaltante) {
@@ -320,6 +298,11 @@ class CheckoutController extends Controller
                             $aDescontarLocal = min($stockLocal->cantidad_disponible, $cantFaltante);
                             $stockLocal->decrement('cantidad_disponible', $aDescontarLocal);
                             $cantFaltante -= $aDescontarLocal;
+                        }
+
+                        // Si es pago en efectivo y requiere traslados, arrojar error
+                        if ($cantFaltante > 0 && $request->medio_pago === 'Efectivo') {
+                            throw new \RuntimeException("Para productos que requieren traslado entre sucursales, es necesario confirmar la compra mediante pago online.");
                         }
 
                         // 2. Si todavía falta, pedir traslados a otras sucursales

@@ -82,9 +82,6 @@ watch(tipoEnvio, (val) => {
         if (medioPago.value === 'Efectivo') {
             medioPago.value = 'Tarjeta';
         }
-        if (metodoPagoExcedente.value === 'Efectivo') {
-            metodoPagoExcedente.value = null;
-        }
     }
 });
 
@@ -122,7 +119,6 @@ const confirmar = () => {
         sucursal_id:           sucursalId.value,
         direccion_envio:       tipoEnvio.value === 'domicilio' ? direccion : null,
         medio_pago:            medioPago.value,
-        metodo_pago_excedente: (medioPago.value === 'Cuenta Corriente' && (props.saldo_actual - props.total) < 0) ? metodoPagoExcedente.value : null,
     }, {
         onError: () => { procesando.value = false; },
     });
@@ -307,45 +303,64 @@ const confirmar = () => {
 
                             <label
                                 v-if="tipoEnvio === 'retiro'"
-                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
-                                :class="medioPago === 'Efectivo' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
+                                class="flex items-start gap-4 p-4 rounded-xl border transition-all"
+                                :class="[
+                                    medioPago === 'Efectivo' ? 'border-brand-red bg-brand-red/5' : 'border-white/10',
+                                    (!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local) ? 'opacity-50 cursor-not-allowed bg-black/50' : 'cursor-pointer hover:border-white/20'
+                                ]"
                             >
-                                <input type="radio" v-model="medioPago" value="Efectivo" class="mt-1 accent-red-600" />
+                                <input
+                                    type="radio"
+                                    v-model="medioPago"
+                                    value="Efectivo"
+                                    class="mt-1 accent-red-600"
+                                    :disabled="!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local"
+                                />
                                 <div>
-                                    <p class="font-black uppercase tracking-wider text-sm">💵 Efectivo Cash</p>
-                                    <p class="text-white/40 text-xs mt-1">Abonás en efectivo presencialmente al retirar en la sucursal.</p>
+                                    <p class="font-black uppercase tracking-wider text-sm" :class="{ 'text-white/40': !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local }">💵 Efectivo Cash</p>
+                                    <p v-if="!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="text-red-400 font-bold text-xs mt-1 leading-tight">
+                                        Para productos que requieren traslado entre sucursales, es necesario confirmar la compra mediante pago online.
+                                    </p>
+                                    <p v-else class="text-white/40 text-xs mt-1">Abonás en efectivo presencialmente al retirar en la sucursal.</p>
                                 </div>
                             </label>
 
                             <label
-                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
-                                :class="medioPago === 'Cuenta Corriente' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
+                                class="flex items-start gap-4 p-4 rounded-xl border transition-all"
+                                :class="[
+                                    medioPago === 'Cuenta Corriente' ? 'border-brand-red bg-brand-red/5' : 'border-white/10',
+                                    (saldo_actual < total) ? 'opacity-50 cursor-not-allowed bg-black/50' : 'cursor-pointer hover:border-white/20'
+                                ]"
                             >
-                                <input type="radio" v-model="medioPago" value="Cuenta Corriente" class="mt-1 accent-red-600" />
+                                <input
+                                    type="radio"
+                                    v-model="medioPago"
+                                    value="Cuenta Corriente"
+                                    class="mt-1 accent-red-600"
+                                    :disabled="saldo_actual < total"
+                                />
                                 <div class="flex-1">
-                                    <p class="font-black uppercase tracking-wider text-sm">🏛️ Cuenta Corriente</p>
+                                    <p class="font-black uppercase tracking-wider text-sm" :class="{ 'text-white/40': saldo_actual < total }">🏛️ Cuenta Corriente</p>
                                     <p class="text-white/40 text-xs mt-1">
                                         Usá tu saldo actual a favor: <span class="text-green-400 font-bold font-mono">{{ formatPrecio(saldo_actual) }}</span>.
+                                    </p>
+                                    <p v-if="saldo_actual < total" class="text-red-400 font-bold text-xs mt-1 uppercase tracking-widest">
+                                        Saldo insuficiente
                                     </p>
                                 </div>
                             </label>
                         </div>
 
-                        <!-- Selector de Excedente si la cuenta corriente queda negativa -->
+                        <!-- Advertencia 48h Efectivo -->
                         <transition name="fade">
-                            <div v-if="medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0" class="mt-6 bg-brand-red/10 border border-brand-red/20 p-4 rounded-xl space-y-3">
-                                <label class="text-[10px] font-black uppercase tracking-widest text-brand-red block mb-1">
-                                    El excedente ({{ formatPrecio(Math.abs(saldo_actual - total)) }}) dejará tu cuenta en negativo. ¿Cómo deseás abonar la diferencia?
-                                </label>
-                                <select
-                                    v-model="metodoPagoExcedente"
-                                    class="w-full bg-black border border-white/20 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase"
-                                >
-                                    <option :value="null">Dejar el restante como deuda en Cuenta Corriente</option>
-                                    <option v-if="tipoEnvio === 'retiro'" value="Efectivo">💵 Abonar diferencia en Efectivo (al retirar)</option>
-                                    <option value="Tarjeta">💳 Abonar diferencia con Tarjeta (Mercado Pago)</option>
-                                    <option value="Transferencia">📱 Abonar diferencia con Transferencia (Mercado Pago)</option>
-                                </select>
+                            <div v-if="medioPago === 'Efectivo'" class="mt-6 bg-brand-red/10 border border-brand-red/20 p-4 rounded-xl flex items-start gap-3">
+                                <span class="text-xl">⏳</span>
+                                <div>
+                                    <h4 class="text-brand-red font-black text-xs uppercase tracking-widest mb-1">Tu reserva expira en 48hs</h4>
+                                    <p class="text-white/70 text-[10px] font-medium leading-relaxed">
+                                        El stock quedará reservado inmediatamente para tu pedido. Tenés un límite estricto de 48 horas hábiles para acercarte a la sucursal a abonar en efectivo. <strong class="text-white">Si el plazo expira, tu pedido será cancelado automáticamente.</strong>
+                                    </p>
+                                </div>
                             </div>
                         </transition>
                     </div>
