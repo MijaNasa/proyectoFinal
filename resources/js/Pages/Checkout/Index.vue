@@ -104,12 +104,9 @@ onUnmounted(() => {
 
 const puedeEnviar = computed(() => {
     if (tipoEnvio.value === 'domicilio') {
-        return addressSelected.value;
+        return addressSelected.value && !!sucursalId.value;
     }
-    if (tipoEnvio.value === 'retiro' || tipoEnvio.value === 'acumulacion') {
-        return !!sucursalId.value;
-    }
-    return false;
+    return !!sucursalId.value;
 });
 
 const confirmar = () => {
@@ -122,7 +119,7 @@ const confirmar = () => {
 
     router.post(route('checkout.store'), {
         tipo_envio:            tipoEnvio.value,
-        sucursal_id:           (tipoEnvio.value === 'retiro' || tipoEnvio.value === 'acumulacion') ? sucursalId.value : null,
+        sucursal_id:           sucursalId.value,
         direccion_envio:       tipoEnvio.value === 'domicilio' ? direccion : null,
         medio_pago:            medioPago.value,
         metodo_pago_excedente: (medioPago.value === 'Cuenta Corriente' && (props.saldo_actual - props.total) < 0) ? metodoPagoExcedente.value : null,
@@ -187,23 +184,31 @@ const confirmar = () => {
                             </label>
                         </div>
 
-                        <!-- Selector de Sucursal (para retiro o acumulacion) -->
-                        <transition name="fade">
-                            <div v-if="tipoEnvio === 'retiro' || tipoEnvio === 'acumulacion'" class="mt-6">
-                                <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
-                                    Sucursal para Retiro / Acumulación *
-                                </label>
-                                <select
-                                    v-model="sucursalId"
-                                    class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider"
-                                >
-                                    <option value="" disabled>-- Selecciona una sucursal --</option>
-                                    <option v-for="suc in sucursales" :key="suc.id" :value="suc.id" :disabled="!suc.tiene_stock">
-                                        📍 {{ suc.nombre }} {{ !suc.tiene_stock ? '(Sin stock para tu carrito)' : '' }}
-                                    </option>
-                                </select>
+                        <!-- Selector de Sucursal -->
+                        <div class="mt-6">
+                            <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
+                                {{ tipoEnvio === 'domicilio' ? 'Sucursal de despacho *' : 'Sucursal para Retiro / Acumulación *' }}
+                            </label>
+                            <select
+                                v-model="sucursalId"
+                                class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider"
+                            >
+                                <option value="" disabled>-- Selecciona una sucursal --</option>
+                                <option v-for="suc in sucursales" :key="suc.id" :value="suc.id">
+                                    📍 {{ suc.nombre }}
+                                </option>
+                            </select>
+                            
+                            <div v-if="sucursalId && !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="mt-3 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3">
+                                <span class="text-xl">🚚</span>
+                                <div>
+                                    <p class="text-yellow-400 font-bold text-xs uppercase tracking-wider">Requiere traslados internos</p>
+                                    <p class="text-white/60 text-[10px] mt-1 font-medium leading-relaxed">
+                                        Esta sucursal no cuenta con todos los libros de tu pedido físicamente en este momento. Los trasladaremos desde otras sucursales. El pedido demorará unos días extra, te avisaremos cuando esté unificado y listo.
+                                    </p>
+                                </div>
                             </div>
-                        </transition>
+                        </div>
 
                         <!-- Dirección (solo si domicilio) -->
                         <transition name="fade">

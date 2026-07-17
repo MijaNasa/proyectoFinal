@@ -6,6 +6,7 @@ use App\Models\Libro;
 use App\Models\Sucursal;
 use App\Models\Stock;
 use App\Models\MovimientoStock;
+use App\Models\TransferenciaStock;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -109,8 +110,8 @@ class LogisticaController extends Controller
                     $stockOrigen->save();
                 }
 
-                // Sumar/Ajustar al destino
-                if (in_array($tipo, ['ingreso_proveedor', 'transferencia', 'ajuste'])) {
+                // Sumar/Ajustar al destino (Solo ingresos y ajustes, las transferencias quedan pendientes)
+                if (in_array($tipo, ['ingreso_proveedor', 'ajuste'])) {
                     $stockDestino = Stock::firstOrCreate(
                         ['libro_id' => $libro->id, 'sucursal_id' => $request->sucursal_destino_id],
                         ['cantidad_disponible' => 0, 'cantidad_reservada' => 0]
@@ -135,6 +136,19 @@ class LogisticaController extends Controller
                     'cantidad' => $cantidad,
                     'costo_unitario' => $costo_unitario,
                 ]);
+
+                // Si es transferencia, registramos en TransferenciaStock
+                if ($tipo === 'transferencia') {
+                    TransferenciaStock::create([
+                        'venta_id' => null,
+                        'libro_id' => $libro->id,
+                        'sucursal_origen_id' => $request->sucursal_origen_id,
+                        'sucursal_destino_id' => $request->sucursal_destino_id,
+                        'cantidad' => $cantidad,
+                        'estado' => 'pendiente',
+                        'fecha' => now()
+                    ]);
+                }
 
                 // Notificar suscripciones si es Ingreso por Proveedor
                 if ($tipo === 'ingreso_proveedor') {

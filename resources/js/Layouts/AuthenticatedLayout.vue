@@ -102,6 +102,7 @@ const toggleGroup = (group) => {
                         <DropdownLink :href="route('sucursales.index')" :active="route().current('sucursales.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Sucursales</DropdownLink>
                         <DropdownLink :href="route('stocks.index')" :active="route().current('stocks.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Control de Stock</DropdownLink>
                         <DropdownLink :href="route('logistica.index')" :active="route().current('logistica.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Logística de Stock</DropdownLink>
+                        <DropdownLink :href="route('transferencias.index')" :active="route().current('transferencias.*')" class="block py-2 text-[10px] font-bold uppercase text-brand-red hover:text-white">Traslados Internos</DropdownLink>
                     </div>
                 </div>
 

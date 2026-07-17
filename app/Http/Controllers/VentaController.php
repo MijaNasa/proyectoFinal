@@ -174,7 +174,7 @@ class VentaController extends Controller
 
                 $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
 
-                $total = 0;
+                // 1. Validar Stock y Lock
                 foreach ($request->items as $item) {
                     $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
                         ->where('sucursal_id', $sucursal_id)
@@ -188,8 +188,79 @@ class VentaController extends Controller
                     if ($stock->cantidad_disponible <= 0 && !$librosModels[$item['libro_id']]->permite_preventa) {
                         throw new \RuntimeException("Producto agotado y sin preventa habilitada");
                     }
+                }
 
-                    $total += $item['cantidad'] * $precios[$item['libro_id']]->precio_venta;
+                // 2. Procesar Descuentos por Suscripción y Calcular Total
+                $suscripciones = collect();
+                $historialCompras = collect();
+                
+                if ($request->cliente_id) {
+                    $suscripciones = \App\Models\Suscripcion::where('cliente_id', $request->cliente_id)
+                        ->where('sucursal_id', $sucursal_id)
+                        ->where('estado', 'activa')
+                        ->get()
+                        ->keyBy('libro_master_id');
+
+                    $historialCompras = \App\Models\VentaDetalle::whereHas('venta', function($q) use ($request) {
+                        $q->where('cliente_id', $request->cliente_id)->where('estado', '!=', 'cancelado');
+                    })->pluck('libro_id')->unique();
+                }
+
+                $processedItems = [];
+                $total = 0;
+
+                foreach ($request->items as $item) {
+                    $libroId = $item['libro_id'];
+                    $cantidad = $item['cantidad'];
+                    $precioOriginal = $precios[$libroId]->precio_venta;
+                    $costoOriginal = $precios[$libroId]->precio_compra;
+                    $libroModel = $librosModels[$libroId];
+
+                    $hasDiscount = false;
+                    
+                    // Verificar si aplica el descuento por suscripción
+                    if ($request->cliente_id && $suscripciones->has($libroModel->master_id)) {
+                        $sub = $suscripciones->get($libroModel->master_id);
+                        // Aplicable solo si el tomo salió después de la suscripción
+                        if ($libroModel->created_at > $sub->created_at) {
+                            // Aplicable solo si nunca compró este tomo
+                            if (!$historialCompras->contains($libroId)) {
+                                $hasDiscount = true;
+                                $historialCompras->push($libroId); // Evitar doble descuento si envía el mismo item dos veces
+                            }
+                        }
+                    }
+
+                    if ($hasDiscount) {
+                        $precioDescuento = $precioOriginal * 0.95;
+                        
+                        $processedItems[] = [
+                            'libro_id' => $libroId,
+                            'cantidad' => 1,
+                            'precio_venta' => $precioDescuento,
+                            'precio_compra' => $costoOriginal,
+                        ];
+                        $total += $precioDescuento;
+                        
+                        if ($cantidad > 1) {
+                            $restante = $cantidad - 1;
+                            $processedItems[] = [
+                                'libro_id' => $libroId,
+                                'cantidad' => $restante,
+                                'precio_venta' => $precioOriginal,
+                                'precio_compra' => $costoOriginal,
+                            ];
+                            $total += ($restante * $precioOriginal);
+                        }
+                    } else {
+                        $processedItems[] = [
+                            'libro_id' => $libroId,
+                            'cantidad' => $cantidad,
+                            'precio_venta' => $precioOriginal,
+                            'precio_compra' => $costoOriginal,
+                        ];
+                        $total += ($cantidad * $precioOriginal);
+                    }
                 }
 
                 $usar_saldo = $request->boolean('usar_saldo_favor') && $request->medio_pago !== 'Cuenta Corriente';
@@ -264,9 +335,9 @@ class VentaController extends Controller
                     'total'            => $total,
                 ]);
 
-                foreach ($request->items as $item) {
-                    $precio = $precios[$item['libro_id']]->precio_venta;
-                    $costo = $precios[$item['libro_id']]->precio_compra;
+                foreach ($processedItems as $item) {
+                    $precio = $item['precio_venta'];
+                    $costo = $item['precio_compra'];
 
                     $venta->detalles()->create([
                         'libro_id'        => $item['libro_id'],

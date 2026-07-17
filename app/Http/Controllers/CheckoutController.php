@@ -46,18 +46,33 @@ class CheckoutController extends Controller
             ->whereIn('sucursal_id', $sucursales->pluck('id'))
             ->get();
             
+        // Validar si el carrito entero puede ser cubierto por el stock TOTAL de la empresa
+        $hayStockTotal = true;
+        foreach ($carrito as $item) {
+            $stockTotalParaItem = $stocks->where('libro_id', $item['libro_id'])->sum('cantidad_disponible');
+            if ($stockTotalParaItem < $item['cantidad']) {
+                $hayStockTotal = false;
+                break;
+            }
+        }
+
+        if (!$hayStockTotal) {
+            return redirect()->route('carrito.index')
+                ->with('error', 'Lo sentimos, algunos productos de tu carrito ya no tienen stock suficiente en la empresa.');
+        }
+
         $sucursales = $sucursales->map(function($sucursal) use ($stocks, $carrito) {
-            $tieneStock = true;
+            $tieneStockLocal = true;
             foreach ($carrito as $item) {
                 $stockItem = $stocks->where('sucursal_id', $sucursal->id)
                                     ->where('libro_id', $item['libro_id'])
                                     ->first();
                 if (!$stockItem || $stockItem->cantidad_disponible < $item['cantidad']) {
-                    $tieneStock = false;
+                    $tieneStockLocal = false;
                     break;
                 }
             }
-            $sucursal->tiene_stock = $tieneStock;
+            $sucursal->tiene_stock_local = $tieneStockLocal;
             return $sucursal;
         });
 
@@ -77,14 +92,14 @@ class CheckoutController extends Controller
 
         $request->validate([
             'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion',
-            'sucursal_id'           => 'required_if:tipo_envio,retiro|required_if:tipo_envio,acumulacion|nullable|exists:sucursales,id',
+            'sucursal_id'           => 'required|exists:sucursales,id',
             'direccion_envio'       => 'required_if:tipo_envio,domicilio|nullable|string|max:255',
             'medio_pago'            => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
             'metodo_pago_excedente' => 'nullable|string|in:Efectivo,Tarjeta,Transferencia',
         ], [
             'tipo_envio.required'         => 'Seleccioná el tipo de entrega.',
             'direccion_envio.required_if' => 'Ingresá la dirección de entrega.',
-            'sucursal_id.required_if'     => 'Seleccioná la sucursal.',
+            'sucursal_id.required'        => 'Seleccioná la sucursal de destino.',
             'medio_pago.required'         => 'Seleccioná el método de pago.',
         ]);
 
@@ -104,15 +119,7 @@ class CheckoutController extends Controller
                 ->with('error', 'Tu carrito está vacío.');
         }
 
-        // Determinar sucursal
-        $sucursal_id = $request->tipo_envio === 'domicilio'
-            ? (Sucursal::where('es_deposito_central', true)->where('activo', true)->value('id') ?? Sucursal::where('activo', true)->value('id'))
-            : $request->sucursal_id;
-
-        if (!$sucursal_id) {
-            return redirect()->route('carrito.index')
-                ->with('error', 'No hay sucursales disponibles para procesar tu compra. Por favor contactanos.');
-        }
+        $sucursal_id = $request->sucursal_id;
 
         $libroIds = collect($carrito)->pluck('libro_id');
 
@@ -131,25 +138,99 @@ class CheckoutController extends Controller
             }
         }
 
-        $total = collect($carrito)->sum(fn($i) => $precios[$i['libro_id']]->precio_venta * $i['cantidad']);
+        $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
+        $cliente = \App\Models\Cliente::where('user_id', Auth::id())->first();
+        $clienteId = $cliente ? $cliente->id : null;
+
+        // Procesar Descuentos por Suscripción
+        $suscripciones = collect();
+        $historialCompras = collect();
+        
+        if ($clienteId) {
+            $suscripciones = \App\Models\Suscripcion::where('cliente_id', $clienteId)
+                ->where('sucursal_id', $sucursal_id) // Descuento se basa en sucursal destino
+                ->where('estado', 'activa')
+                ->get()
+                ->keyBy('libro_master_id');
+
+            $historialCompras = \App\Models\VentaDetalle::whereHas('venta', function($q) use ($clienteId) {
+                $q->where('cliente_id', $clienteId)->where('estado', '!=', 'cancelado');
+            })->pluck('libro_id')->unique();
+        }
+
+        $processedItems = [];
+        $total = 0;
+
+        foreach ($carrito as $item) {
+            $libroId = $item['libro_id'];
+            $cantidad = $item['cantidad'];
+            $precioOriginal = $precios[$libroId]->precio_venta;
+            $costoOriginal = $precios[$libroId]->precio_compra;
+            $libroModel = $librosModels[$libroId];
+
+            $hasDiscount = false;
+            
+            if ($clienteId && $suscripciones->has($libroModel->master_id)) {
+                $sub = $suscripciones->get($libroModel->master_id);
+                if ($libroModel->created_at > $sub->created_at) {
+                    if (!$historialCompras->contains($libroId)) {
+                        $hasDiscount = true;
+                        $historialCompras->push($libroId);
+                    }
+                }
+            }
+
+            if ($hasDiscount) {
+                $precioDescuento = $precioOriginal * 0.95;
+                $processedItems[] = [
+                    'libro_id' => $libroId,
+                    'cantidad' => 1,
+                    'precio_venta' => $precioDescuento,
+                    'precio_compra' => $costoOriginal,
+                ];
+                $total += $precioDescuento;
+                
+                if ($cantidad > 1) {
+                    $restante = $cantidad - 1;
+                    $processedItems[] = [
+                        'libro_id' => $libroId,
+                        'cantidad' => $restante,
+                        'precio_venta' => $precioOriginal,
+                        'precio_compra' => $costoOriginal,
+                    ];
+                    $total += ($restante * $precioOriginal);
+                }
+            } else {
+                $processedItems[] = [
+                    'libro_id' => $libroId,
+                    'cantidad' => $cantidad,
+                    'precio_venta' => $precioOriginal,
+                    'precio_compra' => $costoOriginal,
+                ];
+                $total += ($cantidad * $precioOriginal);
+            }
+        }
 
         try {
-            $result = DB::transaction(function () use ($request, $carrito, $sucursal_id, $total, $precios) {
-                // Verificar stock
-                foreach ($carrito as $item) {
-                    $stock = Stock::where('libro_id', $item['libro_id'])
-                        ->where('sucursal_id', $sucursal_id)
-                        ->lockForUpdate()
-                        ->first();
+            $result = DB::transaction(function () use ($request, $processedItems, $sucursal_id, $total, $cliente) {
+                // Verificar Stock TOTAL y Lock
+                $requerido = [];
+                foreach ($processedItems as $item) {
+                    $requerido[$item['libro_id']] = ($requerido[$item['libro_id']] ?? 0) + $item['cantidad'];
+                }
 
-                    if (!$stock || $stock->cantidad_disponible < $item['cantidad']) {
-                        throw new \RuntimeException(
-                            "Stock insuficiente para el libro '{$item['titulo']}' en la sucursal seleccionada."
-                        );
+                $stocks = Stock::whereIn('libro_id', array_keys($requerido))
+                    ->lockForUpdate()
+                    ->get()
+                    ->groupBy('libro_id');
+
+                foreach ($requerido as $libroId => $cant) {
+                    $stockGlobal = isset($stocks[$libroId]) ? $stocks[$libroId]->sum('cantidad_disponible') : 0;
+                    if ($stockGlobal < $cant) {
+                        throw new \RuntimeException("Stock global insuficiente para procesar la orden.");
                     }
                 }
 
-                $cliente = \App\Models\Cliente::where('user_id', Auth::id())->lockForUpdate()->first();
                 $clienteId = $cliente ? $cliente->id : null;
 
                 // Definir estado inicial de la venta
@@ -204,15 +285,13 @@ class CheckoutController extends Controller
                     'pago_expira_at'  => $estado === 'pendiente_pago' ? now()->addHours(24) : null,
                 ]);
 
-                foreach ($carrito as $item) {
-                    $precio = $precios[$item['libro_id']]->precio_venta;
-                    $costo = $precios[$item['libro_id']]->precio_compra;
+                foreach ($processedItems as $item) {
                     $venta->detalles()->create([
                         'libro_id'        => $item['libro_id'],
                         'cantidad'        => $item['cantidad'],
-                        'precio_unitario' => $precio,
-                        'costo_unitario'  => $costo,
-                        'subtotal'        => $precio * $item['cantidad'],
+                        'precio_unitario' => $item['precio_venta'],
+                        'costo_unitario'  => $item['precio_compra'],
+                        'subtotal'        => $item['precio_venta'] * $item['cantidad'],
                     ]);
                 }
 
@@ -229,12 +308,55 @@ class CheckoutController extends Controller
                     $cliente->decrement('saldo_actual', $montoCC);
                 }
 
-                // Si se resolvió el pago inmediatamente (con Cuenta Corriente), descontar stock ya mismo
-                if ($estado === 'en_preparacion') {
-                    foreach ($carrito as $item) {
-                        Stock::where('libro_id', $item['libro_id'])
-                            ->where('sucursal_id', $sucursal_id)
-                            ->decrement('cantidad_disponible', $item['cantidad']);
+                // Si se resolvió el pago inmediatamente (con Cuenta Corriente), hacer los traslados y descuentos
+                if ($estado === 'en_preparacion' || $estado === 'esperando_traslado') {
+                    $requiereTraslados = false;
+
+                    foreach ($requerido as $libroId => $cantFaltante) {
+                        // 1. Tratar de cubrir con stock local
+                        $stockLocal = $stocks[$libroId]->where('sucursal_id', $sucursal_id)->first();
+                        
+                        if ($stockLocal && $stockLocal->cantidad_disponible > 0) {
+                            $aDescontarLocal = min($stockLocal->cantidad_disponible, $cantFaltante);
+                            $stockLocal->decrement('cantidad_disponible', $aDescontarLocal);
+                            $cantFaltante -= $aDescontarLocal;
+                        }
+
+                        // 2. Si todavía falta, pedir traslados a otras sucursales
+                        if ($cantFaltante > 0) {
+                            $requiereTraslados = true;
+                            $otrasSucursales = $stocks[$libroId]->where('sucursal_id', '!=', $sucursal_id)
+                                ->sortByDesc('cantidad_disponible');
+
+                            foreach ($otrasSucursales as $otroStock) {
+                                if ($cantFaltante <= 0) break;
+                                if ($otroStock->cantidad_disponible <= 0) continue;
+
+                                $aTrasladar = min($otroStock->cantidad_disponible, $cantFaltante);
+                                
+                                // Descontar inmediatamente de la otra sucursal
+                                $otroStock->decrement('cantidad_disponible', $aTrasladar);
+                                
+                                // Crear registro de traslado
+                                \App\Models\TransferenciaStock::create([
+                                    'venta_id'            => $venta->id,
+                                    'libro_id'            => $libroId,
+                                    'sucursal_origen_id'  => $otroStock->sucursal_id,
+                                    'sucursal_destino_id' => $sucursal_id,
+                                    'cantidad'            => $aTrasladar,
+                                    'motivo'              => "Traslado automático por Venta Web #{$venta->id}",
+                                    'estado'              => 'pendiente',
+                                    'user_id'             => Auth::id(),
+                                    'fecha'               => now(),
+                                ]);
+
+                                $cantFaltante -= $aTrasladar;
+                            }
+                        }
+                    }
+
+                    if ($requiereTraslados) {
+                        $venta->update(['estado' => 'esperando_traslado']);
                     }
                 }
 
@@ -421,31 +543,63 @@ class CheckoutController extends Controller
 
             if (!$fresh || $fresh->estado !== 'pendiente_pago') return;
 
-            // Verificar stock suficiente antes de descontar para prevenir overselling.
-            // Si dos compradores pagaron el mismo libro con stock = 1, el segundo
-            // pago llega acá con stock ya en 0 y se cancela.
+            $requiereTraslados = false;
+            
+            // Agrupar requerimientos
+            $requerido = [];
             foreach ($fresh->detalles as $detalle) {
-                $stock = Stock::where('libro_id', $detalle->libro_id)
-                    ->where('sucursal_id', $fresh->sucursal_id)
-                    ->lockForUpdate()
-                    ->first();
+                $requerido[$detalle->libro_id] = ($requerido[$detalle->libro_id] ?? 0) + $detalle->cantidad;
+            }
 
-                if (!$stock || $stock->cantidad_disponible < $detalle->cantidad) {
-                    $fresh->update(['estado' => 'cancelado', 'payment_id' => $paymentId]);
-                    return;
+            $stocks = Stock::whereIn('libro_id', array_keys($requerido))
+                ->lockForUpdate()
+                ->get()
+                ->groupBy('libro_id');
+
+            foreach ($requerido as $libroId => $cantFaltante) {
+                // 1. Tratar de cubrir con stock local
+                $stockLocal = $stocks[$libroId]->where('sucursal_id', $fresh->sucursal_id)->first();
+                
+                if ($stockLocal && $stockLocal->cantidad_disponible > 0) {
+                    $aDescontarLocal = min($stockLocal->cantidad_disponible, $cantFaltante);
+                    $stockLocal->decrement('cantidad_disponible', $aDescontarLocal);
+                    $cantFaltante -= $aDescontarLocal;
+                }
+
+                // 2. Si todavía falta, pedir traslados
+                if ($cantFaltante > 0) {
+                    $requiereTraslados = true;
+                    $otrasSucursales = $stocks[$libroId]->where('sucursal_id', '!=', $fresh->sucursal_id)
+                        ->sortByDesc('cantidad_disponible');
+
+                    foreach ($otrasSucursales as $otroStock) {
+                        if ($cantFaltante <= 0) break;
+                        if ($otroStock->cantidad_disponible <= 0) continue;
+
+                        $aTrasladar = min($otroStock->cantidad_disponible, $cantFaltante);
+                        $otroStock->decrement('cantidad_disponible', $aTrasladar);
+                        
+                        \App\Models\TransferenciaStock::create([
+                            'venta_id'            => $fresh->id,
+                            'libro_id'            => $libroId,
+                            'sucursal_origen_id'  => $otroStock->sucursal_id,
+                            'sucursal_destino_id' => $fresh->sucursal_id,
+                            'cantidad'            => $aTrasladar,
+                            'motivo'              => "Traslado automático por Venta Web #{$fresh->id}",
+                            'estado'              => 'pendiente',
+                            'user_id'             => Auth::id() ?? 1,
+                            'fecha'               => now(),
+                        ]);
+
+                        $cantFaltante -= $aTrasladar;
+                    }
                 }
             }
 
             $fresh->update([
-                'estado'     => 'en_preparacion',
+                'estado'     => $requiereTraslados ? 'esperando_traslado' : 'en_preparacion',
                 'payment_id' => $paymentId,
             ]);
-
-            foreach ($fresh->detalles as $detalle) {
-                Stock::where('libro_id', $detalle->libro_id)
-                    ->where('sucursal_id', $fresh->sucursal_id)
-                    ->decrement('cantidad_disponible', $detalle->cantidad);
-            }
         });
     }
 
