@@ -124,9 +124,8 @@ Route::middleware('auth')->group(function () {
         Route::resource('stocks', StockController::class)->except(['show', 'create', 'edit']);
         Route::get('logistica', [LogisticaController::class, 'index'])->name('logistica.index');
         Route::post('logistica', [LogisticaController::class, 'store'])->name('logistica.store');
-        
-        Route::get('transferencias', [\App\Http\Controllers\TransferenciaStockController::class, 'index'])->name('transferencias.index');
-        Route::post('transferencias/{transferencia}/recibir', [\App\Http\Controllers\TransferenciaStockController::class, 'recibir'])->name('transferencias.recibir');
+        Route::post('logistica/enviar/{traslado}', [LogisticaController::class, 'registrarEnvioVenta'])->name('logistica.enviar');
+        Route::post('logistica/recibir/{traslado}', [LogisticaController::class, 'registrarRecepcionVenta'])->name('logistica.recibir');
     });
 
     // Clientes

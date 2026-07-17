@@ -9,6 +9,8 @@ const props = defineProps({
     movimientos: Object,
     sucursales: Array,
     libros: Array,
+    trasladosAEnviar: Array,
+    trasladosARecibir: Array,
 });
 
 const isModalOpen = ref(false);
@@ -16,7 +18,6 @@ const expandedRow = ref(null);
 
 const form = useForm({
     tipo: 'ingreso_proveedor',
-    sucursal_origen_id: '',
     sucursal_destino_id: '',
     motivo: '',
     items: [],
@@ -28,7 +29,7 @@ const showLibroDropdown = ref(false);
 
 const librosFiltrados = computed(() => {
     if (!libroSearch.value) return [];
-    if (form.tipo === 'transferencia' && !form.sucursal_origen_id) return [];
+    if (form.tipo === 'egreso_manual' && !form.sucursal_destino_id) return [];
 
     const q = libroSearch.value.toLowerCase();
     return props.libros.filter(l => {
@@ -74,8 +75,11 @@ const movimientoColor = (tipo) => {
 
 const formatTipoMovimiento = (tipo) => {
     if (tipo === 'ingreso_proveedor') return 'Ingreso por Proveedor';
-    if (tipo === 'transferencia') return 'Transferencia';
+    if (tipo === 'ingreso_manual') return 'Ingreso Manual';
+    if (tipo === 'egreso_manual') return 'Egreso Manual';
     if (tipo === 'ajuste') return 'Ajuste Manual';
+    if (tipo === 'TRANSFERENCIA_SALIDA') return 'Envío por Venta';
+    if (tipo === 'TRANSFERENCIA_ENTRADA') return 'Recepción por Venta';
     return tipo;
 };
 
@@ -84,10 +88,10 @@ const toggleRow = (id) => {
 };
 
 const getMaxStock = (libro_id) => {
-    if (form.tipo !== 'transferencia' || !form.sucursal_origen_id) return null;
+    if (form.tipo !== 'egreso_manual' || !form.sucursal_destino_id) return null;
     const libro = props.libros.find(l => l.id === libro_id);
     if (!libro || !libro.stocks) return null;
-    const stock = libro.stocks.find(s => s.sucursal_id === form.sucursal_origen_id);
+    const stock = libro.stocks.find(s => s.sucursal_id === form.sucursal_destino_id);
     return stock ? stock.disponible : 0;
 };
 
@@ -150,7 +154,7 @@ const submit = () => {
     form.post(route('logistica.store'), {
         preserveScroll: true,
         onError: (errors) => {
-            const errorMsg = errors.error || errors.sucursal_destino_id || errors.sucursal_origen_id || 'Revisá los campos del formulario.';
+            const errorMsg = errors.error || errors.sucursal_destino_id || 'Revisá los campos del formulario.';
             Swal.fire({
                 title: 'No se pudo procesar',
                 text: errorMsg,
@@ -191,8 +195,67 @@ const submit = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                         </svg>
-                        REGISTRAR MOVIMIENTO
+                        REGISTRAR MOVIMIENTO MANUAL
                     </h3>
+                </div>
+
+                <!-- Traslados por Ventas Pendientes -->
+                <div v-if="trasladosAEnviar.length > 0 || trasladosARecibir.length > 0" class="space-y-6">
+                    <h3 class="text-xl font-black uppercase tracking-widest text-white/90 mb-4 border-b border-white/10 pb-2">
+                        Traslados Pendientes por <span class="text-brand-red">Ventas</span>
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <!-- A Enviar -->
+                        <div v-if="trasladosAEnviar.length > 0" class="card p-0 overflow-hidden border-yellow-500/30">
+                            <div class="bg-yellow-500/10 p-4 border-b border-yellow-500/20 flex items-center justify-between">
+                                <h4 class="text-sm font-black uppercase tracking-widest text-yellow-500">A Enviar (Egresos)</h4>
+                                <span class="bg-yellow-500 text-black text-[10px] font-black px-2 py-1 rounded">{{ trasladosAEnviar.length }} pendientes</span>
+                            </div>
+                            <div class="divide-y divide-white/5">
+                                <div v-for="t in trasladosAEnviar" :key="t.id" class="p-4 flex items-center justify-between bg-black/40 hover:bg-white/5 transition-colors">
+                                    <div>
+                                        <div class="text-xs font-bold text-white">{{ t.libro?.master?.titulo }} - Tomo {{ t.libro?.numero_tomo || 'Único' }}</div>
+                                        <div class="text-[10px] text-white/40 mt-1">Hacia: <strong class="text-white/80">{{ t.sucursal_destino?.nombre }}</strong> | Venta #{{ t.venta_id }}</div>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="text-center px-3 border-r border-white/10">
+                                            <span class="block text-[8px] uppercase tracking-widest text-white/30">Cant</span>
+                                            <span class="text-sm font-black text-yellow-500">{{ t.cantidad }}</span>
+                                        </div>
+                                        <Link :href="route('logistica.enviar', t.id)" method="post" as="button" preserve-scroll class="bg-yellow-500 hover:bg-yellow-400 text-black font-black text-[10px] px-4 py-2 rounded uppercase tracking-widest transition-colors">
+                                            Registrar Envío
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- A Recibir -->
+                        <div v-if="trasladosARecibir.length > 0" class="card p-0 overflow-hidden border-green-500/30">
+                            <div class="bg-green-500/10 p-4 border-b border-green-500/20 flex items-center justify-between">
+                                <h4 class="text-sm font-black uppercase tracking-widest text-green-500">A Recibir (Ingresos)</h4>
+                                <span class="bg-green-500 text-black text-[10px] font-black px-2 py-1 rounded">{{ trasladosARecibir.length }} en camino</span>
+                            </div>
+                            <div class="divide-y divide-white/5">
+                                <div v-for="t in trasladosARecibir" :key="t.id" class="p-4 flex items-center justify-between bg-black/40 hover:bg-white/5 transition-colors">
+                                    <div>
+                                        <div class="text-xs font-bold text-white">{{ t.libro?.master?.titulo }} - Tomo {{ t.libro?.numero_tomo || 'Único' }}</div>
+                                        <div class="text-[10px] text-white/40 mt-1">Desde: <strong class="text-white/80">{{ t.sucursal_origen?.nombre }}</strong> | Venta #{{ t.venta_id }}</div>
+                                    </div>
+                                    <div class="flex items-center gap-3">
+                                        <div class="text-center px-3 border-r border-white/10">
+                                            <span class="block text-[8px] uppercase tracking-widest text-white/30">Cant</span>
+                                            <span class="text-sm font-black text-green-500">{{ t.cantidad }}</span>
+                                        </div>
+                                        <Link :href="route('logistica.recibir', t.id)" method="post" as="button" preserve-scroll class="bg-green-500 hover:bg-green-400 text-black font-black text-[10px] px-4 py-2 rounded uppercase tracking-widest transition-colors">
+                                            Registrar Recepción
+                                        </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Historial -->
@@ -323,27 +386,18 @@ const submit = () => {
                         <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-red mb-2">Tipo de Operación</label>
                         <select v-model="form.tipo" @change="form.clearErrors()" class="input-field w-full bg-black/40 uppercase font-bold text-xs cursor-pointer">
                             <option value="ingreso_proveedor">Ingreso por Proveedor</option>
-                            <option value="transferencia">Transferencia entre Sucursales</option>
-                            <option value="ajuste">Ajuste Manual</option>
+                            <option value="ingreso_manual">Ingreso Manual</option>
+                            <option value="egreso_manual">Egreso Manual</option>
+                            <option value="ajuste">Ajuste de Inventario</option>
                         </select>
                     </div>
 
-                    <!-- Origen (Solo Transferencia) -->
-                    <div v-if="form.tipo === 'transferencia'" class="md:col-span-4">
-                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-2">Origen</label>
-                        <select v-model="form.sucursal_origen_id" class="input-field w-full text-xs" :class="{'border-brand-red': form.errors.sucursal_origen_id}">
-                            <option value="">Seleccionar...</option>
-                            <option v-for="s in sucursales" :key="s.id" :value="s.id" :disabled="form.tipo === 'transferencia' && s.id === form.sucursal_destino_id">{{ s.nombre }}</option>
-                        </select>
-                        <div v-if="form.errors.sucursal_origen_id" class="text-brand-red text-[10px] mt-1">{{ form.errors.sucursal_origen_id }}</div>
-                    </div>
-
-                    <!-- Destino -->
-                    <div :class="form.tipo === 'transferencia' ? 'md:col-span-4' : 'md:col-span-8'">
-                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-2">Destino</label>
+                    <!-- Destino/Sucursal -->
+                    <div class="md:col-span-8">
+                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-2">Sucursal</label>
                         <select v-model="form.sucursal_destino_id" class="input-field w-full text-xs" :class="{'border-brand-red': form.errors.sucursal_destino_id}">
                             <option value="">Seleccionar...</option>
-                            <option v-for="s in sucursales" :key="s.id" :value="s.id" :disabled="form.tipo === 'transferencia' && s.id === form.sucursal_origen_id">{{ s.nombre }}</option>
+                            <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
                         </select>
                         <div v-if="form.errors.sucursal_destino_id" class="text-brand-red text-[10px] mt-1">{{ form.errors.sucursal_destino_id }}</div>
                     </div>
@@ -357,11 +411,11 @@ const submit = () => {
                                 @input="showLibroDropdown = true"
                                 @focus="showLibroDropdown = true"
                                 type="text"
-                                :placeholder="(form.tipo === 'transferencia' && (!form.sucursal_origen_id || !form.sucursal_destino_id)) ? 'Seleccione origen y destino primero...' : 'Buscar LIBRO por título, ISBN o autor...'"
-                                :disabled="form.tipo === 'transferencia' && (!form.sucursal_origen_id || !form.sucursal_destino_id)"
+                                :placeholder="(form.tipo === 'egreso_manual' && !form.sucursal_destino_id) ? 'Seleccione sucursal primero...' : 'Buscar LIBRO por título, ISBN o autor...'"
+                                :disabled="form.tipo === 'egreso_manual' && !form.sucursal_destino_id"
                                 autocomplete="off"
                                 class="input-field w-full bg-black/40 text-xs font-bold py-3"
-                                :class="{'opacity-50 cursor-not-allowed': form.tipo === 'transferencia' && (!form.sucursal_origen_id || !form.sucursal_destino_id)}"
+                                :class="{'opacity-50 cursor-not-allowed': form.tipo === 'egreso_manual' && !form.sucursal_destino_id}"
                             >
                             <button type="button" @click="scanIsbn" v-if="form.tipo === 'ingreso_proveedor'" class="bg-brand-red/20 text-brand-red hover:bg-brand-red hover:text-white transition-colors border border-brand-red/30 px-4 rounded font-black text-[10px] uppercase tracking-widest whitespace-nowrap flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -374,14 +428,14 @@ const submit = () => {
                             <div
                                 v-for="l in librosFiltrados"
                                 :key="l.id"
-                                @mousedown.prevent="form.tipo === 'transferencia' && (l.stocks?.find(s => s.sucursal_id === form.sucursal_origen_id)?.disponible || 0) <= 0 ? null : selectLibro(l)"
+                                @mousedown.prevent="form.tipo === 'egreso_manual' && (l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0) <= 0 ? null : selectLibro(l)"
                                 class="px-4 py-3 border-b border-white/5 last:border-0 transition-colors"
-                                :class="form.tipo === 'transferencia' && (l.stocks?.find(s => s.sucursal_id === form.sucursal_origen_id)?.disponible || 0) <= 0 ? 'opacity-30 cursor-not-allowed bg-black/40' : 'cursor-pointer hover:bg-brand-red/10 hover:text-brand-red'"
+                                :class="form.tipo === 'egreso_manual' && (l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0) <= 0 ? 'opacity-30 cursor-not-allowed bg-black/40' : 'cursor-pointer hover:bg-brand-red/10 hover:text-brand-red'"
                             >
                                 <div class="text-xs font-black uppercase flex justify-between items-center gap-4">
                                     <span>{{ l.titulo }}</span>
-                                    <span v-if="form.tipo === 'transferencia'" class="italic text-[10px] whitespace-nowrap" :class="(l.stocks?.find(s => s.sucursal_id === form.sucursal_origen_id)?.disponible || 0) > 0 ? 'text-brand-red' : 'text-white/40'">
-                                        ({{ l.stocks?.find(s => s.sucursal_id === form.sucursal_origen_id)?.disponible || 0 }} disponibles)
+                                    <span v-if="form.tipo === 'egreso_manual'" class="italic text-[10px] whitespace-nowrap" :class="(l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0) > 0 ? 'text-brand-red' : 'text-white/40'">
+                                        ({{ l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0 }} disponibles)
                                     </span>
                                 </div>
                                 <div class="text-[9px] text-white/30 font-mono mt-1 block">ISBN: {{ l.isbn || 'S/I' }} — {{ l.autor }}</div>

@@ -24,9 +24,7 @@ const getStockStatus = (variante) => {
     return 'disponible';
 };
 
-const MAX_POR_COMPRA = 5;
-
-const getLimite = (variante) => Math.min(MAX_POR_COMPRA, getStockTotal(variante));
+const getLimite = (variante) => getStockTotal(variante);
 
 const getCantidad = (varianteId) => cantidades.value[varianteId] ?? 1;
 

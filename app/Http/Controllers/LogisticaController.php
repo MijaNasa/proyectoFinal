@@ -40,44 +40,55 @@ class LogisticaController extends Controller
                 ];
             });
 
+        // Obtener la sucursal del empleado activo
+        $empleado = auth()->user()->empleado;
+        $sucursalId = $empleado ? $empleado->sucursal_id : Sucursal::first()->id;
+
+        // Traslados por Ventas Pendientes (Solo los que tienen venta_id)
+        $trasladosAEnviar = TransferenciaStock::with(['libro.master', 'sucursalDestino', 'venta'])
+            ->whereNotNull('venta_id')
+            ->where('sucursal_origen_id', $sucursalId)
+            ->where('estado', 'pendiente_envio')
+            ->get();
+
+        $trasladosARecibir = TransferenciaStock::with(['libro.master', 'sucursalOrigen', 'venta'])
+            ->whereNotNull('venta_id')
+            ->where('sucursal_destino_id', $sucursalId)
+            ->where('estado', 'en_transito')
+            ->get();
+
         return inertia('Logistica/Index', [
             'movimientos' => $movimientos,
             'sucursales' => Sucursal::where('activo', true)->get(['id', 'nombre']),
             'libros' => $libros,
+            'trasladosAEnviar' => $trasladosAEnviar,
+            'trasladosARecibir' => $trasladosARecibir,
         ]);
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'tipo' => 'required|in:ingreso_proveedor,transferencia,ajuste',
-            'sucursal_destino_id' => 'required_if:tipo,ingreso_proveedor,ajuste,transferencia|nullable|exists:sucursales,id',
-            'sucursal_origen_id' => 'required_if:tipo,transferencia|nullable|exists:sucursales,id',
+            'tipo' => 'required|in:ingreso_proveedor,ingreso_manual,egreso_manual,ajuste',
+            'sucursal_destino_id' => 'required_if:tipo,ingreso_proveedor,ingreso_manual,egreso_manual,ajuste|nullable|exists:sucursales,id',
             'motivo' => 'nullable|string|max:1000',
             'items' => 'required|array|min:1',
             'items.*.libro_id' => 'required|exists:libros,id',
             'items.*.cantidad' => 'required|integer',
             'items.*.costo_unitario' => 'required_if:tipo,ingreso_proveedor|nullable|numeric|min:0',
-        ], [
-            'sucursal_origen_id.required_if' => 'La sucursal de origen es obligatoria para transferencias.',
-            'sucursal_destino_id.required_if' => 'La sucursal de destino es obligatoria.',
-            'items.*.costo_unitario.required_if' => 'Debe ingresar el costo unitario para calcular el PPP en todos los libros.',
         ]);
-
-        if ($request->tipo === 'transferencia' && $request->sucursal_origen_id == $request->sucursal_destino_id) {
-            return back()->withErrors(['sucursal_destino_id' => 'La sucursal de destino debe ser diferente a la de origen.']);
-        }
 
         try {
             DB::beginTransaction();
 
             $tipo = $request->tipo;
+            $sucursalId = $request->sucursal_destino_id;
 
             // 1. Crear Cabecera
             $movimiento = MovimientoStock::create([
                 'tipo' => $tipo,
-                'sucursal_origen_id' => $request->sucursal_origen_id,
-                'sucursal_destino_id' => $request->sucursal_destino_id,
+                'sucursal_origen_id' => ($tipo === 'egreso_manual') ? $sucursalId : null,
+                'sucursal_destino_id' => ($tipo === 'egreso_manual') ? null : $sucursalId,
                 'user_id' => auth()->id(),
                 'motivo' => $request->motivo
             ]);
@@ -95,35 +106,25 @@ class LogisticaController extends Controller
                     throw new \Exception('La cantidad debe ser mayor a 0 para el libro ' . $libro->master->titulo);
                 }
 
-                // Transferencia: Restar del origen
-                if ($tipo === 'transferencia') {
-                    $stockOrigen = Stock::where('libro_id', $libro->id)
-                        ->where('sucursal_id', $request->sucursal_origen_id)
-                        ->lockForUpdate()
-                        ->first();
+                // Sumar/Restar al destino/origen
+                $stock = Stock::firstOrCreate(
+                    ['libro_id' => $libro->id, 'sucursal_id' => $sucursalId],
+                    ['cantidad_disponible' => 0, 'cantidad_reservada' => 0]
+                );
 
-                    if (!$stockOrigen || $stockOrigen->cantidad_disponible < $cantidad) {
-                        throw new \Exception('Stock insuficiente en la sucursal de origen para el libro ' . $libro->master->titulo);
+                if ($tipo === 'egreso_manual') {
+                    if ($stock->cantidad_disponible < $cantidad) {
+                        throw new \Exception('Stock insuficiente para el egreso manual del libro ' . $libro->master->titulo);
                     }
-                    
-                    $stockOrigen->cantidad_disponible -= $cantidad;
-                    $stockOrigen->save();
-                }
-
-                // Sumar/Ajustar al destino (Solo ingresos y ajustes, las transferencias quedan pendientes)
-                if (in_array($tipo, ['ingreso_proveedor', 'ajuste'])) {
-                    $stockDestino = Stock::firstOrCreate(
-                        ['libro_id' => $libro->id, 'sucursal_id' => $request->sucursal_destino_id],
-                        ['cantidad_disponible' => 0, 'cantidad_reservada' => 0]
-                    );
-
-                    $stockDestino->cantidad_disponible += $cantidad;
-                    
-                    if ($stockDestino->cantidad_disponible < 0) {
+                    $stock->cantidad_disponible -= $cantidad;
+                } else if ($tipo === 'ingreso_manual' || $tipo === 'ingreso_proveedor' || $tipo === 'ajuste') {
+                    $stock->cantidad_disponible += $cantidad;
+                    if ($stock->cantidad_disponible < 0) {
                         throw new \Exception('El ajuste resultaría en stock negativo para ' . $libro->master->titulo);
                     }
-                    $stockDestino->save();
                 }
+                
+                $stock->save();
 
                 // Recalcular PPP si es Ingreso por Proveedor
                 if ($tipo === 'ingreso_proveedor' && $costo_unitario !== null) {
@@ -137,37 +138,22 @@ class LogisticaController extends Controller
                     'costo_unitario' => $costo_unitario,
                 ]);
 
-                // Si es transferencia, registramos en TransferenciaStock
-                if ($tipo === 'transferencia') {
-                    TransferenciaStock::create([
-                        'venta_id' => null,
-                        'libro_id' => $libro->id,
-                        'sucursal_origen_id' => $request->sucursal_origen_id,
-                        'sucursal_destino_id' => $request->sucursal_destino_id,
-                        'cantidad' => $cantidad,
-                        'estado' => 'pendiente',
-                        'fecha' => now()
-                    ]);
-                }
-
-                // Notificar suscripciones si es Ingreso por Proveedor
-                if ($tipo === 'ingreso_proveedor') {
+                // Notificar suscripciones si es Ingreso por Proveedor o Ingreso Manual
+                if (in_array($tipo, ['ingreso_proveedor', 'ingreso_manual'])) {
                     $suscripciones = \App\Models\Suscripcion::where('libro_master_id', $libro->master_id)
                         ->where('estado', 'activa')
-                        ->where('sucursal_id', $request->sucursal_destino_id)
+                        ->where('sucursal_id', $sucursalId)
                         ->with('cliente.user')
                         ->get();
 
                     if ($suscripciones->isNotEmpty()) {
                         $clientes = $suscripciones->map(fn($s) => $s->cliente);
 
-                        // Avisar a cada cliente suscripto
                         foreach ($clientes as $cliente) {
-                            $cliente->user?->notify(new \App\Notifications\TomoIngresadoNotification($cliente, $libro, $request->sucursal_destino_id));
+                            $cliente->user?->notify(new \App\Notifications\TomoIngresadoNotification($cliente, $libro, $sucursalId));
                         }
 
-                        // Y un resumen al empleado que cargo el stock
-                        $request->user()->notify(new \App\Notifications\ClientesNotificadosIngresoNotification($libro, $request->sucursal_destino_id, $clientes));
+                        $request->user()->notify(new \App\Notifications\ClientesNotificadosIngresoNotification($libro, $sucursalId, $clientes));
                     }
                 }
             }
@@ -178,7 +164,96 @@ class LogisticaController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return back()->withErrors(['error' => $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
+        }
+    }
+
+    public function registrarEnvioVenta(TransferenciaStock $traslado)
+    {
+        if ($traslado->estado !== 'pendiente_envio') {
+            return back()->withErrors(['error' => 'Este traslado ya fue procesado o cancelado.']);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $traslado->update(['estado' => 'en_transito']);
+
+            // Descontar stock de la sucursal origen
+            $stock = Stock::where('libro_id', $traslado->libro_id)
+                ->where('sucursal_id', $traslado->sucursal_origen_id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$stock || $stock->cantidad_disponible < $traslado->cantidad) {
+                throw new \Exception('Stock insuficiente para realizar el envío.');
+            }
+
+            $stock->cantidad_disponible -= $traslado->cantidad;
+            $stock->save();
+
+            // Registrar movimiento de egreso
+            $movimiento = MovimientoStock::create([
+                'tipo' => 'TRANSFERENCIA_SALIDA',
+                'sucursal_origen_id' => $traslado->sucursal_origen_id,
+                'sucursal_destino_id' => $traslado->sucursal_destino_id,
+                'user_id' => auth()->id(),
+                'motivo' => 'Envío por Venta #' . $traslado->venta_id
+            ]);
+
+            $movimiento->detalles()->create([
+                'libro_id' => $traslado->libro_id,
+                'cantidad' => $traslado->cantidad,
+            ]);
+
+            DB::commit();
+            return back()->with('message', 'Envío registrado correctamente.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
+        }
+    }
+
+    public function registrarRecepcionVenta(TransferenciaStock $traslado)
+    {
+        if ($traslado->estado !== 'en_transito') {
+            return back()->withErrors(['error' => 'Este traslado no está en tránsito.']);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $traslado->update(['estado' => 'completado']);
+
+            // Sumar stock en la sucursal destino
+            $stock = Stock::firstOrCreate(
+                ['libro_id' => $traslado->libro_id, 'sucursal_id' => $traslado->sucursal_destino_id],
+                ['cantidad_disponible' => 0, 'cantidad_reservada' => 0]
+            );
+
+            $stock->cantidad_disponible += $traslado->cantidad;
+            // Si la venta lo reserva, habría que manejarlo, pero por ahora lo sumamos a disponible y la venta luego lo consumirá o lo entregará.
+            $stock->save();
+
+            // Registrar movimiento de ingreso
+            $movimiento = MovimientoStock::create([
+                'tipo' => 'TRANSFERENCIA_ENTRADA',
+                'sucursal_origen_id' => $traslado->sucursal_origen_id,
+                'sucursal_destino_id' => $traslado->sucursal_destino_id,
+                'user_id' => auth()->id(),
+                'motivo' => 'Recepción por Venta #' . $traslado->venta_id
+            ]);
+
+            $movimiento->detalles()->create([
+                'libro_id' => $traslado->libro_id,
+                'cantidad' => $traslado->cantidad,
+            ]);
+
+            DB::commit();
+            return back()->with('message', 'Recepción registrada correctamente.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
         }
     }
 }
