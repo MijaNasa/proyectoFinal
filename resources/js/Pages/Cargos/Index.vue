@@ -87,7 +87,7 @@ const deleteCargo = (cargo) => {
 
 // Colores por cargo
 const colorCargo = (nombre) => {
-    const map = { ADMIN: 'bg-brand-red/20 text-brand-red border-brand-red/30', GERENTE: 'bg-blue-500/20 text-blue-400 border-blue-500/30', VENDEDOR: 'bg-green-500/20 text-green-400 border-green-500/30', DEPOSITO: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' };
+    const map = { ADMIN: 'bg-brand-red/20 text-brand-red border-brand-red/30', GERENTE: 'bg-blue-500/20 text-blue-400 border-blue-500/30', VENDEDOR: 'bg-green-500/20 text-green-400 border-green-500/30' };
     return map[nombre] || 'bg-white/10 text-white/60 border-white/10';
 };
 </script>

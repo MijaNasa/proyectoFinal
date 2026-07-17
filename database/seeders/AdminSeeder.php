@@ -34,11 +34,13 @@ class AdminSeeder extends Seeder
             );
 
             \App\Models\Sucursal::firstOrCreate(
-                ['es_deposito_central' => true],
+                ['activo' => true],
                 [
-                    'nombre'              => 'Sucursal Central',
-                    'ciudad_id'           => $ciudad->id,
-                    'activo'              => true,
+                    'nombre'              => 'Sucursal Única',
+                    'direccion'           => 'Dirección Principal 123',
+                    'ciudad_id'           => 1, // Asumiendo que 1 es CABA o algo válido
+                    'telefono'            => '1122334455',
+                    'email'               => 'sucursal@ejemplo.com',
                 ]
             );
 
@@ -70,8 +72,7 @@ class AdminSeeder extends Seeder
         $cargo = Cargo::where('nombre', 'ADMIN')->first();
         if (!$cargo) return;
 
-        $sucursal = Sucursal::where('es_deposito_central', true)->first()
-            ?? Sucursal::where('activo', true)->first();
+        $sucursal = Sucursal::first();
         if (!$sucursal) return;
 
         $empleado = $user->empleado ?? $user->empleado()->create([

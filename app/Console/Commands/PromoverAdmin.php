@@ -36,8 +36,7 @@ class PromoverAdmin extends Command
             $empleado = $user->empleado;
 
             if (!$empleado) {
-                $sucursal = Sucursal::where('es_deposito_central', true)->first()
-                    ?? Sucursal::where('activo', true)->first();
+                $sucursal = Sucursal::where('activo', true)->first();
 
                 $empleado = $user->empleado()->create([
                     'legajo'      => 'ADM-' . $user->id,

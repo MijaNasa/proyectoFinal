@@ -59,14 +59,6 @@ class CargoPermisoSeeder extends Seeder
             $todos->only(['dashboard.acceder', 'ventas.acceder', 'caja.acceder', 'clientes.acceder', 'catalogo.acceder', 'colecciones.acceder', 'repartos.acceder'])->values()->toArray()
         );
 
-        $deposito = Cargo::firstOrCreate(
-            ['nombre' => 'DEPOSITO'],
-            ['descripcion' => 'Personal de depósito y logística', 'activo' => true]
-        );
-        $deposito->permisos()->sync(
-            $todos->only(['dashboard.acceder', 'stock.acceder', 'proveedores.acceder', 'colecciones.acceder', 'catalogo.acceder'])->values()->toArray()
-        );
-
         // 3. Asignar cargo ADMIN al usuario administrador
         $adminUser = User::where('email', 'admin@purocomic.com')->first();
         if (!$adminUser) return;

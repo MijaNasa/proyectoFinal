@@ -23,7 +23,6 @@ return new class extends Migration
             $table->foreignId('ciudad_id')->constrained('ciudades');
             $table->string('telefono')->nullable();
             $table->string('email')->nullable();
-            $table->boolean('es_deposito_central')->default(false);
             $table->boolean('activo')->default(true);
             $table->timestamps();
             $table->softDeletes();

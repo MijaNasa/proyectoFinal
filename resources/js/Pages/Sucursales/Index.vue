@@ -24,7 +24,6 @@ const form = useForm({
     codigo_postal: '',
     telefono: '',
     email: '',
-    es_deposito_central: false,
     activo: true
 });
 
@@ -43,8 +42,7 @@ const openModal = (sucursal = null) => {
         form.departamento = sucursal.departamento || '';
         form.codigo_postal = sucursal.codigo_postal || '';
         form.telefono = sucursal.telefono || '';
-        form.email = sucursal.email || '';
-        form.es_deposito_central = !!sucursal.es_deposito_central;
+        form.email = sucursal.email;
         form.activo = !!sucursal.activo;
     } else {
         isEditing.value = false;
@@ -145,14 +143,9 @@ watch(search, (value) => {
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div v-for="sucursal in sucursales.data" :key="sucursal.id" class="card p-0 overflow-hidden group">
-                        <div class="bg-gradient-to-r p-1" :class="sucursal.es_deposito_central ? 'from-brand-red to-orange-600' : 'from-white/10 to-white/5'">
+                        <div class="bg-gradient-to-r p-1 from-white/10 to-white/5">
                             <div class="bg-brand-surface p-6 rounded-sm h-full flex flex-col justify-between">
                                 <div>
-                                    <div class="flex justify-end items-start mb-4">
-                                        <div v-if="sucursal.es_deposito_central" class="bg-brand-red text-white px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider">
-                                            Depósito Central
-                                        </div>
-                                    </div>
                                     <h3 class="text-2xl font-black uppercase tracking-tighter text-white group-hover:text-brand-red transition-colors mb-2">
                                         {{ sucursal.nombre }}
                                     </h3>
@@ -275,11 +268,7 @@ watch(search, (value) => {
                             </div>
 
                             <div class="space-y-4 pt-4 border-t border-white/5">
-                                <div class="flex items-center gap-3">
-                                    <input type="checkbox" v-model="form.es_deposito_central" id="is_main" class="rounded-sm border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
-                                    <label for="is_main" class="text-xs font-black uppercase tracking-widest text-white/80 cursor-pointer">Depósito Central</label>
-                                </div>
-                                <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-2 p-3 bg-white/5 rounded border border-white/5">
                                     <input type="checkbox" v-model="form.activo" id="suc_activa" class="rounded-sm border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
                                     <label for="suc_activa" class="text-xs font-black uppercase tracking-widest text-white/80 cursor-pointer">Sucursal Operativa</label>
                                 </div>

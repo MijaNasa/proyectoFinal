@@ -23,8 +23,7 @@ class SucursalFactory extends Factory
             'calle' => $this->faker->streetName(),
             'numero' => $this->faker->buildingNumber(),
             'telefono' => $this->faker->phoneNumber(),
-            'email' => $this->faker->companyEmail(),
-            'es_deposito_central' => false,
+            'email' => $this->faker->unique()->safeEmail(),
             'activo' => true,
         ];
     }

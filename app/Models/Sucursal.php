@@ -18,7 +18,7 @@ class Sucursal extends Model
     protected $fillable = [
         'nombre', 'codigo', 'calle', 'numero', 'piso', 
         'departamento', 'codigo_postal', 'ciudad_id', 
-        'telefono', 'email', 'es_deposito_central', 'activo'
+        'telefono', 'email', 'activo'
     ];
 
     public function ciudad(): BelongsTo
