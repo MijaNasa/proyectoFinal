@@ -164,7 +164,58 @@ class LogisticaController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            return redirect()->back()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
+            return redirect()->back()->withErrors(['error' => $e->getMessage()]);
+        }
+    }
+
+    public function destroy($id)
+    {
+        try {
+            DB::beginTransaction();
+
+            $movimiento = MovimientoStock::with('detalles')->findOrFail($id);
+
+            // Cannot undo a transferencia sale directly from here if it has complex logic, 
+            // but we can undo manual ingress/egress.
+            if ($movimiento->tipo === 'TRANSFERENCIA_SALIDA' || $movimiento->tipo === 'TRANSFERENCIA_ENTRADA') {
+                throw new \Exception('No se puede deshacer un movimiento de logística automático por ventas desde aquí.');
+            }
+
+            foreach ($movimiento->detalles as $detalle) {
+                $sucursalId = $movimiento->tipo === 'egreso_manual' ? $movimiento->sucursal_origen_id : $movimiento->sucursal_destino_id;
+                
+                $stock = Stock::firstOrCreate(
+                    ['libro_id' => $detalle->libro_id, 'sucursal_id' => $sucursalId],
+                    ['cantidad_disponible' => 0, 'cantidad_reservada' => 0]
+                );
+
+                if ($movimiento->tipo === 'egreso_manual') {
+                    // Reverse egress = Add stock
+                    $stock->cantidad_disponible += $detalle->cantidad;
+                } else if ($movimiento->tipo === 'ingreso_manual' || $movimiento->tipo === 'ingreso_proveedor' || $movimiento->tipo === 'ajuste') {
+                    // Reverse ingress/adjustment = Subtract stock
+                    $stock->cantidad_disponible -= $detalle->cantidad;
+                    if ($stock->cantidad_disponible < 0) {
+                        throw new \Exception('Deshacer este movimiento resultaría en stock negativo para el libro.');
+                    }
+                }
+                
+                $stock->save();
+                
+                // Si fue ingreso por proveedor, deshacer PPP no es trivial, lo dejamos como está 
+                // ya que requiere historial de costos previos que no guardamos.
+            }
+
+            $movimiento->detalles()->delete();
+            $movimiento->delete();
+
+            DB::commit();
+
+            return redirect()->back()->with('message', 'Movimiento deshecho correctamente.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->withErrors(['error' => $e->getMessage()]);
         }
     }
 

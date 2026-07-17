@@ -226,8 +226,6 @@ const getObraTotal = (obra) => {
     let total = 0;
     obra.libros.forEach(tomo => {
         tomo.stocks.forEach(st => {
-            // Si hay un filtro de sucursal activo, sumar solo de esa sucursal
-            if (sucursal_id.value && st.sucursal_id != sucursal_id.value) return;
             total += st.cantidad_disponible;
         });
     });
@@ -264,13 +262,6 @@ const getTomoStockColor = (qty) => {
                 <!-- Filtros -->
                 <div class="card mb-8">
                     <div class="flex flex-col md:flex-row items-center gap-4">
-                        <div class="w-full md:w-1/3">
-                            <label class="block text-[10px] font-black uppercase text-brand-red mb-1 ml-1 tracking-widest">Sucursal</label>
-                            <select v-model="sucursal_id" @change="handleSucursalChange" class="input-field w-full bg-brand-surface font-bold uppercase text-xs">
-                                <option value="">Todas las sucursales</option>
-                                <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
-                            </select>
-                        </div>
                         <div class="flex-1 w-full">
                             <label class="block text-[10px] font-black uppercase text-brand-red mb-1 ml-1 tracking-widest">Buscar Título o ISBN</label>
                             <input 
