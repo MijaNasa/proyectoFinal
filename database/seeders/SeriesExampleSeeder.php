@@ -93,6 +93,9 @@ class SeriesExampleSeeder extends Seeder
                         'titulo_original' => $data['serie'] . ' Vol ' . $i,
                         'autor_id' => $autor->id,
                         'categoria_id' => $categoria->id,
+                        'editorial_id' => $data['editorial']->id,
+                        'idioma_id' => $idioma->id,
+                        'formato' => $data['formato'],
                         'activo' => true
                     ]
                 );
@@ -101,16 +104,13 @@ class SeriesExampleSeeder extends Seeder
                 $libro = Libro::firstOrCreate(
                     [
                         'master_id' => $master->id,
-                        'editorial_id' => $data['editorial']->id,
                         'serie_id' => $serie->id,
                         'numero_tomo' => $i
                     ],
                     [
                         'isbn' => '978-' . rand(1000000000, 9999999999),
-                        'idioma_id' => $idioma->id,
                         'año_edicion' => rand(2015, 2024),
                         'cantidad_paginas' => rand(190, 220),
-                        'formato' => $data['formato'],
                         'activo' => true
                     ]
                 );

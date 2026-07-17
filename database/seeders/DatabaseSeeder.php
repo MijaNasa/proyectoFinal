@@ -49,13 +49,13 @@ class DatabaseSeeder extends Seeder
             $libroMasters = \App\Models\LibroMaster::factory()->count(5)->create([
                 'autor_id' => $autores->random()->id,
                 'categoria_id' => \App\Models\Categoria::inRandomOrder()->first()->id,
+                'editorial_id' => $editorial->id,
+                'idioma_id' => \App\Models\Idioma::inRandomOrder()->first()->id,
             ]);
 
             foreach ($libroMasters as $master) {
                 $libro = \App\Models\Libro::factory()->create([
                     'master_id' => $master->id,
-                    'editorial_id' => $editorial->id,
-                    'idioma_id' => \App\Models\Idioma::inRandomOrder()->first()->id,
                 ]);
 
                 // Crear precio actual

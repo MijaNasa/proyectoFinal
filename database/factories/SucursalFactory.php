@@ -19,7 +19,6 @@ class SucursalFactory extends Factory
     {
         return [
             'nombre' => 'Sucursal ' . $this->faker->city(),
-            'codigo' => strtoupper($this->faker->unique()->lexify('SUC-???')),
             'ciudad_id' => Ciudad::inRandomOrder()->first()?->id ?: null,
             'calle' => $this->faker->streetName(),
             'numero' => $this->faker->buildingNumber(),
