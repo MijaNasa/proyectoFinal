@@ -685,7 +685,7 @@ const estadoConfig = {
                                     <option value="Transferencia">Transferencia</option>
                                     <option value="Tarjeta">Tarjeta</option>
                                     <option value="Débito">Débito</option>
-                                    <option value="Cuenta Corriente">Cuenta Corriente</option>
+                                    <option value="Mercado Pago">Mercado Pago</option>
                                 </select>
                             </div>
                             <div>

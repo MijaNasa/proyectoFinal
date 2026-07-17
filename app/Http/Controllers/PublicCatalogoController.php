@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\LibroMaster;
+use App\Models\Libro;
 use App\Models\Categoria;
 use App\Models\Autor;
 use App\Models\Serie;
@@ -15,47 +16,66 @@ class PublicCatalogoController extends Controller
 {
     public function index(Request $request)
     {
-        $query = LibroMaster::query()
+        $query = Libro::query()
             ->with([
-                'autor',
-                'categoria',
-                'editorial',
-                'idioma',
-                'libros' => function ($q) {
-                    $q->with(['precioActual', 'serie', 'stocks.sucursal']);
-                },
+                'master.autor',
+                'master.categoria',
+                'master.editorial',
+                'master.idioma',
+                'serie',
+                'precioActual',
+                'stocks.sucursal'
             ])
+            ->whereHas('master', function ($q) {
+                $q->where('activo', true);
+            })
             ->where('activo', true);
 
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
-                $q->where('titulo', 'like', "%{$search}%")
-                  ->orWhere('titulo_original', 'like', "%{$search}%");
+                $q->where('isbn', 'like', "%{$search}%")
+                  ->orWhereHas('master', function ($q2) use ($search) {
+                      $q2->where('titulo', 'like', "%{$search}%")
+                         ->orWhere('titulo_original', 'like', "%{$search}%");
+                  });
             });
         }
 
         if ($request->filled('categoria')) {
-            $query->where('categoria_id', $request->categoria);
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('categoria_id', $request->categoria);
+            });
         }
 
         if ($request->filled('autor')) {
-            $query->where('autor_id', $request->autor);
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('autor_id', $request->autor);
+            });
         }
 
         if ($request->filled('serie')) {
-            $query->whereHas('libros', fn($q) => $q->where('serie_id', $request->serie));
+            $query->where('serie_id', $request->serie);
         }
 
         if ($request->filled('editorial')) {
-            $query->whereHas('libros', fn($q) => $q->where('editorial_id', $request->editorial));
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('editorial_id', $request->editorial);
+            });
         }
 
         if ($request->filled('idioma')) {
-            $query->whereHas('libros', fn($q) => $q->where('idioma_id', $request->idioma));
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('idioma_id', $request->idioma);
+            });
         }
 
-        $libros = $query->latest()->paginate(24)->withQueryString();
+        $query->withSum('stocks', 'cantidad_disponible');
+
+        $libros = $query->orderByRaw('COALESCE(stocks_sum_cantidad_disponible, 0) > 0 DESC')
+                        ->latest()
+                        ->paginate(24)
+                        ->withQueryString();
 
         return Inertia::render('Catalogo/Index', [
             'libros'      => $libros,
@@ -70,18 +90,48 @@ class PublicCatalogoController extends Controller
 
     public function show($id)
     {
-        $libroMaster = LibroMaster::where('activo', true)->with([
-            'autor',
-            'categoria',
-            'editorial',
-            'idioma',
-            'libros' => function ($q) {
-                $q->with(['serie', 'precioActual', 'stocks.sucursal']);
-            },
-        ])->findOrFail($id);
+        $libro = Libro::with([
+            'master.autor',
+            'master.categoria',
+            'master.editorial',
+            'master.idioma',
+            'serie',
+            'precioActual',
+            'stocks.sucursal'
+        ])
+        ->whereHas('master', function ($q) {
+            $q->where('activo', true);
+        })
+        ->where('activo', true)
+        ->findOrFail($id);
+
+        // Fetch related books (from the same series, or same category if no series)
+        $relacionados = collect();
+        if ($libro->serie_id) {
+            $relacionados = Libro::with(['master.autor', 'serie', 'precioActual', 'stocks'])
+                ->where('serie_id', $libro->serie_id)
+                ->where('id', '!=', $libro->id)
+                ->where('activo', true)
+                ->whereHas('master', fn($q) => $q->where('activo', true))
+                ->orderBy('numero_tomo')
+                ->take(6)
+                ->get();
+        } else {
+            $relacionados = Libro::with(['master.autor', 'serie', 'precioActual', 'stocks'])
+                ->whereHas('master', function ($q) use ($libro) {
+                    $q->where('categoria_id', $libro->master->categoria_id)
+                      ->where('activo', true);
+                })
+                ->where('id', '!=', $libro->id)
+                ->where('activo', true)
+                ->inRandomOrder()
+                ->take(6)
+                ->get();
+        }
 
         return Inertia::render('Catalogo/Show', [
-            'libroMaster' => $libroMaster,
+            'libro' => $libro,
+            'relacionados' => $relacionados,
         ]);
     }
 }

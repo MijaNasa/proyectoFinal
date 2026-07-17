@@ -86,8 +86,7 @@ const removeChip = (chip) => {
 const hayFiltrosActivos = computed(() => search.value || activeChips.value.length);
 
 const getStockTotal = (libro) =>
-    libro.libros?.reduce((acc, l) =>
-        acc + (l.stocks?.reduce((s, st) => s + (st.cantidad_disponible ?? 0), 0) ?? 0), 0) ?? 0;
+    libro.stocks?.reduce((s, st) => s + (st.cantidad_disponible ?? 0), 0) ?? 0;
 
 const getStockStatus = (libro) => {
     const total = getStockTotal(libro);
@@ -101,28 +100,24 @@ const stockClass = { disponible: 'text-green-400', pocos: 'text-yellow-400', sin
 const fmt = (v) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v);
 
 const getPrecio = (libro) => {
-    const precios = libro.libros
-        ?.map(l => l.precio_actual?.precio_venta)
-        .filter(p => p != null)
-        .map(Number);
-    if (!precios?.length) return 'Consultar';
-    const min = Math.min(...precios);
-    const max = Math.max(...precios);
-    return min === max ? fmt(min) : `Desde ${fmt(min)}`;
+    if (libro.precio_actual) {
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(libro.precio_actual.precio_venta);
+    }
+    return 'Consultar';
 };
 
-const getIdiomas = (libro) =>
-    [...new Set(libro.libros?.map(l => l.idioma?.nombre).filter(Boolean) ?? [])];
+const getIdiomas = (libro) => [libro.master?.idioma?.nombre].filter(Boolean);
 
-const tieneVariasEdiciones = (libro) => (libro.libros?.length ?? 0) > 1;
+const tieneVariasEdiciones = (libro) => false;
 
 const agregarAlCarrito = (libro) => {
-    const variante = libro.libros?.[0];
-    if (!variante || getStockStatus(libro) === 'sin_stock') return;
     router.post(route('carrito.agregar'), {
-        libro_id: variante.id,
+        libro_id: libro.id,
         cantidad: 1,
-    }, { preserveScroll: true, preserveState: true });
+    }, {
+        preserveScroll: true,
+        preserveState: true,
+    });
 };
 </script>
 
@@ -294,9 +289,9 @@ const agregarAlCarrito = (libro) => {
                                 </div>
                             </div>
                             <div class="mt-3 space-y-1">
-                                <h3 class="font-black uppercase tracking-tighter text-sm leading-tight transition-colors line-clamp-2" :class="{ 'group-hover:text-brand-red': getStockStatus(libro) !== 'sin_stock', 'text-white/40': getStockStatus(libro) === 'sin_stock' }">{{ libro.titulo }}</h3>
+                                <h3 class="font-black uppercase tracking-tighter text-sm leading-tight transition-colors line-clamp-2" :class="{ 'group-hover:text-brand-red': getStockStatus(libro) !== 'sin_stock', 'text-white/40': getStockStatus(libro) === 'sin_stock' }">{{ libro.master?.titulo }} {{ libro.numero_tomo ? '- Tomo ' + libro.numero_tomo : '' }}</h3>
                                 <div class="flex flex-col gap-1">
-                                    <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 line-clamp-1">{{ libro.autor ? libro.autor.apellido + ', ' + libro.autor.nombre : 'Autor Desconocido' }}</span>
+                                    <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 line-clamp-1">{{ libro.master?.autor ? libro.master.autor.apellido + ', ' + libro.master.autor.nombre : 'Autor Desconocido' }}</span>
                                     <div class="flex items-center justify-between">
                                         <span class="text-base font-black text-brand-red italic">{{ getPrecio(libro) }}</span>
                                         <span v-if="getStockStatus(libro) !== 'disponible'" :class="['text-[8px] font-black uppercase tracking-widest', stockClass[getStockStatus(libro)]]">{{ stockLabel[getStockStatus(libro)] }}</span>

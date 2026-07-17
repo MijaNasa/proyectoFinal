@@ -93,21 +93,23 @@ const irACheckout = () => {
                                         class="text-white/50 hover:text-white font-black text-base leading-none w-5 text-center"
                                     >+</button>
                                 </div>
-                                <!-- Quitar -->
-                                <button @click="quitar(item.libro_id)" class="text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-brand-red transition-colors">
-                                    Quitar
-                                </button>
                             </div>
                         </div>
 
                         <!-- Subtotal -->
-                        <div class="flex-shrink-0 text-right">
-                            <div class="text-2xl font-black text-brand-red italic">
-                                {{ formatPrecio(item.precio * item.cantidad) }}
+                        <div class="flex-shrink-0 text-right flex flex-col justify-between">
+                            <div>
+                                <div class="text-2xl font-black text-brand-red italic">
+                                    {{ formatPrecio(item.precio * item.cantidad) }}
+                                </div>
+                                <div class="text-xs font-bold text-white/20 mt-1">
+                                    {{ formatPrecio(item.precio) }} c/u
+                                </div>
                             </div>
-                            <div class="text-xs font-bold text-white/20 mt-1">
-                                {{ formatPrecio(item.precio) }} c/u
-                            </div>
+                            <!-- Quitar -->
+                            <button @click="quitar(item.libro_id)" class="text-[10px] font-black uppercase tracking-widest text-white hover:text-white/70 transition-colors text-right mt-2 inline-block self-end">
+                                Quitar
+                            </button>
                         </div>
                     </div>
 
