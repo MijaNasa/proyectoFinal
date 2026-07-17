@@ -23,8 +23,8 @@ class PrecioController extends Controller
 
         // 2. Filtramos según lo que eligió el usuario
         if ($request->criterio === 'serie') {
-            $query->whereHas('serie', function ($q) use ($request) {
-                $q->where('nombre', $request->serie);
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('titulo', $request->serie);
             });
         } elseif ($request->criterio === 'libro_individual') {
             $query->where('id', $request->libro_id);
@@ -52,7 +52,7 @@ class PrecioController extends Controller
             $libro->precios()->create([
                 'precio_compra' => $costoActual,
                 'precio_venta'  => $request->nuevo_precio,
-                'motivo'        => $request->motivo ?? 'Aumento masivo',
+                'motivo'        => 'Aumento editorial',
                 'fecha_desde'   => now(),
                 'activo'        => true,
             ]);
@@ -113,12 +113,12 @@ class PrecioController extends Controller
 
         $opcionesMasivas = [
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
-            'series' => \App\Models\Serie::orderBy('nombre')->pluck('nombre'),
+            'series' => \App\Models\LibroMaster::orderBy('titulo')->pluck('titulo'),
             'editoriales' => \App\Models\Editorial::orderBy('nombre')->pluck('nombre'),
-            'libros' => Libro::with('master:id,titulo')->select('id', 'master_id', 'isbn')->get()->map(function($l) {
+            'libros' => Libro::with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
                 return [
                     'id' => $l->id,
-                    'titulo' => $l->master->titulo . ($l->isbn ? ' (ISBN: ' . $l->isbn . ')' : '')
+                    'titulo' => $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : '')
                 ];
             })->sortBy('titulo')->values()
         ];
@@ -143,17 +143,22 @@ class PrecioController extends Controller
             // Lock the libro row to serialize concurrent price updates for the same book
             \App\Models\Libro::lockForUpdate()->find($libro->id);
 
-            // Cerrar precio anterior
-            $libro->precios()->where('activo', true)->update([
-                'activo'      => false,
-                'fecha_hasta' => now(),
-            ]);
+            // Cerrar precio anterior y obtener su costo
+            $precioAnterior = $libro->precios()->where('activo', true)->first();
+            $costoActual = $request->precio_compra ?? ($precioAnterior ? $precioAnterior->precio_compra : null);
+
+            if ($precioAnterior) {
+                $precioAnterior->update([
+                    'activo'      => false,
+                    'fecha_hasta' => now(),
+                ]);
+            }
 
             // Crear nuevo precio
             $libro->precios()->create([
                 'precio_venta'  => $request->precio_venta,
-                'precio_compra' => $request->precio_compra,
-                'motivo'        => $request->motivo,
+                'precio_compra' => $costoActual,
+                'motivo'        => 'Aumento editorial',
                 'fecha_desde'   => now(),
                 'activo'        => true,
             ]);

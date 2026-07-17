@@ -20,10 +20,10 @@ class StoreLibroMasterRequest extends FormRequest
         return [
             'titulo' => ['required', 'string', 'max:255'],
             'portada' => ['nullable', 'image', 'mimes:jpg,jpeg,png,gif,webp', 'max:2048'],
-            'autor_id' => ['required', 'string'],
-            'categoria_id' => ['required', 'string'],
-            'editorial_id' => ['required', 'string'],
-            'idioma_id' => ['required', 'string'],
+            'autor_id' => ['required'],
+            'categoria_id' => ['required'],
+            'editorial_id' => ['required'],
+            'idioma_id' => ['required'],
             'formato' => ['required', 'string', 'max:255'],
             'synopsis' => ['nullable', 'string'],
             'activo' => ['boolean']

@@ -89,6 +89,7 @@ Route::middleware('auth')->group(function () {
         
         // Ajustes de Catálogo (Sólo Administradores)
         Route::get('catalogo/ajustes', [CatalogoAjustesController::class, 'index'])->name('catalogo.ajustes.index');
+        Route::post('catalogo/ajustes/{type}', [CatalogoAjustesController::class, 'store'])->name('catalogo.ajustes.store');
         Route::put('catalogo/ajustes/{type}/{id}', [CatalogoAjustesController::class, 'update'])->name('catalogo.ajustes.update');
         Route::delete('catalogo/ajustes/{type}/{id}', [CatalogoAjustesController::class, 'destroy'])->name('catalogo.ajustes.destroy');
     });

@@ -49,8 +49,9 @@ const filteredItems = computed(() => {
     });
 });
 
-// Edit logic
+// Edit/Create logic
 const showEditModal = ref(false);
+const isCreating = ref(false);
 const editingType = ref('');
 const editingId = ref(null);
 
@@ -61,32 +62,66 @@ const editForm = useForm({
     codigo: ''
 });
 
+const openCreateModal = () => {
+    editingType.value = currentTab.value;
+    editingId.value = null;
+    isCreating.value = true;
+    
+    editForm.nombre = '';
+    editForm.apellido = '';
+    editForm.email = '';
+    editForm.codigo = '';
+    
+    editForm.clearErrors();
+    
+    showEditModal.value = true;
+};
+
 const openEditModal = (item) => {
     editingType.value = currentTab.value;
     editingId.value = item.id;
+    isCreating.value = false;
 
     editForm.nombre = item.nombre || '';
     editForm.apellido = item.apellido || '';
     editForm.email = item.email || '';
     editForm.codigo = item.codigo || '';
 
+    editForm.clearErrors();
+
     showEditModal.value = true;
 };
 
 const submitEdit = () => {
-    editForm.put(route('catalogo.ajustes.update', { type: editingType.value, id: editingId.value }), {
-        onSuccess: () => {
-            showEditModal.value = false;
-            Swal.fire({
-                title: '¡Actualizado!',
-                text: 'Registro modificado con éxito.',
-                icon: 'success',
-                background: '#1A1A1A',
-                color: '#FFF',
-                confirmButtonColor: '#E61919'
-            });
-        }
-    });
+    if (isCreating.value) {
+        editForm.post(route('catalogo.ajustes.store', { type: editingType.value }), {
+            onSuccess: () => {
+                showEditModal.value = false;
+                Swal.fire({
+                    title: '¡Creado!',
+                    text: 'Registro creado con éxito.',
+                    icon: 'success',
+                    background: '#1A1A1A',
+                    color: '#FFF',
+                    confirmButtonColor: '#E61919'
+                });
+            }
+        });
+    } else {
+        editForm.put(route('catalogo.ajustes.update', { type: editingType.value, id: editingId.value }), {
+            onSuccess: () => {
+                showEditModal.value = false;
+                Swal.fire({
+                    title: '¡Actualizado!',
+                    text: 'Registro modificado con éxito.',
+                    icon: 'success',
+                    background: '#1A1A1A',
+                    color: '#FFF',
+                    confirmButtonColor: '#E61919'
+                });
+            }
+        });
+    }
 };
 
 // Safe Delete Logic
@@ -175,8 +210,13 @@ const confirmDelete = (item) => {
                         class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
                     />
                 </div>
-                <div class="text-[10px] uppercase font-black tracking-widest text-white/40 bg-white/5 px-4 py-2 rounded-xl border border-white/5 text-right">
-                    Total: {{ filteredItems.length }} registros
+                <div class="flex items-center gap-4">
+                    <div class="text-[10px] uppercase font-black tracking-widest text-white/40 bg-white/5 px-4 py-2 rounded-xl border border-white/5 text-right">
+                        Total: {{ filteredItems.length }} registros
+                    </div>
+                    <button @click="openCreateModal" class="btn-primary px-6 py-2 text-xs font-black uppercase tracking-wider relative overflow-hidden group rounded-xl">
+                        Nuevo
+                    </button>
                 </div>
             </div>
 
@@ -255,7 +295,9 @@ const confirmDelete = (item) => {
                 <div class="relative w-full max-w-md bg-brand-black border border-white/10 rounded-2xl shadow-2xl overflow-hidden transform transition-all">
                     
                     <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center">
-                        <h3 class="text-lg font-black uppercase tracking-tighter text-white">Editar <span class="italic text-white">Metadato</span></h3>
+                        <h3 class="text-lg font-black uppercase tracking-tighter text-white">
+                            {{ isCreating ? 'Crear' : 'Editar' }} <span class="italic text-white">Metadato</span>
+                        </h3>
                         <button @click="showEditModal = false" class="text-white/80 hover:text-white transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
@@ -303,7 +345,7 @@ const confirmDelete = (item) => {
                                 <input v-model="editForm.nombre" type="text" class="input-field w-full" required />
                                 <span v-if="editForm.errors.nombre" class="text-brand-red text-xs mt-1">{{ editForm.errors.nombre }}</span>
                             </div>
-                            <div>
+                            <div v-if="!isCreating">
                                 <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Código *</label>
                                 <input v-model="editForm.codigo" type="text" class="input-field w-full uppercase" required />
                                 <span v-if="editForm.errors.codigo" class="text-brand-red text-xs mt-1">{{ editForm.errors.codigo }}</span>

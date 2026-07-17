@@ -96,6 +96,19 @@ class LibroMasterController extends Controller
         $data = $request->validated();
         $this->processRelations($data);
 
+        // Validar unicidad compuesta (Título + Formato + Idioma + Editorial)
+        $exists = LibroMaster::where('titulo', $data['titulo'])
+            ->where('formato', $data['formato'])
+            ->where('idioma_id', $data['idioma_id'])
+            ->where('editorial_id', $data['editorial_id'])
+            ->exists();
+
+        if ($exists) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'titulo' => 'Ya existe una obra con exactamente el mismo título, formato, idioma y editorial.'
+            ]);
+        }
+
         if ($request->hasFile('portada')) {
             $data['portada'] = $request->file('portada')->store('portadas', 'public');
         }
@@ -113,6 +126,20 @@ class LibroMasterController extends Controller
     {
         $data = $request->validated();
         $this->processRelations($data);
+
+        // Validar unicidad compuesta (Título + Formato + Idioma + Editorial) excluyendo el actual
+        $exists = LibroMaster::where('titulo', $data['titulo'])
+            ->where('formato', $data['formato'])
+            ->where('idioma_id', $data['idioma_id'])
+            ->where('editorial_id', $data['editorial_id'])
+            ->where('id', '!=', $libroMaster->id)
+            ->exists();
+
+        if ($exists) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'titulo' => 'Ya existe otra obra con exactamente el mismo título, formato, idioma y editorial.'
+            ]);
+        }
 
         if ($request->hasFile('portada')) {
             // Eliminar imagen anterior si existe

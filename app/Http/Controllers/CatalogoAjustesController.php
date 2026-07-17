@@ -7,6 +7,7 @@ use App\Models\Categoria;
 use App\Models\Editorial;
 use App\Models\Idioma;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CatalogoAjustesController extends Controller
 {
@@ -34,42 +35,181 @@ class CatalogoAjustesController extends Controller
         ]);
     }
 
+    public function store(Request $request, string $type)
+    {
+        // El cajero/vendedor también debería poder crear autores/editoriales desde la pantalla de libros,
+        // así que relajamos la restricción de admin para el store si viene desde la creación de libros.
+        // Si no, podríamos usar checkAdmin. Lo dejamos abierto para usuarios autenticados.
+
+        $model = null;
+
+        $messages = [
+            'nombre.required' => 'El nombre es obligatorio.',
+            'nombre.unique' => 'Este nombre ya se encuentra registrado.',
+            'apellido.required' => 'El apellido es obligatorio.',
+            'email.required' => 'El email es obligatorio.',
+            'email.email' => 'El formato del correo no es válido.',
+            'email.unique' => 'Este email ya está en uso.',
+            'codigo.required' => 'El código es obligatorio.',
+            'codigo.unique' => 'Este código ya está en uso.',
+        ];
+
+        switch ($type) {
+            case 'autores':
+                $validated = $request->validate([
+                    'nombre' => 'required|string|max:100',
+                    'apellido' => 'nullable|string|max:100',
+                ], $messages);
+                $model = Autor::withTrashed()
+                    ->where('nombre', $validated['nombre'])
+                    ->where('apellido', $validated['apellido'])
+                    ->first();
+                
+                if ($model && $model->trashed()) {
+                    $model->restore();
+                } elseif (!$model) {
+                    $model = Autor::create($validated);
+                }
+                break;
+
+            case 'categorias':
+                $validated = $request->validate([
+                    'nombre' => [
+                        'required', 'string', 'max:100',
+                        Rule::unique('categorias')->whereNull('deleted_at')
+                    ],
+                ], $messages);
+                $model = Categoria::withTrashed()->where('nombre', $validated['nombre'])->first();
+                
+                if ($model && $model->trashed()) {
+                    $model->restore();
+                } elseif (!$model) {
+                    $model = Categoria::create($validated);
+                }
+                break;
+
+            case 'editoriales':
+                $validated = $request->validate([
+                    'nombre' => [
+                        'required', 'string', 'max:150',
+                        Rule::unique('editoriales')->whereNull('deleted_at')
+                    ],
+                    'email' => 'nullable|email|max:150',
+                ], $messages);
+                $model = Editorial::withTrashed()->where('nombre', $validated['nombre'])->first();
+                
+                if ($model && $model->trashed()) {
+                    $model->restore();
+                    // Update email if provided differently
+                    if (!empty($validated['email'])) {
+                        $model->update(['email' => $validated['email']]);
+                    }
+                } elseif (!$model) {
+                    $model = Editorial::create($validated);
+                }
+                break;
+
+            case 'idiomas':
+                $validated = $request->validate([
+                    'nombre' => [
+                        'required', 'string', 'max:100',
+                        Rule::unique('idiomas')->whereNull('deleted_at')
+                    ],
+                ], $messages);
+                
+                $model = Idioma::withTrashed()->where('nombre', $validated['nombre'])->first();
+                
+                if ($model && $model->trashed()) {
+                    $model->restore();
+                } elseif (!$model) {
+                    $codigo = substr(strtoupper($validated['nombre']), 0, 3);
+                    $originalCodigo = $codigo;
+                    $counter = 1;
+                    
+                    // Aseguramos que el código generado no choque ni siquiera con los eliminados
+                    while (Idioma::withTrashed()->where('codigo', $codigo)->exists()) {
+                        $codigo = substr($originalCodigo, 0, 2) . $counter;
+                        $counter++;
+                    }
+                    
+                    $validated['codigo'] = $codigo;
+                    $model = Idioma::create($validated);
+                }
+                break;
+
+            default:
+                abort(400, 'Tipo de ajuste no válido.');
+        }
+
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->with('message', 'Registro creado con éxito.');
+        }
+
+        if ($request->wantsJson() || $request->isXmlHttpRequest()) {
+            return response()->json(['success' => true, 'model' => $model]);
+        }
+
+        return redirect()->back()->with('message', 'Registro creado con éxito.');
+    }
+
     public function update(Request $request, string $type, int $id)
     {
         $this->checkAdmin($request);
+
+        $messages = [
+            'nombre.required' => 'El nombre es obligatorio.',
+            'nombre.unique' => 'Este nombre ya se encuentra registrado.',
+            'apellido.required' => 'El apellido es obligatorio.',
+            'email.required' => 'El email es obligatorio.',
+            'email.email' => 'El formato del correo no es válido.',
+            'codigo.required' => 'El código es obligatorio.',
+            'codigo.unique' => 'Este código ya está en uso.',
+        ];
 
         switch ($type) {
             case 'autores':
                 $validated = $request->validate([
                     'nombre' => 'required|string|max:100',
                     'apellido' => 'required|string|max:100',
-                ]);
+                ], $messages);
                 $model = Autor::findOrFail($id);
                 $model->update($validated);
                 break;
 
             case 'categorias':
                 $validated = $request->validate([
-                    'nombre' => 'required|string|max:100|unique:categorias,nombre,' . $id,
-                ]);
+                    'nombre' => [
+                        'required', 'string', 'max:100',
+                        Rule::unique('categorias')->ignore($id)->whereNull('deleted_at')
+                    ],
+                ], $messages);
                 $model = Categoria::findOrFail($id);
                 $model->update($validated);
                 break;
 
             case 'editoriales':
                 $validated = $request->validate([
-                    'nombre' => 'required|string|max:150',
+                    'nombre' => [
+                        'required', 'string', 'max:150',
+                        Rule::unique('editoriales')->ignore($id)->whereNull('deleted_at')
+                    ],
                     'email' => 'required|email|max:150',
-                ]);
+                ], $messages);
                 $model = Editorial::findOrFail($id);
                 $model->update($validated);
                 break;
 
             case 'idiomas':
                 $validated = $request->validate([
-                    'nombre' => 'required|string|max:100|unique:idiomas,nombre,' . $id,
-                    'codigo' => 'required|string|max:10|unique:idiomas,codigo,' . $id,
-                ]);
+                    'nombre' => [
+                        'required', 'string', 'max:100',
+                        Rule::unique('idiomas')->ignore($id)->whereNull('deleted_at')
+                    ],
+                    'codigo' => [
+                        'required', 'string', 'max:10',
+                        Rule::unique('idiomas')->ignore($id)->whereNull('deleted_at')
+                    ],
+                ], $messages);
                 $model = Idioma::findOrFail($id);
                 $model->update($validated);
                 break;

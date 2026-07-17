@@ -97,7 +97,6 @@ const loadingHist = ref(false);
 
 const form = useForm({
     precio_venta: '',
-    precio_compra: '',
     motivo: ''
 });
 
@@ -105,7 +104,6 @@ const openModal = async (libro) => {
     selectedLibro.value = libro;
     const actual = libro.precio_actual;
     form.precio_venta = actual?.precio_venta ?? '';
-    form.precio_compra = actual?.precio_compra ?? '';
     form.motivo = '';
     historial.value = [];
     showModal.value = true;
@@ -425,28 +423,12 @@ const submitBulk = () => {
                     
                     <div class="px-8 py-6 space-y-6">
                         <form @submit.prevent="submit" class="space-y-4">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Costo (Compra)</label>
-                                    <input v-model="form.precio_compra" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_compra }" placeholder="0.00" />
-                                    <p v-if="form.errors.precio_compra" class="text-red-400 text-xs mt-1">{{ form.errors.precio_compra }}</p>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Precio Venta *</label>
-                                    <input v-model="form.precio_venta" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_venta }" placeholder="0.00" />
-                                    <p v-if="form.errors.precio_venta" class="text-red-400 text-xs mt-1">{{ form.errors.precio_venta }}</p>
-                                </div>
-                            </div>
-                            <div v-if="form.precio_venta > 0 && form.precio_compra > 0" class="text-xs font-bold">
-                                <span :class="margen(form.precio_venta, form.precio_compra) >= 30 ? 'text-green-400' : margen(form.precio_venta, form.precio_compra) >= 10 ? 'text-yellow-400' : 'text-red-400'">
-                                    Margen: {{ margen(form.precio_venta, form.precio_compra) }}%
-                                </span>
-                                <span class="text-white/30 ml-2">Ganancia: {{ fmt(form.precio_venta - form.precio_compra) }}</span>
-                            </div>
                             <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Motivo del cambio</label>
-                                <input v-model="form.motivo" type="text" placeholder="Ej: Aumento editorial..." class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50" />
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Precio Venta *</label>
+                                <input v-model="form.precio_venta" type="number" step="0.01" min="0" class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black text-left focus:outline-none focus:border-brand-red/50" :class="{ 'border-red-500': form.errors.precio_venta }" placeholder="0.00" />
+                                <p v-if="form.errors.precio_venta" class="text-red-400 text-xs mt-1">{{ form.errors.precio_venta }}</p>
                             </div>
+
                             <div class="flex gap-3 pt-2">
                                 <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/40 hover:bg-white/5 transition-all">Cancelar</button>
                                 <button type="submit" :disabled="form.processing" class="flex-1 btn-primary py-3 rounded-xl text-xs font-black uppercase tracking-widest">{{ form.processing ? 'Guardando...' : 'Guardar Precio' }}</button>

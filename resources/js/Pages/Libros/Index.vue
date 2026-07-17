@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
+import SearchableSelect from '@/Components/SearchableSelect.vue';
 
 const props = defineProps({
     obras: Array,
@@ -81,7 +82,16 @@ const openObraModal = (obra = null) => {
         }
     } else {
         isEditingObra.value = false;
-        obraForm.reset();
+        obraForm.titulo = '';
+        obraForm.autor_id = '';
+        obraForm.categoria_id = '';
+        obraForm.editorial_id = '';
+        obraForm.idioma_id = '';
+        obraForm.formato = '';
+        obraForm.synopsis = '';
+        obraForm.activo = true;
+        obraForm.portada = null;
+        obraForm.clearErrors();
     }
     showObraModal.value = true;
 };
@@ -118,7 +128,7 @@ const agregarAutor = () => {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            window.axios.post(route('autores.store'), result.value)
+            window.axios.post(route('catalogo.ajustes.store', { type: 'autores' }), result.value)
                 .then(() => {
                     router.reload({ 
                         only: ['autores'],
@@ -161,7 +171,7 @@ const agregarCategoria = () => {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            window.axios.post(route('categorias.store'), result.value)
+            window.axios.post(route('catalogo.ajustes.store', { type: 'categorias' }), result.value)
                 .then(() => {
                     router.reload({ 
                         only: ['categorias'],
@@ -211,7 +221,7 @@ const agregarEditorial = () => {
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            window.axios.post(route('editoriales.store'), result.value)
+            window.axios.post(route('catalogo.ajustes.store', { type: 'editoriales' }), result.value)
                 .then(() => {
                     router.reload({ 
                         only: ['editoriales'],
@@ -238,10 +248,6 @@ const agregarIdioma = () => {
                     <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
                     <input id="swal-id-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Japonés">
                 </div>
-                <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Código (3 letras) *</label>
-                    <input id="swal-id-codigo" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1 uppercase" type="text" maxlength="10" placeholder="Ej: JAP">
-                </div>
             </div>
         `,
         showCancelButton: true,
@@ -252,16 +258,15 @@ const agregarIdioma = () => {
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const nombre = document.getElementById('swal-id-nombre').value.trim();
-            const codigo = document.getElementById('swal-id-codigo').value.trim().toUpperCase();
-            if (!nombre || !codigo) {
-                Swal.showValidationMessage('Nombre y Código son obligatorios');
+            if (!nombre) {
+                Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
             }
-            return { nombre, codigo };
+            return { nombre };
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            window.axios.post(route('idiomas.store'), result.value)
+            window.axios.post(route('catalogo.ajustes.store', { type: 'idiomas' }), result.value)
                 .then(() => {
                     router.reload({ 
                         only: ['idiomas'],
@@ -320,6 +325,13 @@ const submitObra = () => {
             onSuccess: () => {
                 showObraModal.value = false;
                 Swal.fire({ title: '¡Éxito!', text: 'Obra actualizada correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+            },
+            onError: (errors) => {
+                let errorMsg = Object.values(errors).join('\n');
+                if (errorMsg.includes('required') || errorMsg.includes('requerido')) {
+                    errorMsg = 'Por favor completa todos los campos obligatorios.';
+                }
+                Swal.fire({ title: 'Error de Validación', text: errorMsg, icon: 'error', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
             }
         });
     } else {
@@ -328,6 +340,13 @@ const submitObra = () => {
                 showObraModal.value = false;
                 obraForm.reset();
                 Swal.fire({ title: '¡Éxito!', text: 'Nueva obra registrada correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+            },
+            onError: (errors) => {
+                let errorMsg = Object.values(errors).join('\n');
+                if (errorMsg.includes('required') || errorMsg.includes('requerido')) {
+                    errorMsg = 'Por favor completa todos los campos obligatorios.';
+                }
+                Swal.fire({ title: 'Error de Validación', text: errorMsg, icon: 'error', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
             }
         });
     }
@@ -440,6 +459,49 @@ const deleteTomo = (id) => {
 const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
 };
+
+const quickEditPrice = (libro) => {
+    const currentPrice = libro.precios?.find(p => p.activo);
+    const precioVenta = currentPrice ? currentPrice.precio_venta : '';
+    
+    Swal.fire({
+        title: 'Actualizar Precio',
+        html: `
+            <div class="space-y-4 text-left">
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nuevo Precio de Venta ($) *</label>
+                    <input id="swal-quick-precio" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1 font-black text-center text-xl" type="number" step="0.01" min="0" value="${precioVenta}" placeholder="0.00">
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF',
+        preConfirm: () => {
+            const val = document.getElementById('swal-quick-precio').value;
+            if (!val || val <= 0) {
+                Swal.showValidationMessage('El precio debe ser mayor a 0');
+                return false;
+            }
+            return val;
+        }
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.post(route('precios.store', libro.id), {
+                precio_venta: result.value,
+                motivo: 'Actualización rápida desde catálogo'
+            }, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({ title: '¡Éxito!', text: 'Precio actualizado correctamente.', icon: 'success', timer: 1200, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                }
+            });
+        }
+    });
+};
 </script>
 
 <template>
@@ -490,7 +552,13 @@ const formatCurrency = (value) => {
                                 <tr @click="toggleMaster(obra.id)" class="hover:bg-white/[0.05] transition-colors cursor-pointer group-row">
                                     <td class="p-4">
                                         <div class="font-black text-xl leading-tight uppercase text-white">{{ obra.titulo }}</div>
-                                        <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1">{{ obra.categoria ? obra.categoria.nombre : '' }}</div>
+                                        <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1 flex items-center gap-2">
+                                            <span>{{ obra.categoria ? obra.categoria.nombre : 'S/C' }}</span>
+                                            <span class="w-1 h-1 rounded-full bg-white/20"></span>
+                                            <span>{{ obra.formato || 'S/F' }}</span>
+                                            <span class="w-1 h-1 rounded-full bg-white/20"></span>
+                                            <span>{{ obra.idioma ? obra.idioma.nombre : 'S/I' }}</span>
+                                        </div>
                                     </td>
                                     <td class="p-4">
                                         <div class="text-sm text-white/60 italic font-medium">{{ obra.autor ? obra.autor.nombre + ' ' + obra.autor.apellido : 'S/A' }}</div>
@@ -537,7 +605,7 @@ const formatCurrency = (value) => {
                                                     <tr class="text-[10px] text-white/40 uppercase tracking-widest border-b border-white/5">
                                                         <th class="pb-2">Tomo N°</th>
                                                         <th class="pb-2">ISBN</th>
-                                                        <th class="pb-2 text-right">Precio</th>
+                                                        <th class="pb-2 text-center">Precio</th>
                                                         <th class="pb-2 text-right">Acciones</th>
                                                     </tr>
                                                 </thead>
@@ -550,7 +618,7 @@ const formatCurrency = (value) => {
                                                             <span class="font-mono text-xs bg-white/5 px-2 py-1 rounded border border-white/10 text-white/70">{{ libro.isbn || 'SIN ISBN' }}</span>
                                                             <div class="text-[9px] text-white/30 mt-1 uppercase">Año: {{ libro.año_edicion || 'N/A' }}</div>
                                                         </td>
-                                                        <td class="py-3 pr-4 text-right">
+                                                        <td class="py-3 px-4 text-center">
                                                             <div v-if="libro.precios && libro.precios.find(p => p.activo)" class="text-base font-black text-white">
                                                                 {{ formatCurrency(libro.precios.find(p => p.activo).precio_venta) }}
                                                             </div>
@@ -558,6 +626,9 @@ const formatCurrency = (value) => {
                                                         </td>
                                                         <td class="py-3 text-right">
                                                             <div class="flex justify-end gap-1">
+                                                                <button @click.stop="quickEditPrice(libro)" class="p-1.5 text-green-400/40 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors" title="Actualizar Precio">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                </button>
                                                                 <button @click.stop="openTomoModal(libro, obra.id)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Editar Tomo">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                                                 </button>
@@ -608,54 +679,35 @@ const formatCurrency = (value) => {
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Autor</label>
                             <div class="flex gap-2">
-                                <select v-model="obraForm.autor_id" class="input-field flex-1 text-xs font-bold bg-brand-black" required>
-                                    <option value="" disabled>-- Seleccionar Autor --</option>
-                                    <option v-for="a in autores" :key="a.id" :value="a.id">{{ a.nombre }} {{ a.apellido || '' }}</option>
-                                </select>
+                                <SearchableSelect v-model="obraForm.autor_id" :options="autores" :labelKey="(a) => a.nombre + (a.apellido ? ' ' + a.apellido : '')" placeholder="-- Seleccionar Autor --" :required="true" />
                                 <button type="button" @click="agregarAutor" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Autor">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Categoría</label>
                             <div class="flex gap-2">
-                                <select v-model="obraForm.categoria_id" class="input-field flex-1 text-xs font-bold bg-brand-black" required>
-                                    <option value="" disabled>-- Seleccionar Categoría --</option>
-                                    <option v-for="c in categorias" :key="c.id" :value="c.id">{{ c.nombre }}</option>
-                                </select>
+                                <SearchableSelect v-model="obraForm.categoria_id" :options="categorias" placeholder="-- Seleccionar Categoría --" :required="true" />
                                 <button type="button" @click="agregarCategoria" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Categoría">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Editorial</label>
                             <div class="flex gap-2">
-                                <select v-model="obraForm.editorial_id" class="input-field flex-1 text-xs font-bold bg-brand-black" required>
-                                    <option value="" disabled>-- Seleccionar Editorial --</option>
-                                    <option v-for="e in editoriales" :key="e.id" :value="e.id">{{ e.nombre }}</option>
-                                </select>
+                                <SearchableSelect v-model="obraForm.editorial_id" :options="editoriales" placeholder="-- Seleccionar Editorial --" :required="true" />
                                 <button type="button" @click="agregarEditorial" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Editorial">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Idioma</label>
                             <div class="flex gap-2">
-                                <select v-model="obraForm.idioma_id" class="input-field flex-1 text-xs font-bold bg-brand-black" required>
-                                    <option value="" disabled>-- Seleccionar Idioma --</option>
-                                    <option v-for="i in idiomas" :key="i.id" :value="i.id">{{ i.nombre }}</option>
-                                </select>
+                                <SearchableSelect v-model="obraForm.idioma_id" :options="idiomas" placeholder="-- Seleccionar Idioma --" :required="true" />
                                 <button type="button" @click="agregarIdioma" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Idioma">+</button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Formato *</label>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Formato</label>
                             <div class="flex gap-2">
-                                <select 
-                                    v-model="obraForm.formato" 
-                                    class="input-field flex-1 text-xs font-bold"
-                                    required
-                                >
-                                    <option value="" disabled>-- Selecciona Formato --</option>
-                                    <option v-for="fmt in formatosLocal" :key="fmt" :value="fmt">{{ fmt }}</option>
-                                </select>
+                                <SearchableSelect v-model="obraForm.formato" :options="formatosLocal" placeholder="-- Selecciona Formato --" :required="true" />
                                 <button type="button" @click="agregarFormato" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Formato">+</button>
                             </div>
                         </div>
