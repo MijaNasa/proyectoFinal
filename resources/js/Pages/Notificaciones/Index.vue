@@ -63,6 +63,36 @@ const eliminarNotificacion = (id) => {
         }
     });
 };
+
+const eliminarTodas = () => {
+    Swal.fire({
+        title: '¿Eliminar TODAS las notificaciones?',
+        text: 'Esta acción borrará todas las notificaciones pendientes y leídas. No se puede deshacer.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, eliminar todas',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(route('notificaciones.destroyAll'), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({
+                        title: 'Eliminadas',
+                        text: 'Todas las notificaciones fueron eliminadas.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false,
+                        background: '#1A1A1A', color: '#FFF'
+                    });
+                }
+            });
+        }
+    });
+};
 </script>
 
 <template>
@@ -80,7 +110,12 @@ const eliminarNotificacion = (id) => {
                 <div class="card p-0 overflow-hidden mb-6">
                     <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                         <h3 class="text-xl font-black text-white uppercase tracking-tighter">Avisos Pendientes</h3>
-                        <div class="text-xs font-bold text-white/40 uppercase">{{ notificaciones.total }} sin leer</div>
+                        <div class="flex items-center gap-4">
+                            <button v-if="notificaciones.data.length > 0" @click="eliminarTodas" class="text-[10px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest transition-colors">
+                                Eliminar Todas
+                            </button>
+                            <div class="text-xs font-bold text-white/40 uppercase">{{ notificaciones.total }} sin leer</div>
+                        </div>
                     </div>
 
                     <div v-if="notificaciones.data.length === 0" class="p-16 text-center text-white/30 italic">

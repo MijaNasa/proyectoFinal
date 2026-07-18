@@ -79,8 +79,13 @@ class MiCuentaController extends Controller
         ]);
 
         if ($request->hasFile('comprobante')) {
+            // Delete old file if exists
             if ($venta->comprobante_path) {
                 Storage::disk('public')->delete($venta->comprobante_path);
+                
+                \Illuminate\Notifications\DatabaseNotification::where('type', \App\Notifications\ComprobanteSubido::class)
+                    ->where('data', 'like', '%"url":"/ventas?search=' . $venta->id . '"%')
+                    ->delete();
             }
 
             $path = $request->file('comprobante')->store('comprobantes', 'public');
@@ -118,6 +123,11 @@ class MiCuentaController extends Controller
         if ($venta->comprobante_path) {
             Storage::disk('public')->delete($venta->comprobante_path);
             $venta->update(['comprobante_path' => null]);
+            
+            // Eliminar notificación vieja
+            \Illuminate\Notifications\DatabaseNotification::where('type', \App\Notifications\ComprobanteSubido::class)
+                ->where('data', 'like', '%"url":"/ventas?search=' . $venta->id . '"%')
+                ->delete();
         }
 
         return back()->with('message', 'Comprobante eliminado exitosamente.');
