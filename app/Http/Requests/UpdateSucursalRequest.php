@@ -27,7 +27,8 @@ class UpdateSucursalRequest extends FormRequest
             'codigo_postal' => 'nullable|string|max:20',
             'telefono' => 'nullable|string|max:50',
             'email' => 'nullable|email|max:255',
-            'activo' => 'boolean'
+            'activo' => 'boolean',
+            'es_principal' => 'boolean'
         ];
     }
 

@@ -76,11 +76,17 @@ class CheckoutController extends Controller
             return $sucursal;
         });
 
+        $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->where('activo', true)->first();
+        if (!$sucursalPrincipal && $sucursales->isNotEmpty()) {
+            $sucursalPrincipal = $sucursales->first();
+        }
+
         return Inertia::render('Checkout/Index', [
             'items'        => array_values($carrito),
             'total'        => $total,
             'saldo_actual' => $cliente ? $cliente->saldo_actual : 0,
             'sucursales'   => $sucursales,
+            'sucursal_principal_id' => $sucursalPrincipal ? $sucursalPrincipal->id : null,
         ]);
     }
 

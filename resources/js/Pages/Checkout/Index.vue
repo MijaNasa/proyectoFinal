@@ -8,6 +8,7 @@ const props = defineProps({
     total: Number,
     saldo_actual: Number,
     sucursales: Array,
+    sucursal_principal_id: Number,
 });
 
 const tipoEnvio           = ref('retiro');
@@ -71,12 +72,13 @@ watch(tipoEnvio, (val) => {
     addressSelected.value    = false;
     piso.value  = '';
     depto.value = '';
-    
     if (val === 'domicilio') {
-        sucursalId.value = '';
+        sucursalId.value = props.sucursal_principal_id;
         if (usaMaps) nextTick(initAutocomplete);
+    } else {
+        sucursalId.value = '';
     }
-    
+
     // Si cambia a domicilio o acumulación, remover efectivo
     if (['domicilio', 'acumulacion'].includes(val)) {
         if (medioPago.value === 'Efectivo') {
@@ -181,9 +183,9 @@ const confirmar = () => {
                         </div>
 
                         <!-- Selector de Sucursal -->
-                        <div class="mt-6">
+                        <div class="mt-6" v-if="tipoEnvio !== 'domicilio'">
                             <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
-                                {{ tipoEnvio === 'domicilio' ? 'Sucursal de despacho *' : 'Sucursal para Retiro / Acumulación *' }}
+                                Sucursal para Retiro / Acumulación *
                             </label>
                             <select
                                 v-model="sucursalId"
@@ -194,8 +196,9 @@ const confirmar = () => {
                                     📍 {{ suc.nombre }}
                                 </option>
                             </select>
-                            
-                            <div v-if="sucursalId && !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="mt-3 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3">
+                        </div>
+                        
+                        <div v-if="sucursalId && !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="mt-3 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3">
                                 <span class="text-xl">🚚</span>
                                 <div>
                                     <p class="text-yellow-400 font-bold text-xs uppercase tracking-wider">Requiere traslados internos</p>
@@ -204,7 +207,6 @@ const confirmar = () => {
                                     </p>
                                 </div>
                             </div>
-                        </div>
 
                         <!-- Dirección (solo si domicilio) -->
                         <transition name="fade">

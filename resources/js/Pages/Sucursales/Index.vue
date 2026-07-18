@@ -24,7 +24,8 @@ const form = useForm({
     codigo_postal: '',
     telefono: '',
     email: '',
-    activo: true
+    activo: true,
+    es_principal: false
 });
 
 const isEditing = ref(false);
@@ -44,6 +45,7 @@ const openModal = (sucursal = null) => {
         form.telefono = sucursal.telefono || '';
         form.email = sucursal.email;
         form.activo = !!sucursal.activo;
+        form.es_principal = !!sucursal.es_principal;
     } else {
         isEditing.value = false;
         form.reset();
@@ -146,8 +148,9 @@ watch(search, (value) => {
                         <div class="bg-gradient-to-r p-1 from-white/10 to-white/5">
                             <div class="bg-brand-surface p-6 rounded-sm h-full flex flex-col justify-between">
                                 <div>
-                                    <h3 class="text-2xl font-black uppercase tracking-tighter text-white group-hover:text-brand-red transition-colors mb-2">
+                                    <h3 class="text-xl font-black uppercase tracking-tighter text-white">
                                         {{ sucursal.nombre }}
+                                        <span v-if="sucursal.es_principal" class="text-yellow-400 ml-2 text-sm" title="Sucursal Principal">⭐ PRINCIPAL</span>
                                     </h3>
                                     <div class="space-y-2 text-sm text-white/60">
                                         <div class="flex items-center gap-2">
@@ -271,6 +274,10 @@ watch(search, (value) => {
                                 <div class="flex items-center gap-2 p-3 bg-white/5 rounded border border-white/5">
                                     <input type="checkbox" v-model="form.activo" id="suc_activa" class="rounded-sm border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
                                     <label for="suc_activa" class="text-xs font-black uppercase tracking-widest text-white/80 cursor-pointer">Sucursal Operativa</label>
+                                </div>
+                                <div class="flex items-center gap-2 p-3 bg-white/5 rounded border border-white/5">
+                                    <input type="checkbox" v-model="form.es_principal" id="suc_principal" class="rounded-sm border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
+                                    <label for="suc_principal" class="text-xs font-black uppercase tracking-widest text-white/80 cursor-pointer">Sucursal Principal ⭐</label>
                                 </div>
                             </div>
                         </div>

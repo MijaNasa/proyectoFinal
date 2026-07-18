@@ -50,6 +50,10 @@ class SucursalController extends Controller
         $data['ciudad_id'] = $ciudad->id;
         unset($data['ciudad_nombre']);
 
+        if (!empty($data['es_principal'])) {
+            Sucursal::where('id', '!=', 0)->update(['es_principal' => false]);
+        }
+
         Sucursal::create($data);
 
         return redirect()->route('sucursales.index')
@@ -70,6 +74,10 @@ class SucursalController extends Controller
         ]);
         $data['ciudad_id'] = $ciudad->id;
         unset($data['ciudad_nombre']);
+
+        if (!empty($data['es_principal'])) {
+            Sucursal::where('id', '!=', $sucursal->id)->update(['es_principal' => false]);
+        }
 
         $sucursal->update($data);
 
