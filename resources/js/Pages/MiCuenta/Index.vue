@@ -38,6 +38,14 @@ const uploadComprobante = (pedidoId) => {
     });
 };
 
+const deleteComprobante = (pedidoId) => {
+    if (confirm('¿Estás seguro de que querés eliminar el comprobante?')) {
+        router.delete(route('mi-cuenta.comprobante.delete', pedidoId), {
+            preserveScroll: true
+        });
+    }
+};
+
 const submitPassword = () => {
     passwordForm.put(route('mi-cuenta.password'), {
         onSuccess: () => passwordForm.reset(),
@@ -275,7 +283,12 @@ const getTipoEnvioLabel = (tipo) => {
                             <div v-if="pedido.comprobante_path" class="flex items-center gap-3">
                                 <span class="text-green-400">✅</span>
                                 <p class="text-xs text-white/70">Comprobante enviado. Esperando verificación.</p>
-                                <a :href="pedido.comprobante_path" target="_blank" class="ml-auto text-[10px] font-bold text-brand-red uppercase hover:underline">Ver adjunto</a>
+                                <div class="ml-auto flex items-center gap-3">
+                                    <a :href="route('mi-cuenta.comprobante.ver', pedido.id)" target="_blank" class="text-[10px] font-bold text-brand-red uppercase hover:underline">Ver adjunto</a>
+                                    <button @click="deleteComprobante(pedido.id)" class="text-white/40 hover:text-red-400 transition-colors" title="Eliminar comprobante">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                    </button>
+                                </div>
                             </div>
                             
                             <form v-else @submit.prevent="uploadComprobante(pedido.id)" class="flex flex-col sm:flex-row items-center gap-3">

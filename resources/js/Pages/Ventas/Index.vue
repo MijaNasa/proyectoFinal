@@ -699,6 +699,9 @@ onMounted(() => {
                                     </td>
                                     <td class="p-6 text-center">
                                         <div class="flex items-center justify-center gap-1">
+                                            <a v-if="venta.comprobante_path" :href="route('mi-cuenta.comprobante.ver', venta.id)" @click.stop target="_blank" class="p-2 text-white/20 hover:text-blue-400 transition-colors" title="Ver comprobante del cliente">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
+                                            </a>
                                             <button @click.stop="viewVenta(venta)" class="p-2 text-white/20 hover:text-brand-red transition-colors" title="Ver detalle">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
@@ -966,7 +969,7 @@ onMounted(() => {
                     <table class="w-full text-left mb-8">
                         <thead>
                             <tr class="text-[8px] font-black uppercase tracking-widest text-white/20 border-b border-white/5">
-                                <th class="pb-4">Libro / Título</th>
+                                <th class="pb-4">Producto</th>
                                 <th class="pb-4 text-center">Cant.</th>
                                 <th class="pb-4 text-right">P. Unit</th>
                                 <th class="pb-4 text-right italic text-brand-red">Subtotal</th>
@@ -975,7 +978,7 @@ onMounted(() => {
                         <tbody class="divide-y divide-white/5">
                             <tr v-for="item in selectedVenta.detalles" :key="item.id">
                                 <td class="py-4">
-                                    <div class="text-xs font-black uppercase tracking-tighter">{{ item.libro?.master?.titulo }}</div>
+                                    <div class="text-xs font-black uppercase tracking-tighter">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
                                     <div class="text-[9px] text-white/30 font-mono italic">ISBN: {{ item.libro?.isbn }}</div>
                                 </td>
                                 <td class="py-4 text-center text-xs font-black italic">{{ item.cantidad }}</td>
@@ -1018,7 +1021,7 @@ onMounted(() => {
                         </div>
                         <div v-if="selectedVenta.comprobante_path" class="pt-2 border-t border-brand-red/10 flex justify-between items-center">
                             <span class="text-xs text-white/70">✅ El cliente subió un comprobante.</span>
-                            <a :href="'/storage/' + selectedVenta.comprobante_path" target="_blank" class="text-xs font-bold text-brand-red uppercase tracking-widest hover:underline">Ver adjunto</a>
+                            <a :href="route('mi-cuenta.comprobante.ver', selectedVenta.id)" target="_blank" class="text-xs font-bold text-brand-red uppercase tracking-widest hover:underline">Ver adjunto</a>
                         </div>
                     </div>
 

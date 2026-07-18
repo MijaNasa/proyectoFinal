@@ -3,6 +3,8 @@ import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { computed } from 'vue';
 
+import { router } from '@inertiajs/vue3';
+
 const props = defineProps({
     status: String, // 'success' | 'pending' | 'failure'
     venta:  Object,
@@ -11,6 +13,14 @@ const props = defineProps({
 const uploadForm = useForm({
     comprobante: null,
 });
+
+const deleteComprobante = () => {
+    if (confirm('¿Estás seguro de que querés eliminar el comprobante?')) {
+        router.delete(route('mi-cuenta.comprobante.delete', props.venta.id), {
+            preserveScroll: true
+        });
+    }
+};
 
 const uploadComprobante = () => {
     uploadForm.post(route('mi-cuenta.comprobante', props.venta.id), {
@@ -126,6 +136,12 @@ const config = computed(() => ({
                     <div v-if="venta.comprobante_path" class="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
                         <span class="text-green-400">✅</span>
                         <p class="text-xs font-medium text-white/80">Comprobante enviado exitosamente. Esperando verificación.</p>
+                        <div class="ml-auto flex items-center gap-3">
+                            <a :href="route('mi-cuenta.comprobante.ver', venta.id)" target="_blank" class="text-[10px] font-bold text-green-400 uppercase hover:underline">Ver adjunto</a>
+                            <button @click="deleteComprobante" class="text-white/40 hover:text-red-400 transition-colors" title="Eliminar comprobante">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
                     </div>
                     
                     <form v-else @submit.prevent="uploadComprobante" class="flex flex-col sm:flex-row items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">

@@ -69,7 +69,7 @@ class CarritoController extends Controller
         }
 
         $libro = Libro::findOrFail($libroId);
-        $stockTotal = Stock::where('libro_id', $libro->id)->sum('cantidad_disponible');
+        $stockTotal = \App\Models\Stock::where('libro_id', $libro->id)->sum('cantidad_disponible');
 
         $limite = $stockTotal;
         $carrito[$libroId]['cantidad'] = min($request->cantidad, $limite);

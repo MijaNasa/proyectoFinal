@@ -28,7 +28,7 @@ class MiCuentaController extends Controller
                 'tipo_envio'      => $v->tipo_envio,
                 'sucursal_nombre' => $v->sucursal->nombre ?? 'N/A',
                 'items'           => $v->detalles->map(fn($d) => [
-                    'titulo'   => ($d->libro->master->titulo ?? 'Libro') . ' (Tomo ' . ($d->libro->numero_tomo ?? 'Único') . ')',
+                    'titulo'   => ($d->libro->master->titulo ?? 'Libro') . ' - Tomo ' . ($d->libro->numero_tomo ?? 'Único'),
                     'cantidad' => $d->cantidad,
                     'subtotal' => $d->subtotal,
                 ]),
@@ -94,5 +94,32 @@ class MiCuentaController extends Controller
         }
 
         return back()->with('message', 'Comprobante subido exitosamente. Un empleado verificará el pago a la brevedad.');
+    }
+
+    public function viewComprobante(Venta $venta)
+    {
+        if ($venta->user_id !== Auth::id() && !Auth::user()->esAdmin() && !Auth::user()->esGerente()) {
+            abort(403);
+        }
+
+        if (!$venta->comprobante_path || !Storage::disk('public')->exists($venta->comprobante_path)) {
+            abort(404);
+        }
+
+        return response()->file(Storage::disk('public')->path($venta->comprobante_path));
+    }
+
+    public function deleteComprobante(Venta $venta)
+    {
+        if ($venta->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        if ($venta->comprobante_path) {
+            Storage::disk('public')->delete($venta->comprobante_path);
+            $venta->update(['comprobante_path' => null]);
+        }
+
+        return back()->with('message', 'Comprobante eliminado exitosamente.');
     }
 }
