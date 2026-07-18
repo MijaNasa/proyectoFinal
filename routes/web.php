@@ -102,6 +102,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permiso:ventas.acceder')->group(function () {
         Route::get('ventas/search-libros',   [VentaController::class, 'searchLibros'])->name('ventas.search-libros');
         Route::get('ventas/search-clientes', [VentaController::class, 'searchClientes'])->name('ventas.search-clientes');
+        Route::delete('ventas/canceladas/all', [VentaController::class, 'destroyCanceladas'])->name('ventas.canceladas.destroyAll');
         Route::resource('ventas', VentaController::class)->except(['create', 'edit', 'update']);
         Route::post('/ventas/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->name('ventas.confirmar-pago');
         Route::patch('ventas/{venta}/estado', [VentaController::class, 'updateEstado'])->name('ventas.estado');

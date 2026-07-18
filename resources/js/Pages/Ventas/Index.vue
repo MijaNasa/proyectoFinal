@@ -493,6 +493,34 @@ const handleSearch = () => {
     }, { preserveState: true, preserveScroll: true, replace: true });
 };
 
+const eliminarCanceladas = () => {
+    Swal.fire({
+        title: '¿Eliminar historial?',
+        text: 'Esta acción borrará definitivamente todas las ventas canceladas. No se puede deshacer.',
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(route('ventas.canceladas.destroyAll'), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({
+                        title: 'Eliminadas',
+                        text: 'El historial fue limpiado.',
+                        icon: 'success',
+                        background: '#1A1A1A', color: '#FFF'
+                    });
+                }
+            });
+        }
+    });
+};
+
 const switchTab = (tab) => {
     currentTab.value = tab;
     handleSearch();
@@ -638,20 +666,30 @@ onMounted(() => {
                 </div>
 
                 <!-- Tabs (Activas / Canceladas) -->
-                <div class="flex gap-1 border-b border-white/10 mb-4">
-                    <button
-                        @click="switchTab('activas')"
-                        class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
-                        :class="currentTab === 'activas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                <div class="flex justify-between items-center border-b border-white/10 mb-4">
+                    <div class="flex gap-1">
+                        <button
+                            @click="switchTab('activas')"
+                            class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
+                            :class="currentTab === 'activas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                        >
+                            Ventas Activas ({{ stats.total_activas }})
+                        </button>
+                        <button
+                            @click="switchTab('canceladas')"
+                            class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
+                            :class="currentTab === 'canceladas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                        >
+                            Canceladas ({{ stats.total_canceladas }})
+                        </button>
+                    </div>
+                    
+                    <button 
+                        v-if="currentTab === 'canceladas' && ventas.data.length > 0"
+                        @click="eliminarCanceladas"
+                        class="text-[10px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest transition-colors mr-4"
                     >
-                        Ventas Activas ({{ stats.total_activas }})
-                    </button>
-                    <button
-                        @click="switchTab('canceladas')"
-                        class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
-                        :class="currentTab === 'canceladas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
-                    >
-                        Canceladas ({{ stats.total_canceladas }})
+                        Eliminar Todas
                     </button>
                 </div>
 

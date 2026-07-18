@@ -585,4 +585,16 @@ class VentaController extends Controller
 
         return back()->with('message', 'Pago confirmado correctamente.');
     }
+
+    public function destroyCanceladas()
+    {
+        $user = \Auth::user();
+        if (!$user->esAdmin() && !$user->esGerente()) {
+            abort(403);
+        }
+
+        \App\Models\Venta::onlyTrashed()->forceDelete();
+
+        return redirect()->back()->with('message', 'Historial de ventas canceladas limpiado exitosamente.');
+    }
 }
