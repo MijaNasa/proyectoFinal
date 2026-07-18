@@ -20,19 +20,7 @@ const verDetalles = (notif) => {
 };
 
 const marcarLeida = (id) => {
-    window.axios.patch(route('notificaciones.read', id))
-        .then(() => {
-            router.reload({ only: ['notificaciones'] });
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-                title: 'Error',
-                text: 'Hubo un error al intentar marcar la notificación como leída.',
-                icon: 'error',
-                background: '#1A1A1A', color: '#FFF'
-            });
-        });
+    router.patch(route('notificaciones.read', id), {}, { preserveScroll: true });
 };
 
 const eliminarNotificacion = (id) => {
