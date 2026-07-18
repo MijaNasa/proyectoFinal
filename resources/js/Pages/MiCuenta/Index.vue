@@ -46,6 +46,12 @@ const estadoConfig = {
     retirado:           { label: 'Retirado',            color: 'text-green-400 bg-green-400/10 border-green-400/20' },
     cancelado:          { label: 'Cancelado',           color: 'text-red-400 bg-red-400/10 border-red-400/20' },
 };
+
+const getTipoEnvioLabel = (tipo) => {
+    if (tipo === 'retiro') return 'Retiro en sucursal';
+    if (tipo === 'acumulacion') return 'Acumulación en sucursal';
+    return 'Envío a domicilio';
+};
 </script>
 
 <template>
@@ -222,7 +228,7 @@ const estadoConfig = {
                                 </div>
                                 <p class="text-white/40 text-xs font-bold uppercase tracking-widest">
                                     {{ formatFecha(pedido.fecha) }}
-                                    · {{ pedido.tipo_envio === 'retiro' ? 'Retiro en sucursal' : 'Envío a domicilio' }}
+                                    · {{ getTipoEnvioLabel(pedido.tipo_envio) }}
                                 </p>
                             </div>
                             <p class="text-2xl font-black text-brand-red italic">{{ formatPrecio(pedido.total) }}</p>
@@ -235,6 +241,17 @@ const estadoConfig = {
                                     <span class="text-white/30 text-xs">x{{ item.cantidad }}</span>
                                 </span>
                                 <span class="font-black text-white/80">{{ formatPrecio(item.subtotal) }}</span>
+                            </div>
+                        </div>
+
+                        <!-- Banner Listo para retirar -->
+                        <div v-if="pedido.estado === 'listo_para_retirar' && ['retiro', 'acumulacion'].includes(pedido.tipo_envio)" class="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-xl flex items-start gap-3">
+                            <span class="text-xl">🎉</span>
+                            <div>
+                                <p class="text-green-400 font-bold text-xs uppercase tracking-wider">¡Tu pedido está listo!</p>
+                                <p class="text-white/70 text-[10px] mt-1 font-medium leading-relaxed">
+                                    Ya podés pasar a retirar tus libros por la sucursal <strong>{{ pedido.sucursal_nombre }}</strong>.
+                                </p>
                             </div>
                         </div>
                     </div>

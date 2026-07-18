@@ -12,7 +12,7 @@ class MiCuentaController extends Controller
 {
     public function index()
     {
-        $pedidos = Venta::with(['detalles.libro.master:id,titulo'])
+        $pedidos = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
             ->where('user_id', Auth::id())
             ->where('tipo', 'online')
             ->latest()
@@ -22,8 +22,9 @@ class MiCuentaController extends Controller
                 'fecha'      => $v->fecha,
                 'total'      => $v->total,
                 'estado'     => $v->estado,
-                'tipo_envio' => $v->tipo_envio,
-                'items'      => $v->detalles->map(fn($d) => [
+                'tipo_envio'      => $v->tipo_envio,
+                'sucursal_nombre' => $v->sucursal->nombre ?? 'N/A',
+                'items'           => $v->detalles->map(fn($d) => [
                     'titulo'   => $d->libro->master->titulo ?? 'Libro',
                     'cantidad' => $d->cantidad,
                     'subtotal' => $d->subtotal,
