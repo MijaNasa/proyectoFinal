@@ -277,6 +277,19 @@ class LogisticaController extends Controller
 
             $traslado->update(['estado' => 'completado']);
 
+            if ($traslado->venta_id) {
+                $pendingTransfers = \App\Models\TransferenciaStock::where('venta_id', $traslado->venta_id)
+                    ->where('estado', '!=', 'completado')
+                    ->count();
+
+                if ($pendingTransfers === 0) {
+                    $venta = \App\Models\Venta::find($traslado->venta_id);
+                    if ($venta && $venta->estado === 'esperando_traslado') {
+                        $venta->update(['estado' => 'listo_para_retirar']);
+                    }
+                }
+            }
+
             // No sumamos stock a la sucursal de destino porque el stock ya fue reservado/descontado y el libro es para entregar directamente al cliente.
 
             // Registrar movimiento de ingreso

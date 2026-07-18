@@ -461,10 +461,12 @@ class CheckoutController extends Controller
         return Inertia::render('Checkout/Confirmacion', [
             'status' => 'success',
             'venta'  => $venta ? [
-                'id'         => $venta->id,
-                'total'       => $venta->total,
-                'tipo_envio'  => $venta->tipo_envio,
-                'metodo_pago' => $venta->metodo_pago,
+                'id'               => $venta->id,
+                'total'            => $venta->total,
+                'tipo_envio'       => $venta->tipo_envio,
+                'metodo_pago'      => $venta->metodo_pago,
+                'estado'           => $venta->estado,
+                'comprobante_path' => $venta->comprobante_path,
             ] : null,
         ]);
     }
