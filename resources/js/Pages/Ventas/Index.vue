@@ -717,9 +717,9 @@ onMounted(() => {
                                             <div class="text-[9px] font-black uppercase tracking-widest text-white/40">Detalle de Compra:</div>
                                             <div class="flex flex-wrap gap-2">
                                                 <div v-for="detalle in venta.detalles" :key="detalle.id" class="text-xs font-bold bg-white/5 border border-white/10 px-3 py-2 rounded flex items-center gap-2">
-                                                    <span class="text-brand-red font-black">x{{ detalle.cantidad }}</span>
                                                     <span class="text-white/80">{{ detalle.libro?.master?.titulo }}</span>
-                                                    <span v-if="detalle.libro?.numero_tomo" class="text-white/40 text-[10px] uppercase font-black tracking-widest">Tomo {{ detalle.libro.numero_tomo }}</span>
+                                                    <span class="text-white/40 text-[10px] uppercase font-black tracking-widest">- Tomo {{ detalle.libro?.numero_tomo || 'Único' }}</span>
+                                                    <span class="text-brand-red font-black">x{{ detalle.cantidad }}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1022,6 +1022,19 @@ onMounted(() => {
                         <div v-if="selectedVenta.comprobante_path" class="pt-2 border-t border-brand-red/10 flex justify-between items-center">
                             <span class="text-xs text-white/70">✅ El cliente subió un comprobante.</span>
                             <a :href="route('mi-cuenta.comprobante.ver', selectedVenta.id)" target="_blank" class="text-xs font-bold text-brand-red uppercase tracking-widest hover:underline">Ver adjunto</a>
+                        </div>
+                    </div>
+
+                    <!-- Botón rápido para Logística (Esperando Traslado) -->
+                    <div v-if="selectedVenta.estado === 'esperando_traslado'" class="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col gap-3">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Logística y Traslados</div>
+                                <div class="text-sm font-black text-white">Esta venta requiere un traslado de stock.</div>
+                            </div>
+                            <Link :href="route('logistica.index')" class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors shadow-lg shadow-blue-500/20 whitespace-nowrap">
+                                IR A LOGÍSTICA
+                            </Link>
                         </div>
                     </div>
 
