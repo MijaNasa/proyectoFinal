@@ -298,8 +298,8 @@ const confirmar = () => {
                             >
                                 <input type="radio" v-model="medioPago" value="Transferencia" class="mt-1 accent-red-600" />
                                 <div>
-                                    <p class="font-black uppercase tracking-wider text-sm">📱 Transferencia / Mercado Pago</p>
-                                    <p class="text-white/40 text-xs mt-1">Transferencia directa o usando saldo de Mercado Pago.</p>
+                                    <p class="font-black uppercase tracking-wider text-sm">📱 Transferencia</p>
+                                    <p class="text-white/40 text-xs mt-1">Transferencia bancaria directa.</p>
                                 </div>
                             </label>
 

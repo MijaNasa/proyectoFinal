@@ -6,6 +6,7 @@ use App\Models\Venta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
 
 class MiCuentaController extends Controller
@@ -21,7 +22,9 @@ class MiCuentaController extends Controller
                 'id'         => $v->id,
                 'fecha'      => $v->fecha,
                 'total'      => $v->total,
-                'estado'     => $v->estado,
+                'estado'          => $v->estado,
+                'metodo_pago'     => $v->metodo_pago,
+                'comprobante_path'=> $v->comprobante_path ? Storage::url($v->comprobante_path) : null,
                 'tipo_envio'      => $v->tipo_envio,
                 'sucursal_nombre' => $v->sucursal->nombre ?? 'N/A',
                 'items'           => $v->detalles->map(fn($d) => [
@@ -63,5 +66,33 @@ class MiCuentaController extends Controller
         Auth::user()->update(['password' => Hash::make($request->password)]);
 
         return back()->with('message', 'Contraseña actualizada correctamente.');
+    }
+
+    public function uploadComprobante(Request $request, Venta $venta)
+    {
+        if ($venta->user_id !== Auth::id()) {
+            abort(403);
+        }
+
+        $request->validate([
+            'comprobante' => 'required|image|mimes:jpeg,png,jpg|max:5120', // Max 5MB
+        ]);
+
+        if ($request->hasFile('comprobante')) {
+            if ($venta->comprobante_path) {
+                Storage::disk('public')->delete($venta->comprobante_path);
+            }
+
+            $path = $request->file('comprobante')->store('comprobantes', 'public');
+            $venta->update(['comprobante_path' => $path]);
+
+            // Notify employees
+            $users = \App\Models\User::whereHas('empleado')->get();
+            foreach ($users as $user) {
+                $user->notify(new \App\Notifications\ComprobanteSubido($venta));
+            }
+        }
+
+        return back()->with('message', 'Comprobante subido exitosamente. Un empleado verificará el pago a la brevedad.');
     }
 }

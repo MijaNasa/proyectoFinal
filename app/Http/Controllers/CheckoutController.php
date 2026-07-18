@@ -249,7 +249,7 @@ class CheckoutController extends Controller
                     $montoCC = $total;
                     $montoMercadoPago = 0;
                     $estado = 'en_preparacion';
-                } elseif ($request->medio_pago === 'Efectivo') {
+                } elseif (in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) {
                     $montoMercadoPago = 0;
                     $estado = 'pendiente_pago'; // Se reserva stock abajo
                 }
@@ -266,7 +266,8 @@ class CheckoutController extends Controller
                     'tipo_envio'      => $request->tipo_envio,
                     'direccion_envio' => $request->direccion_envio,
                     'motivo_pendiente'=> $motivo_pendiente,
-                    'pago_expira_at'  => ($estado === 'pendiente_pago' && $request->medio_pago === 'Efectivo') ? now()->addHours(48) : ($estado === 'pendiente_pago' ? now()->addHours(24) : null),
+                    'metodo_pago'     => $request->medio_pago,
+                    'pago_expira_at'  => ($estado === 'pendiente_pago' && in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) ? now()->addHours(48) : ($estado === 'pendiente_pago' ? now()->addHours(24) : null),
                 ]);
 
                 foreach ($processedItems as $item) {
@@ -292,8 +293,8 @@ class CheckoutController extends Controller
                     $cliente->decrement('saldo_actual', $montoCC);
                 }
 
-                // Si se resolvió el pago inmediatamente o si es Efectivo (reserva), hacer los traslados y descuentos
-                if ($estado === 'en_preparacion' || $estado === 'esperando_traslado' || $request->medio_pago === 'Efectivo') {
+                // Si se resolvió el pago inmediatamente o si es Efectivo/Transferencia (reserva), hacer los traslados y descuentos
+                if ($estado === 'en_preparacion' || $estado === 'esperando_traslado' || in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) {
                     $requiereTraslados = false;
 
                     foreach ($requerido as $libroId => $cantFaltante) {
@@ -345,7 +346,19 @@ class CheckoutController extends Controller
                     }
 
                     if ($requiereTraslados) {
-                        $venta->update(['estado' => 'esperando_traslado']);
+                        $updateData = [];
+                        
+                        if ($estado === 'en_preparacion') {
+                            $updateData['estado'] = 'esperando_traslado';
+                        }
+                        
+                        if ($estado === 'pendiente_pago' && $request->medio_pago === 'Transferencia') {
+                            $updateData['pago_expira_at'] = now()->addHours(2);
+                        }
+                        
+                        if (!empty($updateData)) {
+                            $venta->update($updateData);
+                        }
                     }
                 }
 
@@ -392,7 +405,7 @@ class CheckoutController extends Controller
 
             $preferenceData = [
                 'items'              => $items,
-                'payer'              => ['email' => 'test_user_buyer@testuser.com'],
+                'payer'              => ['email' => Auth::user()->email],
                 'external_reference' => (string) $venta->id,
                 'notification_url'   => $baseUrl . '/checkout/webhook',
                 'back_urls'          => [
@@ -449,8 +462,9 @@ class CheckoutController extends Controller
             'status' => 'success',
             'venta'  => $venta ? [
                 'id'         => $venta->id,
-                'total'      => $venta->total,
-                'tipo_envio' => $venta->tipo_envio,
+                'total'       => $venta->total,
+                'tipo_envio'  => $venta->tipo_envio,
+                'metodo_pago' => $venta->metodo_pago,
             ] : null,
         ]);
     }
@@ -575,7 +589,7 @@ class CheckoutController extends Controller
                             'sucursal_destino_id' => $fresh->sucursal_id,
                             'cantidad'            => $aTrasladar,
                             'motivo'              => "Traslado automático por Venta Web #{$fresh->id}",
-                            'estado'              => 'pendiente',
+                            'estado'              => 'pendiente_envio',
                             'user_id'             => Auth::id() ?? 1,
                             'fecha'               => now(),
                         ]);
@@ -589,6 +603,11 @@ class CheckoutController extends Controller
                 'estado'     => $requiereTraslados ? 'esperando_traslado' : 'en_preparacion',
                 'payment_id' => $paymentId,
             ]);
+
+            if ($requiereTraslados) {
+                $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
+                \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
+            }
         });
     }
 

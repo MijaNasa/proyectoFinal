@@ -44,16 +44,28 @@ class LogisticaController extends Controller
         $empleado = auth()->user()->empleado;
         $sucursalId = $empleado ? $empleado->sucursal_id : Sucursal::first()->id;
 
+        $esAdmin = auth()->user()->esAdmin() || auth()->user()->esGerente();
+
         // Traslados por Ventas Pendientes (Solo los que tienen venta_id)
         $trasladosAEnviar = TransferenciaStock::with(['libro.master', 'sucursalDestino', 'venta'])
             ->whereNotNull('venta_id')
-            ->where('sucursal_origen_id', $sucursalId)
+            ->whereHas('venta', function($q) {
+                $q->where('estado', '!=', 'cancelado');
+            })
+            ->when(!$esAdmin, function($q) use ($sucursalId) {
+                return $q->where('sucursal_origen_id', $sucursalId);
+            })
             ->where('estado', 'pendiente_envio')
             ->get();
 
         $trasladosARecibir = TransferenciaStock::with(['libro.master', 'sucursalOrigen', 'venta'])
             ->whereNotNull('venta_id')
-            ->where('sucursal_destino_id', $sucursalId)
+            ->whereHas('venta', function($q) {
+                $q->where('estado', '!=', 'cancelado');
+            })
+            ->when(!$esAdmin, function($q) use ($sucursalId) {
+                return $q->where('sucursal_destino_id', $sucursalId);
+            })
             ->where('estado', 'en_transito')
             ->get();
 
@@ -230,18 +242,7 @@ class LogisticaController extends Controller
 
             $traslado->update(['estado' => 'en_transito']);
 
-            // Descontar stock de la sucursal origen
-            $stock = Stock::where('libro_id', $traslado->libro_id)
-                ->where('sucursal_id', $traslado->sucursal_origen_id)
-                ->lockForUpdate()
-                ->first();
-
-            if (!$stock || $stock->cantidad_disponible < $traslado->cantidad) {
-                throw new \Exception('Stock insuficiente para realizar el envío.');
-            }
-
-            $stock->cantidad_disponible -= $traslado->cantidad;
-            $stock->save();
+            // No descontamos stock porque ya fue descontado en la creación de la venta online (CheckoutController)
 
             // Registrar movimiento de egreso
             $movimiento = MovimientoStock::create([
@@ -276,15 +277,7 @@ class LogisticaController extends Controller
 
             $traslado->update(['estado' => 'completado']);
 
-            // Sumar stock en la sucursal destino
-            $stock = Stock::firstOrCreate(
-                ['libro_id' => $traslado->libro_id, 'sucursal_id' => $traslado->sucursal_destino_id],
-                ['cantidad_disponible' => 0, 'cantidad_reservada' => 0]
-            );
-
-            $stock->cantidad_disponible += $traslado->cantidad;
-            // Si la venta lo reserva, habría que manejarlo, pero por ahora lo sumamos a disponible y la venta luego lo consumirá o lo entregará.
-            $stock->save();
+            // No sumamos stock a la sucursal de destino porque el stock ya fue reservado/descontado y el libro es para entregar directamente al cliente.
 
             // Registrar movimiento de ingreso
             $movimiento = MovimientoStock::create([

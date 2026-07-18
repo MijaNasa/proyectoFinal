@@ -332,6 +332,7 @@ class VentaController extends Controller
                     'estado_envio'     => $estadoEnvio,
                     'direccion_envio'  => $direccionEnvio,
                     'motivo_pendiente' => $motivo_pendiente,
+                    'metodo_pago'      => $request->medio_pago,
                     'total'            => $total,
                 ]);
 
@@ -559,5 +560,56 @@ class VentaController extends Controller
         }
 
         return back()->with('message', 'Estado de venta actualizado.');
+    }
+
+    public function confirmarPago(Request $request, Venta $venta)
+    {
+        $user = \Auth::user();
+
+        if (!$user->esAdmin() && !$user->esGerente()) {
+            abort(403);
+        }
+
+        if ($venta->estado !== 'pendiente_pago') {
+            return back()->with('error', 'La venta no está pendiente de pago.');
+        }
+
+        \DB::transaction(function () use ($venta, $user) {
+            $fresh = Venta::lockForUpdate()->find($venta->id);
+            if ($fresh->estado !== 'pendiente_pago') return;
+
+            // Calculate pending amount
+            $montoAbonado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
+            $restante = $fresh->total - $montoAbonado;
+
+            if ($restante > 0) {
+                $fresh->transacciones()->create([
+                    'fecha'        => now(),
+                    'tipo'         => 'ingreso',
+                    'monto'        => $restante,
+                    'metodo_pago'  => $fresh->metodo_pago ?? 'Transferencia',
+                    'sucursal_id'  => $fresh->sucursal_id,
+                    'user_id'      => $user->id,
+                    'descripcion'  => "[Venta Online #{$fresh->id}] - Pago Confirmado Manualmente",
+                ]);
+            }
+
+            // Verify if there are pending transfers
+            $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $fresh->id)->exists();
+            $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
+
+            if ($tieneTraslados) {
+                \App\Models\TransferenciaStock::where('venta_id', $fresh->id)
+                    ->where('estado', 'pendiente')
+                    ->update(['estado' => 'pendiente_envio']);
+                    
+                $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
+                \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
+            }
+
+            $fresh->update(['estado' => $nuevoEstado]);
+        });
+
+        return back()->with('message', 'Pago confirmado correctamente.');
     }
 }

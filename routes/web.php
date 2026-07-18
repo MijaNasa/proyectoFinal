@@ -56,6 +56,7 @@ Route::post('/checkout/webhook', [CheckoutController::class, 'webhook'])->name('
 Route::middleware('auth')->group(function () {
     Route::get('/mi-cuenta', [MiCuentaController::class, 'index'])->name('mi-cuenta.index');
     Route::put('/mi-cuenta/password', [MiCuentaController::class, 'updatePassword'])->name('mi-cuenta.password');
+    Route::post('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'uploadComprobante'])->name('mi-cuenta.comprobante');
 });
 
 Route::get('/', function () {
@@ -99,6 +100,7 @@ Route::middleware('auth')->group(function () {
         Route::get('ventas/search-libros',   [VentaController::class, 'searchLibros'])->name('ventas.search-libros');
         Route::get('ventas/search-clientes', [VentaController::class, 'searchClientes'])->name('ventas.search-clientes');
         Route::resource('ventas', VentaController::class)->except(['create', 'edit', 'update']);
+        Route::post('/ventas/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->name('ventas.confirmar-pago');
         Route::patch('ventas/{venta}/estado', [VentaController::class, 'updateEstado'])->name('ventas.estado');
     });
 

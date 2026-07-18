@@ -232,7 +232,7 @@ const deshacerMovimiento = (id) => {
                         Traslados Pendientes por <span class="text-brand-red">Ventas</span>
                     </h3>
                     
-                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="grid grid-cols-1 gap-6">
                         <!-- A Enviar -->
                         <div v-if="trasladosAEnviar.length > 0" class="card p-0 overflow-hidden border-yellow-500/30">
                             <div class="bg-yellow-500/10 p-4 border-b border-yellow-500/20 flex items-center justify-between">
@@ -251,7 +251,7 @@ const deshacerMovimiento = (id) => {
                                             <span class="text-sm font-black text-yellow-500">{{ t.cantidad }}</span>
                                         </div>
                                         <Link :href="route('logistica.enviar', t.id)" method="post" as="button" preserve-scroll class="bg-yellow-500 hover:bg-yellow-400 text-black font-black text-[10px] px-4 py-2 rounded uppercase tracking-widest transition-colors">
-                                            Registrar Envío
+                                            Confirmar Envío
                                         </Link>
                                     </div>
                                 </div>
@@ -276,7 +276,7 @@ const deshacerMovimiento = (id) => {
                                             <span class="text-sm font-black text-green-500">{{ t.cantidad }}</span>
                                         </div>
                                         <Link :href="route('logistica.recibir', t.id)" method="post" as="button" preserve-scroll class="bg-green-500 hover:bg-green-400 text-black font-black text-[10px] px-4 py-2 rounded uppercase tracking-widest transition-colors">
-                                            Registrar Recepción
+                                            Confirmar Recepción
                                         </Link>
                                     </div>
                                 </div>

@@ -21,6 +21,9 @@ const puedeEditarEstado = computed(() =>
 const estadoOpciones = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago',  tipos: ['online', 'presencial'] },
     { value: 'pagado',             label: 'Pagado',             tipos: ['online', 'presencial'] },
+    { value: 'en_preparacion',     label: 'En preparación',     tipos: ['online'] },
+    { value: 'esperando_traslado', label: 'Esperando traslado', tipos: ['online'] },
+    { value: 'listo_para_retirar', label: 'Listo para retirar', tipos: ['online'] },
     { value: 'cancelado',          label: 'Cancelado',          tipos: ['online', 'presencial'] },
 ];
 
@@ -39,6 +42,9 @@ const estadoOpcionesFiltradas = computed(() => {
 const estadoColores = {
     pendiente_pago:     'bg-yellow-500/20 text-yellow-400',
     pagado:             'bg-green-500/20 text-green-400',
+    en_preparacion:     'bg-blue-500/20 text-blue-400',
+    esperando_traslado: 'bg-purple-500/20 text-purple-400',
+    listo_para_retirar: 'bg-green-700/20 text-green-600',
     cancelado:          'bg-red-500/20 text-red-400',
 };
 
@@ -536,6 +542,27 @@ const cambiarEstado = async () => {
     });
 };
 
+const confirmarPago = async () => {
+    const { isConfirmed } = await Swal.fire({
+        title: '¿Confirmar Pago?',
+        text: 'Esto registrará el ingreso del dinero y pasará el pedido a "En Preparación".',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, confirmar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#25D366'
+    });
+    
+    if (!isConfirmed) return;
+
+    estadoForm.post(route('ventas.confirmar-pago', selectedVenta.value.id), {
+        onSuccess: () => {
+            showDetailModal.value = false;
+            router.reload({ preserveScroll: true });
+        }
+    });
+};
+
 // Automatización segura para abrir la terminal directo desde el Dashboard o Detalles
 onMounted(() => {
     if (typeof window !== 'undefined') {
@@ -865,7 +892,7 @@ onMounted(() => {
                                 <select v-model="posForm.medio_pago" class="input-field w-full bg-brand-black text-[10px] font-black uppercase tracking-widest">
                                     <option value="Efectivo">💵 Efectivo Cash</option>
                                     <option value="Tarjeta">💳 Tarjeta / Posnet</option>
-                                    <option value="Transferencia">📱 Transferencia / MP</option>
+                                    <option value="Transferencia">📱 Transferencia</option>
                                     <option value="Cuenta Corriente">🏛️ Cuenta Corriente</option>
                                 </select>
                             </div>
@@ -894,7 +921,7 @@ onMounted(() => {
                                     <option :value="null">Dejar como deuda en Cuenta Corriente</option>
                                     <option value="Efectivo">💵 Pagar excedente en Efectivo</option>
                                     <option value="Tarjeta">💳 Pagar excedente con Tarjeta / Posnet</option>
-                                    <option value="Transferencia">📱 Pagar excedente con Transferencia / MP</option>
+                                    <option value="Transferencia">📱 Pagar excedente con Transferencia</option>
                                 </select>
                             </div>
                         </div>
@@ -956,13 +983,14 @@ onMounted(() => {
                                 <td class="py-4 text-right text-xs font-black">{{ formatCurrency(item.subtotal) }}</td>
                             </tr>
                         </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="3" class="py-4 text-right text-xs font-black uppercase tracking-[0.2em] text-white/40">Total de la Compra</td>
+                                <td class="py-4 text-right text-sm font-black italic text-white">{{ formatCurrency(selectedVenta.total) }}</td>
+                            </tr>
+                        </tfoot>
                     </table>
 
-                    <div class="flex justify-between items-center bg-white/[0.02] p-6 border border-white/5 rounded-xl mt-4">
-                        <div class="text-xs font-black uppercase tracking-[0.4em] text-white/20 italic">Total Bruto</div>
-                        <div class="text-3xl font-black italic text-white">{{ formatCurrency(selectedVenta.total) }}</div>
-                    </div>
-                    
                     <div v-if="selectedVenta.estado === 'pendiente_pago' && (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0) > 0" class="flex justify-between items-center bg-white/[0.02] p-6 border border-white/5 rounded-xl mt-4">
                         <div class="text-xs font-black uppercase tracking-[0.4em] text-white/20 italic">Abonado (Saldo a favor/Parcial)</div>
                         <div class="text-2xl font-black italic text-brand-red">
@@ -974,6 +1002,23 @@ onMounted(() => {
                         <div class="text-xs font-black uppercase tracking-[0.4em] text-brand-red italic">Resta a pagar</div>
                         <div class="text-3xl font-black italic text-brand-red">
                             {{ formatCurrency(selectedVenta.total - (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0)) }}
+                        </div>
+                    </div>
+
+                    <!-- Botón rápido para Confirmar Pago de Online/Transferencia -->
+                    <div v-if="selectedVenta.estado === 'pendiente_pago' && selectedVenta.tipo === 'online'" class="mt-4 p-4 bg-brand-red/10 border border-brand-red/20 rounded-xl flex flex-col gap-3">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <div class="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Acción Rápida</div>
+                                <div class="text-sm font-black text-white">¿El pago ya impactó?</div>
+                            </div>
+                            <button @click="confirmarPago" :disabled="estadoForm.processing" class="btn-primary text-xs px-6 py-2">
+                                CONFIRMAR PAGO
+                            </button>
+                        </div>
+                        <div v-if="selectedVenta.comprobante_path" class="pt-2 border-t border-brand-red/10 flex justify-between items-center">
+                            <span class="text-xs text-white/70">✅ El cliente subió un comprobante.</span>
+                            <a :href="'/storage/' + selectedVenta.comprobante_path" target="_blank" class="text-xs font-bold text-brand-red uppercase tracking-widest hover:underline">Ver adjunto</a>
                         </div>
                     </div>
 

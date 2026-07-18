@@ -19,7 +19,7 @@ class Venta extends Model
         'sucursal_id', 'tipo', 'total',
         'estado', 'estado_envio', 'tipo_envio', 'direccion_envio',
         'pago_expira_at', 'payment_id',
-        'origen', 'motivo_pendiente'
+        'origen', 'motivo_pendiente', 'metodo_pago', 'comprobante_path'
     ];
 
     protected $casts = [

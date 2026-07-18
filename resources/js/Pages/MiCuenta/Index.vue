@@ -27,6 +27,17 @@ const passwordForm = useForm({
     password_confirmation: '',
 });
 
+const uploadForm = useForm({
+    comprobante: null,
+});
+
+const uploadComprobante = (pedidoId) => {
+    uploadForm.post(route('mi-cuenta.comprobante', pedidoId), {
+        preserveScroll: true,
+        onSuccess: () => uploadForm.reset(),
+    });
+};
+
 const submitPassword = () => {
     passwordForm.put(route('mi-cuenta.password'), {
         onSuccess: () => passwordForm.reset(),
@@ -253,6 +264,35 @@ const getTipoEnvioLabel = (tipo) => {
                                     Ya podés pasar a retirar tus libros por la sucursal <strong>{{ pedido.sucursal_nombre }}</strong>.
                                 </p>
                             </div>
+                        </div>
+
+                        <!-- Subir Comprobante (Transferencia Pendiente) -->
+                        <div v-if="pedido.estado === 'pendiente_pago' && pedido.metodo_pago === 'Transferencia'" class="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl">
+                            <h4 class="text-xs font-black uppercase tracking-widest text-white/50 mb-3">Comprobante de Transferencia</h4>
+                            
+                            <div v-if="pedido.comprobante_path" class="flex items-center gap-3">
+                                <span class="text-green-400">✅</span>
+                                <p class="text-xs text-white/70">Comprobante enviado. Esperando verificación.</p>
+                                <a :href="pedido.comprobante_path" target="_blank" class="ml-auto text-[10px] font-bold text-brand-red uppercase hover:underline">Ver adjunto</a>
+                            </div>
+                            
+                            <form v-else @submit.prevent="uploadComprobante(pedido.id)" class="flex flex-col sm:flex-row items-center gap-3">
+                                <input 
+                                    type="file" 
+                                    accept="image/*"
+                                    @input="uploadForm.comprobante = $event.target.files[0]"
+                                    class="w-full text-xs text-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-brand-red/20 file:text-brand-red hover:file:bg-brand-red/30 cursor-pointer"
+                                    required
+                                >
+                                <button 
+                                    type="submit"
+                                    :disabled="uploadForm.processing || !uploadForm.comprobante"
+                                    class="w-full sm:w-auto px-4 py-2 bg-brand-red text-white text-[10px] font-black uppercase rounded-lg disabled:opacity-50"
+                                >
+                                    {{ uploadForm.processing ? 'Enviando...' : 'Enviar comprobante' }}
+                                </button>
+                            </form>
+                            <p v-if="uploadForm.errors.comprobante" class="text-red-400 text-[10px] mt-2">{{ uploadForm.errors.comprobante }}</p>
                         </div>
                     </div>
                 </div>
