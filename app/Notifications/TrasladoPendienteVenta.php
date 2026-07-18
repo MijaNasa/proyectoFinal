@@ -28,7 +28,7 @@ class TrasladoPendienteVenta extends Notification
             'type'    => 'traslado_pendiente',
             'title'   => 'Traslados pendientes por venta',
             'message' => 'Se generó el envío pendiente debido al pago de la orden #' . $this->venta->id,
-            'url'     => '/ventas/' . $this->venta->id,
+            'url'     => '/ventas?search=' . $this->venta->id,
         ];
     }
 }

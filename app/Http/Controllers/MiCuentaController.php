@@ -28,7 +28,7 @@ class MiCuentaController extends Controller
                 'tipo_envio'      => $v->tipo_envio,
                 'sucursal_nombre' => $v->sucursal->nombre ?? 'N/A',
                 'items'           => $v->detalles->map(fn($d) => [
-                    'titulo'   => $d->libro->master->titulo ?? 'Libro',
+                    'titulo'   => ($d->libro->master->titulo ?? 'Libro') . ' (Tomo ' . ($d->libro->numero_tomo ?? 'Único') . ')',
                     'cantidad' => $d->cantidad,
                     'subtotal' => $d->subtotal,
                 ]),

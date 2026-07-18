@@ -489,10 +489,14 @@ class CheckoutController extends Controller
         $ventaId = $request->query('external_reference');
 
         if ($ventaId) {
-            Venta::where('id', $ventaId)
+            $venta = Venta::where('id', $ventaId)
                 ->where('user_id', Auth::id())
                 ->where('estado', 'pendiente_pago')
-                ->update(['estado' => 'cancelado']);
+                ->first();
+                
+            if ($venta) {
+                $venta->cancelarConRestitucionDeStock();
+            }
         }
 
         return Inertia::render('Checkout/Confirmacion', [
@@ -523,7 +527,7 @@ class CheckoutController extends Controller
                 match ($payment->status) {
                     'approved' => $this->handleApproved($venta, (string) $paymentId),
                     'rejected', 'cancelled' => $venta->estado === 'pendiente_pago'
-                        ? $venta->update(['estado' => 'cancelado'])
+                        ? clone($venta)->cancelarConRestitucionDeStock()
                         : null,
                     default => null,
                 };

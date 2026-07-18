@@ -79,4 +79,45 @@ class Venta extends Model
     {
         return $this->hasMany(\App\Models\ParadaReparto::class);
     }
+
+    public function cancelarConRestitucionDeStock()
+    {
+        if ($this->estado === 'cancelado') {
+            return;
+        }
+
+        // Si la venta está asociada a traslados (TransferenciaStock)
+        $traslados = \App\Models\TransferenciaStock::where('venta_id', $this->id)->get();
+        
+        foreach ($this->detalles as $detalle) {
+            $trasladado = $traslados->where('libro_id', $detalle->libro_id)->sum('cantidad');
+            $local = $detalle->cantidad - $trasladado;
+            
+            // Restituir lo que se haya descontado de la sucursal local (la de la Venta)
+            if ($local > 0) {
+                \App\Models\Stock::where('libro_id', $detalle->libro_id)
+                    ->where('sucursal_id', $this->sucursal_id)
+                    ->increment('cantidad_disponible', $local);
+            }
+        }
+
+        // Restituir lo que se haya descontado de otras sucursales (origen de los traslados)
+        foreach ($traslados as $t) {
+            \App\Models\Stock::where('libro_id', $t->libro_id)
+                ->where('sucursal_id', $t->sucursal_origen_id)
+                ->increment('cantidad_disponible', $t->cantidad);
+            
+            $t->update(['estado' => 'cancelado', 'motivo' => 'Venta cancelada']);
+        }
+
+        // Devolver saldo si usó cuenta corriente
+        if ($this->cliente) {
+            $montoPagado = $this->transacciones()->where('tipo', 'ingreso')->sum('monto');
+            if ($montoPagado > 0) {
+                $this->cliente->increment('saldo_actual', $montoPagado);
+            }
+        }
+
+        $this->update(['estado' => 'cancelado']);
+    }
 }

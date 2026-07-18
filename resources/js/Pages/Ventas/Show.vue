@@ -143,10 +143,6 @@ const print = () => window.print();
                                 : 'border-gray-300 text-gray-600 bg-gray-50'">
                             {{ venta.tipo === 'online' ? 'Venta Online' : 'Venta Presencial' }}
                         </span>
-                        <div class="mt-2 text-right">
-                            <span class="text-[9px] font-black uppercase tracking-widest text-gray-500 mr-2">PAGO: {{ estados.find(e => e.value === venta.estado)?.label || venta.estado }}</span>
-                            <span class="text-[9px] font-black uppercase tracking-widest text-gray-500">ENVÍO: {{ estadosEnvio.find(e => e.value === venta.estado_envio)?.label || venta.estado_envio }}</span>
-                        </div>
                     </div>
                 </div>
             </div>
@@ -189,7 +185,7 @@ const print = () => window.print();
                 <tbody class="divide-y divide-gray-100">
                     <tr v-for="d in venta.detalles" :key="d.id" class="py-2">
                         <td class="py-3">
-                            <p class="font-bold text-black">{{ d.libro?.master?.titulo }}</p>
+                            <p class="font-bold text-black">{{ d.libro?.master?.titulo }} (Tomo {{ d.libro?.numero_tomo || 'Único' }})</p>
                             <p v-if="d.libro?.isbn" class="text-[10px] font-mono text-gray-400 mt-0.5">ISBN: {{ d.libro.isbn }}</p>
                         </td>
                         <td class="py-3 text-center font-bold text-gray-700">{{ d.cantidad }}</td>

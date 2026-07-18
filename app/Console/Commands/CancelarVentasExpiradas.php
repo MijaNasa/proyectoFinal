@@ -30,37 +30,7 @@ class CancelarVentasExpiradas extends Command
         $canceladas = 0;
 
         foreach ($base->get() as $venta) {
-            // Si no tiene payment_id, es una reserva en efectivo o transferencia cuyo stock fue descontado
-            if (is_null($venta->payment_id)) {
-                $traslados = \App\Models\TransferenciaStock::where('venta_id', $venta->id)->get();
-                
-                // 1. Restaurar el stock local (lo que se sacó de la sucursal original)
-                foreach ($venta->detalles as $detalle) {
-                    $trasladado = $traslados->where('libro_id', $detalle->libro_id)->sum('cantidad');
-                    $local = $detalle->cantidad - $trasladado;
-                    
-                    if ($local > 0) {
-                        $stock = \App\Models\Stock::where('libro_id', $detalle->libro_id)
-                            ->where('sucursal_id', $venta->sucursal_id)
-                            ->first();
-                        
-                        if ($stock) {
-                            $stock->increment('cantidad_disponible', $local);
-                        }
-                    }
-                }
-
-                // 2. Restaurar stock a las sucursales de origen de los traslados
-                foreach ($traslados as $t) {
-                    \App\Models\Stock::where('libro_id', $t->libro_id)
-                        ->where('sucursal_id', $t->sucursal_origen_id)
-                        ->increment('cantidad_disponible', $t->cantidad);
-                    
-                    $t->update(['estado' => 'cancelado', 'motivo' => 'Venta online cancelada por expiración']);
-                }
-            }
-
-            $venta->update(['estado' => 'cancelado']);
+            $venta->cancelarConRestitucionDeStock();
             $canceladas++;
         }
 

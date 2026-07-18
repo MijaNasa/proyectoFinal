@@ -477,21 +477,7 @@ class VentaController extends Controller
             }
 
             // Solo revertimos stock y devolvemos saldo si no estaba ya cancelada (evita doble reverso)
-            if ($fresh->estado !== 'cancelado') {
-                foreach ($fresh->detalles as $detalle) {
-                    \App\Models\Stock::where('libro_id', $detalle->libro_id)
-                        ->where('sucursal_id', $fresh->sucursal_id)
-                        ->increment('cantidad_disponible', $detalle->cantidad);
-                }
-
-                if ($fresh->cliente) {
-                    // Devolver exactamente la suma de los montos ingresados para este ticket
-                    $montoPagado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
-                    if ($montoPagado > 0) {
-                        $fresh->cliente->increment('saldo_actual', $montoPagado);
-                    }
-                }
-            }
+            $fresh->cancelarConRestitucionDeStock();
 
             $fresh->delete();
         });
@@ -525,20 +511,7 @@ class VentaController extends Controller
                     ]);
                 }
 
-                foreach ($fresh->detalles as $detalle) {
-                    \App\Models\Stock::where('libro_id', $detalle->libro_id)
-                        ->where('sucursal_id', $fresh->sucursal_id)
-                        ->increment('cantidad_disponible', $detalle->cantidad);
-                }
-
-                if ($fresh->cliente) {
-                    $montoPagado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
-                    if ($montoPagado > 0) {
-                        $fresh->cliente->increment('saldo_actual', $montoPagado);
-                    }
-                }
-
-                $fresh->update(['estado' => 'cancelado']);
+                $fresh->cancelarConRestitucionDeStock();
             });
             return back()->with('message', 'Venta cancelada y stock revertido.');
         }
