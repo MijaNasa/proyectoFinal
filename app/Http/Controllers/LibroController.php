@@ -111,6 +111,13 @@ class LibroController extends Controller
     }
     
 
+    public function deshabilitarPreventas()
+    {
+        \App\Models\Libro::where('permite_preventa', true)->update(['permite_preventa' => false]);
+
+        return redirect()->back()->with('message', 'Todas las preventas activas han sido deshabilitadas.');
+    }
+
     public function destroy(Libro $libro)
     {
         // Verificar si hay stock activo de este libro en cualquier sucursal

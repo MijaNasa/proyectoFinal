@@ -502,6 +502,28 @@ const quickEditPrice = (libro) => {
         }
     });
 };
+
+const deshabilitarPreventasMassive = () => {
+    Swal.fire({
+        title: '¿Deshabilitar Preventas?',
+        text: "Esto desactivará la preventa de todos los tomos activos inmediatamente.",
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#E61919',
+        cancelButtonColor: '#333',
+        confirmButtonText: 'Sí, deshabilitar',
+        background: '#1A1A1A', color: '#FFF'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.post(route('libros.deshabilitar-preventas'), {}, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    Swal.fire({ title: '¡Éxito!', text: 'Todas las preventas han sido deshabilitadas.', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                }
+            });
+        }
+    });
+};
 </script>
 
 <template>
@@ -513,12 +535,18 @@ const quickEditPrice = (libro) => {
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
                     Catálogo <span class="text-brand-red italic">Principal</span>
                 </h2>
-                <button @click="openObraModal()" class="btn-primary flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                    </svg>
-                    Nueva Obra
-                </button>
+                <div class="flex gap-3">
+                    <button @click="deshabilitarPreventasMassive" class="px-4 py-2 bg-brand-red/10 text-brand-red border border-brand-red/50 hover:bg-brand-red hover:text-white transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                        Deshabilitar Preventas
+                    </button>
+                    <button @click="openObraModal()" class="btn-primary flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                        </svg>
+                        Nueva Obra
+                    </button>
+                </div>
             </div>
         </template>
 

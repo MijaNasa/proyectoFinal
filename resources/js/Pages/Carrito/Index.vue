@@ -98,12 +98,14 @@ const irACheckout = () => {
 
                         <!-- Subtotal -->
                         <div class="flex-shrink-0 text-right flex flex-col justify-between">
-                            <div>
-                                <div class="text-2xl font-black text-brand-red italic">
-                                    {{ formatPrecio(item.precio * item.cantidad) }}
+                            <div class="flex flex-col items-end">
+                                <div class="text-2xl font-black text-brand-red italic flex flex-col items-end leading-none">
+                                    <span v-if="item.permite_preventa" class="text-sm font-black text-white/40 line-through mb-1">{{ formatPrecio((item.precio_original || item.precio) * item.cantidad) }}</span>
+                                    <span>{{ formatPrecio(item.precio * item.cantidad) }}</span>
                                 </div>
-                                <div class="text-xs font-bold text-white/20 mt-1">
-                                    {{ formatPrecio(item.precio) }} c/u
+                                <div class="text-xs font-bold text-white/20 mt-2 flex flex-col items-end">
+                                    <span v-if="item.permite_preventa" class="text-[10px] line-through">{{ formatPrecio(item.precio_original || item.precio) }} c/u</span>
+                                    <span>{{ formatPrecio(item.precio) }} c/u</span>
                                 </div>
                             </div>
                             <!-- Quitar -->

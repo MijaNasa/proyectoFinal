@@ -10,8 +10,22 @@ const props = defineProps({
 
 const cantidad = ref(1);
 
-const getPrecioFormatted = (precio) => {
-    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio);
+const getPrecio = (libro) => {
+    if (libro.precio_actual) {
+        let precio = libro.precio_actual.precio_venta;
+        if (libro.permite_preventa) {
+            precio = precio * 0.90;
+        }
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio);
+    }
+    return 'Consultar';
+};
+
+const getPrecioOriginal = (libro) => {
+    if (libro.precio_actual) {
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(libro.precio_actual.precio_venta);
+    }
+    return '';
 };
 
 const getStockTotal = (libro) => {
@@ -114,8 +128,9 @@ const agregarAlCarrito = () => {
                             <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-6">
                                 <div>
                                     <div class="text-sm font-black uppercase tracking-widest text-white/40 mb-1">Precio</div>
-                                    <div class="text-4xl font-black text-brand-red italic">
-                                        {{ libro.precio_actual ? getPrecioFormatted(libro.precio_actual.precio_venta) : 'Consultar' }}
+                                    <div class="text-4xl font-black text-brand-red italic flex flex-col items-start">
+                                        <span v-if="libro.permite_preventa" class="text-lg font-black text-white/40 line-through leading-none">{{ getPrecioOriginal(libro) }}</span>
+                                        <span>{{ getPrecio(libro) }}</span>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -197,8 +212,9 @@ const agregarAlCarrito = () => {
                             <h4 class="font-black uppercase tracking-tighter text-xs leading-tight transition-colors line-clamp-2 group-hover:text-brand-red text-white">
                                 {{ rel.master?.titulo }} {{ rel.numero_tomo ? '- Tomo ' + rel.numero_tomo : '' }}
                             </h4>
-                            <div class="text-brand-red font-bold text-sm mt-1">
-                                {{ rel.precio_actual ? getPrecioFormatted(rel.precio_actual.precio_venta) : 'Consultar' }}
+                            <div class="text-brand-red font-bold text-sm mt-1 flex flex-col">
+                                <span v-if="rel.permite_preventa" class="text-[10px] font-black text-white/40 line-through leading-none mb-1">{{ getPrecioOriginal(rel) }}</span>
+                                <span>{{ getPrecio(rel) }}</span>
                             </div>
                         </div>
                     </Link>

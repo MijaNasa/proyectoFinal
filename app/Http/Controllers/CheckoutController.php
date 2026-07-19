@@ -220,9 +220,9 @@ class CheckoutController extends Controller
         foreach ($carrito as $item) {
             $libroId = $item['libro_id'];
             $cantidad = $item['cantidad'];
-            $precioOriginal = $precios[$libroId]->precio_venta;
-            $costoOriginal = $precios[$libroId]->precio_compra;
             $libroModel = $librosModels[$libroId];
+            $precioOriginal = $libroModel->permite_preventa ? $precios[$libroId]->precio_venta * 0.90 : $precios[$libroId]->precio_venta;
+            $costoOriginal = $precios[$libroId]->precio_compra;
 
             $hasDiscount = false;
             
@@ -443,13 +443,16 @@ class CheckoutController extends Controller
 
         try {
             if ($montoMercadoPago == $total) {
-                $items = collect($carrito)->map(fn($item) => [
-                    'id'          => (string) $item['libro_id'],
-                    'title'       => $item['titulo'],
-                    'quantity'    => (int) $item['cantidad'],
-                    'unit_price'  => (float) $precios[$item['libro_id']]->precio_venta,
-                    'currency_id' => 'ARS',
-                ])->values()->toArray();
+                $items = collect($processedItems)->map(function($item) use ($librosModels) {
+                    $libro = $librosModels[$item['libro_id']];
+                    return [
+                        'id'          => (string) $item['libro_id'],
+                        'title'       => $libro->master->titulo . ($libro->numero_tomo ? ' - Tomo ' . $libro->numero_tomo : ''),
+                        'quantity'    => (int) $item['cantidad'],
+                        'unit_price'  => (float) $item['precio_venta'],
+                        'currency_id' => 'ARS',
+                    ];
+                })->values()->toArray();
             } else {
                 $items = [
                     [

@@ -136,7 +136,7 @@ class VentaController extends Controller
             'master'           => ['titulo' => $l->master->titulo],
             'permite_preventa' => $l->permite_preventa,
             'precio_actual'    => $l->precios->first()
-                ? ['precio_venta' => $l->precios->first()->precio_venta]
+                ? ['precio_venta' => $l->permite_preventa ? ($l->precios->first()->precio_venta * 0.90) : $l->precios->first()->precio_venta]
                 : null,
             'stock_disponible' => $sucursalId ? (int) ($stocks[$l->id] ?? 0) : null,
         ]));
@@ -211,9 +211,9 @@ class VentaController extends Controller
                 foreach ($request->items as $item) {
                     $libroId = $item['libro_id'];
                     $cantidad = $item['cantidad'];
-                    $precioOriginal = $precios[$libroId]->precio_venta;
-                    $costoOriginal = $precios[$libroId]->precio_compra;
                     $libroModel = $librosModels[$libroId];
+                    $precioOriginal = $libroModel->permite_preventa ? $precios[$libroId]->precio_venta * 0.90 : $precios[$libroId]->precio_venta;
+                    $costoOriginal = $precios[$libroId]->precio_compra;
 
                     $hasDiscount = false;
                     

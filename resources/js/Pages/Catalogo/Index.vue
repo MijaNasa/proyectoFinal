@@ -101,9 +101,20 @@ const fmt = (v) => new Intl.NumberFormat('es-AR', { style: 'currency', currency:
 
 const getPrecio = (libro) => {
     if (libro.precio_actual) {
-        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(libro.precio_actual.precio_venta);
+        let precio = libro.precio_actual.precio_venta;
+        if (libro.permite_preventa) {
+            precio = precio * 0.90;
+        }
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio);
     }
     return 'Consultar';
+};
+
+const getPrecioOriginal = (libro) => {
+    if (libro.precio_actual) {
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(libro.precio_actual.precio_venta);
+    }
+    return '';
 };
 
 const getIdiomas = (libro) => [libro.master?.idioma?.nombre].filter(Boolean);
@@ -293,7 +304,10 @@ const agregarAlCarrito = (libro) => {
                                 <div class="flex flex-col gap-1">
                                     <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 line-clamp-1">{{ libro.master?.autor ? libro.master.autor.apellido + ', ' + libro.master.autor.nombre : 'Autor Desconocido' }}</span>
                                     <div class="flex items-center justify-between">
-                                        <span class="text-base font-black text-brand-red italic">{{ getPrecio(libro) }}</span>
+                                        <div class="flex flex-col">
+                                            <span v-if="libro.permite_preventa" class="text-[10px] font-black text-white/40 line-through leading-none">{{ getPrecioOriginal(libro) }}</span>
+                                            <span class="text-base font-black text-brand-red italic">{{ getPrecio(libro) }}</span>
+                                        </div>
                                         <span v-if="getStockStatus(libro) !== 'disponible'" :class="['text-[8px] font-black uppercase tracking-widest', stockClass[getStockStatus(libro)]]">{{ stockLabel[getStockStatus(libro)] }}</span>
                                     </div>
                                     <div v-if="tieneVariasEdiciones(libro)" class="flex gap-1 flex-wrap">

@@ -46,7 +46,9 @@ class CarritoController extends Controller
         $carrito[$id] = [
             'libro_id'    => $libro->id,
             'cantidad'    => $nuevaCantidad,
-            'precio'      => $libro->precioActual?->precio_venta ?? 0,
+            'precio'      => $libro->permite_preventa ? ($libro->precioActual?->precio_venta * 0.90) : ($libro->precioActual?->precio_venta ?? 0),
+            'precio_original' => $libro->precioActual?->precio_venta ?? 0,
+            'permite_preventa' => $libro->permite_preventa,
             'titulo'      => $libro->master->titulo . ($libro->numero_tomo ? ' - Tomo ' . $libro->numero_tomo : ''),
             'portada_url' => $libro->master->portada_url,
             'isbn'        => $libro->isbn,
