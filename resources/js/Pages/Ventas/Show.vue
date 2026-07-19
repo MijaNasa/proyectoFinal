@@ -12,28 +12,20 @@ const puedeEditarEstado = page.props.auth?.esAdmin || page.props.auth?.esGerente
 
 const estados = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago' },
-    { value: 'pagado',             label: 'Pagado' },
-    { value: 'en_preparacion',     label: 'En preparación' },
     { value: 'esperando_traslado', label: 'Esperando traslado' },
+    { value: 'en_preparacion',     label: 'En preparación' },
     { value: 'listo_para_retiro',  label: 'Listo para retirar' },
+    { value: 'acumulado',          label: 'Acumulado' },
+    { value: 'enviado',            label: 'Enviado' },
+    { value: 'finalizado',         label: 'Finalizado' },
     { value: 'cancelado',          label: 'Cancelado' },
 ];
 
-const estadosEnvio = [
-    { value: 'no_requiere', label: 'No requiere' },
-    { value: 'pendiente',   label: 'Pendiente' },
-    { value: 'enviado',     label: 'Enviado' },
-    { value: 'entregado',   label: 'Entregado' },
-];
-
 const estadoForm = useForm({ 
-    estado: props.venta.estado,
-    estado_envio: props.venta.estado_envio 
+    estado: props.venta.estado 
 });
 
-const cambiarEstado = async () => {
-    if (estadoForm.estado === props.venta.estado && estadoForm.estado_envio === props.venta.estado_envio) return;
-
+const guardarEstado = async () => {
     if (estadoForm.estado === 'cancelado' && props.venta.estado !== 'cancelado') {
         const { isConfirmed } = await Swal.fire({
             title: '¿Confirmar cancelación?',
@@ -51,7 +43,19 @@ const cambiarEstado = async () => {
         }
     }
 
-    estadoForm.patch(route('ventas.estado', props.venta.id));
+    estadoForm.patch(route('ventas.estado', props.venta.id), {
+        preserveScroll: true,
+        onSuccess: () => {
+            Swal.fire({
+                title: '¡Actualizado!',
+                text: 'El estado se ha actualizado correctamente.',
+                icon: 'success',
+                confirmButtonColor: '#3b82f6',
+                background: '#111827',
+                color: '#fff'
+            });
+        }
+    });
 };
 
 const fmt = (n) => new Intl.NumberFormat('es-AR', {
@@ -88,21 +92,14 @@ const print = () => window.print();
             <div v-if="puedeEditarEstado" class="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
                 <select
                     v-model="estadoForm.estado"
-                    title="Estado del Pago"
+                    title="Estado de la Venta"
                     class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-white/30 transition-colors w-full sm:w-auto"
                 >
                     <option v-for="e in estados" :key="e.value" :value="e.value">{{ e.label }}</option>
                 </select>
-                <select
-                    v-model="estadoForm.estado_envio"
-                    title="Estado Logístico"
-                    class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-white/30 transition-colors w-full sm:w-auto"
-                >
-                    <option v-for="e in estadosEnvio" :key="e.value" :value="e.value">{{ e.label }}</option>
-                </select>
                 <button
-                    @click="cambiarEstado"
-                    :disabled="(estadoForm.estado === venta.estado && estadoForm.estado_envio === venta.estado_envio) || estadoForm.processing"
+                    @click="guardarEstado"
+                    :disabled="estadoForm.estado === venta.estado || estadoForm.processing"
                     class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors w-full sm:w-auto"
                 >
                     Guardar

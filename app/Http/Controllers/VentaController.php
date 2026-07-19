@@ -29,8 +29,7 @@ class VentaController extends Controller
         }
 
         if ($request->boolean('abonadas_pendientes')) {
-            $query->where('estado', 'pagado')
-                  ->where('estado_envio', 'pendiente');
+            $query->where('estado', 'en_preparacion');
         }
 
         $tab = $request->get('tab', 'activas');
@@ -278,7 +277,7 @@ class VentaController extends Controller
 
                 $monto_restante = $total - $monto_saldo_usado;
 
-                $estado = 'pagado';
+                $estado = 'finalizado';
                 $motivo_pendiente = null;
                 $monto_a_cobrar = $monto_restante;
 
@@ -296,14 +295,11 @@ class VentaController extends Controller
                     $monto_a_cobrar = 0;
                 }
 
-                $estadoEnvio = 'no_requiere';
                 $direccionEnvio = null;
 
                 if ($request->acumular_pedido) {
-                    $estadoEnvio = 'no_requiere'; // No va a reparto hasta consolidar
                     $motivo_pendiente = 'Acumulación';
                 } elseif ($request->requiere_envio || $request->tipo_envio === 'domicilio') {
-                    $estadoEnvio = 'pendiente';
                     $sucursalModel = \App\Models\Sucursal::find($sucursal_id);
                     $localidad = $sucursalModel ? $sucursalModel->nombre : 'Desconocida';
 
@@ -329,7 +325,6 @@ class VentaController extends Controller
                     'tipo'             => 'presencial', // kept for retro-compatibility
                     'origen'           => $origen,
                     'estado'           => $estado,
-                    'estado_envio'     => $estadoEnvio,
                     'direccion_envio'  => $direccionEnvio,
                     'motivo_pendiente' => $motivo_pendiente,
                     'metodo_pago'      => $request->medio_pago,
@@ -495,8 +490,7 @@ class VentaController extends Controller
         }
 
         $request->validate([
-            'estado' => 'sometimes|required|in:pendiente_pago,pagado,cancelado',
-            'estado_envio' => 'sometimes|required|in:no_requiere,pendiente,enviado,entregado',
+            'estado' => 'sometimes|required|in:pendiente_pago,esperando_traslado,en_preparacion,listo_para_retiro,acumulado,enviado,finalizado,cancelado',
         ]);
 
         if ($request->estado === 'cancelado' && $venta->estado !== 'cancelado') {
@@ -505,9 +499,9 @@ class VentaController extends Controller
                     ->lockForUpdate()
                     ->find($venta->id);
 
-                if (in_array($fresh->estado_envio, ['enviado', 'entregado'])) {
+                if (in_array($fresh->estado, ['enviado', 'finalizado'])) {
                     throw \Illuminate\Validation\ValidationException::withMessages([
-                        'estado' => 'No se puede cancelar una venta que ya fue enviada o entregada.',
+                        'estado' => 'No se puede cancelar una venta que ya fue enviada o finalizada.',
                     ]);
                 }
 
@@ -523,9 +517,6 @@ class VentaController extends Controller
         $updates = [];
         if ($request->has('estado')) {
             $updates['estado'] = $request->estado;
-        }
-        if ($request->has('estado_envio')) {
-            $updates['estado_envio'] = $request->estado_envio;
         }
 
         if (!empty($updates)) {
@@ -570,8 +561,12 @@ class VentaController extends Controller
             // Verify if there are pending transfers
             $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $fresh->id)->exists();
             $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
-            if (!$tieneTraslados && in_array($fresh->tipo_envio, ['retiro', 'acumulacion'])) {
-                $nuevoEstado = 'listo_para_retiro';
+            if (!$tieneTraslados) {
+                if ($fresh->tipo_envio === 'retiro') {
+                    $nuevoEstado = 'listo_para_retiro';
+                } elseif ($fresh->tipo_envio === 'acumulacion') {
+                    $nuevoEstado = 'acumulado';
+                }
             }
 
             if ($tieneTraslados) {

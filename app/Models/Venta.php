@@ -17,7 +17,7 @@ class Venta extends Model
     protected $fillable = [
         'fecha', 'cliente_id', 'user_id',
         'sucursal_id', 'tipo', 'total',
-        'estado', 'estado_envio', 'tipo_envio', 'direccion_envio',
+        'estado', 'tipo_envio', 'direccion_envio',
         'pago_expira_at', 'payment_id',
         'origen', 'motivo_pendiente', 'metodo_pago', 'comprobante_path'
     ];

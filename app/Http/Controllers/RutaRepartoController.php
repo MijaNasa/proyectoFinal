@@ -64,7 +64,7 @@ class RutaRepartoController extends Controller
             ->where('tipo', 'online')
             ->where('tipo_envio', 'domicilio')
             ->whereNotNull('direccion_envio')
-            ->whereIn('estado', ['en_preparacion', 'pagado'])
+            ->whereIn('estado', ['en_preparacion'])
             ->whereDoesntHave('paradas', fn($q) => $q->where('ruta_reparto_id', $rutasReparto->id))
             ->latest()
             ->get();
@@ -230,7 +230,7 @@ class RutaRepartoController extends Controller
             // Sincronizar estado de la venta
             $estadoVenta = match ($request->estado) {
                 'en camino'  => 'enviado',
-                'entregada'  => 'entregado',
+                'entregada'  => 'finalizado',
                 'fallida'    => 'en_preparacion',
                 default      => null,
             };

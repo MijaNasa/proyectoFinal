@@ -58,21 +58,33 @@ const cerrarSesion = () => {
 
 const estadoConfig = {
     pendiente_pago:     { label: 'Pendiente de pago',  color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
-    pagado:             { label: 'Pagado',             color: 'text-green-400 bg-green-400/10 border-green-400/20' },
     en_preparacion:     { label: 'En preparación',     color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
     esperando_traslado: { label: 'Esperando traslado', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
     listo_para_retiro:  { label: 'Listo para retirar', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
-    listo_para_retirar: { label: 'Listo para retirar', color: 'text-green-400 bg-green-400/10 border-green-400/20' },
-    enviado:            { label: 'Enviado',             color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-    entregado:          { label: 'Entregado',           color: 'text-green-400 bg-green-400/10 border-green-400/20' },
-    retirado:           { label: 'Retirado',            color: 'text-green-400 bg-green-400/10 border-green-400/20' },
-    cancelado:          { label: 'Cancelado',           color: 'text-red-400 bg-red-400/10 border-red-400/20' },
+    acumulado:          { label: 'Acumulado',          color: 'text-orange-400 bg-orange-400/10 border-orange-400/20' },
+    enviado:            { label: 'Enviado',            color: 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20' },
+    finalizado:         { label: 'Finalizado',         color: 'text-green-400 bg-green-400/10 border-green-400/20' },
+    cancelado:          { label: 'Cancelado',          color: 'text-red-400 bg-red-400/10 border-red-400/20' },
 };
 
 const getTipoEnvioLabel = (tipo) => {
     if (tipo === 'retiro') return 'Retiro en sucursal';
     if (tipo === 'acumulacion') return 'Acumulación en sucursal';
     return 'Envío a domicilio';
+};
+
+const tieneAcumulados = computed(() => {
+    if (!props.pedidos?.data) return false;
+    return props.pedidos.data.some(p => p.estado === 'acumulado');
+});
+
+const solicitarEnvioAcumulados = () => {
+    Swal.fire({
+        title: 'Próximamente',
+        text: 'La funcionalidad para solicitar el envío de pedidos acumulados estará disponible pronto.',
+        icon: 'info',
+        background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#3b82f6'
+    });
 };
 </script>
 
@@ -232,6 +244,18 @@ const getTipoEnvioLabel = (tipo) => {
                 </div>
 
                 <div v-else class="space-y-6">
+
+                    <!-- Banner de Acumulados -->
+                    <div v-if="tieneAcumulados" class="bg-gradient-to-r from-orange-500/10 to-transparent border border-orange-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div>
+                            <h3 class="text-sm font-black uppercase tracking-widest text-orange-400 mb-1">Pedidos Acumulados</h3>
+                            <p class="text-white/40 text-xs">Tenés pedidos guardados en sucursal. Solicitá el envío para recibirlos todos juntos pagando un solo envío.</p>
+                        </div>
+                        <button @click="solicitarEnvioAcumulados" class="bg-orange-500 hover:bg-orange-400 text-black font-black text-xs uppercase tracking-widest px-6 py-3 rounded-full transition-colors whitespace-nowrap">
+                            Solicitar Envío
+                        </button>
+                    </div>
+
                     <div
                         v-for="pedido in pedidos.data"
                         :key="pedido.id"

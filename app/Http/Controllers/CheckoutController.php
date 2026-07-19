@@ -413,8 +413,12 @@ class CheckoutController extends Controller
                         }
                     } else {
                         // Si no requiere traslados y el pago est confirmado
-                        if ($estado === 'en_preparacion' && in_array($request->tipo_envio, ['retiro', 'acumulacion'])) {
-                            $venta->update(['estado' => 'listo_para_retiro']);
+                        if ($estado === 'en_preparacion') {
+                            if ($request->tipo_envio === 'retiro') {
+                                $venta->update(['estado' => 'listo_para_retiro']);
+                            } elseif ($request->tipo_envio === 'acumulacion') {
+                                $venta->update(['estado' => 'acumulado']);
+                            }
                         }
                     }
                 }
@@ -663,8 +667,12 @@ class CheckoutController extends Controller
             }
 
             $nuevoEstado = $requiereTraslados ? 'esperando_traslado' : 'en_preparacion';
-            if (!$requiereTraslados && in_array($fresh->tipo_envio, ['retiro', 'acumulacion'])) {
-                $nuevoEstado = 'listo_para_retiro';
+            if (!$requiereTraslados) {
+                if ($fresh->tipo_envio === 'retiro') {
+                    $nuevoEstado = 'listo_para_retiro';
+                } elseif ($fresh->tipo_envio === 'acumulacion') {
+                    $nuevoEstado = 'acumulado';
+                }
             }
 
             $fresh->update([

@@ -20,42 +20,48 @@ const puedeEditarEstado = computed(() =>
 
 const estadoOpciones = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago',  tipos: ['online', 'presencial'] },
-    { value: 'pagado',             label: 'Pagado',             tipos: ['online', 'presencial'] },
-    { value: 'en_preparacion',     label: 'En preparación',     tipos: ['online'] },
     { value: 'esperando_traslado', label: 'Esperando traslado', tipos: ['online'] },
+    { value: 'en_preparacion',     label: 'En preparación',     tipos: ['online'] },
     { value: 'listo_para_retiro',  label: 'Listo para retirar', tipos: ['online'] },
+    { value: 'acumulado',          label: 'Acumulado',          tipos: ['online'] },
+    { value: 'enviado',            label: 'Enviado',            tipos: ['online'] },
+    { value: 'finalizado',         label: 'Finalizado',         tipos: ['online', 'presencial'] },
     { value: 'cancelado',          label: 'Cancelado',          tipos: ['online', 'presencial'] },
-];
+];;
 
-const estadoEnvioOpciones = [
-    { value: 'no_requiere', label: 'No requiere' },
-    { value: 'pendiente',   label: 'Pendiente' },
-    { value: 'enviado',     label: 'Enviado' },
-    { value: 'entregado',   label: 'Entregado' },
-];
+
 
 const estadoOpcionesFiltradas = computed(() => {
     if (!selectedVenta.value) return estadoOpciones;
-    return estadoOpciones.filter(e => e.tipos.includes(selectedVenta.value.tipo));
+    return estadoOpciones.filter(e => {
+        if (!e.tipos.includes(selectedVenta.value.tipo)) return false;
+        
+        // Logística rules
+        if (selectedVenta.value.tipo_envio === 'retiro') {
+            if (['en_preparacion', 'acumulado', 'enviado'].includes(e.value)) return false;
+        } else if (selectedVenta.value.tipo_envio === 'domicilio') {
+            if (['listo_para_retiro', 'acumulado'].includes(e.value)) return false;
+        } else if (selectedVenta.value.tipo_envio === 'acumulacion') {
+            if (['listo_para_retiro', 'en_preparacion', 'enviado'].includes(e.value)) return false;
+        }
+        return true;
+    });
 });
 
 const estadoColores = {
     pendiente_pago:     'bg-yellow-500/20 text-yellow-400',
-    pagado:             'bg-green-500/20 text-green-400',
-    en_preparacion:     'bg-blue-500/20 text-blue-400',
     esperando_traslado: 'bg-purple-500/20 text-purple-400',
+    en_preparacion:     'bg-blue-500/20 text-blue-400',
     listo_para_retiro:  'bg-emerald-500/20 text-emerald-400',
+    acumulado:          'bg-orange-500/20 text-orange-400',
+    enviado:            'bg-indigo-500/20 text-indigo-400',
+    finalizado:         'bg-green-500/20 text-green-400',
     cancelado:          'bg-red-500/20 text-red-400',
 };
 
-const estadoEnvioColores = {
-    no_requiere: 'bg-white/10 text-white/40',
-    pendiente:   'bg-yellow-500/20 text-yellow-400',
-    enviado:     'bg-indigo-500/20 text-indigo-400',
-    entregado:   'bg-green-700/20 text-green-600',
-};
 
-const estadoForm = useForm({ estado: '', estado_envio: '' });
+
+const estadoForm = useForm({ estado: '' });
 
 const search = ref(props.filters.search || '');
 const abonadasPendientes = ref(props.filters.abonadas_pendientes === '1' || props.filters.abonadas_pendientes === true);
@@ -529,7 +535,6 @@ const switchTab = (tab) => {
 const viewVenta = (venta) => {
     selectedVenta.value = venta;
     estadoForm.estado = venta.estado;
-    estadoForm.estado_envio = venta.estado_envio;
     showDetailModal.value = true;
 };
 
@@ -543,7 +548,7 @@ const closeDetailModal = () => {
 };
 
 const cambiarEstado = async () => {
-    if (estadoForm.estado === selectedVenta.value.estado && estadoForm.estado_envio === selectedVenta.value.estado_envio) return;
+    if (estadoForm.estado === selectedVenta.value.estado) return;
 
     if (estadoForm.estado === 'cancelado' && selectedVenta.value.estado !== 'cancelado') {
         const { isConfirmed } = await Swal.fire({
@@ -573,7 +578,7 @@ const cambiarEstado = async () => {
 const confirmarPago = async () => {
     let mensaje = 'Esto registrará el ingreso del dinero y pasará el pedido a "En Preparación".';
     if (selectedVenta.value.tipo_envio === 'retiro' || selectedVenta.value.tipo_envio === 'acumulacion') {
-        mensaje = 'Esto registrará el ingreso del dinero y pasará el pedido a "Listo para Retirar" (si hay stock) o "Esperando Traslado".';
+        mensaje = 'Esto registrará el ingreso del dinero y confirmará el pago del pedido.';
     }
 
     const { isConfirmed } = await Swal.fire({
@@ -730,10 +735,7 @@ onMounted(() => {
                                     <td class="p-6">
                                         <div class="flex flex-col gap-1 items-start">
                                             <span class="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="estadoColores[venta.estado] || 'bg-white/5 text-white/40'">
-                                                Pago: {{ estadoOpciones.find(e => e.value === venta.estado)?.label || venta.estado }}
-                                            </span>
-                                            <span class="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="estadoEnvioColores[venta.estado_envio] || 'bg-white/5 text-white/40'">
-                                                Envío: {{ estadoEnvioOpciones.find(e => e.value === venta.estado_envio)?.label || venta.estado_envio }}
+                                                {{ estadoOpciones.find(e => e.value === venta.estado)?.label || venta.estado }}
                                             </span>
                                         </div>
                                     </td>
@@ -1091,13 +1093,7 @@ onMounted(() => {
                                 <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
                             </select>
                         </div>
-                        <div class="flex-1 w-full">
-                            <label class="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1 block">Estado Logístico</label>
-                            <select v-model="estadoForm.estado_envio" class="input-field w-full text-xs font-black uppercase bg-black/40" title="Estado Logístico">
-                                <option v-for="e in estadoEnvioOpciones" :key="e.value" :value="e.value">{{ e.label }}</option>
-                            </select>
-                        </div>
-                        <button @click="cambiarEstado" :disabled="estadoForm.processing || (estadoForm.estado === selectedVenta.estado && estadoForm.estado_envio === selectedVenta.estado_envio)" class="btn-primary h-[38px] px-6 text-xs font-black disabled:opacity-40 w-full sm:w-auto">
+                        <button @click="cambiarEstado" :disabled="estadoForm.processing || estadoForm.estado === selectedVenta.estado" class="btn-primary h-[38px] px-6 text-xs font-black disabled:opacity-40 w-full sm:w-auto">
                             GUARDAR
                         </button>
                     </div>
