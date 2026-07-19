@@ -33,7 +33,7 @@ class CheckoutController extends Controller
 
         $total = collect($carrito)->sum(fn($i) => $i['precio'] * $i['cantidad']);
         
-        $cliente = \App\Models\Cliente::where('user_id', Auth::id())->first();
+        $cliente = \App\Models\Cliente::where('user_id', Auth::user()?->id)->first();
         $sucursales = \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']);
 
         $libroIds = collect($carrito)->pluck('libro_id');
@@ -152,7 +152,8 @@ class CheckoutController extends Controller
         $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
 
         // Logic for Guest vs Auth User
-        $userId = Auth::id();
+        $user = Auth::user();
+        $userId = $user ? $user->id : null;
         $cliente = null;
 
         if (!$userId) {
@@ -501,7 +502,7 @@ class CheckoutController extends Controller
         $venta   = null;
 
         if ($ventaId) {
-            $venta = Venta::where('user_id', Auth::id())->find($ventaId);
+            $venta = Venta::where('user_id', Auth::user()?->id)->find($ventaId);
             if ($venta) {
                 // Limpiar carrito siempre que el pago haya avanzado,
                 // independientemente de si el webhook ya llegó o no
@@ -526,7 +527,7 @@ class CheckoutController extends Controller
     {
         $ventaId = $request->query('external_reference');
         $venta   = $ventaId
-            ? Venta::where('user_id', Auth::id())->find($ventaId)
+            ? Venta::where('user_id', Auth::user()?->id)->find($ventaId)
             : null;
 
         return Inertia::render('Checkout/Confirmacion', [
@@ -541,7 +542,7 @@ class CheckoutController extends Controller
 
         if ($ventaId) {
             $venta = Venta::where('id', $ventaId)
-                ->where('user_id', Auth::id())
+                ->where('user_id', Auth::user()?->id)
                 ->where('estado', 'pendiente_pago')
                 ->first();
                 
@@ -647,7 +648,7 @@ class CheckoutController extends Controller
                             'cantidad'            => $aTrasladar,
                             'motivo'              => "Traslado automático por Venta Web #{$fresh->id}",
                             'estado'              => 'pendiente_envio',
-                            'user_id'             => Auth::id() ?? 1,
+                            'user_id'             => Auth::user()?->id ?? 1,
                             'fecha'               => now(),
                         ]);
 
