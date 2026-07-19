@@ -18,7 +18,8 @@ const formatHora = (f) =>
 const estadoVenta = {
     pendiente_pago:     { label: 'Pend. pago',    color: 'text-yellow-400' },
     en_preparacion:     { label: 'En prep.',       color: 'text-blue-400' },
-    listo_para_retirar: { label: 'Para retirar',  color: 'text-green-400' },
+    esperando_traslado: { label: 'Esp. traslado',  color: 'text-purple-400' },
+    listo_para_retiro:  { label: 'Listo p/ retiro',color: 'text-emerald-400' },
     enviado:            { label: 'Enviado',         color: 'text-purple-400' },
     entregado:          { label: 'Entregado',       color: 'text-green-400' },
     retirado:           { label: 'Retirado',        color: 'text-green-400' },

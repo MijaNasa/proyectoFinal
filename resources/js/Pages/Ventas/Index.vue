@@ -23,7 +23,7 @@ const estadoOpciones = [
     { value: 'pagado',             label: 'Pagado',             tipos: ['online', 'presencial'] },
     { value: 'en_preparacion',     label: 'En preparación',     tipos: ['online'] },
     { value: 'esperando_traslado', label: 'Esperando traslado', tipos: ['online'] },
-    { value: 'listo_para_retirar', label: 'Listo para retirar', tipos: ['online'] },
+    { value: 'listo_para_retiro',  label: 'Listo para retirar', tipos: ['online'] },
     { value: 'cancelado',          label: 'Cancelado',          tipos: ['online', 'presencial'] },
 ];
 
@@ -44,7 +44,7 @@ const estadoColores = {
     pagado:             'bg-green-500/20 text-green-400',
     en_preparacion:     'bg-blue-500/20 text-blue-400',
     esperando_traslado: 'bg-purple-500/20 text-purple-400',
-    listo_para_retirar: 'bg-green-700/20 text-green-600',
+    listo_para_retiro:  'bg-emerald-500/20 text-emerald-400',
     cancelado:          'bg-red-500/20 text-red-400',
 };
 
@@ -571,9 +571,14 @@ const cambiarEstado = async () => {
 };
 
 const confirmarPago = async () => {
+    let mensaje = 'Esto registrará el ingreso del dinero y pasará el pedido a "En Preparación".';
+    if (selectedVenta.value.tipo_envio === 'retiro' || selectedVenta.value.tipo_envio === 'acumulacion') {
+        mensaje = 'Esto registrará el ingreso del dinero y pasará el pedido a "Listo para Retirar" (si hay stock) o "Esperando Traslado".';
+    }
+
     const { isConfirmed } = await Swal.fire({
         title: '¿Confirmar Pago?',
-        text: 'Esto registrará el ingreso del dinero y pasará el pedido a "En Preparación".',
+        text: mensaje,
         icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, confirmar',

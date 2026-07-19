@@ -13,6 +13,9 @@ const puedeEditarEstado = page.props.auth?.esAdmin || page.props.auth?.esGerente
 const estados = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago' },
     { value: 'pagado',             label: 'Pagado' },
+    { value: 'en_preparacion',     label: 'En preparación' },
+    { value: 'esperando_traslado', label: 'Esperando traslado' },
+    { value: 'listo_para_retiro',  label: 'Listo para retirar' },
     { value: 'cancelado',          label: 'Cancelado' },
 ];
 

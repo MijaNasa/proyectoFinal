@@ -61,6 +61,7 @@ const estadoConfig = {
     pagado:             { label: 'Pagado',             color: 'text-green-400 bg-green-400/10 border-green-400/20' },
     en_preparacion:     { label: 'En preparación',     color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
     esperando_traslado: { label: 'Esperando traslado', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
+    listo_para_retiro:  { label: 'Listo para retirar', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
     listo_para_retirar: { label: 'Listo para retirar', color: 'text-green-400 bg-green-400/10 border-green-400/20' },
     enviado:            { label: 'Enviado',             color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
     entregado:          { label: 'Entregado',           color: 'text-green-400 bg-green-400/10 border-green-400/20' },
