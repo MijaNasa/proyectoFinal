@@ -131,7 +131,7 @@ const submit = () => {
                 <div>
                     <InputLabel
                         for="password_confirmation"
-                        value="Confirmar Contraseña *"
+                        value="Repetir Contraseña *"
                     />
 
                     <TextInput

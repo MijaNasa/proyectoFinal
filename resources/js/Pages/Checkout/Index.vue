@@ -438,10 +438,10 @@ const confirmar = () => {
                     <!-- Info de contacto -->
                     <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
                         <p class="text-xs font-black uppercase tracking-widest text-white/30 mb-1">
-                            {{ (medioPago === 'Tarjeta' || medioPago === 'Transferencia' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta' || metodoPagoExcedente === 'Transferencia'))) ? 'Mercado Pago Seguro' : 'Confirmación de Compra' }}
+                            {{ (medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta'))) ? 'Mercado Pago Seguro' : 'Confirmación de Compra' }}
                         </p>
                         <p class="text-white/50 text-sm">
-                            {{ (medioPago === 'Tarjeta' || medioPago === 'Transferencia' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta' || metodoPagoExcedente === 'Transferencia'))) ? 'Al confirmar, te redirigimos a la pasarela de pagos segura de Mercado Pago.' : 'Confirmá tu compra para registrarla en nuestro sistema. El pedido se procesará de inmediato.' }}
+                            {{ (medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta'))) ? 'Al confirmar, te redirigimos a la pasarela de pagos segura de Mercado Pago.' : 'Confirmá tu compra para registrarla en nuestro sistema. El pedido se procesará de inmediato.' }}
                         </p>
                         <div class="flex items-center gap-2 mt-4">
                             <svg class="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -498,7 +498,7 @@ const confirmar = () => {
                                 {{
                                     procesando 
                                         ? 'Procesando...' 
-                                        : ((medioPago === 'Tarjeta' || medioPago === 'Transferencia' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta' || metodoPagoExcedente === 'Transferencia')))
+                                        : ((medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta')))
                                             ? 'Pagar con Mercado Pago'
                                             : 'Confirmar Compra')
                                 }}

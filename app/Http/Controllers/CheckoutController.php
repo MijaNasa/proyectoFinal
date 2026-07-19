@@ -387,7 +387,7 @@ class CheckoutController extends Controller
                                     'cantidad'            => $aTrasladar,
                                     'motivo'              => "Traslado automático por Venta Web #{$venta->id}",
                                     'estado'              => 'pendiente',
-                                    'user_id'             => Auth::id(),
+                                    'user_id'             => $userId,
                                     'fecha'               => now(),
                                 ]);
 
