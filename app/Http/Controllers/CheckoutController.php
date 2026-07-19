@@ -263,7 +263,10 @@ class CheckoutController extends Controller
                     'precio_compra' => $costoOriginal,
                 ];
                 $total += ($cantidad * $precioOriginal);
-            try {
+            }
+        }
+
+        try {
             $result = DB::transaction(function () use ($request, $processedItems, $sucursal_id, $total, $cliente, $userId, $clienteId) {
                 // Verificar Stock TOTAL y Lock
                 $requerido = [];
@@ -453,7 +456,7 @@ class CheckoutController extends Controller
 
             $preferenceData = [
                 'items'              => $items,
-                'payer'              => ['email' => Auth::user()->email],
+                'payer'              => ['email' => $request->guest_email ?? (Auth::user()?->email ?? 'guest@tienda.com')],
                 'external_reference' => (string) $venta->id,
                 'notification_url'   => $baseUrl . '/checkout/webhook',
                 'back_urls'          => [
