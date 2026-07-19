@@ -313,4 +313,35 @@ class LogisticaController extends Controller
             return back()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
         }
     }
+    public function updateCostoDetalle(Request $request, $id)
+    {
+        $request->validate([
+            'costo_unitario' => 'required|numeric|min:0',
+            'actualizar_catalogo' => 'boolean'
+        ]);
+
+        try {
+            DB::beginTransaction();
+
+            $detalle = \App\Models\MovimientoStockDetalle::with('libro')->findOrFail($id);
+            $movimiento = \App\Models\MovimientoStock::findOrFail($detalle->movimiento_id);
+            
+            if ($movimiento->tipo !== 'ingreso_proveedor') {
+                throw new \Exception('Solo se pueden editar costos de ingresos por proveedor.');
+            }
+
+            $detalle->costo_unitario = $request->costo_unitario;
+            $detalle->save();
+
+            if ($request->actualizar_catalogo) {
+                $detalle->libro->recalcularCostoPPP($request->costo_unitario);
+            }
+
+            DB::commit();
+            return back()->with('message', 'Costo actualizado correctamente.');
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
+        }
+    }
 }

@@ -55,18 +55,13 @@ class Libro extends Model
      * @param int $cantidadNueva La cantidad de unidades que ingresan
      * @return void
      */
-    public function recalcularCostoPPP(float $nuevoCosto, int $cantidadNueva): void
+    public function recalcularCostoPPP(float $nuevoCosto, int $cantidadNueva = 0): void
     {
         $currentPrice = $this->precioActual;
         
-        $stockActual = $this->stocks()->sum('cantidad_disponible');
-        $costoPromedioActual = $currentPrice ? (float) $currentPrice->precio_compra : 0;
-        
-        $nuevoCostoPromedio = 0;
-        
-        if ($stockActual + $cantidadNueva > 0) {
-            $nuevoCostoPromedio = (($stockActual * $costoPromedioActual) + ($cantidadNueva * $nuevoCosto)) / ($stockActual + $cantidadNueva);
-        }
+        // Ahora usamos el modelo de "Último Costo de Reposición".
+        // El costo unitario de la nueva tanda ingresada pasa a ser directamente el costo de todo el catálogo.
+        $nuevoCostoPromedio = $nuevoCosto;
 
         $precioVenta = $currentPrice ? $currentPrice->precio_venta : 0;
 

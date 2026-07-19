@@ -138,11 +138,14 @@ const balanceMesChart = computed(() => {
     if (!props.reporteBalance) return null;
     const items = props.reporteBalance.porMes;
     return {
-        series: [{ name: 'Ingresos', data: items.map(i => i.ingresos) }],
+        series: [
+            { name: 'Ingresos', data: items.map(i => i.ingresos) },
+            { name: 'Ganancia Neta', data: items.map(i => i.rentabilidad) }
+        ],
         options: {
             chart: { type: 'area', toolbar: { show: false }, background: 'transparent' },
             theme: { mode: 'dark' },
-            colors: ['#22c55e'],
+            colors: ['#3b82f6', '#22c55e'],
             fill: { type: 'gradient', gradient: { opacityFrom: 0.3, opacityTo: 0.01 } },
             stroke: { curve: 'smooth', width: 2 },
             xaxis: { categories: items.map(i => i.mes), labels: { style: { colors: '#ffffff44', fontSize: '10px' } } },
@@ -158,11 +161,14 @@ const balanceSucursalChart = computed(() => {
     if (!props.reporteBalance) return null;
     const items = props.reporteBalance.porSucursal;
     return {
-        series: [{ name: 'Ingresos', data: items.map(i => i.ingresos) }],
+        series: [
+            { name: 'Ingresos', data: items.map(i => i.ingresos) },
+            { name: 'Ganancia Neta', data: items.map(i => i.rentabilidad) }
+        ],
         options: {
             chart: { type: 'bar', toolbar: { show: false }, background: 'transparent' },
             theme: { mode: 'dark' },
-            colors: ['#3b82f6'],
+            colors: ['#3b82f6', '#22c55e'],
             plotOptions: { bar: { borderRadius: 4, columnWidth: '50%' } },
             xaxis: { categories: items.map(i => i.nombre), labels: { style: { colors: '#ffffff66' } } },
             yaxis: { labels: { style: { colors: '#ffffff44' }, formatter: v => '$' + fmtNum(v) } },
@@ -400,18 +406,26 @@ const balanceSucursalChart = computed(() => {
             <template v-if="activeTab === 'balance' && reporteBalance">
 
                 <!-- Stats -->
-                <div class="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                <div class="grid grid-cols-2 lg:grid-cols-5 gap-4">
                     <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
                         <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Ingresos Totales</p>
-                        <p class="text-2xl font-black text-green-400">{{ fmt(reporteBalance.totalIngresos) }}</p>
+                        <p class="text-2xl font-black text-blue-400">{{ fmt(reporteBalance.totalIngresos) }}</p>
+                    </div>
+                    <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Costo (COGS)</p>
+                        <p class="text-2xl font-black text-brand-red">{{ fmt(reporteBalance.totalCogs) }}</p>
+                    </div>
+                    <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Ganancia Neta</p>
+                        <p class="text-2xl font-black text-green-400">{{ fmt(reporteBalance.totalRentabilidad) }}</p>
                     </div>
                     <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
                         <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Ventas Realizadas</p>
-                        <p class="text-3xl font-black text-white">{{ fmtNum(reporteBalance.totalVentas) }}</p>
+                        <p class="text-2xl font-black text-white">{{ fmtNum(reporteBalance.totalVentas) }}</p>
                     </div>
                     <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
                         <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Ticket Promedio</p>
-                        <p class="text-2xl font-black text-blue-400">{{ fmt(reporteBalance.ticketPromedio) }}</p>
+                        <p class="text-2xl font-black text-white/50">{{ fmt(reporteBalance.ticketPromedio) }}</p>
                     </div>
                 </div>
 
@@ -449,7 +463,10 @@ const balanceSucursalChart = computed(() => {
                                     <p class="text-sm font-bold text-white">{{ s.nombre }}</p>
                                     <p class="text-[10px] text-white/30">{{ s.ventas }} ventas</p>
                                 </div>
-                                <span class="text-sm font-black text-green-400">{{ fmt(s.ingresos) }}</span>
+                                <div class="text-right">
+                                    <p class="text-sm font-black text-blue-400">{{ fmt(s.ingresos) }}</p>
+                                    <p class="text-[10px] font-black text-green-400 mt-0.5">Rent. {{ fmt(s.rentabilidad) }}</p>
+                                </div>
                             </div>
                         </div>
                         <p v-else class="text-white/20 text-xs text-center py-8">Sin datos</p>

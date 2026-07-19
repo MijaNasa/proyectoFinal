@@ -201,6 +201,64 @@ const deshacerMovimiento = (id) => {
         }
     });
 };
+
+const editarCosto = async (detalle) => {
+    const { value: nuevoCosto } = await Swal.fire({
+        title: 'Editar Costo',
+        input: 'number',
+        inputLabel: `Costo actual: ${formatCurrency(detalle.costo_unitario)}`,
+        inputValue: detalle.costo_unitario,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar',
+        cancelButtonText: 'Cancelar',
+        background: '#1A1A1A',
+        color: '#FFF',
+        confirmButtonColor: '#E61919',
+        inputAttributes: {
+            step: '0.01',
+            min: '0'
+        }
+    });
+
+    if (nuevoCosto) {
+        const { isConfirmed: actualizarCatalogo } = await Swal.fire({
+            title: '¿Actualizar catálogo?',
+            text: '¿Deseas que este nuevo costo se establezca como el costo de reposición actual del libro en el catálogo oficial?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, actualizar catálogo',
+            cancelButtonText: 'No, solo corregir historial',
+            background: '#1A1A1A',
+            color: '#FFF',
+            confirmButtonColor: '#E61919',
+            cancelButtonColor: '#333'
+        });
+
+        router.put(route('logistica.updateCosto', detalle.id), {
+            costo_unitario: nuevoCosto,
+            actualizar_catalogo: actualizarCatalogo
+        }, {
+            preserveScroll: true,
+            onSuccess: () => {
+                Swal.fire({
+                    title: 'Éxito',
+                    text: 'Costo actualizado correctamente.',
+                    icon: 'success',
+                    background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919',
+                    timer: 3000, showConfirmButton: false
+                });
+            },
+            onError: (err) => {
+                Swal.fire({
+                    title: 'Error',
+                    text: err.error || err.costo_unitario || 'No se pudo actualizar.',
+                    icon: 'error',
+                    background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
+                });
+            }
+        });
+    }
+};
 </script>
 
 <template>
@@ -366,8 +424,18 @@ const deshacerMovimiento = (id) => {
                                                         <td class="py-2 px-4 text-center text-sm font-black" :class="mov.tipo === 'ajuste' ? (det.cantidad > 0 ? 'text-green-400' : 'text-brand-red') : 'text-white/90'">
                                                             {{ mov.tipo === 'ajuste' && det.cantidad > 0 ? '+' : '' }}{{ det.cantidad }}
                                                         </td>
-                                                        <td class="py-2 px-4 text-right text-xs font-mono text-white/50">
-                                                            {{ mov.tipo === 'ingreso_proveedor' ? formatCurrency(det.costo_unitario) : '-' }}
+                                                        <td class="py-2 px-4 text-right flex items-center justify-end gap-2 text-xs font-mono text-white/50">
+                                                            <template v-if="mov.tipo === 'ingreso_proveedor'">
+                                                                <span>{{ formatCurrency(det.costo_unitario) }}</span>
+                                                                <button @click.stop="editarCosto(det)" class="text-white/30 hover:text-brand-red transition-colors" title="Editar costo">
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                                                    </svg>
+                                                                </button>
+                                                            </template>
+                                                            <template v-else>
+                                                                -
+                                                            </template>
                                                         </td>
                                                     </tr>
                                                 </tbody>

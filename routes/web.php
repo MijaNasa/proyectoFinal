@@ -134,6 +134,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('logistica/{id}', [LogisticaController::class, 'destroy'])->name('logistica.destroy');
         Route::post('logistica/enviar/{traslado}', [LogisticaController::class, 'registrarEnvioVenta'])->name('logistica.enviar');
         Route::post('logistica/recibir/{traslado}', [LogisticaController::class, 'registrarRecepcionVenta'])->name('logistica.recibir');
+        Route::put('logistica/detalle/{id}/costo', [LogisticaController::class, 'updateCostoDetalle'])->name('logistica.updateCosto');
     });
 
     // Clientes

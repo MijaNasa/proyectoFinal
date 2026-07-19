@@ -78,7 +78,7 @@ class ReporteController extends Controller
             ->join('clientes', 'clientes.id', '=', 'ventas.cliente_id')
             ->join('users', 'users.id', '=', 'clientes.user_id')
             ->select(
-                DB::raw("CONCAT(users.name, ' ', COALESCE(users.apellido,'')) as nombre"),
+                DB::raw("users.name || ' ' || COALESCE(users.apellido, '') as nombre"),
                 DB::raw('COUNT(ventas.id) as compras'),
                 DB::raw('SUM(ventas.total) as total')
             )
@@ -168,41 +168,79 @@ class ReporteController extends Controller
             ->whereNotIn('estado', ['cancelado', 'pendiente_pago']);
         if ($sucursalId) $base->where('sucursal_id', $sucursalId);
 
+        $baseWithDetalles = (clone $base)
+            ->join('venta_detalles', 'venta_detalles.venta_id', '=', 'ventas.id');
+
         // Ingresos por mes
-        $porMes = (clone $base)
+        $porMes = (clone $baseWithDetalles)
             ->select(
-                DB::raw("TO_CHAR(fecha, 'YYYY-MM') as mes"),
-                DB::raw('SUM(total) as ingresos'),
-                DB::raw('COUNT(*) as ventas')
+                DB::raw("strftime('%Y-%m', ventas.fecha) as mes"),
+                DB::raw('SUM(venta_detalles.subtotal) as ingresos'),
+                DB::raw('SUM(venta_detalles.cantidad * COALESCE(venta_detalles.costo_unitario, 0)) as cogs'),
+                DB::raw('COUNT(DISTINCT ventas.id) as ventas')
             )
-            ->groupBy(DB::raw("TO_CHAR(fecha, 'YYYY-MM')"))
-            ->orderBy(DB::raw("TO_CHAR(fecha, 'YYYY-MM')"))
+            ->groupBy(DB::raw("strftime('%Y-%m', ventas.fecha)"))
+            ->orderBy(DB::raw("strftime('%Y-%m', ventas.fecha)"))
             ->get()
-            ->map(fn($r) => ['mes' => $r->mes, 'ingresos' => (float)$r->ingresos, 'ventas' => (int)$r->ventas]);
+            ->map(fn($r) => [
+                'mes' => $r->mes, 
+                'ingresos' => (float)$r->ingresos, 
+                'cogs' => (float)$r->cogs,
+                'rentabilidad' => (float)($r->ingresos - $r->cogs),
+                'ventas' => (int)$r->ventas
+            ]);
 
         // Por sucursal
-        $porSucursal = (clone $base)
+        $porSucursal = (clone $baseWithDetalles)
             ->join('sucursales', 'sucursales.id', '=', 'ventas.sucursal_id')
-            ->select('sucursales.nombre', DB::raw('SUM(ventas.total) as ingresos'), DB::raw('COUNT(ventas.id) as ventas'))
+            ->select(
+                'sucursales.nombre', 
+                DB::raw('SUM(venta_detalles.subtotal) as ingresos'), 
+                DB::raw('SUM(venta_detalles.cantidad * COALESCE(venta_detalles.costo_unitario, 0)) as cogs'),
+                DB::raw('COUNT(DISTINCT ventas.id) as ventas')
+            )
             ->groupBy('sucursales.id', 'sucursales.nombre')
             ->orderByDesc('ingresos')
             ->get()
-            ->map(fn($r) => ['nombre' => $r->nombre, 'ingresos' => (float)$r->ingresos, 'ventas' => (int)$r->ventas]);
+            ->map(fn($r) => [
+                'nombre' => $r->nombre, 
+                'ingresos' => (float)$r->ingresos, 
+                'cogs' => (float)$r->cogs,
+                'rentabilidad' => (float)($r->ingresos - $r->cogs),
+                'ventas' => (int)$r->ventas
+            ]);
 
         // Por tipo de venta
-        $porTipo = (clone $base)
-            ->select('tipo', DB::raw('SUM(total) as ingresos'), DB::raw('COUNT(*) as ventas'))
-            ->groupBy('tipo')
+        $porTipo = (clone $baseWithDetalles)
+            ->select(
+                'ventas.tipo', 
+                DB::raw('SUM(venta_detalles.subtotal) as ingresos'), 
+                DB::raw('SUM(venta_detalles.cantidad * COALESCE(venta_detalles.costo_unitario, 0)) as cogs'),
+                DB::raw('COUNT(DISTINCT ventas.id) as ventas')
+            )
+            ->groupBy('ventas.tipo')
             ->get()
-            ->map(fn($r) => ['tipo' => $r->tipo, 'ingresos' => (float)$r->ingresos, 'ventas' => (int)$r->ventas]);
+            ->map(fn($r) => [
+                'tipo' => $r->tipo, 
+                'ingresos' => (float)$r->ingresos, 
+                'cogs' => (float)$r->cogs,
+                'rentabilidad' => (float)($r->ingresos - $r->cogs),
+                'ventas' => (int)$r->ventas
+            ]);
 
-        $totales = (clone $base)->selectRaw('SUM(total) as ingresos, COUNT(*) as ventas')->first();
+        $totales = (clone $baseWithDetalles)->selectRaw('
+            SUM(venta_detalles.subtotal) as ingresos, 
+            SUM(venta_detalles.cantidad * COALESCE(venta_detalles.costo_unitario, 0)) as cogs,
+            COUNT(DISTINCT ventas.id) as ventas
+        ')->first();
 
         return [
             'porMes'       => $porMes,
             'porSucursal'  => $porSucursal,
             'porTipo'      => $porTipo,
             'totalIngresos'=> (float)($totales->ingresos ?? 0),
+            'totalCogs'    => (float)($totales->cogs ?? 0),
+            'totalRentabilidad' => (float)(($totales->ingresos ?? 0) - ($totales->cogs ?? 0)),
             'totalVentas'  => (int)($totales->ventas ?? 0),
             'ticketPromedio'=> $totales && $totales->ventas > 0 ? round($totales->ingresos / $totales->ventas, 2) : 0,
         ];
