@@ -256,35 +256,25 @@ const submitBulk = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div>
-                <h2 class="text-4xl font-black uppercase tracking-tighter">
-                    Gestión de <span class="text-brand-red italic">Precios</span>
-                </h2>
-                <p class="text-white/30 text-xs font-bold uppercase tracking-widest mt-1">
-                    Historial de precios · Actualización · Márgenes
-                </p>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+                <div>
+                    <h2 class="text-4xl font-black uppercase tracking-tighter">
+                        Gestión de <span class="text-brand-red italic">Precios</span>
+                    </h2>
+                    <p class="text-white/30 text-xs font-bold uppercase tracking-widest mt-1">
+                        Historial de precios · Actualización
+                    </p>
+                </div>
+                <div class="text-left md:text-right">
+                    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Total Catálogo</p>
+                    <p class="text-2xl font-black text-white leading-none">{{ stats.total }} <span class="text-[10px] font-mono not-italic text-brand-red ml-1">EDICIONES</span></p>
+                </div>
             </div>
         </template>
 
         <div class="px-8 py-8 space-y-6">
 
-            <!-- Stats -->
-            <div class="grid grid-cols-3 gap-4">
-                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Total Ediciones</p>
-                    <p class="text-3xl font-black text-white">{{ stats.total }}</p>
-                </div>
-                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Con Precio</p>
-                    <p class="text-3xl font-black text-green-400">{{ stats.con_precio }}</p>
-                </div>
-                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Sin Precio</p>
-                    <p class="text-3xl font-black" :class="stats.sin_precio > 0 ? 'text-brand-red' : 'text-white/20'">
-                        {{ stats.sin_precio }}
-                    </p>
-                </div>
-            </div>
+
 
             <!-- Filtros --><div class="flex flex-col sm:flex-row justify-between gap-3 mb-6">
             <div class="flex flex-col sm:flex-row gap-3 flex-1">
@@ -303,9 +293,7 @@ const submitBulk = () => {
                     <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-white/30">
                         <th class="text-left px-6 py-4">Libro</th>
                         <th class="text-left px-6 py-4">ISBN</th>
-                        <th class="text-right px-6 py-4">Costo</th>
                         <th class="text-right px-6 py-4">Precio Venta</th>
-                        <th class="text-right px-6 py-4">Margen</th>
                         <th class="text-center px-6 py-4">Acciones</th>
                     </tr>
                 </thead>
@@ -320,15 +308,13 @@ const submitBulk = () => {
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
                                     </svg>
                                     <div>
-                                        <p class="font-black text-brand-red uppercase tracking-tight">{{ item.nombre }}</p>
+                                        <p class="font-black text-white uppercase tracking-tight">{{ item.nombre }}</p>
                                         <p class="text-[10px] text-white/30 font-bold uppercase">{{ item.editorial || 'S/E' }} • SERIE</p>
                                     </div>
                                 </div>
                             </td>
                             <td class="px-6 py-4 text-white/20 italic text-xs">-</td>
                             <!-- La serie principal no debería mostrar costo/precio/margen -->
-                            <td class="px-6 py-4 text-right text-white/20 italic text-xs">-</td>
-                            <td class="px-6 py-4 text-right text-white/20 italic text-xs">-</td>
                             <td class="px-6 py-4 text-right text-white/20 italic text-xs">-</td>
                             <td class="px-6 py-4 text-center">
                                 <button class="text-[9px] font-black uppercase tracking-wider px-3 py-1.5 rounded bg-white/5 hover:bg-white/10 text-white/70">
@@ -344,49 +330,30 @@ const submitBulk = () => {
                                 <p class="text-[9px] text-white/30 font-bold uppercase">{{ tomo.master?.editorial?.nombre || 'S/E' }}</p>
                             </td>
                             <td class="px-6 py-4 font-mono text-xs pl-6">{{ tomo.isbn || 'SIN ISBN' }}</td>
-                            <td class="px-6 py-4 text-right text-xs">
-                                <span v-if="tomo.precio_actual?.precio_compra" class="text-white/50 font-mono">{{ fmt(tomo.precio_actual.precio_compra) }}</span>
-                                <span v-else class="text-white/20">-</span>
-                            </td>
                             <td class="px-6 py-4 text-right font-black text-xs">{{ tomo.precio_actual ? fmt(tomo.precio_actual.precio_venta) : 'Sin precio' }}</td>
-                            <td class="px-6 py-4 text-right text-xs">
-                                <template v-if="tomo.precio_actual?.precio_compra && tomo.precio_actual?.precio_venta">
-                                    <span class="font-black" :class="margen(tomo.precio_actual.precio_venta, tomo.precio_actual.precio_compra) >= 30 ? 'text-green-400' : margen(tomo.precio_actual.precio_venta, tomo.precio_actual.precio_compra) >= 10 ? 'text-yellow-400' : 'text-red-400'">
-                                        {{ margen(tomo.precio_actual.precio_venta, tomo.precio_actual.precio_compra) }}%
-                                    </span>
-                                </template>
-                                <span v-else class="text-white/20">-</span>
-                            </td>
                             <td class="px-6 py-4 text-center">
                                 <button @click.stop="openModal(tomo)" class="text-[10px] font-black uppercase px-3 py-2 rounded-lg bg-brand-red/20 hover:bg-brand-red text-brand-red hover:text-white transition-colors border border-brand-red/30">Actualizar</button>
                             </td>
                         </tr>
 
                         <!-- Fila de Libro Individual -->
-                        <tr v-if="!item.is_serie" class="border-b border-white/5 hover:bg-white/[0.02]">
-                            <td class="px-6 py-4 pl-6">
-                                <p class="font-black text-white">
-                                    {{ item.master?.titulo }}
-                                    <span v-if="item.numero_tomo" class="text-brand-red font-black">#{{ item.numero_tomo }}</span>
-                                </p>
-                                <p class="text-[10px] text-white/30 font-bold uppercase">{{ item.master?.editorial?.nombre }} • ÚNICO</p>
+                        <tr v-if="!item.is_serie" class="border-b border-white/5 bg-white/[0.01] hover:bg-white/[0.03] transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <div class="w-4 h-4"></div> <!-- Espacio para alinear con la flecha de la serie -->
+                                    <div>
+                                        <p class="font-black text-white uppercase tracking-tight">
+                                            {{ item.master?.titulo }}
+                                            <span v-if="item.numero_tomo" class="text-white/50">#{{ item.numero_tomo }}</span>
+                                        </p>
+                                        <p class="text-[10px] text-white/30 font-bold uppercase">{{ item.master?.editorial?.nombre }} • ÚNICO</p>
+                                    </div>
+                                </div>
                             </td>
-                            <td class="px-6 py-4 font-mono text-xs">{{ item.isbn || 'SIN ISBN' }}</td>
-                            <td class="px-6 py-4 text-right text-xs">
-                                <span v-if="item.precio_actual?.precio_compra" class="text-white/50 font-mono">{{ fmt(item.precio_actual.precio_compra) }}</span>
-                                <span v-else class="text-white/20">-</span>
-                            </td>
-                            <td class="px-6 py-4 text-right font-black">{{ item.precio_actual ? fmt(item.precio_actual.precio_venta) : 'Sin precio' }}</td>
-                            <td class="px-6 py-4 text-right text-xs">
-                                <template v-if="item.precio_actual?.precio_compra && item.precio_actual?.precio_venta">
-                                    <span class="font-black" :class="margen(item.precio_actual.precio_venta, item.precio_actual.precio_compra) >= 30 ? 'text-green-400' : margen(item.precio_actual.precio_venta, item.precio_actual.precio_compra) >= 10 ? 'text-yellow-400' : 'text-red-400'">
-                                        {{ margen(item.precio_actual.precio_venta, item.precio_actual.precio_compra) }}%
-                                    </span>
-                                </template>
-                                <span v-else class="text-white/20">-</span>
-                            </td>
+                            <td class="px-6 py-4 font-mono text-xs pl-6">{{ item.isbn || 'SIN ISBN' }}</td>
+                            <td class="px-6 py-4 text-right font-black text-xs">{{ item.precio_actual ? fmt(item.precio_actual.precio_venta) : 'Sin precio' }}</td>
                             <td class="px-6 py-4 text-center">
-                                <button @click="openModal(item)" class="text-[10px] font-black uppercase px-3 py-2 rounded-lg bg-white/5 hover:bg-brand-red">Actualizar</button>
+                                <button @click.stop="openModal(item)" class="text-[10px] font-black uppercase px-3 py-2 rounded-lg bg-brand-red/20 hover:bg-brand-red text-brand-red hover:text-white transition-colors border border-brand-red/30">Actualizar</button>
                             </td>
                         </tr>
                     </template>

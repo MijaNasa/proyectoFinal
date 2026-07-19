@@ -113,6 +113,7 @@ const toggleGroup = (group) => {
                     </button>
                     <div v-show="expandedGroups.people" class="pl-4 space-y-1">
                         <DropdownLink v-if="hasPermiso('clientes.acceder')" :href="route('clientes.index')" :active="route().current('clientes.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Clientes</DropdownLink>
+                        <DropdownLink v-if="hasPermiso('clientes.acceder')" :href="route('suscripciones.index')" :active="route().current('suscripciones.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Suscripciones</DropdownLink>
                         <DropdownLink v-if="hasPermiso('empleados.acceder')" :href="route('empleados.index')" :active="route().current('empleados.*')" class="block py-2 text-[10px] font-bold uppercase text-white/50 hover:text-brand-red">Recursos Humanos</DropdownLink>
                     </div>
                 </div>

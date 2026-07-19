@@ -8,6 +8,42 @@ use Illuminate\Validation\Rule;
 
 class SuscripcionController extends Controller
 {
+    public function index(Request $request)
+    {
+        // Top 5 series con más suscripciones activas
+        $topSeries = Suscripcion::select('libro_master_id', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
+            ->where('estado', 'activa')
+            ->groupBy('libro_master_id')
+            ->orderByDesc('total')
+            ->limit(5)
+            ->with('serie:id,titulo,portada_url')
+            ->get();
+
+        // Listado de suscripciones
+        $query = Suscripcion::with(['cliente.user:id,name,apellido,email', 'serie:id,titulo', 'sucursal:id,nombre']);
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('cliente.user', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhere('apellido', 'like', "%{$search}%");
+            })->orWhereHas('serie', function ($q) use ($search) {
+                $q->where('titulo', 'like', "%{$search}%");
+            });
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        $suscripciones = $query->latest()->paginate(15)->withQueryString();
+
+        return inertia('Suscripciones/Index', [
+            'suscripciones' => $suscripciones,
+            'topSeries' => $topSeries,
+            'filters' => $request->only(['search', 'estado'])
+        ]);
+    }
     public function store(Request $request)
     {
         $request->validate([

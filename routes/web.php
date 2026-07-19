@@ -145,6 +145,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('clientes/{cliente}/pago/{transaccion}', [ClienteController::class, 'eliminarPago'])->name('clientes.pago.destroy');
         Route::delete('clientes/{cliente}/ventas-canceladas', [ClienteController::class, 'destroyCanceladas'])->name('clientes.ventas-canceladas.destroy');
         
+        Route::get('suscripciones', [SuscripcionController::class, 'index'])->name('suscripciones.index');
         Route::post('suscripciones', [SuscripcionController::class, 'store'])->name('suscripciones.store');
         Route::patch('suscripciones/{suscripcion}', [SuscripcionController::class, 'update'])->name('suscripciones.update');
         Route::delete('suscripciones/{suscripcion}', [SuscripcionController::class, 'destroy'])->name('suscripciones.destroy');
