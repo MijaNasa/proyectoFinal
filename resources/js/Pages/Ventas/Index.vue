@@ -995,7 +995,6 @@ onMounted(() => {
                             <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Cliente</div>
                             <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs font-black uppercase block hover:text-brand-red transition-colors">{{ selectedVenta.cliente?.user?.name }} {{ selectedVenta.cliente?.user?.apellido }}</Link>
                             <div v-else class="text-xs font-black uppercase">Cliente Mostrador</div>
-                            <div class="text-[10px] text-white/40 italic">Atendido por: {{ selectedVenta.atendido_por?.name || '—' }}</div>
                         </div>
                         <div class="space-y-1 text-center">
                             <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Medio de Pago</div>
