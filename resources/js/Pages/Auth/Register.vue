@@ -8,6 +8,9 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 
 const form = useForm({
     name: '',
+    apellido: '',
+    dni: '',
+    telefono: '',
     email: '',
     password: '',
     password_confirmation: '',
@@ -30,24 +33,68 @@ const submit = () => {
         </div>
 
         <form @submit.prevent="submit">
-            <div>
-                <InputLabel for="name" value="Nombre Completo" />
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <InputLabel for="name" value="Nombre *" />
 
-                <TextInput
-                    id="name"
-                    type="text"
-                    class="mt-1 block w-full"
-                    v-model="form.name"
-                    required
-                    autofocus
-                    autocomplete="name"
-                />
+                    <TextInput
+                        id="name"
+                        type="text"
+                        class="mt-1 block w-full"
+                        v-model="form.name"
+                        required
+                        autofocus
+                        autocomplete="given-name"
+                    />
 
-                <InputError class="mt-2" :message="form.errors.name" />
+                    <InputError class="mt-2" :message="form.errors.name" />
+                </div>
+                <div>
+                    <InputLabel for="apellido" value="Apellido" />
+
+                    <TextInput
+                        id="apellido"
+                        type="text"
+                        class="mt-1 block w-full"
+                        v-model="form.apellido"
+                        autocomplete="family-name"
+                    />
+
+                    <InputError class="mt-2" :message="form.errors.apellido" />
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                    <InputLabel for="dni" value="DNI / Documento *" />
+
+                    <TextInput
+                        id="dni"
+                        type="text"
+                        class="mt-1 block w-full"
+                        v-model="form.dni"
+                        required
+                    />
+
+                    <InputError class="mt-2" :message="form.errors.dni" />
+                </div>
+                <div>
+                    <InputLabel for="telefono" value="Teléfono Móvil *" />
+
+                    <TextInput
+                        id="telefono"
+                        type="text"
+                        class="mt-1 block w-full"
+                        v-model="form.telefono"
+                        required
+                    />
+
+                    <InputError class="mt-2" :message="form.errors.telefono" />
+                </div>
             </div>
 
             <div class="mt-4">
-                <InputLabel for="email" value="Correo Electrónico" />
+                <InputLabel for="email" value="Email de Contacto *" />
 
                 <TextInput
                     id="email"
@@ -65,40 +112,42 @@ const submit = () => {
                 <InputError class="mt-2" :message="form.errors.email" />
             </div>
 
-            <div class="mt-4">
-                <InputLabel for="password" value="Contraseña" />
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                <div>
+                    <InputLabel for="password" value="Contraseña *" />
 
-                <TextInput
-                    id="password"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password"
-                    required
-                    autocomplete="new-password"
-                />
+                    <TextInput
+                        id="password"
+                        type="password"
+                        class="mt-1 block w-full"
+                        v-model="form.password"
+                        required
+                        autocomplete="new-password"
+                    />
 
-                <InputError class="mt-2" :message="form.errors.password" />
-            </div>
+                    <InputError class="mt-2" :message="form.errors.password" />
+                </div>
 
-            <div class="mt-4">
-                <InputLabel
-                    for="password_confirmation"
-                    value="Confirmar Contraseña"
-                />
+                <div>
+                    <InputLabel
+                        for="password_confirmation"
+                        value="Confirmar Contraseña *"
+                    />
 
-                <TextInput
-                    id="password_confirmation"
-                    type="password"
-                    class="mt-1 block w-full"
-                    v-model="form.password_confirmation"
-                    required
-                    autocomplete="new-password"
-                />
+                    <TextInput
+                        id="password_confirmation"
+                        type="password"
+                        class="mt-1 block w-full"
+                        v-model="form.password_confirmation"
+                        required
+                        autocomplete="new-password"
+                    />
 
-                <InputError
-                    class="mt-2"
-                    :message="form.errors.password_confirmation"
-                />
+                    <InputError
+                        class="mt-2"
+                        :message="form.errors.password_confirmation"
+                    />
+                </div>
             </div>
 
             <div class="mt-4 flex items-center justify-end">

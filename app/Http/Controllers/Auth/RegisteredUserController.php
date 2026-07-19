@@ -34,16 +34,24 @@ class RegisteredUserController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:255',
+            'apellido' => 'nullable|string|max:255',
+            'dni' => 'required|string|max:50',
+            'telefono' => 'required|string|max:50',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ], [
             'email.email' => 'Ingresá un correo electrónico válido.',
             'email.required' => 'El correo electrónico es obligatorio.',
             'email.unique' => 'Ya existe una cuenta registrada con ese correo electrónico.',
+            'dni.required' => 'El DNI o documento es obligatorio.',
+            'telefono.required' => 'El teléfono es obligatorio.',
         ]);
 
         $user = User::create([
             'name' => $request->name,
+            'apellido' => $request->apellido,
+            'dni' => $request->dni,
+            'telefono' => $request->telefono,
             'email' => $request->email,
             'password' => Hash::make($request->password),
         ]);
