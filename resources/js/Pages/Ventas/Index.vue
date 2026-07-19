@@ -990,12 +990,16 @@ onMounted(() => {
                 </div>
 
                 <div class="p-8">
-                    <div class="grid grid-cols-2 gap-8 mb-8 pb-8 border-b border-white/5">
+                    <div class="grid grid-cols-3 gap-8 mb-8 pb-8 border-b border-white/5">
                         <div class="space-y-1">
                             <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Cliente</div>
                             <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs font-black uppercase block hover:text-brand-red transition-colors">{{ selectedVenta.cliente?.user?.name }} {{ selectedVenta.cliente?.user?.apellido }}</Link>
                             <div v-else class="text-xs font-black uppercase">Cliente Mostrador</div>
                             <div class="text-[10px] text-white/40 italic">Atendido por: {{ selectedVenta.atendido_por?.name || '—' }}</div>
+                        </div>
+                        <div class="space-y-1 text-center">
+                            <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Medio de Pago</div>
+                            <div class="text-xs font-black uppercase">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
                         </div>
                         <div class="space-y-1 text-right">
                             <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Fecha / Canal</div>
