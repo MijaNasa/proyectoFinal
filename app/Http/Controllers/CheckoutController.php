@@ -24,11 +24,6 @@ class CheckoutController extends Controller
 
     public function index()
     {
-        if (!Auth::check()) {
-            return redirect()->guest(route('login'))
-                ->with('warning', 'Iniciá sesión para continuar con tu compra.');
-        }
-
         $carrito = session('carrito', []);
 
         if (empty($carrito)) {
@@ -92,21 +87,35 @@ class CheckoutController extends Controller
 
     public function store(Request $request)
     {
-        if (!Auth::check()) {
-            return redirect()->route('login');
-        }
-
-        $request->validate([
+        $rules = [
             'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion',
             'sucursal_id'           => 'required|exists:sucursales,id',
             'direccion_envio'       => 'required_if:tipo_envio,domicilio|nullable|string|max:255',
             'medio_pago'            => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
-        ], [
+        ];
+        
+        $messages = [
             'tipo_envio.required'         => 'Seleccioná el tipo de entrega.',
             'direccion_envio.required_if' => 'Ingresá la dirección de entrega.',
             'sucursal_id.required'        => 'Seleccioná la sucursal de destino.',
             'medio_pago.required'         => 'Seleccioná el método de pago.',
-        ]);
+            'guest_nombre.required'       => 'El nombre es obligatorio.',
+            'guest_dni.required'          => 'El DNI o documento es obligatorio.',
+            'guest_email.required'        => 'El correo electrónico es obligatorio.',
+            'guest_telefono.required'     => 'El teléfono es obligatorio.',
+        ];
+
+        if (!Auth::check()) {
+            $rules = array_merge($rules, [
+                'guest_nombre'   => 'required|string|max:255',
+                'guest_apellido' => 'nullable|string|max:255',
+                'guest_dni'      => 'required|string|max:50',
+                'guest_email'    => 'required|email|max:255',
+                'guest_telefono' => 'required|string|max:50',
+            ]);
+        }
+
+        $request->validate($rules, $messages);
 
         if (in_array($request->tipo_envio, ['domicilio', 'acumulacion'])) {
             if ($request->medio_pago === 'Efectivo') {
@@ -141,7 +150,51 @@ class CheckoutController extends Controller
         }
 
         $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
-        $cliente = \App\Models\Cliente::where('user_id', Auth::id())->first();
+
+        // Logic for Guest vs Auth User
+        $userId = Auth::id();
+        $cliente = null;
+
+        if (!$userId) {
+            $existingUser = \App\Models\User::where('email', $request->guest_email)->first();
+            if ($existingUser) {
+                // Determine if it's a real web account (by checking if password isn't just their DNI)
+                if ($existingUser->password && !\Hash::check($existingUser->dni, $existingUser->password) && !\Hash::check($request->guest_dni, $existingUser->password)) {
+                    return back()->withErrors(['guest_email' => 'Ya tienes una cuenta registrada. Por favor inicia sesión para comprar.']);
+                }
+                if ($existingUser->dni && $existingUser->dni !== $request->guest_dni) {
+                    return back()->withErrors(['guest_email' => 'Este correo ya está asociado a otro DNI. Inicia sesión.']);
+                }
+                $userId = $existingUser->id;
+                $cliente = $existingUser->cliente;
+            } else {
+                $existingDni = \App\Models\User::where('dni', $request->guest_dni)->first();
+                if ($existingDni) {
+                    return back()->withErrors(['guest_dni' => 'Este DNI ya está registrado con otro correo. Por favor inicia sesión.']);
+                }
+                
+                // Create ghost user for physical/guest profile
+                $newUser = \App\Models\User::create([
+                    'name' => $request->guest_nombre,
+                    'apellido' => $request->guest_apellido,
+                    'dni' => $request->guest_dni,
+                    'telefono' => $request->guest_telefono,
+                    'email' => $request->guest_email,
+                    'password' => \Hash::make($request->guest_dni),
+                ]);
+
+                $tipoCliente = \App\Models\TipoCliente::where('codigo', 'PART')->first();
+                $cliente = $newUser->cliente()->create([
+                    'tipo_cliente_id' => $tipoCliente ? $tipoCliente->id : 1,
+                    'saldo_actual'    => 0,
+                ]);
+
+                $userId = $newUser->id;
+            }
+        } else {
+            $cliente = \App\Models\Cliente::where('user_id', $userId)->first();
+        }
+
         $clienteId = $cliente ? $cliente->id : null;
 
         // Procesar Descuentos por Suscripción
@@ -210,11 +263,8 @@ class CheckoutController extends Controller
                     'precio_compra' => $costoOriginal,
                 ];
                 $total += ($cantidad * $precioOriginal);
-            }
-        }
-
-        try {
-            $result = DB::transaction(function () use ($request, $processedItems, $sucursal_id, $total, $cliente) {
+            try {
+            $result = DB::transaction(function () use ($request, $processedItems, $sucursal_id, $total, $cliente, $userId, $clienteId) {
                 // Verificar Stock TOTAL y Lock
                 $requerido = [];
                 foreach ($processedItems as $item) {
@@ -232,8 +282,6 @@ class CheckoutController extends Controller
                         throw new \RuntimeException("Stock global insuficiente para procesar la orden.");
                     }
                 }
-
-                $clienteId = $cliente ? $cliente->id : null;
 
                 // Definir estado inicial de la venta
                 $estado = 'pendiente_pago';
@@ -257,7 +305,7 @@ class CheckoutController extends Controller
                 $venta = Venta::create([
                     'fecha'           => now(),
                     'cliente_id'      => $clienteId,
-                    'user_id'         => Auth::id(),
+                    'user_id'         => $userId,
                     'sucursal_id'     => $sucursal_id,
                     'tipo'            => 'online',
                     'origen'          => 'online',
@@ -287,7 +335,7 @@ class CheckoutController extends Controller
                         'monto'        => $montoCC,
                         'metodo_pago'  => 'Cuenta Corriente',
                         'sucursal_id'  => $sucursal_id,
-                        'user_id'      => Auth::id(),
+                        'user_id'      => $userId,
                         'descripcion'  => "[Pedido Online #{$venta->id}] - Cobrado de Cuenta Corriente",
                     ]);
                     $cliente->decrement('saldo_actual', $montoCC);

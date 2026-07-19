@@ -1,6 +1,6 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
 
 const props = defineProps({
@@ -22,6 +22,12 @@ const piso                = ref('');
 const depto               = ref('');
 const procesando          = ref(false);
 const inputRef            = ref(null);
+
+const guestNombre   = ref('');
+const guestApellido = ref('');
+const guestDni      = ref('');
+const guestEmail    = ref('');
+const guestTelefono = ref('');
 
 let autocomplete = null;
 let placeListener = null;
@@ -101,11 +107,20 @@ onUnmounted(() => {
     if (placeListener) window.google?.maps?.event?.removeListener(placeListener);
 });
 
+const page = usePage();
+const isAuthenticated = computed(() => !!page.props.auth?.user);
+
 const puedeEnviar = computed(() => {
+    let baseValido = !!sucursalId.value;
     if (tipoEnvio.value === 'domicilio') {
-        return addressSelected.value && !!sucursalId.value;
+        baseValido = baseValido && addressSelected.value;
     }
-    return !!sucursalId.value;
+    
+    if (!isAuthenticated.value) {
+        baseValido = baseValido && guestNombre.value.trim() && guestDni.value.trim() && guestEmail.value.trim() && guestTelefono.value.trim();
+    }
+    
+    return baseValido;
 });
 
 const confirmar = () => {
@@ -121,6 +136,11 @@ const confirmar = () => {
         sucursal_id:           sucursalId.value,
         direccion_envio:       tipoEnvio.value === 'domicilio' ? direccion : null,
         medio_pago:            medioPago.value,
+        guest_nombre:          isAuthenticated.value ? null : guestNombre.value,
+        guest_apellido:        isAuthenticated.value ? null : guestApellido.value,
+        guest_dni:             isAuthenticated.value ? null : guestDni.value,
+        guest_email:           isAuthenticated.value ? null : guestEmail.value,
+        guest_telefono:        isAuthenticated.value ? null : guestTelefono.value,
     }, {
         onError: () => { procesando.value = false; },
     });
@@ -140,6 +160,43 @@ const confirmar = () => {
 
                 <!-- Formulario -->
                 <div class="lg:col-span-3 space-y-8">
+
+                    <!-- Datos de Contacto (Solo para Invitados) -->
+                    <div v-if="!isAuthenticated" class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
+                        <div class="flex items-center justify-between mb-6">
+                            <h2 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red underline decoration-2 underline-offset-4">
+                                Datos de Contacto
+                            </h2>
+                            <Link :href="route('login')" class="text-xs text-white/50 hover:text-white transition-colors underline underline-offset-4">
+                                ¿Ya tenés cuenta? Ingresá
+                            </Link>
+                        </div>
+                        
+                        <p class="text-xs text-white/40 mb-6">Completá tus datos para procesar el pedido. Podrás registrarte más adelante usando este mismo DNI y Correo.</p>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Nombre *</label>
+                                <input v-model="guestNombre" type="text" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: Juan">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Apellido</label>
+                                <input v-model="guestApellido" type="text" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: Pérez">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">DNI / Documento *</label>
+                                <input v-model="guestDni" type="text" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: 12345678">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Teléfono Móvil *</label>
+                                <input v-model="guestTelefono" type="text" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: 3415551234">
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Correo Electrónico *</label>
+                                <input v-model="guestEmail" type="email" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: tu@email.com">
+                            </div>
+                        </div>
+                    </div>
 
                     <!-- Tipo de entrega -->
                     <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
