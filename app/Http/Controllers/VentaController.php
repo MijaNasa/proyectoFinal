@@ -570,6 +570,9 @@ class VentaController extends Controller
             // Verify if there are pending transfers
             $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $fresh->id)->exists();
             $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
+            if (!$tieneTraslados && in_array($fresh->tipo_envio, ['retiro', 'acumulacion'])) {
+                $nuevoEstado = 'listo_para_retiro';
+            }
 
             if ($tieneTraslados) {
                 \App\Models\TransferenciaStock::where('venta_id', $fresh->id)
@@ -580,7 +583,10 @@ class VentaController extends Controller
                 \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
             }
 
-            $fresh->update(['estado' => $nuevoEstado]);
+            $fresh->update([
+                'estado' => $nuevoEstado,
+                'pago_expira_at' => null
+            ]);
         });
 
         return back()->with('message', 'Pago confirmado correctamente.');
