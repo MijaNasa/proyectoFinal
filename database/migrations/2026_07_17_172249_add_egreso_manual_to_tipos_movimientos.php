@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -10,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('tipos_movimientos_stock')) {
+            return;
+        }
+
         DB::table('tipos_movimientos_stock')->insertOrIgnore([
             'codigo' => 'EGRESO_MANUAL',
             'nombre' => 'Egreso Manual',
