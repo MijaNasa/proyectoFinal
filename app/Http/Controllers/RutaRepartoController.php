@@ -93,10 +93,17 @@ class RutaRepartoController extends Controller
             return back()->with('error', 'No se puede eliminar una ruta con paradas ya entregadas.');
         }
 
-        $rutasReparto->delete();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($rutasReparto) {
+            foreach ($rutasReparto->paradas as $parada) {
+                if ($parada->venta && $parada->venta->estado === 'enviado') {
+                    $parada->venta->update(['estado' => 'en_preparacion']);
+                }
+            }
+            $rutasReparto->delete();
+        });
 
         return redirect()->route('rutas-reparto.index')
-            ->with('message', 'Ruta eliminada');
+            ->with('message', 'Ruta eliminada. Las ventas volvieron a estar en preparación.');
     }
 
     public function asignarVenta(Request $request, RutaReparto $rutasReparto)
@@ -165,6 +172,10 @@ class RutaRepartoController extends Controller
                 throw \Illuminate\Validation\ValidationException::withMessages([
                     'estado' => 'No se puede quitar una parada ya entregada.',
                 ]);
+            }
+
+            if ($fresh->venta && $fresh->venta->estado === 'enviado') {
+                $fresh->venta->update(['estado' => 'en_preparacion']);
             }
 
             $fresh->delete();

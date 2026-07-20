@@ -498,8 +498,6 @@ watch(() => props.ruta.paradas, () => {
                                 </option>
                             </select>
                         </div>
-                        </div>
-                        
                         <div class="pt-4">
                             <button type="submit" :disabled="editForm.processing" class="w-full btn-primary py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_rgba(230,25,25,0.2)]">
                                 {{ editForm.processing ? 'Guardando...' : 'Guardar Cambios' }}
