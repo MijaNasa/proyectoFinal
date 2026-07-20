@@ -22,27 +22,53 @@ class GeocodeAddressJob implements ShouldQueue
             return;
         }
 
-        $apiKey = env('GOOGLE_MAPS_API_KEY') ?: env('VITE_GOOGLE_MAPS_API_KEY');
-        if (!$apiKey) return;
-
         $address = $this->venta->direccion_envio;
-        $defaultCity = env('DEFAULT_CITY', 'Rosario, Santa Fe, Argentina');
-        if (!str_contains(strtolower($address), 'rosario') && !str_contains(strtolower($address), 'santa fe')) {
-            $address .= ', ' . $defaultCity;
+        
+        // Limpiar la dirección para Nominatim (remover Obs, CP, Piso, etc.)
+        $cleanAddress = explode('|', $address)[0]; // Quitar observaciones
+        $parts = array_map('trim', explode(',', $cleanAddress));
+        
+        $validParts = [];
+        foreach ($parts as $part) {
+            $lower = strtolower($part);
+            if (!str_starts_with($lower, 'cp ') && !str_starts_with($lower, 'piso ') && !str_starts_with($lower, 'depto ')) {
+                $validParts[] = $part;
+            }
+        }
+        
+        $searchAddress = implode(', ', array_slice($validParts, 0, 2));
+
+        $defaultCity = env('DEFAULT_CITY', 'Rosario, Argentina');
+        if (!str_contains(strtolower($searchAddress), 'rosario')) {
+            $searchAddress .= ', ' . $defaultCity;
+        } else if (!str_contains(strtolower($searchAddress), 'argentina')) {
+            $searchAddress .= ', Argentina';
         }
 
         try {
-            $response = Http::timeout(5)->get('https://maps.googleapis.com/maps/api/geocode/json', [
-                'address' => $address,
-                'key'     => $apiKey,
+            $response = Http::withHeaders([
+                'User-Agent' => 'MijaNasa-Logistics/1.0'
+            ])->timeout(5)->get('https://nominatim.openstreetmap.org/search', [
+                'q' => $searchAddress,
+                'format' => 'json',
+                'limit' => 1,
             ]);
 
-            $location = $response->json('results.0.geometry.location');
-            if ($location) {
+            $results = $response->json();
+            if (is_array($results) && count($results) > 0) {
+                $location = $results[0];
                 $this->venta->update([
                     'latitud'  => $location['lat'],
-                    'longitud' => $location['lng'],
+                    'longitud' => $location['lon'], // Nominatim usa 'lon'
                 ]);
+                
+                // Si la venta ya está asignada a paradas, actualizar la parada también
+                $this->venta->paradas()->update([
+                    'latitud' => $location['lat'],
+                    'longitud' => $location['lon']
+                ]);
+            } else {
+                Log::warning("Nominatim no encontró resultados para: {$searchAddress}");
             }
         } catch (\Throwable $e) {
             Log::error("Error geocodificando Venta ID {$this->venta->id}: " . $e->getMessage());
