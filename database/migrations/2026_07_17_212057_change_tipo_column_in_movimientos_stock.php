@@ -11,6 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
+        if (!Schema::hasTable('movimientos_stock')) {
+            return;
+        }
+
         Schema::table('movimientos_stock', function (Blueprint $table) {
             $table->string('tipo', 50)->change();
         });
