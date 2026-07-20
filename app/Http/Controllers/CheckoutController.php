@@ -92,9 +92,9 @@ class CheckoutController extends Controller
     public function store(Request $request)
     {
         $rules = [
-            'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion',
+            'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion,correo_nacional',
             'sucursal_id'           => 'required|exists:sucursales,id',
-            'direccion_envio'       => 'required_if:tipo_envio,domicilio|nullable|string|max:255',
+            'direccion_envio'       => 'required_if:tipo_envio,domicilio,correo_nacional|nullable|string|max:255',
             'medio_pago'            => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
         ];
         
@@ -137,25 +137,13 @@ class CheckoutController extends Controller
         $sucursal_id = $request->sucursal_id;
         
         $costo_envio = 0;
-        if ($request->tipo_envio === 'domicilio') {
+        if (in_array($request->tipo_envio, ['domicilio', 'correo_nacional'])) {
             $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first();
             if ($sucursalPrincipal) {
                 $sucursal_id = $sucursalPrincipal->id;
             }
-            
-            // Validar distancia síncronamente
-            if ($request->direccion_envio) {
-                $coords = $this->geocodeAddress($request->direccion_envio);
-                if ($coords) {
-                    $latSucursal = -32.9493; // San Martin 843, Rosario
-                    $lonSucursal = -60.6382;
-                    $distancia = $this->calculateDistance($latSucursal, $lonSucursal, $coords['lat'], $coords['lon']);
-                    
-                    if ($distancia > 20) {
-                        $request->merge(['tipo_envio' => 'correo_nacional']);
-                        $costo_envio = 50000;
-                    }
-                }
+            if ($request->tipo_envio === 'correo_nacional') {
+                $costo_envio = 50000;
             }
         }
 
@@ -331,7 +319,7 @@ class CheckoutController extends Controller
                     $montoMercadoPago = 0;
                     $estado = 'en_preparacion';
                 } elseif (in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) {
-                    $montoMercadoPago = $total; // Se debe pagar el total, el costo de envío también
+                    $montoMercadoPago = 0; 
                     $estado = 'pendiente_pago'; // Se reserva stock abajo
                 }
 

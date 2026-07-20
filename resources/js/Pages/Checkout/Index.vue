@@ -25,6 +25,20 @@ const comentario          = ref('');
 const procesando          = ref(false);
 const inputRef            = ref(null);
 
+const provincia = ref('');
+const localidad = ref('');
+
+const provincias = [
+    'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Ciudad Autónoma de Buenos Aires',
+    'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja',
+    'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis',
+    'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán'
+];
+
+const localidadesSantaFe = [
+    'Rosario', 'Funes', 'Pérez', 'Villa Gobernador Gálvez', 'Granadero Baigorria', 'Otra localidad'
+];
+
 const guestNombre   = ref('');
 const guestApellido = ref('');
 const guestDni      = ref('');
@@ -36,6 +50,20 @@ let placeListener = null;
 
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
+
+const esEnvioLocal = computed(() => {
+    if (tipoEnvio.value !== 'domicilio') return true;
+    return provincia.value === 'Santa Fe' && ['Rosario', 'Funes', 'Pérez'].includes(localidad.value);
+});
+
+const costoEnvio = computed(() => {
+    if (tipoEnvio.value === 'domicilio' && !esEnvioLocal.value) {
+        return 50000;
+    }
+    return 0;
+});
+
+const totalFinal = computed(() => props.total + costoEnvio.value);
 
 const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 const usaMaps  = !!MAPS_KEY;
@@ -82,6 +110,8 @@ watch(tipoEnvio, (val) => {
     depto.value = '';
     cp.value    = '';
     comentario.value = '';
+    provincia.value = '';
+    localidad.value = '';
     if (val === 'domicilio') {
         sucursalId.value = props.sucursal_principal_id;
         if (usaMaps) nextTick(initAutocomplete);
@@ -117,7 +147,7 @@ const isAuthenticated = computed(() => !!page.props.auth?.user);
 const puedeEnviar = computed(() => {
     let baseValido = !!sucursalId.value;
     if (tipoEnvio.value === 'domicilio') {
-        baseValido = baseValido && addressSelected.value;
+        baseValido = baseValido && addressSelected.value && provincia.value && localidad.value;
     }
     
     if (!isAuthenticated.value) {
@@ -135,6 +165,7 @@ const confirmar = () => {
     if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
     if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
     if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
+    direccion += `, ${localidad.value}, ${provincia.value}`;
     if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
 
     if (tipoEnvio.value === 'domicilio' && !cp.value.trim()) {
@@ -144,7 +175,7 @@ const confirmar = () => {
     }
 
     router.post(route('checkout.store'), {
-        tipo_envio:            tipoEnvio.value,
+        tipo_envio:            (tipoEnvio.value === 'domicilio' && !esEnvioLocal.value) ? 'correo_nacional' : tipoEnvio.value,
         sucursal_id:           sucursalId.value,
         direccion_envio:       tipoEnvio.value === 'domicilio' ? direccion : null,
         medio_pago:            medioPago.value,
@@ -280,6 +311,32 @@ const confirmar = () => {
                         <!-- Dirección (solo si domicilio) -->
                         <transition name="fade">
                             <div v-if="tipoEnvio === 'domicilio'" class="mt-6 space-y-4">
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
+                                            Provincia *
+                                        </label>
+                                        <select v-model="provincia" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider">
+                                            <option value="" disabled>-- Provincia --</option>
+                                            <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
+                                            Localidad *
+                                        </label>
+                                        <select v-if="provincia === 'Santa Fe'" v-model="localidad" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider">
+                                            <option value="" disabled>-- Localidad --</option>
+                                            <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
+                                        </select>
+                                        <input v-else type="text" v-model="localidad" placeholder="Ej: Córdoba Capital" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider" />
+                                    </div>
+                                </div>
+
+                                <div v-if="provincia && localidad && !esEnvioLocal" class="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-500 text-xs font-bold mt-2">
+                                    ⚠️ El envío a {{ localidad }} se realiza por Correo Nacional con un recargo de {{ formatPrecio(50000) }}.
+                                </div>
 
                                 <!-- Autocomplete -->
                                 <div>
@@ -518,7 +575,7 @@ const confirmar = () => {
 
                         <div class="border-t border-white/10 pt-4 flex justify-between mb-8">
                             <span class="font-black uppercase tracking-widest text-sm">Total</span>
-                            <span class="text-2xl font-black text-brand-red italic">{{ formatPrecio(total) }}</span>
+                            <span class="text-2xl font-black text-brand-red italic">{{ formatPrecio(totalFinal) }}</span>
                         </div>
 
                         <button
