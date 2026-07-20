@@ -270,7 +270,7 @@ const contarEstados = (paradas) =>
                         </div>
 
                         <div class="relative">
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Repartidor (opcional)</label>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Repartidor</label>
                             <button
                                 type="button"
                                 @click="showRepartidorDrop = !showRepartidorDrop"

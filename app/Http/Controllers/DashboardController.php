@@ -14,7 +14,7 @@ class DashboardController extends Controller
     {
         $user = $request->user();
         if (!$user->esAdmin() && !$user->empleado) {
-            return redirect()->route('catalogo.index');
+            return redirect()->route('mi-cuenta.index');
         }
 
         $hoy = now();

@@ -59,11 +59,15 @@ class EmpleadoController extends Controller
                 'activo' => true,
             ]);
 
-            $user->empleado()->create([
+            $empleado = $user->empleado()->create([
                 'legajo' => $request->legajo,
                 'sucursal_id' => $request->sucursal_id,
                 'fecha_ingreso' => $request->fecha_ingreso,
             ]);
+
+            if ($request->filled('cargo_id')) {
+                $empleado->cargos()->attach($request->cargo_id, ['fecha_desde' => now()->toDateString()]);
+            }
         });
 
         return redirect()->route('empleados.index')
@@ -85,6 +89,19 @@ class EmpleadoController extends Controller
             ]);
 
             $empleado->update($request->only(['legajo', 'sucursal_id', 'fecha_ingreso', 'fecha_egreso']));
+
+            if ($request->has('cargo_id')) {
+                $currentCargoIds = $empleado->cargos()->pluck('cargos.id')->toArray();
+                $newCargoId = $request->cargo_id;
+
+                if (!in_array($newCargoId, $currentCargoIds) || (!$newCargoId && $currentCargoIds)) {
+                    $empleado->cargos()->updateExistingPivot($currentCargoIds, ['fecha_hasta' => now()->toDateString()]);
+                    
+                    if ($newCargoId) {
+                        $empleado->cargos()->attach($newCargoId, ['fecha_desde' => now()->toDateString()]);
+                    }
+                }
+            }
         });
 
         return redirect()->route('empleados.index')

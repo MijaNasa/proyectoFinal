@@ -36,7 +36,9 @@ class RutaRepartoController extends Controller
 
         return inertia('Repartos/Index', [
             'rutas'        => $rutas,
-            'repartidores' => Empleado::with('user:id,name,apellido')->get(['id', 'user_id']),
+            'repartidores' => Empleado::with('user:id,name,apellido')->whereHas('cargos', function($q) {
+                $q->where('nombre', 'REPARTIDOR');
+            })->get(['id', 'user_id']),
             'stats'        => $stats,
             'filters'      => $request->only(['search', 'fecha']),
         ]);
@@ -71,7 +73,9 @@ class RutaRepartoController extends Controller
 
         return inertia('Repartos/Show', [
             'ruta'               => $rutasReparto,
-            'repartidores'       => Empleado::with('user:id,name,apellido')->get(['id', 'user_id']),
+            'repartidores'       => Empleado::with('user:id,name,apellido')->whereHas('cargos', function($q) {
+                $q->where('nombre', 'REPARTIDOR');
+            })->get(['id', 'user_id']),
             'ventas_disponibles' => $ventasDisponibles,
         ]);
     }
@@ -125,18 +129,18 @@ class RutaRepartoController extends Controller
                     continue;
                 }
 
-                [$latitud, $longitud] = $this->geocodificar($venta->direccion_envio);
-
                 $orden = ($rutasReparto->paradas()->max('orden') ?? 0) + 1;
 
                 $rutasReparto->paradas()->create([
                     'venta_id'      => $venta->id,
                     'estado'        => 'pendiente',
-                    'latitud'       => $latitud,
-                    'longitud'      => $longitud,
+                    'latitud'       => $venta->latitud,
+                    'longitud'      => $venta->longitud,
                     'orden'         => $orden,
                     'observaciones' => $request->observaciones,
                 ]);
+
+                $venta->update(['estado' => 'enviado']);
 
                 $agregadas++;
             }
@@ -149,32 +153,6 @@ class RutaRepartoController extends Controller
         return back()->with('message', $agregadas === 1 ? 'Venta agregada a la ruta' : "$agregadas entregas agregadas a la ruta");
     }
 
-    /**
-     * Geocodifica una dirección usando la API de Google Maps.
-     * Si no hay API key configurada o falla la consulta, devuelve coordenadas nulas
-     * (la parada queda sin ubicación y se puede cargar/optimizar manualmente después).
-     */
-    private function geocodificar(?string $direccion): array
-    {
-        $apiKey = env('GOOGLE_MAPS_API_KEY') ?: env('VITE_GOOGLE_MAPS_API_KEY');
-
-        if (!$apiKey || !$direccion) {
-            return [null, null];
-        }
-
-        try {
-            $response = \Illuminate\Support\Facades\Http::timeout(5)->get('https://maps.googleapis.com/maps/api/geocode/json', [
-                'address' => $direccion,
-                'key'     => $apiKey,
-            ]);
-
-            $location = $response->json('results.0.geometry.location');
-
-            return $location ? [$location['lat'], $location['lng']] : [null, null];
-        } catch (\Throwable $e) {
-            return [null, null];
-        }
-    }
 
     public function removeParada(RutaReparto $rutasReparto, ParadaReparto $parada)
     {
@@ -192,6 +170,10 @@ class RutaRepartoController extends Controller
             }
 
             $fresh->delete();
+
+            if ($fresh->venta && $fresh->venta->estado === 'enviado') {
+                $fresh->venta->update(['estado' => 'en_preparacion']);
+            }
 
             // Renumerar orden
             $rutasReparto->paradas()->orderBy('orden')->each(function ($p, $i) {
@@ -245,59 +227,58 @@ class RutaRepartoController extends Controller
 
     public function optimizarRuta(RutaReparto $rutasReparto)
     {
-        $paradas = $rutasReparto->paradas()->with('venta')->orderBy('orden')->get();
+        $paradas = $rutasReparto->paradas()->orderBy('orden')->get();
+        $conCoordenadas = $paradas->filter(fn($p) => $p->latitud && $p->longitud)->values();
 
-        $conCoordenadas = $paradas->filter(fn($p) => $p->latitud && $p->longitud);
-
-        if ($conCoordenadas->count() < 2) {
-            return back()->with('error', 'Se necesitan al menos 2 paradas con coordenadas para optimizar.');
+        if ($conCoordenadas->isEmpty()) {
+            return back()->with('error', 'No hay paradas con coordenadas válidas para optimizar.');
         }
 
-        // Nearest-neighbor desde la primera parada
-        $restantes  = $conCoordenadas->values()->toArray();
-        $ordenadas  = [array_shift($restantes)];
+        // Centro de Rosario por defecto
+        $startLat = -32.94682;
+        $startLon = -60.63932;
 
-        while (count($restantes) > 0) {
-            $ultima   = end($ordenadas);
-            $minDist  = PHP_FLOAT_MAX;
-            $minIdx   = 0;
+        $unvisited = $conCoordenadas->toArray();
+        $ordenadas = [];
 
-            foreach ($restantes as $idx => $parada) {
-                $dist = $this->distanciaHaversine(
-                    $ultima['latitud'], $ultima['longitud'],
-                    $parada['latitud'], $parada['longitud']
-                );
+        $currentLat = (float) $startLat;
+        $currentLon = (float) $startLon;
+
+        // Nearest Neighbor (Greedy TSP)
+        while (!empty($unvisited)) {
+            $nearestIdx = -1;
+            $minDist = PHP_FLOAT_MAX;
+
+            foreach ($unvisited as $idx => $p) {
+                // Distancia euclidiana
+                $dist = pow(((float)$p['latitud'] - $currentLat), 2) + pow(((float)$p['longitud'] - $currentLon), 2);
                 if ($dist < $minDist) {
                     $minDist = $dist;
-                    $minIdx  = $idx;
+                    $nearestIdx = $idx;
                 }
             }
 
-            $ordenadas[] = $restantes[$minIdx];
-            array_splice($restantes, $minIdx, 1);
+            $nearest = $unvisited[$nearestIdx];
+            $ordenadas[] = $nearest;
+            $currentLat = (float) $nearest['latitud'];
+            $currentLon = (float) $nearest['longitud'];
+            
+            unset($unvisited[$nearestIdx]);
         }
 
-        // Paradas sin coordenadas van al final
-        $sinCoordenadas = $paradas->filter(fn($p) => !$p->latitud || !$p->longitud)->values();
+        $idsOrdenadas = collect($ordenadas)->pluck('id')->toArray();
+        $resto = $paradas->filter(fn($p) => !in_array($p->id, $idsOrdenadas))->values();
 
-        DB::transaction(function () use ($ordenadas, $sinCoordenadas) {
-            foreach ($ordenadas as $i => $p) {
-                ParadaReparto::where('id', $p['id'])->update(['orden' => $i + 1]);
+        \Illuminate\Support\Facades\DB::transaction(function () use ($ordenadas, $resto) {
+            $orden = 1;
+            foreach ($ordenadas as $p) {
+                \App\Models\ParadaReparto::where('id', $p['id'])->update(['orden' => $orden++]);
             }
-            foreach ($sinCoordenadas as $j => $p) {
-                $p->update(['orden' => count($ordenadas) + $j + 1]);
+            foreach ($resto as $p) {
+                \App\Models\ParadaReparto::where('id', $p->id)->update(['orden' => $orden++]);
             }
         });
 
-        return back()->with('message', 'Ruta optimizada por cercanía');
-    }
-
-    private function distanciaHaversine(float $lat1, float $lon1, float $lat2, float $lon2): float
-    {
-        $r    = 6371;
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-        $a    = sin($dLat / 2) ** 2 + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLon / 2) ** 2;
-        return $r * 2 * atan2(sqrt($a), sqrt(1 - $a));
+        return back()->with('message', 'Ruta optimizada automáticamente por proximidad.');
     }
 }

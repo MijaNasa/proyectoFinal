@@ -285,7 +285,11 @@ class LogisticaController extends Controller
                 if ($pendingTransfers === 0) {
                     $venta = \App\Models\Venta::find($traslado->venta_id);
                     if ($venta && $venta->estado === 'esperando_traslado') {
-                        $venta->update(['estado' => 'listo_para_retirar']);
+                        if ($venta->tipo_envio === 'domicilio') {
+                            $venta->update(['estado' => 'en_preparacion']);
+                        } else {
+                            $venta->update(['estado' => 'listo_para_retiro']);
+                        }
                     }
                 }
             }

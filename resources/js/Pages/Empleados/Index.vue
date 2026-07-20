@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, useForm, usePage, router } from '@inertiajs/vue3';
+import { ref, watch } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -23,6 +23,7 @@ const form = useForm({
     telefono: '',
     legajo: '',
     sucursal_id: '',
+    cargo_id: '',
     fecha_ingreso: new Date().toISOString().substr(0, 10),
     fecha_egreso: null
 });
@@ -41,6 +42,7 @@ const openModal = (empleado = null) => {
         form.telefono = empleado.user.telefono || '';
         form.legajo = empleado.legajo;
         form.sucursal_id = empleado.sucursal_id;
+        form.cargo_id = empleado.cargos?.length ? empleado.cargos[0].id : '';
         form.fecha_ingreso = empleado.fecha_ingreso;
         form.fecha_egreso = empleado.fecha_egreso;
     } else {
@@ -109,8 +111,20 @@ const deleteEmpleado = (id) => {
 };
 
 const handleSearch = () => {
-    window.location.href = route('empleados.index', { search: search.value });
+    router.get(route('empleados.index'), { search: search.value }, {
+        preserveState: true,
+        replace: true,
+        preserveScroll: true
+    });
 };
+
+let searchTimeout;
+watch(search, () => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        handleSearch();
+    }, 300);
+});
 
 // --- Gestión de Accesos (Cargos por empleado) ---
 const showAccesosModal = ref(false);
@@ -207,7 +221,7 @@ const colorCargo = (nombre) => {
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
                     Gestión de <span class="text-brand-red italic">Personal</span>
                 </h2>
-                <button @click="openModal()" class="btn-primary flex items-center gap-2">
+                <button v-if="$page.props.auth.esAdmin" @click="openModal()" class="btn-primary flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                     </svg>
@@ -247,21 +261,15 @@ const colorCargo = (nombre) => {
                         <tbody class="divide-y divide-white/5">
                             <tr v-for="emp in empleados.data" :key="emp.id" class="hover:bg-white/[0.02] transition-colors group">
                                 <td class="p-4">
-                                    <div class="flex items-center gap-3">
-                                        <div class="bg-white/5 h-10 w-10 rounded-full flex items-center justify-center font-black text-brand-red text-xs border border-white/5 group-hover:border-brand-red transition-all">
-                                            {{ emp.legajo }}
-                                        </div>
-                                        <div>
-                                            <div class="font-black text-sm uppercase group-hover:text-brand-red transition-colors">{{ emp.user.name }} {{ emp.user.apellido }}</div>
-                                            <div class="text-[9px] text-white/40 font-mono italic">DNI: {{ emp.user.dni || 'S/D' }}</div>
-                                        </div>
+                                    <div class="flex flex-col justify-center">
+                                        <div class="font-black text-sm uppercase group-hover:text-brand-red transition-colors">{{ emp.user.name }} {{ emp.user.apellido }}</div>
+                                        <div class="text-[9px] text-white/40 font-mono italic">Legajo: {{ emp.legajo }} · DNI: {{ emp.user.dni || 'S/D' }}</div>
                                     </div>
                                 </td>
                                 <td class="p-4">
                                     <div class="text-xs font-black uppercase tracking-wider text-white">
                                         {{ emp.sucursal?.nombre }}
                                     </div>
-                                    <div class="text-[9px] text-white/30 uppercase tracking-[0.2em] mt-1">Cód: {{ emp.sucursal?.codigo }}</div>
                                 </td>
                                 <td class="p-4">
                                     <div class="flex flex-wrap gap-1">
@@ -272,9 +280,9 @@ const colorCargo = (nombre) => {
                                     </div>
                                 </td>
                                 <td class="p-4">
-                                    <div class="text-xs font-bold">{{ emp.fecha_ingreso }}</div>
-                                    <div v-if="emp.fecha_egreso" class="text-[9px] text-brand-red font-black uppercase tracking-widest mt-1">Baja: {{ emp.fecha_egreso }}</div>
-                                    <div v-else class="text-[9px] text-green-500 font-black uppercase tracking-widest mt-1">Activo</div>
+                                    <div v-if="emp.fecha_egreso" class="text-xs text-brand-red font-black uppercase tracking-widest">Baja: {{ emp.fecha_egreso }}</div>
+                                    <div v-else class="text-xs text-green-500 font-black uppercase tracking-widest">Activo</div>
+                                    <div class="text-[9px] text-white/50 font-bold mt-1 uppercase tracking-widest">Desde: {{ emp.fecha_ingreso }}</div>
                                 </td>
                                 <td class="p-4 text-right">
                                     <div class="flex justify-end gap-2">
@@ -327,25 +335,20 @@ const colorCargo = (nombre) => {
                 </div>
                 
                 <form @submit.prevent="submit" class="p-10">
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-                        <div class="lg:col-span-2 space-y-8">
-                            <div>
-                                <h4 class="text-[9px] font-black uppercase tracking-[0.4em] text-brand-red mb-6 border-b border-brand-red/20 pb-1">Datos Básicos</h4>
-                                <div class="grid grid-cols-2 gap-6">
-                                    <div>
-                                        <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nombre</label>
-                                        <input v-model="form.name" type="text" class="input-field w-full font-bold uppercase transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.name}">
-                                        <p v-if="form.errors.name" class="text-[10px] text-brand-red mt-1">{{ form.errors.name }}</p>
-                                    </div>
-                                    <div>
-                                        <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Apellido</label>
-                                        <input v-model="form.apellido" type="text" class="input-field w-full font-bold uppercase transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.apellido}">
-                                        <p v-if="form.errors.apellido" class="text-[10px] text-brand-red mt-1">{{ form.errors.apellido }}</p>
-                                    </div>
+                    <div class="space-y-8">
+                        <div>
+                            <h4 class="text-[9px] font-black uppercase tracking-[0.4em] text-brand-red mb-6 border-b border-brand-red/20 pb-1">Datos Personales</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nombre</label>
+                                    <input v-model="form.name" type="text" class="input-field w-full font-bold uppercase transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.name}">
+                                    <p v-if="form.errors.name" class="text-[10px] text-brand-red mt-1">{{ form.errors.name }}</p>
                                 </div>
-                            </div>
-
-                            <div class="grid grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Apellido</label>
+                                    <input v-model="form.apellido" type="text" class="input-field w-full font-bold uppercase transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.apellido}">
+                                    <p v-if="form.errors.apellido" class="text-[10px] text-brand-red mt-1">{{ form.errors.apellido }}</p>
+                                </div>
                                 <div>
                                     <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">DNI</label>
                                     <input v-model="form.dni" @input="form.dni = form.dni.replace(/\D/g, '')" type="text" inputmode="numeric" maxlength="8" class="input-field w-full font-mono transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.dni}">
@@ -356,44 +359,47 @@ const colorCargo = (nombre) => {
                                     <input v-model="form.email" type="email" class="input-field w-full transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.email}">
                                     <p v-if="form.errors.email" class="text-[10px] text-brand-red mt-1">{{ form.errors.email }}</p>
                                 </div>
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Teléfono / WhatsApp</label>
-                                <input v-model="form.telefono" type="text" class="input-field w-full transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.telefono}">
-                                <p v-if="form.errors.telefono" class="text-[10px] text-brand-red mt-1">{{ form.errors.telefono }}</p>
+                                <div class="md:col-span-2">
+                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Teléfono / WhatsApp</label>
+                                    <input v-model="form.telefono" type="text" class="input-field w-full transition-all focus:border-brand-red" :class="{'border-brand-red': form.errors.telefono}">
+                                    <p v-if="form.errors.telefono" class="text-[10px] text-brand-red mt-1">{{ form.errors.telefono }}</p>
+                                </div>
                             </div>
                         </div>
 
-                        <div class="space-y-8 bg-white/[0.03] p-8 rounded-2xl border border-white/5">
-                            <div>
-                                <h4 class="text-[9px] font-black uppercase tracking-[0.4em] text-brand-red mb-6 border-b border-brand-red/20 pb-1">Datos RRHH</h4>
-                                <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nro de Legajo</label>
-                                <input v-model="form.legajo" type="text" class="input-field w-full font-black text-center text-lg bg-black/40 border-brand-red/30 tracking-widest" :class="{'border-brand-red': form.errors.legajo}">
-                                <p v-if="form.errors.legajo" class="text-[10px] text-brand-red mt-1">{{ form.errors.legajo }}</p>
-                            </div>
-
-                            <div>
-                                <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Sucursal Destino</label>
-                                <select v-model="form.sucursal_id" class="input-field w-full bg-brand-black font-bold uppercase text-xs" :class="{'border-brand-red': form.errors.sucursal_id}">
-                                    <option value="">Seleccionar Sucursal</option>
-                                    <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
-                                </select>
-                                <p v-if="form.errors.sucursal_id" class="text-[10px] text-brand-red mt-1">{{ form.errors.sucursal_id }}</p>
-                            </div>
-
-                            <div class="space-y-4">
-                                <div class="grid grid-cols-1 gap-4">
-                                    <div>
-                                        <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Fecha Ingreso</label>
-                                        <input v-model="form.fecha_ingreso" type="date" class="input-field w-full text-xs uppercase bg-black/20" :class="{'border-brand-red': form.errors.fecha_ingreso}">
-                                        <p v-if="form.errors.fecha_ingreso" class="text-[10px] text-brand-red mt-1">{{ form.errors.fecha_ingreso }}</p>
-                                    </div>
-                                    <div v-if="isEditing">
-                                        <label class="block text-[10px] font-black uppercase text-brand-red mb-2 tracking-widest">Fecha Baja</label>
-                                        <input v-model="form.fecha_egreso" type="date" class="input-field w-full text-xs uppercase bg-brand-red/5 border-brand-red/20" :class="{'border-brand-red': form.errors.fecha_egreso}">
-                                        <p v-if="form.errors.fecha_egreso" class="text-[10px] text-brand-red mt-1">{{ form.errors.fecha_egreso }}</p>
-                                    </div>
+                        <div class="border-t border-white/5 pt-8">
+                            <h4 class="text-[9px] font-black uppercase tracking-[0.4em] text-brand-red mb-6 border-b border-brand-red/20 pb-1">Datos de la Empresa</h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nro de Legajo</label>
+                                    <input v-model="form.legajo" type="text" class="input-field w-full font-black text-center text-lg bg-black/40 border-brand-red/30 tracking-widest" :class="{'border-brand-red': form.errors.legajo}">
+                                    <p v-if="form.errors.legajo" class="text-[10px] text-brand-red mt-1">{{ form.errors.legajo }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Sucursal Destino</label>
+                                    <select v-model="form.sucursal_id" class="input-field w-full bg-brand-black font-bold uppercase text-xs" :class="{'border-brand-red': form.errors.sucursal_id}">
+                                        <option value="">Seleccionar Sucursal</option>
+                                        <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
+                                    </select>
+                                    <p v-if="form.errors.sucursal_id" class="text-[10px] text-brand-red mt-1">{{ form.errors.sucursal_id }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Cargo Principal (opcional)</label>
+                                    <select v-model="form.cargo_id" class="input-field w-full bg-brand-black font-bold uppercase text-xs" :class="{'border-brand-red': form.errors.cargo_id}">
+                                        <option value="">Sin cargo asignado</option>
+                                        <option v-for="c in cargos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+                                    </select>
+                                    <p v-if="form.errors.cargo_id" class="text-[10px] text-brand-red mt-1">{{ form.errors.cargo_id }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Fecha Ingreso</label>
+                                    <input v-model="form.fecha_ingreso" type="date" class="input-field w-full text-xs uppercase bg-black/20" :class="{'border-brand-red': form.errors.fecha_ingreso}">
+                                    <p v-if="form.errors.fecha_ingreso" class="text-[10px] text-brand-red mt-1">{{ form.errors.fecha_ingreso }}</p>
+                                </div>
+                                <div v-if="isEditing">
+                                    <label class="block text-[10px] font-black uppercase text-brand-red mb-2 tracking-widest">Fecha Baja</label>
+                                    <input v-model="form.fecha_egreso" type="date" class="input-field w-full text-xs uppercase bg-brand-red/5 border-brand-red/20" :class="{'border-brand-red': form.errors.fecha_egreso}">
+                                    <p v-if="form.errors.fecha_egreso" class="text-[10px] text-brand-red mt-1">{{ form.errors.fecha_egreso }}</p>
                                 </div>
                             </div>
                         </div>

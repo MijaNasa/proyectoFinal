@@ -594,7 +594,7 @@ class VentaController extends Controller
             abort(403);
         }
 
-        \App\Models\Venta::onlyTrashed()->forceDelete();
+        \App\Models\Venta::where('estado', 'cancelado')->delete();
 
         return redirect()->back()->with('message', 'Historial de ventas canceladas limpiado exitosamente.');
     }

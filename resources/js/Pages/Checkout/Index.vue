@@ -20,6 +20,8 @@ const direccionFormatted  = ref('');
 const addressSelected     = ref(false);
 const piso                = ref('');
 const depto               = ref('');
+const cp                  = ref('');
+const comentario          = ref('');
 const procesando          = ref(false);
 const inputRef            = ref(null);
 
@@ -78,6 +80,8 @@ watch(tipoEnvio, (val) => {
     addressSelected.value    = false;
     piso.value  = '';
     depto.value = '';
+    cp.value    = '';
+    comentario.value = '';
     if (val === 'domicilio') {
         sucursalId.value = props.sucursal_principal_id;
         if (usaMaps) nextTick(initAutocomplete);
@@ -130,6 +134,14 @@ const confirmar = () => {
     let direccion = direccionFormatted.value;
     if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
     if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
+    if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
+    if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
+
+    if (tipoEnvio.value === 'domicilio' && !cp.value.trim()) {
+        toast.value = { msg: 'El Código Postal es obligatorio para envíos a domicilio.', type: 'error' };
+        setTimeout(() => toast.value = null, 4000);
+        return;
+    }
 
     router.post(route('checkout.store'), {
         tipo_envio:            tipoEnvio.value,
@@ -272,14 +284,14 @@ const confirmar = () => {
                                 <!-- Autocomplete -->
                                 <div>
                                     <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
-                                        Dirección de entrega
+                                        Calle y Número
                                     </label>
                                     <div class="relative">
                                         <input
                                             ref="inputRef"
                                             v-model="direccionInput"
                                             type="text"
-                                            :placeholder="usaMaps ? 'Buscá tu dirección...' : 'Ej: Av. Pellegrini 1234, Rosario'"
+                                            :placeholder="usaMaps ? 'Buscá tu dirección...' : 'Ej: Av. Pellegrini 1234'"
                                             :autocomplete="usaMaps ? 'off' : 'street-address'"
                                             class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
                                             :class="addressSelected
@@ -299,28 +311,52 @@ const confirmar = () => {
                                     </p>
                                 </div>
 
-                                <!-- Piso y Depto (aparecen después de seleccionar) -->
+                                <!-- Extras: Piso, Depto, CP y Comentarios -->
                                 <transition name="fade">
-                                    <div v-if="addressSelected" class="grid grid-cols-2 gap-3">
-                                        <div>
-                                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
-                                                Piso <span class="text-white/20">(opcional)</span>
-                                            </label>
-                                            <input
-                                                v-model="piso"
-                                                type="text"
-                                                placeholder="Ej: 3"
-                                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
-                                            />
+                                    <div class="space-y-4">
+                                        <div class="grid grid-cols-3 gap-3">
+                                            <div>
+                                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
+                                                    Piso <span class="text-white/20">(opc)</span>
+                                                </label>
+                                                <input
+                                                    v-model="piso"
+                                                    type="text"
+                                                    placeholder="Ej: 3"
+                                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
+                                                    Depto <span class="text-white/20">(opc)</span>
+                                                </label>
+                                                <input
+                                                    v-model="depto"
+                                                    type="text"
+                                                    placeholder="Ej: B"
+                                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
+                                                    CP <span class="text-brand-red">*</span>
+                                                </label>
+                                                <input
+                                                    v-model="cp"
+                                                    type="text"
+                                                    placeholder="Ej: 2000"
+                                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
+                                                />
+                                            </div>
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
-                                                Departamento <span class="text-white/20">(opcional)</span>
+                                                Comentarios y Referencias <span class="text-white/20">(opcional)</span>
                                             </label>
                                             <input
-                                                v-model="depto"
+                                                v-model="comentario"
                                                 type="text"
-                                                placeholder="Ej: B"
+                                                placeholder="Ej: Tocar timbre fuerte. Dejar en portería."
                                                 class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
                                             />
                                         </div>

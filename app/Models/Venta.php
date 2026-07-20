@@ -19,7 +19,8 @@ class Venta extends Model
         'sucursal_id', 'tipo', 'total',
         'estado', 'tipo_envio', 'direccion_envio',
         'pago_expira_at', 'payment_id',
-        'origen', 'motivo_pendiente', 'metodo_pago', 'comprobante_path'
+        'origen', 'motivo_pendiente', 'metodo_pago', 'comprobante_path',
+        'latitud', 'longitud'
     ];
 
     protected $casts = [
@@ -27,6 +28,17 @@ class Venta extends Model
     ];
 
     protected $appends = ['atendido_por'];
+
+    protected static function booted()
+    {
+        static::saved(function ($venta) {
+            if ($venta->wasChanged('direccion_envio') || ($venta->wasRecentlyCreated && $venta->direccion_envio)) {
+                if ($venta->tipo_envio === 'domicilio') {
+                    \App\Jobs\GeocodeAddressJob::dispatch($venta);
+                }
+            }
+        });
+    }
 
     public function getAtendidoPorAttribute()
     {

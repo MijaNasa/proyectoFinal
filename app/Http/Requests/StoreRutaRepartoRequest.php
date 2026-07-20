@@ -16,7 +16,7 @@ class StoreRutaRepartoRequest extends FormRequest
         return [
             'nombre'        => 'required|string|max:255',
             'fecha'         => 'required|date',
-            'repartidor_id' => 'nullable|exists:empleados,id',
+            'repartidor_id' => 'required|exists:empleados,id',
         ];
     }
 }

@@ -30,6 +30,7 @@ class StoreEmpleadoRequest extends FormRequest
             'sucursal_id' => 'required|exists:sucursales,id',
             'fecha_ingreso' => 'required|date',
             'fecha_egreso' => 'nullable|date|after_or_equal:fecha_ingreso',
+            'cargo_id' => 'nullable|exists:cargos,id',
         ];
     }
 

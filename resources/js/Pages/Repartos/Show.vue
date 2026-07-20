@@ -1,8 +1,10 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
 import Swal from 'sweetalert2';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 const props = defineProps({
     ruta:               Object,
@@ -22,10 +24,10 @@ const editForm = useForm({
 
 const submitEdit = () => editForm.put(route('rutas-reparto.update', props.ruta.id));
 
-// ──────────────────────────────────────────
-// Dropdown custom de repartidor
-// ──────────────────────────────────────────
-const showRepartidorDrop = ref(false);
+const toggleActiva = () => {
+    editForm.activa = !editForm.activa;
+    submitEdit();
+};
 
 const repartidorLabel = computed(() => {
     if (!editForm.repartidor_id) return 'Sin asignar';
@@ -33,22 +35,14 @@ const repartidorLabel = computed(() => {
     return r ? `${r.user?.name ?? ''} ${r.user?.apellido ?? ''}`.trim() : 'Sin asignar';
 });
 
-const selectRepartidor = (id) => {
-    editForm.repartidor_id = id;
-    showRepartidorDrop.value = false;
-};
-
 // ──────────────────────────────────────────
-// Asignar venta
+// Dropdown Asignar Paradas
 // ──────────────────────────────────────────
 const showAsignarModal = ref(false);
 const ventaSearch      = ref('');
 const seleccionadas    = ref([]);
 
-const asignarForm = useForm({
-    venta_ids:     [],
-    observaciones: '',
-});
+const asignarForm = useForm({ venta_ids: [] });
 
 const ventasFiltradas = computed(() => {
     if (!ventaSearch.value) return props.ventas_disponibles;
@@ -68,8 +62,7 @@ const toggleVenta = (id) => {
 };
 
 const todasSeleccionadas = computed(() =>
-    ventasFiltradas.value.length > 0 &&
-    ventasFiltradas.value.every(v => seleccionadas.value.includes(v.id))
+    ventasFiltradas.value.length > 0 && ventasFiltradas.value.every(v => seleccionadas.value.includes(v.id))
 );
 
 const toggleTodas = () => {
@@ -83,7 +76,6 @@ const toggleTodas = () => {
 
 const cerrarAsignarModal = () => {
     showAsignarModal.value = false;
-    asignarForm.reset();
     seleccionadas.value = [];
     ventaSearch.value = '';
 };
@@ -95,16 +87,15 @@ const submitAsignar = () => {
     });
 };
 
-
 // ──────────────────────────────────────────
-// Estado de parada
+// Modificar Estado Parada
 // ──────────────────────────────────────────
 const estadoForm = useForm({ estado: '', observaciones: '' });
 const paradaEditando = ref(null);
 
 const abrirEstadoModal = (parada) => {
     paradaEditando.value = parada;
-    estadoForm.estado        = parada.estado;
+    estadoForm.estado = parada.estado;
     estadoForm.observaciones = parada.observaciones ?? '';
 };
 
@@ -117,413 +108,387 @@ const submitEstado = () => {
     );
 };
 
-// ──────────────────────────────────────────
-// Eliminar parada
-// ──────────────────────────────────────────
-const eliminarParada = (parada) => {
-    Swal.fire({
-        title: '¿Quitar parada?',
-        text: 'Se removerá la entrega de esta ruta.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#e61919',
-        cancelButtonColor: '#333',
-        confirmButtonText: 'Sí, quitar',
-        cancelButtonText: 'Cancelar',
-        background: '#111',
-        color: '#fff',
-    }).then(r => {
-        if (r.isConfirmed) {
-            router.delete(route('rutas-reparto.remove-parada', { rutas_reparto: props.ruta.id, parada: parada.id }));
-        }
-    });
-};
-
-// ──────────────────────────────────────────
-// Optimizar ruta
-// ──────────────────────────────────────────
-const optimizar = () => {
-    router.post(route('rutas-reparto.optimizar', props.ruta.id));
-};
+const optimizar = () => router.post(route('rutas-reparto.optimizar', props.ruta.id));
 
 // ──────────────────────────────────────────
 // Helpers visuales
 // ──────────────────────────────────────────
 const estadoConfig = {
-    pendiente:   { label: 'Pendiente',  color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30' },
-    'en camino': { label: 'En camino',  color: 'text-blue-400 bg-blue-400/10 border-blue-400/30' },
-    entregada:   { label: 'Entregada',  color: 'text-green-400 bg-green-400/10 border-green-400/30' },
-    fallida:     { label: 'Fallida',    color: 'text-red-400 bg-red-400/10 border-red-400/30' },
+    pendiente:   { label: 'Pendiente', color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30', hex: '#facc15' },
+    'en camino': { label: 'En camino', color: 'text-blue-400 bg-blue-400/10 border-blue-400/30', hex: '#60a5fa' },
+    entregada:   { label: 'Entregada', color: 'text-green-400 bg-green-400/10 border-green-400/30', hex: '#4ade80' },
+    fallida:     { label: 'Fallida',   color: 'text-red-400 bg-red-400/10 border-red-400/30', hex: '#f87171' },
 };
 
-const formatPrecio = (v) =>
-    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v);
+const counts = computed(() => {
+    const arr = props.ruta.paradas || [];
+    return {
+        total: arr.length,
+        entregadas: arr.filter(p => p.estado === 'entregada').length,
+        pendientes: arr.filter(p => p.estado === 'pendiente').length,
+        en_camino:  arr.filter(p => p.estado === 'en camino').length,
+        fallidas:   arr.filter(p => p.estado === 'fallida').length,
+    };
+});
 
 const formatFecha = (f) =>
     new Date(f + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
-const progressPct = computed(() => {
-    const total = props.ruta.paradas?.length ?? 0;
-    if (!total) return 0;
-    const done = props.ruta.paradas.filter(p => p.estado === 'entregada').length;
-    return Math.round((done / total) * 100);
+// ──────────────────────────────────────────
+// Mapa Leaflet
+// ──────────────────────────────────────────
+let map = null;
+let markers = [];
+let polyline = null;
+const mapContainer = ref(null);
+
+const initMap = () => {
+    if (map) return;
+    map = L.map(mapContainer.value, { zoomControl: false }).setView([-32.9442426, -60.6505388], 13);
+    
+    L.control.zoom({ position: 'topleft' }).addTo(map);
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; CartoDB',
+        subdomains: 'abcd',
+        maxZoom: 20
+    }).addTo(map);
+
+    updateMap();
+};
+
+const updateMap = () => {
+    if (!map) return;
+    
+    markers.forEach(m => map.removeLayer(m));
+    markers = [];
+    if (polyline) map.removeLayer(polyline);
+
+    const validParadas = props.ruta.paradas?.filter(p => p.latitud && p.longitud) || [];
+    if (validParadas.length === 0) return;
+
+    const latlngs = validParadas.map(p => [p.latitud, p.longitud]);
+
+    validParadas.forEach((p) => {
+        const color = estadoConfig[p.estado]?.hex || '#facc15';
+        const iconHtml = `
+            <div class="relative w-6 h-6 rounded-full flex items-center justify-center font-black text-[10px] text-[#000] shadow-lg"
+                 style="background-color: ${color}; border: 1.5px solid ${color};">
+                ${p.orden}
+                <div class="absolute -bottom-1 left-1/2 transform -translate-x-1/2 w-0 h-0"
+                     style="border-left: 3px solid transparent; border-right: 3px solid transparent; border-top: 4px solid ${color};">
+                </div>
+            </div>
+        `;
+        const icon = L.divIcon({
+            html: iconHtml,
+            className: '',
+            iconSize: [24, 24],
+            iconAnchor: [12, 28]
+        });
+
+        const marker = L.marker([p.latitud, p.longitud], { icon }).addTo(map);
+        marker.bindPopup(`<b class="text-black uppercase text-[10px]">Parada ${p.orden}</b><br><span class="text-black text-xs">${p.venta?.direccion_envio}</span>`);
+        markers.push(marker);
+    });
+
+    polyline = L.polyline(latlngs, { color: '#ffffff', weight: 2, opacity: 0.3, dashArray: '5, 5' }).addTo(map);
+
+    if (latlngs.length > 0) {
+        map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] });
+    }
+};
+
+onMounted(() => {
+    nextTick(() => initMap());
 });
+
+watch(() => props.ruta.paradas, () => {
+    nextTick(() => updateMap());
+}, { deep: true });
+
 </script>
 
 <template>
     <Head :title="`Ruta: ${ruta.nombre}`" />
 
     <AuthenticatedLayout>
-        <template #header>
-            <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div class="max-w-[1600px] mx-auto px-4 py-8 space-y-6">
+
+            <!-- 1. HEADER (Mockup: RUTA #4 (ACTIVA)) -->
+            <div class="flex items-center justify-between gap-4 flex-wrap">
                 <div>
-                    <div class="flex items-center gap-3 mb-1">
-                        <a :href="route('rutas-reparto.index')" class="text-white/30 hover:text-brand-red transition-colors text-xs font-black uppercase tracking-widest">
-                            ← Repartos
-                        </a>
-                    </div>
-                    <h2 class="text-4xl font-black uppercase tracking-tighter">
-                        {{ ruta.nombre }}
+                    <h2 class="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
+                        Ruta #{{ ruta.nombre }}
+                        <span class="text-lg" :class="ruta.activa ? 'text-green-400' : 'text-white/20'">
+                            ({{ ruta.activa ? 'ACTIVA' : 'INACTIVA' }})
+                        </span>
                     </h2>
-                    <p class="text-white/30 text-xs font-bold uppercase tracking-widest mt-1">
-                        {{ formatFecha(ruta.fecha) }}
-                        · {{ ruta.repartidor?.user?.name ?? 'Sin repartidor' }}
-                        {{ ruta.repartidor?.user?.apellido ?? '' }}
+                    <p class="text-white/40 text-xs font-bold uppercase tracking-widest mt-1">
+                        {{ formatFecha(ruta.fecha) }} - {{ ruta.repartidor?.user?.name ?? 'Sin Repartidor' }} {{ ruta.repartidor?.user?.apellido ?? '' }}
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <span
-                        class="text-[10px] font-black px-3 py-1 rounded-full border"
-                        :class="ruta.activa ? 'text-green-400 bg-green-400/10 border-green-400/30' : 'text-white/20 bg-white/5 border-white/10'"
-                    >{{ ruta.activa ? 'Activa' : 'Cerrada' }}</span>
-                    <button @click="optimizar" class="text-[10px] font-black uppercase tracking-widest px-4 py-2 rounded-lg bg-white/5 hover:bg-blue-500/20 hover:text-blue-400 border border-white/10 hover:border-blue-400/30 transition-all">
-                        ⚡ Optimizar Ruta
-                    </button>
-                    <button @click="showAsignarModal = true" class="btn-primary px-5 py-2 rounded-xl text-xs font-black uppercase tracking-widest">
-                        + Agregar Entrega
+                    <span class="text-xs font-black uppercase tracking-widest text-white/50">Ruta Activa</span>
+                    <!-- Switch -->
+                    <button 
+                        type="button"
+                        @click="toggleActiva"
+                        class="w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none"
+                        :class="editForm.activa ? 'bg-green-400' : 'bg-white/10'"
+                    >
+                        <div class="w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm"
+                             :class="editForm.activa ? 'left-7' : 'left-1'"></div>
                     </button>
                 </div>
             </div>
-        </template>
 
-        <div class="px-8 py-8 space-y-8">
+            <!-- 2. RESUMEN Y PROGRESO -->
+            <div class="bg-[#111] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col xl:flex-row gap-8">
+                <!-- Resumen (Izquierda) -->
+                <div class="flex-1 xl:max-w-md">
+                    <h4 class="text-[9px] font-black uppercase tracking-widest text-white/30 mb-4">Resumen de Ruta</h4>
+                    <div class="grid grid-cols-4 gap-2">
+                        <div>
+                            <div class="w-full h-1 bg-green-400 rounded-full mb-2"></div>
+                            <span class="text-[10px] font-black text-green-400 uppercase block">{{ counts.entregadas }} Entregadas</span>
+                        </div>
+                        <div>
+                            <div class="w-full h-1 bg-yellow-400 rounded-full mb-2"></div>
+                            <span class="text-[10px] font-black text-yellow-400 uppercase block">{{ counts.pendientes }} Pendientes</span>
+                        </div>
+                        <div>
+                            <div class="w-full h-1 bg-blue-400 rounded-full mb-2"></div>
+                            <span class="text-[10px] font-black text-blue-400 uppercase block">{{ counts.en_camino }} En Camino</span>
+                        </div>
+                        <div>
+                            <div class="w-full h-1 bg-red-400 rounded-full mb-2"></div>
+                            <span class="text-[10px] font-black text-red-400 uppercase block">{{ counts.fallidas }} Fallidas</span>
+                        </div>
+                    </div>
+                </div>
 
-            <!-- Progreso -->
-            <div v-if="ruta.paradas?.length" class="bg-white/[0.02] border border-white/10 rounded-2xl p-6">
-                <div class="flex items-center justify-between mb-3">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-white/40">
-                        Progreso de entregas
-                    </p>
-                    <p class="text-sm font-black text-white">
-                        {{ ruta.paradas.filter(p => p.estado === 'entregada').length }} /
-                        {{ ruta.paradas.length }} entregadas
-                    </p>
-                </div>
-                <div class="w-full bg-white/5 rounded-full h-2">
-                    <div class="bg-brand-red h-2 rounded-full transition-all duration-500" :style="`width: ${progressPct}%`" />
-                </div>
-                <div class="flex gap-4 mt-3 text-[10px] font-black uppercase tracking-widest">
-                    <span class="text-yellow-400">{{ ruta.paradas.filter(p=>p.estado==='pendiente').length }} pendientes</span>
-                    <span class="text-blue-400">{{ ruta.paradas.filter(p=>p.estado==='en camino').length }} en camino</span>
-                    <span class="text-green-400">{{ ruta.paradas.filter(p=>p.estado==='entregada').length }} entregadas</span>
-                    <span class="text-red-400">{{ ruta.paradas.filter(p=>p.estado==='fallida').length }} fallidas</span>
+                <div class="hidden xl:block w-px bg-white/5 mx-2"></div>
+
+                <!-- Progreso Visual (Derecha) -->
+                <div class="flex-1 flex flex-col justify-center">
+                    <div class="flex justify-between items-center mb-4">
+                        <h4 class="text-[9px] font-black uppercase tracking-widest text-white/30">Progreso</h4>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-white/50">Total: {{ counts.total }} Paradas</span>
+                    </div>
+                    
+                    <div class="relative w-full h-1 bg-white/10 rounded-full mt-2">
+                        <div class="absolute top-0 left-0 h-1 bg-brand-red rounded-full transition-all duration-700"
+                             :style="{ width: counts.total ? (counts.entregadas / counts.total * 100) + '%' : '0%' }"></div>
+                        
+                        <!-- Puntos distribuidos (hasta 10 puntos visuales max) -->
+                        <div v-for="i in Math.min(counts.total, 10)" :key="i"
+                             class="absolute top-1/2 -translate-y-1/2 w-3 h-3 rounded-full border-2 border-[#111] transition-colors"
+                             :class="i <= counts.entregadas ? 'bg-brand-red' : 'bg-white/20'"
+                             :style="{ left: ((i - 1) / Math.max(counts.total - 1, 1) * 100) + '%' }">
+                        </div>
+                    </div>
+                    <div class="flex justify-between mt-3 px-1 text-[9px] font-black uppercase tracking-widest text-white/30">
+                        <span>{{ counts.pendientes }} Pendientes</span>
+                        <span>{{ counts.en_camino }} En Camino</span>
+                        <span>{{ counts.fallidas }} Fallidas</span>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <!-- 3. CONTENIDO PRINCIPAL (3 Columnas) -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Columna Izquierda: Mapa -->
+                <div class="lg:col-span-12 xl:col-span-5 h-[600px] bg-[#111] border border-white/5 rounded-2xl overflow-hidden relative shadow-2xl">
+                    <div ref="mapContainer" class="w-full h-full z-0"></div>
+                    
+                    <!-- Leyenda Flotante -->
+                    <div class="absolute top-4 right-4 z-[400] bg-[#111]/90 backdrop-blur-md border border-white/10 rounded-xl p-3 shadow-xl">
+                        <h5 class="text-[8px] font-black uppercase tracking-widest text-white/50 mb-2">Leyenda</h5>
+                        <div class="space-y-1.5">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+                                <span class="text-[9px] font-bold text-white uppercase">Entregada</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-yellow-400"></span>
+                                <span class="text-[9px] font-bold text-white uppercase">Pendiente</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-blue-400"></span>
+                                <span class="text-[9px] font-bold text-white uppercase">En camino</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span>
+                                <span class="text-[9px] font-bold text-white uppercase">Fallida</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-                <!-- Lista de Paradas -->
-                <div class="xl:col-span-2 space-y-4">
-                    <h3 class="text-[10px] font-black uppercase tracking-widest text-white/40">
-                        Paradas ({{ ruta.paradas?.length ?? 0 }})
-                    </h3>
-
-                    <div v-if="!ruta.paradas?.length" class="bg-white/[0.02] border border-white/10 rounded-2xl p-12 text-center">
-                        <p class="text-white/20 font-black uppercase tracking-widest text-xs">
-                            No hay paradas en esta ruta
-                        </p>
-                        <p class="text-white/10 text-xs mt-2">Agregá entregas con el botón "Agregar Entrega"</p>
+                <!-- Columna Central: Timeline de Paradas -->
+                <div class="lg:col-span-8 xl:col-span-4 bg-[#111] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-[600px]">
+                    <div class="flex items-center justify-between mb-6 shrink-0">
+                        <h4 class="text-[10px] font-black uppercase tracking-widest text-white/40">Paradas</h4>
+                        <div class="relative">
+                            <button @click="showAsignarModal = !showAsignarModal" class="btn-primary px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1">
+                                + Agregar Entrega
+                            </button>
+                            <!-- Dropdown Asignar (simplificado) -->
+                            <div v-if="showAsignarModal" class="absolute right-0 top-full mt-2 w-72 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl z-[500] flex flex-col max-h-[400px]">
+                                <div class="p-3 border-b border-white/10 bg-[#111]">
+                                    <input v-model="ventaSearch" type="text" placeholder="Buscar..." class="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none" />
+                                </div>
+                                <div class="overflow-y-auto flex-1 p-2 space-y-1">
+                                    <label v-for="v in ventasFiltradas" :key="v.id" class="flex items-start gap-2 p-2 hover:bg-white/5 rounded cursor-pointer">
+                                        <input type="checkbox" :checked="seleccionadas.includes(v.id)" @change="toggleVenta(v.id)" class="mt-0.5" />
+                                        <div class="min-w-0">
+                                            <p class="text-[10px] font-black text-white leading-tight truncate">#{{ v.id }} - {{ v.cliente?.user?.name }}</p>
+                                            <p class="text-[9px] text-white/40 truncate">{{ v.direccion_envio }}</p>
+                                        </div>
+                                    </label>
+                                </div>
+                                <div class="p-2 border-t border-white/10 bg-[#111]">
+                                    <button @click="submitAsignar" class="w-full btn-primary py-1.5 rounded-lg text-[10px] uppercase font-black">
+                                        Agregar {{ seleccionadas.length }}
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div
-                        v-for="parada in ruta.paradas"
-                        :key="parada.id"
-                        class="bg-white/[0.02] border border-white/10 rounded-2xl p-5 hover:border-white/20 transition-all"
-                        :class="{ 'border-green-400/30 bg-green-400/[0.02]': parada.estado === 'entregada', 'border-red-400/30 bg-red-400/[0.02]': parada.estado === 'fallida' }"
-                    >
-                        <div class="flex items-start justify-between gap-4">
-                            <!-- Número de orden -->
-                            <div class="flex-shrink-0 w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center">
-                                <span class="text-xs font-black text-white/40">{{ parada.orden }}</span>
+                    <div class="flex-1 overflow-y-auto pr-2 space-y-4 relative">
+                        <!-- Timeline Line -->
+                        <div class="absolute left-[19px] top-4 bottom-4 w-px bg-white/10 z-0"></div>
+
+                        <div v-if="!ruta.paradas?.length" class="text-center text-white/30 text-xs mt-10">
+                            Sin paradas asignadas.
+                        </div>
+
+                        <!-- Card Parada -->
+                        <div v-for="parada in ruta.paradas" :key="parada.id" class="relative z-10 flex gap-4"
+                             :class="{ 'opacity-50 grayscale transition-all duration-500': ['entregada', 'fallida'].includes(parada.estado) }">
+                            <!-- Circular Badge -->
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center border-4 border-[#111] text-xs font-black shrink-0 mt-1"
+                                 :class="estadoConfig[parada.estado]?.color.split(' ')[1] + ' text-white'">
+                                {{ parada.orden }}
                             </div>
-
-                            <!-- Info -->
-                            <div class="flex-1 min-w-0">
-                                <div class="flex items-center gap-2 mb-1 flex-wrap">
-                                    <span class="font-black text-white">
-                                        {{ parada.venta?.cliente?.user?.name }}
-                                        {{ parada.venta?.cliente?.user?.apellido }}
+                            
+                            <!-- Card Content -->
+                            <div class="flex-1 bg-white/5 border border-white/10 hover:border-white/20 transition-colors rounded-xl p-4">
+                                <div class="flex items-center justify-between mb-2">
+                                    <h5 class="text-sm font-black text-white truncate pr-2">
+                                        {{ parada.venta?.cliente?.user?.name }} {{ parada.venta?.cliente?.user?.apellido }}
+                                    </h5>
+                                    <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border shrink-0"
+                                          :class="estadoConfig[parada.estado]?.color">
+                                        {{ estadoConfig[parada.estado]?.label }}
                                     </span>
-                                    <span
-                                        class="text-[10px] font-black px-2 py-0.5 rounded-full border"
-                                        :class="estadoConfig[parada.estado]?.color"
-                                    >{{ estadoConfig[parada.estado]?.label }}</span>
                                 </div>
-
-                                <p class="text-xs text-white/40 font-bold mb-2">
-                                    📍 {{ parada.venta?.direccion_envio ?? 'Sin dirección' }}
+                                <p class="text-xs text-white/70 mb-3 whitespace-normal font-medium">
+                                    📍 {{ parada.venta?.direccion_envio }}
                                 </p>
-
-                                <div class="flex flex-wrap gap-2 text-[10px] text-white/30 font-bold">
+                                
+                                <div class="flex items-center gap-3 text-[9px] text-white/30 font-bold uppercase mb-4">
                                     <span>Venta #{{ parada.venta?.id }}</span>
                                     <span>·</span>
-                                    <span class="text-brand-red font-black">{{ formatPrecio(parada.venta?.total) }}</span>
-                                    <span>·</span>
-                                    <span>{{ parada.venta?.detalles?.length ?? 0 }} ítem(s)</span>
+                                    <span>{{ parada.venta?.detalles?.length ?? 0 }} Ítem(s)</span>
                                 </div>
 
-                                <!-- Items de la venta -->
-                                <div class="mt-3 space-y-1">
-                                    <div
-                                        v-for="det in parada.venta?.detalles"
-                                        :key="det.id"
-                                        class="flex justify-between text-xs text-white/40"
-                                    >
-                                        <span>{{ det.libro?.master?.titulo }} <span class="text-white/20">x{{ det.cantidad }}</span></span>
-                                        <span>{{ formatPrecio(det.subtotal) }}</span>
-                                    </div>
+                                <div class="flex gap-2">
+                                    <button @click="abrirEstadoModal(parada)" class="flex-1 py-1.5 rounded-md bg-white/5 border border-white/10 hover:bg-brand-red hover:border-brand-red hover:text-white transition-all text-[9px] font-black uppercase tracking-widest text-white/70">
+                                        Cambiar Estado
+                                    </button>
                                 </div>
-
-                                <p v-if="parada.observaciones" class="mt-2 text-xs text-yellow-400/70 italic">
-                                    💬 {{ parada.observaciones }}
-                                </p>
-
-                                <div v-if="parada.latitud && parada.longitud" class="mt-1 text-[10px] text-white/20 font-mono">
-                                    {{ parada.latitud }}, {{ parada.longitud }}
-                                </div>
-                            </div>
-
-                            <!-- Acciones -->
-                            <div class="flex flex-col gap-2 flex-shrink-0">
-                                <button
-                                    @click="abrirEstadoModal(parada)"
-                                    class="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-white/5 hover:bg-brand-red hover:text-white border border-white/10 transition-all whitespace-nowrap"
-                                >
-                                    Actualizar
-                                </button>
-                                <button
-                                    v-if="parada.estado !== 'entregada'"
-                                    @click="eliminarParada(parada)"
-                                    class="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-white/5 hover:bg-red-900/50 hover:text-red-400 border border-white/10 transition-all"
-                                >
-                                    Quitar
-                                </button>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Panel lateral: Editar ruta -->
-                <div class="xl:col-span-1">
-                    <div class="bg-white/[0.02] border border-white/10 rounded-2xl p-6 sticky top-6">
-                        <h3 class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-5">
-                            Datos de la Ruta
-                        </h3>
+                <!-- Columna Derecha: Formulario & Acciones -->
+                <div class="lg:col-span-4 xl:col-span-3 bg-[#111] border border-white/5 rounded-2xl p-6 shadow-2xl h-fit">
+                    
+                    <h4 class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-4">Datos y Acciones</h4>
 
-                        <form @submit.prevent="submitEdit" class="space-y-4">
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Nombre</label>
-                                <input
-                                    v-model="editForm.nombre"
-                                    type="text"
-                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50"
-                                />
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Fecha</label>
-                                <input
-                                    v-model="editForm.fecha"
-                                    type="date"
-                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50"
-                                />
-                            </div>
-                            <div class="relative">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Repartidor</label>
-                                <button
-                                    type="button"
-                                    @click="showRepartidorDrop = !showRepartidorDrop"
-                                    class="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none hover:border-brand-red/50 transition-colors"
-                                >
-                                    <span>{{ repartidorLabel }}</span>
-                                    <svg class="w-4 h-4 text-white/30" :class="{ 'rotate-180': showRepartidorDrop }" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                </button>
-                                <div v-if="showRepartidorDrop" class="absolute z-20 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                                    <button type="button" @click="selectRepartidor('')" class="w-full text-left px-4 py-3 text-sm text-white/40 hover:bg-white/5 transition-colors border-b border-white/5">
-                                        Sin asignar
-                                    </button>
-                                    <button
-                                        v-for="r in repartidores" :key="r.id"
-                                        type="button"
-                                        @click="selectRepartidor(r.id)"
-                                        class="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
-                                        :class="{ 'text-brand-red': editForm.repartidor_id == r.id }"
-                                    >
-                                        {{ r.user?.name }} {{ r.user?.apellido }}
-                                    </button>
-                                </div>
-                                <div v-if="showRepartidorDrop" class="fixed inset-0 z-10" @click="showRepartidorDrop = false" />
-                            </div>
-                            <div class="flex items-center gap-3">
-                                <input type="checkbox" v-model="editForm.activa" id="activa" class="w-4 h-4 accent-brand-red" />
-                                <label for="activa" class="text-xs font-black uppercase tracking-widest text-white/50 cursor-pointer">
-                                    Ruta activa
-                                </label>
-                            </div>
-                            <button type="submit" :disabled="editForm.processing" class="w-full btn-primary py-3 rounded-xl text-xs font-black uppercase tracking-widest">
+                    <div class="grid grid-cols-2 gap-2 mb-6">
+                        <button @click="showAsignarModal = true" class="py-2.5 rounded-lg border border-white/10 hover:bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/70 transition-colors">
+                            Agregar Entrega
+                        </button>
+                        <button @click="optimizar" class="py-2.5 rounded-lg bg-brand-red hover:bg-red-500 text-[9px] font-black uppercase tracking-widest text-white transition-colors flex items-center justify-center gap-1 shadow-[0_0_15px_rgba(230,25,25,0.3)]">
+                            ⚡ Optimizar Ruta
+                        </button>
+                    </div>
+
+                    <div class="w-full h-px bg-white/5 mb-6"></div>
+
+                    <form @submit.prevent="submitEdit" class="space-y-4">
+                        <div>
+                            <label class="block text-[9px] font-black uppercase tracking-widest text-white/30 mb-1.5">Nombre</label>
+                            <input v-model="editForm.nombre" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-brand-red/50 focus:outline-none" />
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-black uppercase tracking-widest text-white/30 mb-1.5">Fecha</label>
+                            <input v-model="editForm.fecha" type="date" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-brand-red/50 focus:outline-none" />
+                        </div>
+                        <div>
+                            <label class="block text-[9px] font-black uppercase tracking-widest text-white/30 mb-1.5">Repartidor</label>
+                            <select v-model="editForm.repartidor_id" class="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-brand-red/50 focus:outline-none appearance-none">
+                                <option value="">Sin asignar</option>
+                                <option v-for="r in repartidores" :key="r.id" :value="r.id">
+                                    {{ r.user?.name }} {{ r.user?.apellido }}
+                                </option>
+                            </select>
+                        </div>
+                        <div class="flex items-center gap-3 pt-2">
+                            <input type="checkbox" v-model="editForm.activa" class="w-4 h-4 accent-brand-red rounded bg-white/5 border-white/10" />
+                            <span class="text-[10px] font-black uppercase tracking-widest text-white/50">Ruta Activa</span>
+                        </div>
+                        
+                        <div class="pt-4">
+                            <button type="submit" :disabled="editForm.processing" class="w-full btn-primary py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_rgba(230,25,25,0.2)]">
                                 {{ editForm.processing ? 'Guardando...' : 'Guardar Cambios' }}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Modal: Agregar Entrega -->
-        <Teleport to="body">
-            <div v-if="showAsignarModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="cerrarAsignarModal" />
-                <div class="relative bg-[#111] border border-white/10 rounded-2xl p-8 w-full max-w-lg shadow-2xl max-h-[90vh] overflow-y-auto">
-                    <h3 class="text-xl font-black uppercase tracking-tighter mb-6">
-                        Agregar <span class="text-brand-red italic">Entregas</span>
-                    </h3>
-
-                    <form @submit.prevent="submitAsignar" class="space-y-4">
-                        <!-- Buscador -->
-                        <input
-                            v-model="ventaSearch"
-                            type="text"
-                            placeholder="Buscar por cliente, dirección o # venta..."
-                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
-                        />
-
-                        <!-- Lista de pedidos pendientes -->
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40">
-                                    Pedidos pendientes de entrega ({{ seleccionadas.length }} seleccionados)
-                                </label>
-                                <button
-                                    type="button"
-                                    @click="toggleTodas"
-                                    class="text-[10px] font-black uppercase tracking-widest text-brand-red hover:underline"
-                                >
-                                    {{ todasSeleccionadas ? 'Destildar todas' : 'Tildar todas' }}
-                                </button>
-                            </div>
-
-                            <div class="border border-white/10 rounded-xl overflow-hidden max-h-72 overflow-y-auto divide-y divide-white/5">
-                                <label
-                                    v-for="v in ventasFiltradas"
-                                    :key="v.id"
-                                    class="flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition-colors cursor-pointer"
-                                >
-                                    <input
-                                        type="checkbox"
-                                        :checked="seleccionadas.includes(v.id)"
-                                        @change="toggleVenta(v.id)"
-                                        class="mt-1 w-4 h-4 accent-brand-red"
-                                    />
-                                    <div class="min-w-0">
-                                        <p class="text-sm font-black text-white">
-                                            #{{ v.id }} — {{ v.cliente?.user?.name }} {{ v.cliente?.user?.apellido }}
-                                        </p>
-                                        <p class="text-xs text-white/40">
-                                            📍 {{ v.direccion_envio ?? 'Sin dirección' }}
-                                            · {{ formatPrecio(v.total) }}
-                                        </p>
-                                    </div>
-                                </label>
-                                <div v-if="!ventasFiltradas.length" class="px-4 py-6 text-center text-xs text-white/30">
-                                    No hay pedidos pendientes de entrega
-                                </div>
-                            </div>
-                            <p v-if="asignarForm.errors.venta_ids" class="text-red-400 text-xs mt-1">{{ asignarForm.errors.venta_ids }}</p>
-                            <p class="text-[10px] text-white/20 mt-1">La ubicación (lat/long) se completa automáticamente a partir de la dirección de envío.</p>
-                        </div>
-
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Observaciones (opcional)</label>
-                            <textarea
-                                v-model="asignarForm.observaciones"
-                                rows="2"
-                                placeholder="Ej: Timbre roto, llamar al llegar..."
-                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50 resize-none"
-                            />
-                        </div>
-
-                        <div class="flex gap-3 pt-2">
-                            <button type="button" @click="cerrarAsignarModal" class="flex-1 py-3 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/40 hover:bg-white/5 transition-all">
-                                Cancelar
-                            </button>
-                            <button
-                                type="submit"
-                                :disabled="asignarForm.processing || !seleccionadas.length"
-                                class="flex-1 btn-primary py-3 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                                {{ asignarForm.processing ? 'Agregando...' : `Agregar ${seleccionadas.length || ''} a Ruta` }}
                             </button>
                         </div>
                     </form>
                 </div>
+
             </div>
-        </Teleport>
+        </div>
 
         <!-- Modal: Actualizar Estado Parada -->
         <Teleport to="body">
-            <div v-if="paradaEditando" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div v-if="paradaEditando" class="fixed inset-0 z-[1000] flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="cerrarEstadoModal" />
-                <div class="relative bg-[#111] border border-white/10 rounded-2xl p-8 w-full max-w-sm shadow-2xl">
-                    <h3 class="text-xl font-black uppercase tracking-tighter mb-2">
+                <div class="relative bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+                    <h3 class="text-lg font-black uppercase tracking-tighter mb-1">
                         Actualizar <span class="text-brand-red italic">Estado</span>
                     </h3>
-                    <p class="text-xs text-white/30 font-bold uppercase tracking-widest mb-6">
-                        Parada #{{ paradaEditando.orden }} —
-                        {{ paradaEditando.venta?.cliente?.user?.name }}
-                        {{ paradaEditando.venta?.cliente?.user?.apellido }}
+                    <p class="text-[10px] text-white/40 font-bold uppercase tracking-widest mb-5 truncate">
+                        Parada #{{ paradaEditando.orden }} — {{ paradaEditando.venta?.cliente?.user?.name }}
                     </p>
 
                     <form @submit.prevent="submitEstado" class="space-y-4">
                         <div class="grid grid-cols-2 gap-2">
-                            <button
-                                v-for="opt in ['pendiente', 'en camino', 'entregada', 'fallida']"
-                                :key="opt"
-                                type="button"
-                                @click="estadoForm.estado = opt"
-                                class="py-3 px-4 rounded-xl border text-xs font-black uppercase tracking-wider transition-all"
-                                :class="estadoForm.estado === opt
-                                    ? estadoConfig[opt]?.color + ' border-current'
-                                    : 'border-white/10 text-white/30 hover:border-white/30'"
-                            >
+                            <button v-for="opt in ['pendiente', 'en camino', 'entregada', 'fallida']" :key="opt"
+                                    type="button" @click="estadoForm.estado = opt"
+                                    class="py-2.5 rounded-lg border text-[9px] font-black uppercase tracking-wider transition-all"
+                                    :class="estadoForm.estado === opt ? estadoConfig[opt]?.color + ' border-current scale-95' : 'border-white/10 text-white/30 hover:border-white/30'">
                                 {{ estadoConfig[opt]?.label }}
                             </button>
                         </div>
 
                         <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Observaciones</label>
-                            <textarea
-                                v-model="estadoForm.observaciones"
-                                rows="2"
-                                placeholder="Ej: Cliente ausente, se reprograma..."
-                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50 resize-none"
-                            />
+                            <label class="block text-[9px] font-black uppercase tracking-widest text-white/40 mb-1">Observaciones</label>
+                            <textarea v-model="estadoForm.observaciones" rows="2" class="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50 resize-none" placeholder="Motivo de fallo, detalles..."></textarea>
                         </div>
 
-                        <div class="flex gap-3 pt-2">
-                            <button type="button" @click="cerrarEstadoModal" class="flex-1 py-3 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/40 hover:bg-white/5">
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" @click="cerrarEstadoModal" class="flex-1 py-2.5 rounded-lg border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40 hover:bg-white/5">
                                 Cancelar
                             </button>
-                            <button type="submit" :disabled="estadoForm.processing" class="flex-1 btn-primary py-3 rounded-xl text-xs font-black uppercase tracking-widest">
-                                {{ estadoForm.processing ? 'Guardando...' : 'Confirmar' }}
+                            <button type="submit" :disabled="estadoForm.processing" class="flex-1 btn-primary py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                                Confirmar
                             </button>
                         </div>
                     </form>
@@ -532,3 +497,16 @@ const progressPct = computed(() => {
         </Teleport>
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+/* Transiciones suaves y retoques leaflet */
+.leaflet-container { background: #111; }
+.leaflet-control-zoom a {
+    background-color: #1a1a1a !important;
+    color: #fff !important;
+    border-color: rgba(255,255,255,0.1) !important;
+}
+.leaflet-control-zoom a:hover {
+    background-color: #333 !important;
+}
+</style>
