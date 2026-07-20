@@ -18,29 +18,21 @@ class AdminSeeder extends Seeder
         $this->call(TipoClienteSeeder::class);
 
         DB::transaction(function () {
-            $pais = \App\Models\Pais::firstOrCreate(
-                ['codigo' => 'AR'],
-                ['nombre' => 'Argentina', 'activo' => true]
-            );
-
-            $provincia = \App\Models\Provincia::firstOrCreate(
-                ['codigo' => 'BA'],
-                ['nombre' => 'Buenos Aires', 'pais_id' => $pais->id, 'activo' => true]
-            );
-
-            $ciudad = \App\Models\Ciudad::firstOrCreate(
-                ['nombre' => 'Buenos Aires', 'provincia_id' => $provincia->id],
-                []
-            );
+            // La geografia real (Argentina/Santa Fe/Rosario/Funes) ya la crea GeografiaSeeder arriba
+            $ciudad = \App\Models\Ciudad::whereHas('provincia', fn($q) => $q->where('nombre', 'Santa Fe'))
+                ->where('nombre', 'Rosario')
+                ->first();
 
             \App\Models\Sucursal::firstOrCreate(
-                ['activo' => true],
+                ['es_principal' => true],
                 [
-                    'nombre'              => 'Sucursal Única',
-                    'direccion'           => 'Dirección Principal 123',
-                    'ciudad_id'           => 1, // Asumiendo que 1 es CABA o algo válido
-                    'telefono'            => '1122334455',
-                    'email'               => 'sucursal@ejemplo.com',
+                    'nombre'      => 'Sucursal Central',
+                    'calle'       => 'San Martín',
+                    'numero'      => '843',
+                    'ciudad_id'   => $ciudad->id,
+                    'telefono'    => '1122334455',
+                    'email'       => 'sucursal@purocomic.com',
+                    'activo'      => true,
                 ]
             );
 
