@@ -98,6 +98,7 @@ class RutaRepartoController extends Controller
                 if ($parada->venta && $parada->venta->estado === 'enviado') {
                     $parada->venta->update(['estado' => 'en_preparacion']);
                 }
+                $parada->delete();
             }
             $rutasReparto->delete();
         });

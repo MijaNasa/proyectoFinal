@@ -222,7 +222,11 @@ const print = () => window.print();
                 <div class="w-64">
                     <div class="flex justify-between text-sm text-gray-500 mb-1">
                         <span>Subtotal</span>
-                        <span class="font-mono">{{ fmt(venta.total) }}</span>
+                        <span class="font-mono">{{ fmt(venta.total - (venta.costo_envio || 0)) }}</span>
+                    </div>
+                    <div v-if="venta.costo_envio > 0" class="flex justify-between text-sm text-gray-500 mb-1">
+                        <span>Costo de Envío</span>
+                        <span class="font-mono">+{{ fmt(venta.costo_envio) }}</span>
                     </div>
                     <div class="flex justify-between text-sm text-gray-500 mb-3">
                         <span>IVA incluido</span>

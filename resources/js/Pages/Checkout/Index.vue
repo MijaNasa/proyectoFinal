@@ -36,7 +36,7 @@ const provincias = [
 ];
 
 const localidadesSantaFe = [
-    'Rosario', 'Funes', 'Pérez', 'Villa Gobernador Gálvez', 'Granadero Baigorria', 'Otra localidad'
+    'Rosario', 'Otra localidad'
 ];
 
 const guestNombre   = ref('');
@@ -53,7 +53,7 @@ const formatPrecio = (valor) =>
 
 const esEnvioLocal = computed(() => {
     if (tipoEnvio.value !== 'domicilio') return true;
-    return provincia.value === 'Santa Fe' && ['Rosario', 'Funes', 'Pérez'].includes(localidad.value);
+    return provincia.value === 'Santa Fe' && localidad.value === 'Rosario';
 });
 
 const costoEnvio = computed(() => {
@@ -571,6 +571,16 @@ const confirmar = () => {
                                     {{ formatPrecio(item.precio * item.cantidad) }}
                                 </p>
                             </div>
+                        </div>
+
+                        <div class="border-t border-white/10 pt-4 flex justify-between mb-2">
+                            <span class="font-black uppercase tracking-widest text-sm text-white/50">Subtotal</span>
+                            <span class="font-black text-white/50">{{ formatPrecio(total) }}</span>
+                        </div>
+                        
+                        <div v-if="costoEnvio > 0" class="flex justify-between mb-4">
+                            <span class="font-black uppercase tracking-widest text-sm text-white/50">Costo de Envío</span>
+                            <span class="font-black text-white/50">+{{ formatPrecio(costoEnvio) }}</span>
                         </div>
 
                         <div class="border-t border-white/10 pt-4 flex justify-between mb-8">

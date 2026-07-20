@@ -269,13 +269,6 @@ watch(() => props.ruta.paradas, () => {
                         <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
                         En Curso
                     </span>
-                    <button v-else
-                        type="button"
-                        @click="iniciarRuta"
-                        class="px-6 py-2 bg-brand-red hover:bg-red-500 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-[0_0_15px_rgba(230,25,25,0.3)] transition-all"
-                    >
-                        🚀 Iniciar Ruta
-                    </button>
                 </div>
             </div>
 
@@ -504,6 +497,22 @@ watch(() => props.ruta.paradas, () => {
                             </button>
                         </div>
                     </form>
+
+                    <!-- Iniciar Ruta -->
+                    <div class="mt-6 bg-white/5 border border-white/10 rounded-xl p-5 shadow-inner">
+                        <h4 class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-3 text-center">Control de Ruta</h4>
+                        <div v-if="ruta.activa" class="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+                            <span class="text-green-400 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                                <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                                Ruta En Curso
+                            </span>
+                        </div>
+                        <div v-else>
+                            <button type="button" @click="iniciarRuta" class="w-full py-3 bg-brand-red hover:bg-red-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-[0_0_15px_rgba(230,25,25,0.3)] transition-all flex justify-center items-center gap-2">
+                                🚀 Iniciar Ruta
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
             </div>
