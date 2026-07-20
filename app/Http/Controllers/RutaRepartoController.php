@@ -140,8 +140,6 @@ class RutaRepartoController extends Controller
                     'observaciones' => $request->observaciones,
                 ]);
 
-                $venta->update(['estado' => 'enviado']);
-
                 $agregadas++;
             }
         });
@@ -170,10 +168,6 @@ class RutaRepartoController extends Controller
             }
 
             $fresh->delete();
-
-            if ($fresh->venta && $fresh->venta->estado === 'enviado') {
-                $fresh->venta->update(['estado' => 'en_preparacion']);
-            }
 
             // Renumerar orden
             $rutasReparto->paradas()->orderBy('orden')->each(function ($p, $i) {
@@ -234,9 +228,9 @@ class RutaRepartoController extends Controller
             return back()->with('error', 'No hay paradas con coordenadas válidas para optimizar.');
         }
 
-        // Centro de Rosario por defecto
-        $startLat = -32.94682;
-        $startLon = -60.63932;
+        // Origen: San Martin 843, Rosario
+        $startLat = -32.9473682;
+        $startLon = -60.6364222;
 
         $unvisited = $conCoordenadas->toArray();
         $ordenadas = [];
@@ -280,5 +274,27 @@ class RutaRepartoController extends Controller
         });
 
         return back()->with('message', 'Ruta optimizada automáticamente por proximidad.');
+    }
+
+    public function iniciarRuta(RutaReparto $rutasReparto)
+    {
+        if ($rutasReparto->activa) {
+            return back()->with('error', 'La ruta ya se encuentra activa.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($rutasReparto) {
+            $rutasReparto->update(['activa' => true]);
+
+            foreach ($rutasReparto->paradas as $parada) {
+                if ($parada->estado === 'pendiente') {
+                    $parada->update(['estado' => 'en camino']);
+                    if ($parada->venta) {
+                        $parada->venta->update(['estado' => 'enviado']);
+                    }
+                }
+            }
+        });
+
+        return back()->with('message', 'Ruta iniciada. Las ventas ahora están en camino.');
     }
 }

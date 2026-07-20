@@ -19,14 +19,16 @@ const editForm = useForm({
     nombre:        props.ruta.nombre,
     fecha:         props.ruta.fecha,
     repartidor_id: props.ruta.repartidor_id ?? '',
-    activa:        !!props.ruta.activa,
 });
 
 const submitEdit = () => editForm.put(route('rutas-reparto.update', props.ruta.id));
 
-const toggleActiva = () => {
-    editForm.activa = !editForm.activa;
-    submitEdit();
+const iniciarRuta = () => {
+    if (confirm("¿Estás seguro de iniciar la ruta? Esto notificará a los clientes que sus pedidos están en camino.")) {
+        router.post(route('rutas-reparto.iniciar', props.ruta.id), {}, {
+            preserveScroll: true
+        });
+    }
 };
 
 const repartidorLabel = computed(() => {
@@ -141,10 +143,11 @@ let map = null;
 let markers = [];
 let polyline = null;
 const mapContainer = ref(null);
+const originCoords = [-32.9473682, -60.6364222];
 
 const initMap = () => {
     if (map) return;
-    map = L.map(mapContainer.value, { zoomControl: false }).setView([-32.9442426, -60.6505388], 13);
+    map = L.map(mapContainer.value, { zoomControl: false }).setView(originCoords, 13);
     
     L.control.zoom({ position: 'topleft' }).addTo(map);
 
@@ -164,10 +167,19 @@ const updateMap = () => {
     markers = [];
     if (polyline) map.removeLayer(polyline);
 
+    // Marcador de origen (A/Z)
+    const originMarkerIcon = L.divIcon({
+        html: `<div class="w-6 h-6 rounded-full border-2 border-white bg-black text-white flex items-center justify-center text-[10px] font-bold shadow-lg">A/Z</div>`,
+        className: ''
+    });
+    const originMarker = L.marker(originCoords, { icon: originMarkerIcon }).addTo(map);
+    markers.push(originMarker);
+
     const validParadas = props.ruta.paradas?.filter(p => p.latitud && p.longitud) || [];
     if (validParadas.length === 0) return;
 
-    const latlngs = validParadas.map(p => [p.latitud, p.longitud]);
+    // Crear lista de puntos [Origen, ...Paradas, Origen]
+    const latlngs = [originCoords, ...validParadas.map(p => [p.latitud, p.longitud]), originCoords];
 
     validParadas.forEach((p) => {
         const color = estadoConfig[p.estado]?.hex || '#facc15';
@@ -192,11 +204,35 @@ const updateMap = () => {
         markers.push(marker);
     });
 
-    polyline = L.polyline(latlngs, { color: '#ffffff', weight: 2, opacity: 0.3, dashArray: '5, 5' }).addTo(map);
-
-    if (latlngs.length > 0) {
-        map.fitBounds(L.latLngBounds(latlngs), { padding: [40, 40] });
-    }
+    if (latlngs.length > 1) {
+            const coordinatesString = latlngs.map(coord => `${coord[1]},${coord[0]}`).join(';');
+            
+            fetch(`https://router.project-osrm.org/route/v1/driving/${coordinatesString}?overview=full&geometries=geojson`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.routes && data.routes.length > 0) {
+                        const routeCoords = data.routes[0].geometry.coordinates.map(c => [c[1], c[0]]);
+                        polyline = L.polyline(routeCoords, {
+                            color: '#3b82f6', // Un azul brillante para que resalte como GPS
+                            weight: 4,
+                            opacity: 0.8
+                        }).addTo(map);
+                        map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+                    } else {
+                        throw new Error("No routes found");
+                    }
+                })
+                .catch(err => {
+                    console.error("OSRM error, falling back to straight lines:", err);
+                    polyline = L.polyline(latlngs, {
+                        color: '#fff',
+                        weight: 2,
+                        dashArray: '5, 10',
+                        opacity: 0.5
+                    }).addTo(map);
+                    map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+                });
+        }
 };
 
 onMounted(() => {
@@ -229,16 +265,16 @@ watch(() => props.ruta.paradas, () => {
                     </p>
                 </div>
                 <div class="flex items-center gap-3">
-                    <span class="text-xs font-black uppercase tracking-widest text-white/50">Ruta Activa</span>
-                    <!-- Switch -->
-                    <button 
+                    <span v-if="ruta.activa" class="px-4 py-2 bg-green-500/20 text-green-400 border border-green-500/50 rounded-lg text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                        En Curso
+                    </span>
+                    <button v-else
                         type="button"
-                        @click="toggleActiva"
-                        class="w-12 h-6 rounded-full relative transition-colors duration-300 focus:outline-none"
-                        :class="editForm.activa ? 'bg-green-400' : 'bg-white/10'"
+                        @click="iniciarRuta"
+                        class="px-6 py-2 bg-brand-red hover:bg-red-500 text-white rounded-lg text-xs font-black uppercase tracking-widest shadow-[0_0_15px_rgba(230,25,25,0.3)] transition-all"
                     >
-                        <div class="w-4 h-4 bg-white rounded-full absolute top-1 transition-all duration-300 shadow-sm"
-                             :class="editForm.activa ? 'left-7' : 'left-1'"></div>
+                        🚀 Iniciar Ruta
                     </button>
                 </div>
             </div>
@@ -366,6 +402,17 @@ watch(() => props.ruta.paradas, () => {
                             Sin paradas asignadas.
                         </div>
 
+                        <!-- START NODE -->
+                        <div class="relative z-10 flex gap-4">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center border-4 border-[#111] text-xs font-black shrink-0 mt-1 bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+                                A
+                            </div>
+                            <div class="flex-1 bg-white/5 border border-white/10 rounded-xl p-4 opacity-70">
+                                <h4 class="font-bold text-white uppercase text-xs mb-1">Punto de Partida</h4>
+                                <p class="text-xs text-white/70 whitespace-normal font-medium">📍 San Martin 843, Rosario</p>
+                            </div>
+                        </div>
+
                         <!-- Card Parada -->
                         <div v-for="parada in ruta.paradas" :key="parada.id" class="relative z-10 flex gap-4"
                              :class="{ 'opacity-50 grayscale transition-all duration-500': ['entregada', 'fallida'].includes(parada.estado) }">
@@ -401,6 +448,17 @@ watch(() => props.ruta.paradas, () => {
                                         Cambiar Estado
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+
+                        <!-- END NODE -->
+                        <div class="relative z-10 flex gap-4 mt-6">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center border-4 border-[#111] text-xs font-black shrink-0 mt-1 bg-white text-black shadow-[0_0_15px_rgba(255,255,255,0.5)]">
+                                Z
+                            </div>
+                            <div class="flex-1 bg-white/5 border border-white/10 rounded-xl p-4 opacity-70">
+                                <h4 class="font-bold text-white uppercase text-xs mb-1">Punto de Retorno</h4>
+                                <p class="text-xs text-white/70 whitespace-normal font-medium">📍 San Martin 843, Rosario</p>
                             </div>
                         </div>
                     </div>
@@ -440,9 +498,6 @@ watch(() => props.ruta.paradas, () => {
                                 </option>
                             </select>
                         </div>
-                        <div class="flex items-center gap-3 pt-2">
-                            <input type="checkbox" v-model="editForm.activa" class="w-4 h-4 accent-brand-red rounded bg-white/5 border-white/10" />
-                            <span class="text-[10px] font-black uppercase tracking-widest text-white/50">Ruta Activa</span>
                         </div>
                         
                         <div class="pt-4">

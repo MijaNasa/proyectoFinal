@@ -180,6 +180,7 @@ Route::middleware('auth')->group(function () {
         Route::delete('rutas-reparto/{rutas_reparto}/paradas/{parada}', [RutaRepartoController::class, 'removeParada'])->name('rutas-reparto.remove-parada');
         Route::patch('rutas-reparto/{rutas_reparto}/paradas/{parada}', [RutaRepartoController::class, 'actualizarEstadoParada'])->name('rutas-reparto.actualizar-parada');
         Route::post('rutas-reparto/{rutas_reparto}/optimizar', [RutaRepartoController::class, 'optimizarRuta'])->name('rutas-reparto.optimizar');
+        Route::post('rutas-reparto/{rutas_reparto}/iniciar', [RutaRepartoController::class, 'iniciarRuta'])->name('rutas-reparto.iniciar');
     });
 
     // Administración: Cargos (admin + gerente)
