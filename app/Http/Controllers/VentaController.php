@@ -6,9 +6,11 @@ use App\Models\PrecioLibro;
 use App\Models\Venta;
 use App\Http\Requests\StoreVentaRequest;
 use Illuminate\Http\Request;
+use App\Traits\GeocodeHelper;
 
 class VentaController extends Controller
 {
+    use GeocodeHelper;
     public function index(Request $request)
     {
         $query = Venta::with(['cliente.user', 'sucursal', 'detalles.libro.master', 'transacciones']);
@@ -491,6 +493,7 @@ class VentaController extends Controller
 
         $request->validate([
             'estado' => 'sometimes|required|in:pendiente_pago,esperando_traslado,en_preparacion,listo_para_retiro,acumulado,enviado,finalizado,cancelado',
+            'direccion_envio' => 'nullable|string|max:500',
         ]);
 
         if ($request->estado === 'cancelado' && $venta->estado !== 'cancelado') {
@@ -517,6 +520,42 @@ class VentaController extends Controller
         $updates = [];
         if ($request->has('estado')) {
             $updates['estado'] = $request->estado;
+            
+            if ($request->estado === 'en_preparacion') {
+                $updates['tipo_envio'] = 'domicilio';
+                if (!$request->direccion_envio && !$venta->direccion_envio) {
+                    return back()->with('error', 'Se requiere una dirección de envío para poner la venta en preparación.');
+                }
+            } elseif ($request->estado === 'acumulado') {
+                $updates['tipo_envio'] = 'acumulacion';
+            } elseif ($request->estado === 'listo_para_retiro') {
+                $updates['tipo_envio'] = 'retiro';
+            }
+        }
+        
+        if ($request->has('direccion_envio')) {
+            $coords = $this->geocodeAddress($request->direccion_envio);
+            if ($coords) {
+                $latSucursal = -32.9493; // San Martin 843, Rosario
+                $lonSucursal = -60.6382;
+                $distancia = $this->calculateDistance($latSucursal, $lonSucursal, $coords['lat'], $coords['lon']);
+                
+                if ($distancia > 20) {
+                    $updates['tipo_envio'] = 'correo_nacional';
+                    // Optional: si querés sumar costo extra por default al pasarlo manual, acá:
+                    // pero asumo que manualmente no cobraremos de una sino que el admin avisa, 
+                    // o lo dejamos por si acaso:
+                    if (!$venta->costo_envio && $venta->tipo_envio !== 'correo_nacional') {
+                        $updates['costo_envio'] = 50000;
+                    }
+                }
+            }
+            $updates['direccion_envio'] = $request->direccion_envio;
+        }
+
+        // Si mandan el tracking (desde el panel de la venta de correo)
+        if ($request->has('tracking_code')) {
+            $updates['tracking_code'] = $request->tracking_code;
         }
 
         if (!empty($updates)) {

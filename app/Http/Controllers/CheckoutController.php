@@ -6,6 +6,8 @@ use App\Models\PrecioLibro;
 use App\Models\Stock;
 use App\Models\Sucursal;
 use App\Models\Venta;
+use App\Models\TipoCliente;
+use App\Traits\GeocodeHelper;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +19,8 @@ use MercadoPago\MercadoPagoConfig;
 
 class CheckoutController extends Controller
 {
+    use GeocodeHelper;
+
     public function __construct()
     {
         MercadoPagoConfig::setAccessToken(config('services.mercadopago.access_token'));
@@ -131,6 +135,29 @@ class CheckoutController extends Controller
         }
 
         $sucursal_id = $request->sucursal_id;
+        
+        $costo_envio = 0;
+        if ($request->tipo_envio === 'domicilio') {
+            $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first();
+            if ($sucursalPrincipal) {
+                $sucursal_id = $sucursalPrincipal->id;
+            }
+            
+            // Validar distancia síncronamente
+            if ($request->direccion_envio) {
+                $coords = $this->geocodeAddress($request->direccion_envio);
+                if ($coords) {
+                    $latSucursal = -32.9493; // San Martin 843, Rosario
+                    $lonSucursal = -60.6382;
+                    $distancia = $this->calculateDistance($latSucursal, $lonSucursal, $coords['lat'], $coords['lon']);
+                    
+                    if ($distancia > 20) {
+                        $request->merge(['tipo_envio' => 'correo_nacional']);
+                        $costo_envio = 50000;
+                    }
+                }
+            }
+        }
 
         $libroIds = collect($carrito)->pluck('libro_id');
 
@@ -267,8 +294,10 @@ class CheckoutController extends Controller
             }
         }
 
+        $total += $costo_envio;
+
         try {
-            $result = DB::transaction(function () use ($request, $processedItems, $sucursal_id, $total, $cliente, $userId, $clienteId) {
+            $result = DB::transaction(function () use ($request, $processedItems, $sucursal_id, $total, $cliente, $userId, $clienteId, $costo_envio) {
                 // Verificar Stock TOTAL y Lock
                 $requerido = [];
                 foreach ($processedItems as $item) {
@@ -302,7 +331,7 @@ class CheckoutController extends Controller
                     $montoMercadoPago = 0;
                     $estado = 'en_preparacion';
                 } elseif (in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) {
-                    $montoMercadoPago = 0;
+                    $montoMercadoPago = $total; // Se debe pagar el total, el costo de envío también
                     $estado = 'pendiente_pago'; // Se reserva stock abajo
                 }
 
@@ -317,6 +346,7 @@ class CheckoutController extends Controller
                     'estado'          => $estado,
                     'tipo_envio'      => $request->tipo_envio,
                     'direccion_envio' => $request->direccion_envio,
+                    'costo_envio'     => $costo_envio,
                     'motivo_pendiente'=> $motivo_pendiente,
                     'metodo_pago'     => $request->medio_pago,
                     'pago_expira_at'  => ($estado === 'pendiente_pago' && in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) ? now()->addHours(48) : ($estado === 'pendiente_pago' ? now()->addHours(24) : null),

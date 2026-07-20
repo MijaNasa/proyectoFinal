@@ -20,8 +20,8 @@ const puedeEditarEstado = computed(() =>
 
 const estadoOpciones = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago',  tipos: ['online', 'presencial'] },
-    { value: 'esperando_traslado', label: 'Esperando traslado', tipos: ['online'] },
-    { value: 'en_preparacion',     label: 'En preparación',     tipos: ['online'] },
+    { value: 'esperando_traslado', label: 'Esperando traslado entre sucursales', tipos: ['online'] },
+    { value: 'en_preparacion',     label: 'Envío en preparación',     tipos: ['online'] },
     { value: 'listo_para_retiro',  label: 'Listo para retirar', tipos: ['online'] },
     { value: 'acumulado',          label: 'Acumulado',          tipos: ['online'] },
     { value: 'enviado',            label: 'Enviado',            tipos: ['online'] },
@@ -36,14 +36,6 @@ const estadoOpcionesFiltradas = computed(() => {
     return estadoOpciones.filter(e => {
         if (!e.tipos.includes(selectedVenta.value.tipo)) return false;
         
-        // Logística rules
-        if (selectedVenta.value.tipo_envio === 'retiro') {
-            if (['en_preparacion', 'acumulado', 'enviado'].includes(e.value)) return false;
-        } else if (selectedVenta.value.tipo_envio === 'domicilio') {
-            if (['listo_para_retiro', 'acumulado'].includes(e.value)) return false;
-        } else if (selectedVenta.value.tipo_envio === 'acumulacion') {
-            if (['listo_para_retiro', 'en_preparacion', 'enviado'].includes(e.value)) return false;
-        }
         return true;
     });
 });
@@ -61,7 +53,7 @@ const estadoColores = {
 
 
 
-const estadoForm = useForm({ estado: '' });
+const estadoForm = useForm({ estado: '', direccion_envio: null, tracking_code: null });
 
 const search = ref(props.filters.search || '');
 const abonadasPendientes = ref(props.filters.abonadas_pendientes === '1' || props.filters.abonadas_pendientes === true);
@@ -535,6 +527,8 @@ const switchTab = (tab) => {
 const viewVenta = (venta) => {
     selectedVenta.value = venta;
     estadoForm.estado = venta.estado;
+    estadoForm.direccion_envio = venta.direccion_envio || '';
+    estadoForm.tracking_code = venta.tracking_code || '';
     showDetailModal.value = true;
 };
 
@@ -548,7 +542,7 @@ const closeDetailModal = () => {
 };
 
 const cambiarEstado = async () => {
-    if (estadoForm.estado === selectedVenta.value.estado) return;
+    if (estadoForm.estado === selectedVenta.value.estado && estadoForm.direccion_envio === (selectedVenta.value.direccion_envio || '') && estadoForm.tracking_code === (selectedVenta.value.tracking_code || '')) return;
 
     if (estadoForm.estado === 'cancelado' && selectedVenta.value.estado !== 'cancelado') {
         const { isConfirmed } = await Swal.fire({
@@ -1086,14 +1080,22 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <div v-if="puedeEditarEstado" class="mt-6 flex flex-col sm:flex-row items-end gap-3 border-t border-white/5 pt-6">
-                        <div class="flex-1 w-full">
-                            <label class="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1 block">Estado del Pago</label>
-                            <select v-model="estadoForm.estado" class="input-field w-full text-xs font-black uppercase bg-black/40" title="Estado del Pago">
+                    <div v-if="puedeEditarEstado" class="mt-6 flex flex-col sm:flex-row items-end gap-3 border-t border-white/5 pt-6 flex-wrap">
+                        <div class="flex-1 w-full min-w-[200px]">
+                            <label class="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1 block">Estado de la Venta</label>
+                            <select v-model="estadoForm.estado" class="input-field w-full text-xs font-black uppercase bg-black/40" title="Estado de la Venta">
                                 <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
                             </select>
                         </div>
-                        <button @click="cambiarEstado" :disabled="estadoForm.processing || estadoForm.estado === selectedVenta.estado" class="btn-primary h-[38px] px-6 text-xs font-black disabled:opacity-40 w-full sm:w-auto">
+                        <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="flex-1 w-full min-w-[200px]">
+                            <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Dirección de Envío</label>
+                            <input type="text" v-model="estadoForm.direccion_envio" placeholder="Ej: San Martín 123, Rosario" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" required />
+                        </div>
+                        <div v-if="selectedVenta.tipo_envio === 'correo_nacional'" class="flex-1 w-full min-w-[200px]">
+                            <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Código de Seguimiento</label>
+                            <input type="text" v-model="estadoForm.tracking_code" placeholder="Ej: SD321876451AR" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" />
+                        </div>
+                        <button @click="cambiarEstado" :disabled="estadoForm.processing || (estadoForm.estado === selectedVenta.estado && estadoForm.direccion_envio === (selectedVenta.direccion_envio || '') && estadoForm.tracking_code === (selectedVenta.tracking_code || ''))" class="btn-primary h-[38px] px-6 text-xs font-black disabled:opacity-40 w-full sm:w-auto">
                             GUARDAR
                         </button>
                     </div>

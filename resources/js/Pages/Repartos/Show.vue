@@ -425,19 +425,19 @@ watch(() => props.ruta.paradas, () => {
                             <!-- Card Content -->
                             <div class="flex-1 bg-white/5 border border-white/10 hover:border-white/20 transition-colors rounded-xl p-4">
                                 <div class="flex items-center justify-between mb-2">
-                                    <h5 class="text-sm font-black text-white truncate pr-2">
-                                        {{ parada.venta?.cliente?.user?.name }} {{ parada.venta?.cliente?.user?.apellido }}
+                                    <h5 class="text-base font-black text-white truncate pr-2">
+                                        {{ parada.venta?.cliente?.user?.name || parada.venta?.user?.name || 'Cliente Web' }} {{ parada.venta?.cliente?.user?.apellido || parada.venta?.user?.apellido || '' }}
                                     </h5>
                                     <span class="text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border shrink-0"
                                           :class="estadoConfig[parada.estado]?.color">
                                         {{ estadoConfig[parada.estado]?.label }}
                                     </span>
                                 </div>
-                                <p class="text-xs text-white/70 mb-3 whitespace-normal font-medium">
+                                <p class="text-sm text-white/90 mb-3 whitespace-normal font-bold capitalize">
                                     📍 {{ parada.venta?.direccion_envio }}
                                 </p>
                                 
-                                <div class="flex items-center gap-3 text-[9px] text-white/30 font-bold uppercase mb-4">
+                                <div class="flex items-center gap-3 text-xs text-white/50 font-black uppercase mb-4">
                                     <span>Venta #{{ parada.venta?.id }}</span>
                                     <span>·</span>
                                     <span>{{ parada.venta?.detalles?.length ?? 0 }} Ítem(s)</span>

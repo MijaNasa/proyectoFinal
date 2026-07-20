@@ -12,8 +12,8 @@ const puedeEditarEstado = page.props.auth?.esAdmin || page.props.auth?.esGerente
 
 const estados = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago' },
-    { value: 'esperando_traslado', label: 'Esperando traslado' },
-    { value: 'en_preparacion',     label: 'En preparación' },
+    { value: 'esperando_traslado', label: 'Esperando traslado entre sucursales' },
+    { value: 'en_preparacion',     label: 'Envío en preparación' },
     { value: 'listo_para_retiro',  label: 'Listo para retirar' },
     { value: 'acumulado',          label: 'Acumulado' },
     { value: 'enviado',            label: 'Enviado' },
@@ -22,10 +22,13 @@ const estados = [
 ];
 
 const estadoForm = useForm({ 
-    estado: props.venta.estado 
+    estado: props.venta.estado,
+    direccion_envio: props.venta.direccion_envio || '',
+    tracking_code: props.venta.tracking_code || ''
 });
 
 const guardarEstado = async () => {
+
     if (estadoForm.estado === 'cancelado' && props.venta.estado !== 'cancelado') {
         const { isConfirmed } = await Swal.fire({
             title: '¿Confirmar cancelación?',
@@ -89,18 +92,37 @@ const print = () => window.print();
         </Link>
         <div class="flex items-center gap-3">
             <!-- Cambiar estado (solo admin/gerente) -->
-            <div v-if="puedeEditarEstado" class="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
-                <select
-                    v-model="estadoForm.estado"
-                    title="Estado de la Venta"
-                    class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-white/30 transition-colors w-full sm:w-auto"
-                >
-                    <option v-for="e in estados" :key="e.value" :value="e.value">{{ e.label }}</option>
-                </select>
+            <div v-if="puedeEditarEstado" class="flex flex-col sm:flex-row items-end gap-3 flex-wrap">
+                <div class="flex-1 min-w-[200px]">
+                    <select
+                        v-model="estadoForm.estado"
+                        title="Estado de la Venta"
+                        class="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-white/30 transition-colors w-full"
+                    >
+                        <option v-for="e in estados" :key="e.value" :value="e.value" class="bg-black">{{ e.label }}</option>
+                    </select>
+                </div>
+                <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="flex-1 min-w-[200px]">
+                    <input
+                        type="text"
+                        v-model="estadoForm.direccion_envio"
+                        placeholder="Ej: San Martín 123, Rosario"
+                        class="bg-white/5 border border-brand-red/30 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-brand-red transition-colors w-full"
+                        required
+                    />
+                </div>
+                <div v-if="venta.tipo_envio === 'correo_nacional' || estadoForm.estado === 'correo_nacional'" class="flex-1 min-w-[200px]">
+                    <input
+                        type="text"
+                        v-model="estadoForm.tracking_code"
+                        placeholder="Tracking (Ej: SD123456789AR)"
+                        class="bg-white/5 border border-brand-red/30 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-brand-red transition-colors w-full"
+                    />
+                </div>
                 <button
                     @click="guardarEstado"
-                    :disabled="estadoForm.estado === venta.estado || estadoForm.processing"
-                    class="px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors w-full sm:w-auto"
+                    :disabled="estadoForm.processing || (estadoForm.estado === venta.estado && estadoForm.direccion_envio === (venta.direccion_envio || '') && estadoForm.tracking_code === (venta.tracking_code || ''))"
+                    class="px-4 py-[9px] rounded-xl text-xs font-black uppercase tracking-widest bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors w-full sm:w-auto h-[38px]"
                 >
                     Guardar
                 </button>

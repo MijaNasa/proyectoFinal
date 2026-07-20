@@ -123,7 +123,7 @@ class RutaRepartoController extends Controller
             foreach ($request->venta_ids as $ventaId) {
                 $venta = Venta::find($ventaId);
 
-                if (!$venta || $venta->estado === 'pendiente_pago') {
+                if (!$venta || $venta->tipo_envio !== 'domicilio' || $venta->estado === 'pendiente_pago') {
                     continue;
                 }
 
