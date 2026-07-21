@@ -9,7 +9,7 @@ const props = defineProps({
     categorias: Array,
     autores: Array,
     series: Array,
-    editoriales: Array,
+    proveedores: Array,
     idiomas: Array,
     filters: Object,
 });
@@ -19,7 +19,7 @@ const selected = reactive({
     categoria:  props.filters?.categoria  || null,
     autor:      props.filters?.autor      || null,
     serie:      props.filters?.serie      || null,
-    editorial:  props.filters?.editorial  || null,
+    proveedor:  props.filters?.proveedor  || null,
     idioma:     props.filters?.idioma     || null,
 });
 
@@ -27,7 +27,7 @@ const open = reactive({
     categorias:  false,
     autores:     false,
     series:      false,
-    editoriales: false,
+    proveedores: false,
     idiomas:     false,
 });
 
@@ -37,7 +37,7 @@ const applyFilters = () => {
         categoria: selected.categoria || undefined,
         autor:     selected.autor     || undefined,
         serie:     selected.serie     || undefined,
-        editorial: selected.editorial || undefined,
+        proveedor: selected.proveedor || undefined,
         idioma:    selected.idioma    || undefined,
     }, { preserveState: false });
 };
@@ -67,9 +67,9 @@ const activeChips = computed(() => {
         const item = props.series.find(x => x.id === selected.serie);
         if (item) chips.push({ label: item.nombre, key: 'serie' });
     }
-    if (selected.editorial) {
-        const item = props.editoriales.find(x => x.id === selected.editorial);
-        if (item) chips.push({ label: item.nombre, key: 'editorial' });
+    if (selected.proveedor) {
+        const item = props.proveedores.find(x => x.id === selected.proveedor);
+        if (item) chips.push({ label: item.nombre_empresa, key: 'proveedor' });
     }
     if (selected.idioma) {
         const item = props.idiomas.find(x => x.id === selected.idioma);
@@ -214,18 +214,18 @@ const agregarAlCarrito = (libro) => {
                         </div>
                     </div>
 
-                    <!-- Editorial -->
-                    <div v-if="editoriales.length" class="border-t border-white/5">
-                        <button @click="open.editoriales = !open.editoriales" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.editoriales || selected.editorial ? 'text-white' : 'text-white/50'">
-                            <span>Editorial <span v-if="selected.editorial" class="text-brand-red">(1)</span></span>
-                            <svg class="w-3 h-3 transition-transform duration-200" :class="open.editoriales ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                    <!-- Proveedor -->
+                    <div v-if="proveedores.length" class="border-t border-white/5">
+                        <button @click="open.proveedores = !open.proveedores" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.proveedores || selected.proveedor ? 'text-white' : 'text-white/50'">
+                            <span>Proveedor <span v-if="selected.proveedor" class="text-brand-red">(1)</span></span>
+                            <svg class="w-3 h-3 transition-transform duration-200" :class="open.proveedores ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                         </button>
-                        <div v-if="open.editoriales" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in editoriales" :key="item.id" @click="toggle('editorial', item.id)" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.editorial === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.editorial === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+                        <div v-if="open.proveedores" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                            <label v-for="item in proveedores" :key="item.id" @click="toggle('proveedor', item.id)" class="flex items-center gap-3 cursor-pointer group">
+                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.proveedor === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
+                                    <svg v-if="selected.proveedor === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                                 </div>
-                                <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors line-clamp-1">{{ item.nombre }}</span>
+                                <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors line-clamp-1">{{ item.nombre_empresa }}</span>
                             </label>
                         </div>
                     </div>

@@ -50,7 +50,6 @@ const showModal = ref(false);
 const form = useForm({
     proveedor_id:           '',
     sucursal_id:            '',
-    fecha_entrega_estimada: '',
     observaciones:          '',
     items:                  [],
 });
@@ -124,23 +123,31 @@ function ddSucLabel() {
     return s ? s.nombre : 'Seleccionar sucursal';
 }
 function openItemDd(i) {
+    if (!form.proveedor_id) {
+        alert('Por favor, selecciona un proveedor primero.');
+        return;
+    }
     itemDdOpen.value = itemDdOpen.value.map((_, idx) => idx === i ? !itemDdOpen.value[i] : false);
+    if (itemDdOpen.value[i] && itemResults.value[i].length === 0) {
+        searchLibros(i, '');
+    }
 }
 function selectItemLibro(i, libro) {
     form.items[i].libro_id = libro.id;
-    itemLabels.value[i] = libro.titulo + (libro.isbn ? ` (${libro.isbn})` : '');
+    itemLabels.value[i] = libro.titulo;
     itemDdOpen.value[i] = false;
     itemSearches.value[i] = '';
     itemResults.value[i] = [];
 }
 function searchLibros(i, q) {
     clearTimeout(searchTimers[i]);
-    if (!q || q.length < 2) { itemResults.value[i] = []; return; }
     searchTimers[i] = setTimeout(async () => {
         itemLoadings.value[i] = true;
         try {
+            const query = new URLSearchParams({ q: q || '' });
+            if (form.proveedor_id) query.append('proveedor_id', form.proveedor_id);
             const res = await fetch(
-                route('ordenes-compra.search-libros') + '?q=' + encodeURIComponent(q),
+                route('ordenes-compra.search-libros') + '?' + query.toString(),
                 { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }
             );
             itemResults.value[i] = await res.json();
@@ -181,9 +188,10 @@ const decodeLabel = (l) => {
 <template>
     <Head title="Órdenes de Compra" />
     <AuthenticatedLayout>
-        <div class="space-y-6">
+        <div class="py-12">
+            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
 
-            <!-- Header -->
+                <!-- Header -->
             <div class="flex items-center justify-between">
                 <div>
                     <h1 class="text-2xl font-black uppercase tracking-tighter text-white">Órdenes de Compra</h1>
@@ -242,39 +250,37 @@ const decodeLabel = (l) => {
             </div>
 
             <!-- Tabla -->
-            <div class="bg-white/5 border border-white/10 rounded-2xl overflow-hidden">
-                <table class="w-full text-sm">
+            <div class="card p-0 overflow-hidden">
+                <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="border-b border-white/10 text-[10px] font-black uppercase tracking-widest text-white/40">
-                            <th class="text-left px-5 py-3">N° Orden</th>
-                            <th class="text-left px-5 py-3">Proveedor</th>
-                            <th class="text-left px-5 py-3">Sucursal</th>
-                            <th class="text-left px-5 py-3">Fecha</th>
-                            <th class="text-left px-5 py-3">Entrega Est.</th>
-                            <th class="text-right px-5 py-3">Total</th>
-                            <th class="text-center px-5 py-3">Estado</th>
-                            <th class="text-right px-5 py-3">Acciones</th>
+                        <tr class="bg-brand-red/10 border-b border-brand-red/20">
+                            <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">N° Orden</th>
+                            <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Proveedor</th>
+                            <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Sucursal</th>
+                            <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Fecha</th>
+                            <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Total</th>
+                            <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-center">Estado</th>
+                            <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-white/5">
                         <tr v-if="ordenes.data.length === 0">
-                            <td colspan="8" class="px-5 py-12 text-center text-white/30 text-sm">No hay órdenes de compra.</td>
+                            <td colspan="7" class="px-5 py-12 text-center text-white/30 text-sm">No hay órdenes de compra.</td>
                         </tr>
                         <tr v-for="o in ordenes.data" :key="o.id"
-                            class="hover:bg-white/5 transition-colors">
-                            <td class="px-5 py-4 font-mono font-bold text-white">{{ o.numero_orden }}</td>
-                            <td class="px-5 py-4 text-white/80">{{ o.proveedor?.nombre }}</td>
-                            <td class="px-5 py-4 text-white/60">{{ o.sucursal?.nombre }}</td>
-                            <td class="px-5 py-4 text-white/60">{{ fmtDate(o.fecha) }}</td>
-                            <td class="px-5 py-4 text-white/60">{{ fmtDate(o.fecha_entrega_estimada) }}</td>
-                            <td class="px-5 py-4 text-right font-mono font-bold text-white">{{ fmt(o.total) }}</td>
-                            <td class="px-5 py-4 text-center">
+                            class="hover:bg-white/[0.02] transition-colors">
+                            <td class="p-4 font-mono font-bold text-white">{{ o.numero_orden }}</td>
+                            <td class="p-4 font-bold uppercase text-white">{{ o.proveedor?.nombre_empresa || '—' }}</td>
+                            <td class="p-4 text-white/60">{{ o.sucursal?.nombre || '—' }}</td>
+                            <td class="p-4 text-white/60">{{ fmtDate(o.fecha) }}</td>
+                            <td class="p-4 text-right font-mono font-bold text-white">{{ fmt(o.total) }}</td>
+                            <td class="p-4 text-center">
                                 <span class="inline-block text-[10px] font-black uppercase tracking-widest px-2.5 py-1 rounded-lg border"
                                     :class="estadoColor[o.estado]">
                                     {{ o.estado }}
                                 </span>
                             </td>
-                            <td class="px-5 py-4">
+                            <td class="p-4 text-right">
                                 <div class="flex items-center justify-end gap-2">
                                     <Link :href="route('ordenes-compra.show', o.id)"
                                         class="p-1.5 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors" title="Ver detalle">
@@ -321,12 +327,13 @@ const decodeLabel = (l) => {
                     v-html="decodeLabel(link.label)" />
             </div>
         </div>
+        </div>
     </AuthenticatedLayout>
 
     <!-- ── Modal crear orden ─────────────────────────────────────────────── -->
     <Teleport to="body">
         <div v-if="showModal" class="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm py-8 overflow-y-auto">
-            <div class="bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-2xl shadow-2xl" @click.stop>
+            <div class="bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-4xl shadow-2xl" @click.stop>
 
                 <div class="flex items-center justify-between mb-6">
                     <h2 class="text-lg font-black uppercase tracking-tighter text-white">Nueva Orden de Compra</h2>
@@ -351,7 +358,16 @@ const decodeLabel = (l) => {
                                 </button>
                                 <div v-if="ddProvOpen" class="absolute z-30 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-xl max-h-48 overflow-y-auto">
                                     <button v-for="p in proveedores" :key="p.id" type="button"
-                                        @click="form.proveedor_id = p.id; ddProvOpen = false"
+                                        @click="
+                                            form.proveedor_id = p.id;
+                                            form.items = [];
+                                            itemDdOpen = [];
+                                            itemSearches = [];
+                                            itemResults = [];
+                                            itemLoadings = [];
+                                            itemLabels = [];
+                                            ddProvOpen = false;
+                                        "
                                         class="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:bg-white/10 transition-colors"
                                         :class="{ 'text-white font-bold': form.proveedor_id == p.id }">
                                         {{ p.nombre }}
@@ -383,18 +399,11 @@ const decodeLabel = (l) => {
                         </div>
                     </div>
 
-                    <!-- Fechas y observaciones -->
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1 block">Entrega estimada</label>
-                            <input v-model="form.fecha_entrega_estimada" type="date"
-                                class="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-white/30" />
-                        </div>
-                        <div>
-                            <label class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1 block">Observaciones</label>
-                            <input v-model="form.observaciones" type="text" placeholder="Opcional…"
-                                class="w-full bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-white/30" />
-                        </div>
+                    <!-- Observaciones -->
+                    <div>
+                        <label class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1 block">Observaciones</label>
+                        <input v-model="form.observaciones" type="text" placeholder="Opcional…"
+                            class="w-full bg-white/5 border border-white/10 text-white placeholder-white/20 text-sm rounded-xl px-4 py-2.5 focus:outline-none focus:border-white/30" />
                     </div>
 
                     <!-- Items -->
@@ -414,6 +423,7 @@ const decodeLabel = (l) => {
 
                             <!-- Libro dropdown con autocomplete AJAX -->
                             <div class="flex-1 relative">
+                                <label class="block text-[9px] uppercase font-black text-brand-red mb-1">Libro a pedir</label>
                                 <button type="button" @click="openItemDd(i)"
                                     class="w-full flex items-center justify-between bg-white/5 border border-white/10 text-white/80 text-sm rounded-xl px-3 py-2">
                                     <span class="truncate">{{ itemLabels[i] || 'Seleccionar libro' }}</span>
@@ -429,16 +439,14 @@ const decodeLabel = (l) => {
                                         />
                                     </div>
                                     <div class="max-h-40 overflow-y-auto">
-                                        <div v-if="itemLoadings[i]" class="px-3 py-3 text-white/40 text-xs text-center">Buscando…</div>
-                                        <div v-else-if="!itemSearches[i] || itemSearches[i].length < 2" class="px-3 py-3 text-white/30 text-xs text-center">Escribí al menos 2 caracteres</div>
-                                        <div v-else-if="!itemResults[i] || itemResults[i].length === 0" class="px-3 py-3 text-white/30 text-xs text-center">Sin resultados</div>
+                                        <div v-if="itemLoadings[i]" class="px-3 py-3 text-white/40 text-xs text-center">Cargando libros…</div>
+                                        <div v-else-if="!itemResults[i] || itemResults[i].length === 0" class="px-3 py-3 text-white/30 text-xs text-center">No hay libros para este proveedor.</div>
                                         <template v-else>
                                             <button v-for="l in itemResults[i]" :key="l.id" type="button"
                                                 @click="selectItemLibro(i, l)"
                                                 class="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
                                                 :class="{ 'text-white font-bold': item.libro_id == l.id }">
                                                 {{ l.titulo }}
-                                                <span v-if="l.isbn" class="text-white/30 text-xs ml-1">{{ l.isbn }}</span>
                                             </button>
                                         </template>
                                     </div>
@@ -446,24 +454,29 @@ const decodeLabel = (l) => {
                             </div>
 
                             <!-- Cantidad -->
-                            <div class="w-20">
-                                <input v-model.number="item.cantidad" type="number" min="1" placeholder="Cant."
+                            <div class="w-24">
+                                <label class="block text-[9px] uppercase font-black text-brand-red mb-1">Cantidad</label>
+                                <input v-model.number="item.cantidad" type="number" min="1" placeholder="Ej: 10"
                                     class="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-white/30" />
                             </div>
 
                             <!-- Precio unitario -->
                             <div class="w-32">
-                                <input v-model.number="item.precio_unitario" type="number" min="0" step="0.01" placeholder="Precio unit."
-                                    class="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-white/30" />
+                                <label class="block text-[9px] uppercase font-black text-brand-red mb-1">Precio Unit.</label>
+                                <div class="relative">
+                                    <span class="absolute left-3 top-2 text-white/40 text-sm">$</span>
+                                    <input v-model.number="item.precio_unitario" type="number" min="0" step="0.01" placeholder="0.00"
+                                        class="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl pl-6 pr-3 py-2 focus:outline-none focus:border-white/30" />
+                                </div>
                             </div>
 
                             <!-- Subtotal -->
-                            <div class="w-28 text-right pt-2 font-mono text-sm text-white/60">
+                            <div class="w-28 text-right pt-6 font-mono text-sm text-white/60">
                                 {{ fmt(item.cantidad * item.precio_unitario) }}
                             </div>
 
                             <button type="button" @click="removeItem(i)"
-                                class="pt-2 text-white/20 hover:text-red-400 transition-colors">
+                                class="pt-6 text-white/20 hover:text-red-400 transition-colors">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
@@ -474,14 +487,14 @@ const decodeLabel = (l) => {
                     </div>
 
                     <!-- Total y acciones -->
-                    <div class="flex items-center justify-between pt-4 border-t border-white/10">
-                        <div class="text-right">
-                            <p class="text-xs text-white/40 font-black uppercase tracking-widest">Total estimado</p>
-                            <p class="text-2xl font-black text-white">{{ fmt(totalOrden) }}</p>
+                    <div class="flex items-center justify-end gap-12 pt-6 border-t border-white/10">
+                        <div class="flex gap-4 items-center">
+                            <p class="text-[10px] text-white/40 font-black uppercase tracking-widest text-right">Total</p>
+                            <p class="text-2xl font-black text-brand-red text-right">{{ fmt(totalOrden) }}</p>
                         </div>
                         <div class="flex gap-3">
                             <button type="button" @click="showModal = false"
-                                class="px-5 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white text-sm font-bold transition-colors">
+                                class="px-5 py-2.5 text-sm font-bold text-white/60 hover:text-white hover:bg-white/5 rounded-xl transition-colors">
                                 Cancelar
                             </button>
                             <button type="submit" :disabled="form.processing || form.items.length === 0"

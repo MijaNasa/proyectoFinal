@@ -9,7 +9,7 @@ const props = defineProps({
     obras: Array,
     autores: Array,
     categorias: Array,
-    editoriales: Array,
+    proveedores: Array,
     idiomas: Array,
     sucursales: Array,
     filters: Object
@@ -55,7 +55,7 @@ const obraForm = useForm({
     portada: null,
     autor_id: '',
     categoria_id: '',
-    editorial_id: '',
+    proveedor_id: '',
     idioma_id: '',
     formato: '',
     synopsis: '',
@@ -71,7 +71,7 @@ const openObraModal = (obra = null) => {
         obraForm.titulo = obra.titulo;
         obraForm.autor_id = obra.autor_id || '';
         obraForm.categoria_id = obra.categoria_id || '';
-        obraForm.editorial_id = obra.editorial_id || '';
+        obraForm.proveedor_id = obra.proveedor_id || '';
         obraForm.idioma_id = obra.idioma_id || '';
         obraForm.formato = obra.formato || '';
         obraForm.synopsis = obra.synopsis || '';
@@ -85,7 +85,7 @@ const openObraModal = (obra = null) => {
         obraForm.titulo = '';
         obraForm.autor_id = '';
         obraForm.categoria_id = '';
-        obraForm.editorial_id = '';
+        obraForm.proveedor_id = '';
         obraForm.idioma_id = '';
         obraForm.formato = '';
         obraForm.synopsis = '';
@@ -189,18 +189,26 @@ const agregarCategoria = () => {
     });
 };
 
-const agregarEditorial = () => {
+const agregarProveedor = () => {
     Swal.fire({
-        title: 'Agregar Nueva Editorial',
+        title: 'Agregar Nuevo Proveedor',
         html: `
             <div class="space-y-4 text-left">
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
-                    <input id="swal-ed-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Ivrea">
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre de Empresa *</label>
+                    <input id="swal-prov-nombre_empresa" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Ivrea">
                 </div>
                 <div>
                     <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Email de Contacto *</label>
-                    <input id="swal-ed-email" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="email" placeholder="Ej: contacto@editorial.com">
+                    <input id="swal-prov-email" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="email" placeholder="Ej: contacto@proveedor.com">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Teléfono</label>
+                    <input id="swal-prov-telefono" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Opcional">
+                </div>
+                <div>
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Dirección</label>
+                    <input id="swal-prov-direccion" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Opcional">
                 </div>
             </div>
         `,
@@ -211,24 +219,27 @@ const agregarEditorial = () => {
         cancelButtonText: 'Cancelar',
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
-            const nombre = document.getElementById('swal-ed-nombre').value.trim();
-            const email = document.getElementById('swal-ed-email').value.trim();
-            if (!nombre || !email) {
-                Swal.showValidationMessage('Nombre y Email de contacto son obligatorios');
+            const nombre_empresa = document.getElementById('swal-prov-nombre_empresa').value.trim();
+            const email = document.getElementById('swal-prov-email').value.trim();
+            const telefono = document.getElementById('swal-prov-telefono').value.trim();
+            const direccion = document.getElementById('swal-prov-direccion').value.trim();
+            
+            if (!nombre_empresa || !email) {
+                Swal.showValidationMessage('Nombre de empresa y Email son obligatorios');
                 return false;
             }
-            return { nombre, email };
+            return { nombre_empresa, email, telefono, direccion };
         }
     }).then((result) => {
         if (result.isConfirmed) {
-            window.axios.post(route('catalogo.ajustes.store', { type: 'editoriales' }), result.value)
+            window.axios.post(route('catalogo.ajustes.store', { type: 'proveedores' }), result.value)
                 .then(() => {
                     router.reload({ 
-                        only: ['editoriales'],
+                        only: ['proveedores'],
                         onSuccess: () => {
-                            Swal.fire({ title: 'Editorial Creada', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                            const newObj = props.editoriales.find(x => x.nombre === result.value.nombre);
-                            if (newObj) obraForm.editorial_id = newObj.id;
+                            Swal.fire({ title: 'Proveedor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                            const newObj = props.proveedores.find(x => x.nombre_empresa === result.value.nombre_empresa);
+                            if (newObj) obraForm.proveedor_id = newObj.id;
                         }
                     });
                 })
@@ -570,7 +581,7 @@ const deshabilitarPreventasMassive = () => {
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Obra (Franquicia)</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Autor</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-center">Cantidad de Tomos</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-center">Editorial</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-center">Proveedor</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Acciones Obra</th>
                             </tr>
                         </thead>
@@ -595,7 +606,7 @@ const deshabilitarPreventasMassive = () => {
                                         <span class="bg-brand-red/20 text-brand-red px-3 py-1 rounded-full text-xs font-black">{{ obra.libros ? obra.libros.length : 0 }}</span>
                                     </td>
                                     <td class="p-4 text-center">
-                                        <span class="text-sm font-bold text-white/80 uppercase">{{ obra.editorial ? obra.editorial.nombre : 'S/E' }}</span>
+                                        <span class="text-sm font-bold text-white/80 uppercase">{{ obra.proveedor ? (obra.proveedor.nombre_empresa.length > 15 ? obra.proveedor.nombre_empresa.substring(0, 15) + '...' : obra.proveedor.nombre_empresa) : 'S/P' }}</span>
                                     </td>
                                     <td class="p-4 text-right">
                                         <div class="flex justify-end gap-2 items-center">
@@ -719,10 +730,10 @@ const deshabilitarPreventasMassive = () => {
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Editorial</label>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Proveedor</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.editorial_id" :options="editoriales" placeholder="-- Seleccionar Editorial --" :required="true" />
-                                <button type="button" @click="agregarEditorial" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Editorial">+</button>
+                                <SearchableSelect v-model="obraForm.proveedor_id" :options="proveedores.map(p => ({id: p.id, nombre: p.nombre_empresa}))" placeholder="-- Seleccionar Proveedor --" :required="true" />
+                                <button type="button" @click="agregarProveedor" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Proveedor">+</button>
                             </div>
                         </div>
                         <div>

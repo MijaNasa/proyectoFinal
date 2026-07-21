@@ -19,16 +19,24 @@ class ProveedorController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nombre_empresa', 'like', '%' . $search . '%')
-                  ->orWhere('nombre_contacto', 'like', '%' . $search . '%')
                   ->orWhere('email', 'like', '%' . $search . '%');
             });
+        }
+        
+        if ($request->has('estado')) {
+            $query->where('activo', $request->estado === 'activos');
+        } else {
+            $query->where('activo', true); // Default to activos
         }
 
         $proveedores = $query->latest()->paginate(10)->withQueryString();
 
         return inertia('Proveedores/Index', [
             'proveedores' => $proveedores,
-            'filters' => $request->only(['search']),
+            'filters' => [
+                'search' => $request->search ?? '',
+                'estado' => $request->estado ?? 'activos'
+            ]
         ]);
     }
 
@@ -54,16 +62,45 @@ class ProveedorController extends Controller
 
         $pagos = $proveedor->transacciones()
             ->latest('fecha')
-            ->get(['id', 'monto', 'metodo_pago', 'descripcion', 'fecha']);
+            ->get(['id', 'monto', 'metodo_pago', 'descripcion', 'fecha'])
+            ->map(function ($pago) {
+                return [
+                    'id' => 'pago_' . $pago->id,
+                    'tipo' => 'pago',
+                    'fecha' => $pago->fecha,
+                    'descripcion' => $pago->descripcion ?: 'Pago registrado',
+                    'metodo_pago' => $pago->metodo_pago,
+                    'monto' => $pago->monto,
+                ];
+            });
+            
+        $ordenes = \App\Models\OrdenCompra::where('proveedor_id', $proveedor->id)
+            ->where('estado', 'recibida')
+            ->latest('fecha')
+            ->get(['id', 'numero_orden', 'fecha', 'total'])
+            ->map(function ($orden) {
+                return [
+                    'id' => 'orden_' . $orden->id,
+                    'tipo' => 'deuda',
+                    'fecha' => $orden->fecha . ' 00:00:00', // To match datetime format for sorting
+                    'descripcion' => 'Orden de Compra ' . $orden->numero_orden,
+                    'metodo_pago' => 'Cuenta Corriente',
+                    'monto' => $orden->total,
+                ];
+            });
+            
+        $historial = $pagos->concat($ordenes)->sortByDesc('fecha')->values();
 
         $stats = [
-            'total_pagado'    => (float) $proveedor->transacciones()->sum('monto'),
-            'cantidad_pagos'  => (int)   $proveedor->transacciones()->count(),
+            'total_deuda_historica' => (float) $ordenes->sum('monto'),
+            'total_pagado'    => (float) $pagos->sum('monto'),
+            'deuda_actual'    => (float) $proveedor->deuda_actual,
+            'cantidad_pagos'  => (int)   $pagos->count(),
         ];
 
         return inertia('Proveedores/Show', [
             'proveedor' => $proveedor,
-            'pagos'     => $pagos,
+            'historial' => $historial,
             'stats'     => $stats,
         ]);
     }
@@ -98,10 +135,11 @@ class ProveedorController extends Controller
     public function destroy(Proveedor $proveedor)
     {
         $tieneSeries = $proveedor->series()->exists();
+        $tieneLibros = $proveedor->libroMasters()->exists();
 
-        if ($tieneSeries) {
+        if ($tieneSeries || $tieneLibros) {
             return redirect()->back()
-                ->with('error', 'No se puede eliminar el proveedor porque tiene series asociadas.');
+                ->with('error', 'No se puede eliminar el proveedor porque tiene obras o series asociadas.');
         }
 
         $proveedor->delete();

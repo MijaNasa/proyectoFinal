@@ -36,13 +36,13 @@ class LibroMasterController extends Controller
             $data['categoria_id'] = $categoria->id;
         }
 
-        if (!empty($data['editorial_id']) && !is_numeric($data['editorial_id'])) {
-            $edStr = trim($data['editorial_id']);
-            $editorial = \App\Models\Editorial::where('nombre', $edStr)->first();
-            if (!$editorial) {
-                $editorial = \App\Models\Editorial::create(['nombre' => $edStr]);
+        if (!empty($data['proveedor_id']) && !is_numeric($data['proveedor_id'])) {
+            $provStr = trim($data['proveedor_id']);
+            $proveedor = \App\Models\Proveedor::where('nombre_empresa', $provStr)->first();
+            if (!$proveedor) {
+                $proveedor = \App\Models\Proveedor::create(['nombre_empresa' => $provStr]);
             }
-            $data['editorial_id'] = $editorial->id;
+            $data['proveedor_id'] = $proveedor->id;
         }
 
         if (!empty($data['idioma_id']) && !is_numeric($data['idioma_id'])) {
@@ -67,8 +67,8 @@ class LibroMasterController extends Controller
     public function index(Request $request)
     {
         $query = LibroMaster::query()
-            ->with(['autor:id,nombre,apellido', 'categoria:id,nombre', 'editorial:id,nombre', 'idioma:id,nombre'])
-            ->select(['id', 'titulo', 'portada', 'autor_id', 'categoria_id', 'editorial_id', 'idioma_id', 'formato', 'synopsis', 'activo']);
+            ->with(['autor:id,nombre,apellido', 'categoria:id,nombre', 'proveedor:id,nombre_empresa', 'idioma:id,nombre'])
+            ->select(['id', 'titulo', 'portada', 'autor_id', 'categoria_id', 'proveedor_id', 'idioma_id', 'formato', 'synopsis', 'activo']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -85,7 +85,7 @@ class LibroMasterController extends Controller
             'librosMaster' => $librosMaster,
             'autores' => \App\Models\Autor::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'categorias' => \App\Models\Categoria::orderBy('nombre')->get(['id', 'nombre']),
-            'editoriales' => \App\Models\Editorial::orderBy('nombre')->get(['id', 'nombre']),
+            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
             'idiomas' => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
             'filters' => $request->only(['search'])
         ]);
@@ -96,16 +96,16 @@ class LibroMasterController extends Controller
         $data = $request->validated();
         $this->processRelations($data);
 
-        // Validar unicidad compuesta (Título + Formato + Idioma + Editorial)
+        // Validar unicidad compuesta (Título + Formato + Idioma + Proveedor)
         $exists = LibroMaster::where('titulo', $data['titulo'])
             ->where('formato', $data['formato'])
             ->where('idioma_id', $data['idioma_id'])
-            ->where('editorial_id', $data['editorial_id'])
+            ->where('proveedor_id', $data['proveedor_id'])
             ->exists();
 
         if ($exists) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'titulo' => 'Ya existe una obra con exactamente el mismo título, formato, idioma y editorial.'
+                'titulo' => 'Ya existe una obra con exactamente el mismo título, formato, idioma y proveedor.'
             ]);
         }
 
@@ -127,17 +127,17 @@ class LibroMasterController extends Controller
         $data = $request->validated();
         $this->processRelations($data);
 
-        // Validar unicidad compuesta (Título + Formato + Idioma + Editorial) excluyendo el actual
+        // Validar unicidad compuesta (Título + Formato + Idioma + Proveedor) excluyendo el actual
         $exists = LibroMaster::where('titulo', $data['titulo'])
             ->where('formato', $data['formato'])
             ->where('idioma_id', $data['idioma_id'])
-            ->where('editorial_id', $data['editorial_id'])
+            ->where('proveedor_id', $data['proveedor_id'])
             ->where('id', '!=', $libroMaster->id)
             ->exists();
 
         if ($exists) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'titulo' => 'Ya existe otra obra con exactamente el mismo título, formato, idioma y editorial.'
+                'titulo' => 'Ya existe otra obra con exactamente el mismo título, formato, idioma y proveedor.'
             ]);
         }
 

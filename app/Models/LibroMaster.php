@@ -15,7 +15,7 @@ class LibroMaster extends Model
 
     protected $table = 'libro_masters';
 
-    protected $fillable = ['titulo', 'portada', 'autor_id', 'categoria_id', 'editorial_id', 'idioma_id', 'formato', 'synopsis', 'activo'];
+    protected $fillable = ['titulo', 'portada', 'autor_id', 'categoria_id', 'proveedor_id', 'idioma_id', 'formato', 'synopsis', 'activo'];
 
     protected $appends = ['portada_url'];
 
@@ -47,9 +47,9 @@ class LibroMaster extends Model
         return $this->belongsTo(Categoria::class);
     }
 
-    public function editorial(): BelongsTo
+    public function proveedor(): BelongsTo
     {
-        return $this->belongsTo(Editorial::class);
+        return $this->belongsTo(Proveedor::class);
     }
 
     public function idioma(): BelongsTo

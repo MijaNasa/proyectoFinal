@@ -36,7 +36,7 @@ class OrdenCompraController extends Controller
 
         return inertia('OrdenesCompra/Index', [
             'ordenes'     => $ordenes,
-            'proveedores' => \App\Models\Proveedor::orderBy('nombre')->get(['id', 'nombre']),
+            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->get(['id', 'nombre_empresa as nombre']),
             'sucursales'  => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
             'stats'       => $stats,
             'filters'     => $request->only(['search', 'estado']),
@@ -48,7 +48,6 @@ class OrdenCompraController extends Controller
         $request->validate([
             'proveedor_id'           => 'required|exists:proveedores,id',
             'sucursal_id'            => 'required|exists:sucursales,id',
-            'fecha_entrega_estimada' => 'nullable|date',
             'observaciones'          => 'nullable|string',
             'items'                  => 'required|array|min:1',
             'items.*.libro_id'       => 'required|exists:libros,id',
@@ -66,7 +65,6 @@ class OrdenCompraController extends Controller
                 'sucursal_id'            => $request->sucursal_id,
                 'estado'                 => 'borrador',
                 'fecha'                  => now()->toDateString(),
-                'fecha_entrega_estimada' => $request->fecha_entrega_estimada,
                 'total'                  => $total,
                 'observaciones'          => $request->observaciones,
                 'user_id'                => \Auth::id(),
@@ -161,23 +159,27 @@ class OrdenCompraController extends Controller
     public function searchLibros(Request $request): \Illuminate\Http\JsonResponse
     {
         $q = trim($request->get('q', ''));
+        $proveedor_id = $request->get('proveedor_id');
 
-        if (strlen($q) < 2) {
-            return response()->json([]);
+        $query = \App\Models\Libro::with('master:id,titulo,proveedor_id');
+
+        if ($proveedor_id) {
+            $query->whereHas('master', fn($query) => $query->where('proveedor_id', $proveedor_id));
         }
 
-        $libros = \App\Models\Libro::with('master:id,titulo')
-            ->where(fn($query) => $query
-                ->whereHas('master', fn($q2) => $q2->where('titulo', 'like', "%{$q}%"))
-                ->orWhere('isbn', 'like', "%{$q}%")
-            )
-            ->select('id', 'master_id', 'isbn')
-            ->limit(20)
+        if (strlen($q) > 0) {
+            $query->where(function($query) use ($q) {
+                $query->whereHas('master', fn($q2) => $q2->where('titulo', 'like', "%{$q}%"))
+                      ->orWhere('numero_tomo', 'like', "%{$q}%");
+            });
+        }
+
+        $libros = $query->select('id', 'master_id', 'numero_tomo')
+            ->limit(50)
             ->get()
             ->map(fn($l) => [
                 'id'    => $l->id,
-                'titulo'=> $l->master->titulo,
-                'isbn'  => $l->isbn,
+                'titulo'=> $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
             ]);
 
         return response()->json($libros);

@@ -7,7 +7,7 @@ use App\Models\Libro;
 use App\Models\Categoria;
 use App\Models\Autor;
 use App\Models\Serie;
-use App\Models\Editorial;
+use App\Models\Proveedor;
 use App\Models\Idioma;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -20,7 +20,7 @@ class PublicCatalogoController extends Controller
             ->with([
                 'master.autor',
                 'master.categoria',
-                'master.editorial',
+                'master.proveedor',
                 'master.idioma',
                 'serie',
                 'precioActual',
@@ -58,9 +58,9 @@ class PublicCatalogoController extends Controller
             $query->where('serie_id', $request->serie);
         }
 
-        if ($request->filled('editorial')) {
+        if ($request->filled('proveedor')) {
             $query->whereHas('master', function ($q) use ($request) {
-                $q->where('editorial_id', $request->editorial);
+                $q->where('proveedor_id', $request->proveedor);
             });
         }
 
@@ -82,9 +82,9 @@ class PublicCatalogoController extends Controller
             'categorias'  => Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'autores'     => Autor::where('activo', true)->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'series'      => Serie::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-            'editoriales' => Editorial::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'proveedores' => Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
             'idiomas'     => Idioma::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-            'filters'     => $request->only(['search', 'categoria', 'autor', 'serie', 'editorial', 'idioma']),
+            'filters'     => $request->only(['search', 'categoria', 'autor', 'serie', 'proveedor', 'idioma']),
         ]);
     }
 
@@ -93,7 +93,7 @@ class PublicCatalogoController extends Controller
         $libro = Libro::with([
             'master.autor',
             'master.categoria',
-            'master.editorial',
+            'master.proveedor',
             'master.idioma',
             'serie',
             'precioActual',

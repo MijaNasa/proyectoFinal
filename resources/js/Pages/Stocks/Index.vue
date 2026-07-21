@@ -107,11 +107,13 @@ const openModal = (stock = null) => {
     ajusteTipo.value = '+';
     ajusteCantidad.value = 0;
     form.motivo = '';
+    
     if (stock) {
         isEditing.value = true;
         form.id = stock.id;
         form.libro_id = stock.libro_id;
         form.sucursal_id = stock.sucursal_id;
+        form.cantidad_disponible = stock.cantidad_disponible;
         form.ubicacion_text = stock.ubicacion_text || '';
         form.activo = !!stock.activo;
         cantidadActual.value = stock.cantidad_disponible;
@@ -119,9 +121,13 @@ const openModal = (stock = null) => {
         libroSearch.value = libroActual ? libroActual.label : '';
     } else {
         isEditing.value = false;
-        cantidadActual.value = 0;
-        libroSearch.value = '';
         form.reset();
+        
+        // Auto-select sucursal for employee
+        const userSucursal = router.page.props.auth.user?.empleado?.sucursal_id;
+        if (userSucursal) {
+            form.sucursal_id = userSucursal;
+        }
     }
     showModal.value = true;
 };
@@ -405,7 +411,7 @@ const getTomoStockColor = (qty) => {
                         <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Sucursal</label>
                         <select
                             v-model="form.sucursal_id"
-                            :disabled="isEditing"
+                            :disabled="isEditing || !!$page.props.auth.user?.empleado?.sucursal_id"
                             class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50 disabled:opacity-60 disabled:cursor-not-allowed"
                             :class="{ 'border-red-500': form.errors.sucursal_id }"
                         >

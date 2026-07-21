@@ -4,7 +4,7 @@ import { Head, Link } from '@inertiajs/vue3';
 
 const props = defineProps({
     proveedor: Object,
-    pagos:     Array,
+    historial: Array,
     stats:     Object,
     metricasSuscripciones: Object,
 });
@@ -55,7 +55,6 @@ const formatFecha = (f) =>
                                     </span>
                                 </div>
                                 <div class="flex flex-wrap gap-4 text-xs text-white/40 font-bold">
-                                    <span v-if="proveedor.nombre_contacto">{{ proveedor.nombre_contacto }}</span>
                                     <span v-if="proveedor.email">{{ proveedor.email }}</span>
                                     <span v-if="proveedor.telefono">{{ proveedor.telefono }}</span>
                                     <span v-if="proveedor.direccion">{{ proveedor.direccion }}</span>
@@ -71,7 +70,11 @@ const formatFecha = (f) =>
                     </div>
 
                     <!-- Stats -->
-                    <div class="grid grid-cols-3 divide-x divide-white/5">
+                    <div class="grid grid-cols-4 divide-x divide-white/5">
+                        <div class="p-6 text-center">
+                            <p class="text-3xl font-black text-white">{{ formatCurrency(stats.total_deuda_historica ?? 0) }}</p>
+                            <p class="text-[9px] uppercase tracking-widest text-white/30 font-black mt-1">Deuda Histórica (Recibido)</p>
+                        </div>
                         <div class="p-6 text-center">
                             <p class="text-3xl font-black text-white">{{ stats.cantidad_pagos }}</p>
                             <p class="text-[9px] uppercase tracking-widest text-white/30 font-black mt-1">Pagos Realizados</p>
@@ -110,12 +113,12 @@ const formatFecha = (f) =>
                     </div>
                 </div>
 
-                <!-- Historial de pagos -->
+                <!-- Historial de Cuenta Corriente -->
                 <div>
-                    <h3 class="text-xs font-black uppercase tracking-widest text-white/30 mb-4">Historial de Pagos</h3>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-white/30 mb-4">Historial Incompleto de Cuenta Corriente</h3>
 
-                    <div v-if="pagos.length === 0" class="card py-16 text-center text-white/20 italic">
-                        No hay pagos registrados para este proveedor.
+                    <div v-if="historial.length === 0" class="card py-16 text-center text-white/20 italic">
+                        No hay movimientos registrados para este proveedor.
                     </div>
 
                     <div v-else class="card p-0 overflow-hidden">
@@ -129,15 +132,19 @@ const formatFecha = (f) =>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5">
-                                <tr v-for="pago in pagos" :key="pago.id" class="hover:bg-white/[0.02] transition-colors">
-                                    <td class="p-4 text-xs text-white/50 font-bold">{{ formatFecha(pago.fecha) }}</td>
+                                <tr v-for="item in historial" :key="item.id" class="hover:bg-white/[0.02] transition-colors" :class="item.tipo === 'pago' ? '' : 'bg-brand-red/5'">
+                                    <td class="p-4 text-xs text-white/50 font-bold">{{ formatFecha(item.fecha) }}</td>
                                     <td class="p-4">
-                                        <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 bg-white/5 rounded text-white/60">
-                                            {{ pago.metodo_pago }}
+                                        <span class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="item.tipo === 'pago' ? 'bg-green-500/20 text-green-400' : 'bg-brand-red/20 text-brand-red'">
+                                            {{ item.metodo_pago }}
                                         </span>
                                     </td>
-                                    <td class="p-4 text-sm text-white/50 italic">{{ pago.descripcion }}</td>
-                                    <td class="p-4 text-right font-black text-green-400">{{ formatCurrency(pago.monto) }}</td>
+                                    <td class="p-4 text-sm text-white/50 italic font-black">
+                                        {{ item.tipo === 'pago' ? 'Pago: ' : 'Deuda: ' }} <span class="font-normal">{{ item.descripcion }}</span>
+                                    </td>
+                                    <td class="p-4 text-right font-black" :class="item.tipo === 'pago' ? 'text-green-400' : 'text-brand-red'">
+                                        {{ item.tipo === 'pago' ? '-' : '+' }} {{ formatCurrency(item.monto) }}
+                                    </td>
                                 </tr>
                             </tbody>
                         </table>

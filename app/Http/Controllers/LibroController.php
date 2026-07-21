@@ -15,7 +15,7 @@ class LibroController extends Controller
     public function index(Request $request)
     {
         $query = \App\Models\LibroMaster::query()
-            ->with(['autor:id,nombre,apellido', 'categoria:id,nombre', 'editorial:id,nombre', 'idioma:id,nombre', 'libros.precios', 'libros.stocks']);
+            ->with(['autor:id,nombre,apellido', 'categoria:id,nombre', 'proveedor:id,nombre_empresa', 'idioma:id,nombre', 'libros.precios', 'libros.stocks']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -33,7 +33,7 @@ class LibroController extends Controller
             'obras'       => $obras,
             'autores'     => \App\Models\Autor::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'categorias'  => \App\Models\Categoria::orderBy('nombre')->get(['id', 'nombre']),
-            'editoriales' => \App\Models\Editorial::orderBy('nombre')->get(['id', 'nombre']),
+            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
             'idiomas'     => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
             'sucursales'  => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'filters'     => $request->only(['search']),

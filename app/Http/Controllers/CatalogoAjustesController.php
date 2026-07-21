@@ -24,13 +24,13 @@ class CatalogoAjustesController extends Controller
 
         $autores = Autor::withCount('libroMasters')->orderBy('apellido')->get();
         $categorias = Categoria::withCount('libroMasters')->orderBy('nombre')->get();
-        $editoriales = Editorial::withCount('libroMasters')->orderBy('nombre')->get();
+        $proveedores = \App\Models\Proveedor::withCount('libroMasters')->orderBy('nombre_empresa')->get();
         $idiomas = Idioma::withCount('libroMasters')->orderBy('nombre')->get();
 
         return inertia('Catalogo/Ajustes', [
             'autores' => $autores,
             'categorias' => $categorias,
-            'editoriales' => $editoriales,
+            'proveedores' => $proveedores,
             'idiomas' => $idiomas,
         ]);
     }
@@ -88,24 +88,23 @@ class CatalogoAjustesController extends Controller
                 }
                 break;
 
-            case 'editoriales':
+            case 'proveedores':
                 $validated = $request->validate([
-                    'nombre' => [
+                    'nombre_empresa' => [
                         'required', 'string', 'max:150',
-                        Rule::unique('editoriales')->whereNull('deleted_at')
+                        Rule::unique('proveedores')->whereNull('deleted_at')
                     ],
-                    'email' => 'nullable|email|max:150',
+                    'telefono' => 'nullable|string|max:50',
+                    'email' => 'required|email|max:150',
+                    'direccion' => 'nullable|string|max:255',
                 ], $messages);
-                $model = Editorial::withTrashed()->where('nombre', $validated['nombre'])->first();
+                $model = \App\Models\Proveedor::withTrashed()->where('nombre_empresa', $validated['nombre_empresa'])->first();
                 
                 if ($model && $model->trashed()) {
                     $model->restore();
-                    // Update email if provided differently
-                    if (!empty($validated['email'])) {
-                        $model->update(['email' => $validated['email']]);
-                    }
+                    $model->update($validated);
                 } elseif (!$model) {
-                    $model = Editorial::create($validated);
+                    $model = \App\Models\Proveedor::create($validated);
                 }
                 break;
 
@@ -187,15 +186,17 @@ class CatalogoAjustesController extends Controller
                 $model->update($validated);
                 break;
 
-            case 'editoriales':
+            case 'proveedores':
                 $validated = $request->validate([
-                    'nombre' => [
+                    'nombre_empresa' => [
                         'required', 'string', 'max:150',
-                        Rule::unique('editoriales')->ignore($id)->whereNull('deleted_at')
+                        Rule::unique('proveedores')->ignore($id)->whereNull('deleted_at')
                     ],
+                    'telefono' => 'nullable|string|max:50',
                     'email' => 'required|email|max:150',
+                    'direccion' => 'nullable|string|max:255',
                 ], $messages);
-                $model = Editorial::findOrFail($id);
+                $model = \App\Models\Proveedor::findOrFail($id);
                 $model->update($validated);
                 break;
 
@@ -234,8 +235,8 @@ class CatalogoAjustesController extends Controller
                 $model = Categoria::findOrFail($id);
                 break;
 
-            case 'editoriales':
-                $model = Editorial::findOrFail($id);
+            case 'proveedores':
+                $model = \App\Models\Proveedor::findOrFail($id);
                 break;
 
             case 'idiomas':

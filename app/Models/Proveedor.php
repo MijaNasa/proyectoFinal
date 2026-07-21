@@ -23,6 +23,11 @@ class Proveedor extends Model
         return $this->hasMany(Serie::class);
     }
 
+    public function libroMasters(): HasMany
+    {
+        return $this->hasMany(LibroMaster::class);
+    }
+
     public function transacciones(): MorphMany
     {
         return $this->morphMany(Transaccion::class, 'transaccionable');

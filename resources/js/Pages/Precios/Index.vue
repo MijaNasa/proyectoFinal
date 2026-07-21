@@ -31,7 +31,7 @@ const groupedItems = computed(() => {
                 id: `master-${key}`,
                 is_serie: false,
                 nombre: libro.master?.titulo || 'Desconocido',
-                editorial: libro.master?.editorial?.nombre,
+                proveedor: libro.master?.proveedor?.nombre_empresa,
                 tomos: []
             };
         }
@@ -135,13 +135,13 @@ const submit = () => {
 const showBulkModal = ref(false);
 
 const bulkForm = useForm({
-    criterio: 'editorial_formato', // 'serie' o 'editorial_formato'
+    criterio: 'proveedor_formato', // 'serie' o 'proveedor_formato'
     serie: '',
-    editorial: '',
+    proveedor: '',
     formato: '',
     libro_id: '',
     nuevo_precio: '',
-    motivo: 'Aumento editorial'
+    motivo: 'Aumento proveedor'
 });
 
 // Extraemos datos únicos desde las opciones pasadas por el backend
@@ -149,8 +149,8 @@ const seriesDisponibles = computed(() => {
     return props.opcionesMasivas?.series || [];
 });
 
-const editorialesDisponibles = computed(() => {
-    return props.opcionesMasivas?.editoriales || [];
+const proveedoresDisponibles = computed(() => {
+    return props.opcionesMasivas?.proveedores || [];
 });
 
 const formatosDisponibles = computed(() => {
@@ -169,11 +169,11 @@ const seriesFiltradas = computed(() => {
     return seriesDisponibles.value.filter(s => s.toLowerCase().includes(searchSerieQuery.value.toLowerCase()));
 });
 
-const searchEditorialQuery = ref('');
-const showEditorialDropdown = ref(false);
-const editorialesFiltradas = computed(() => {
-    if (!searchEditorialQuery.value) return editorialesDisponibles.value;
-    return editorialesDisponibles.value.filter(e => e.toLowerCase().includes(searchEditorialQuery.value.toLowerCase()));
+const searchProveedorQuery = ref('');
+const showProveedorDropdown = ref(false);
+const proveedoresFiltrados = computed(() => {
+    if (!searchProveedorQuery.value) return proveedoresDisponibles.value;
+    return proveedoresDisponibles.value.filter(e => e.toLowerCase().includes(searchProveedorQuery.value.toLowerCase()));
 });
 
 const searchLibroQuery = ref('');
@@ -186,11 +186,11 @@ const librosFiltrados = computed(() => {
 // Limpiamos al cambiar de criterio
 watch(() => bulkForm.criterio, () => {
     bulkForm.serie = '';
-    bulkForm.editorial = '';
+    bulkForm.proveedor = '';
     bulkForm.formato = '';
     bulkForm.libro_id = '';
     searchSerieQuery.value = '';
-    searchEditorialQuery.value = '';
+    searchProveedorQuery.value = '';
     searchLibroQuery.value = '';
 });
 
@@ -201,15 +201,15 @@ const abrirModalMasivo = () => {
 
 const submitBulk = () => {
     // 1. Forzar la captura del texto si el usuario olvidó hacer clic en el menú desplegable
-    if (bulkForm.criterio === 'editorial_formato') {
-        bulkForm.editorial = bulkForm.editorial || searchEditorialQuery.value;
+    if (bulkForm.criterio === 'proveedor_formato') {
+        bulkForm.proveedor = bulkForm.proveedor || searchProveedorQuery.value;
     } else if (bulkForm.criterio === 'serie') {
         bulkForm.serie = bulkForm.serie || searchSerieQuery.value;
     }
 
     // 2. Validación manual amigable (Evita que el navegador bloquee el botón en silencio)
-    if (bulkForm.criterio === 'editorial_formato' && (!bulkForm.editorial || !bulkForm.formato)) {
-        Swal.fire({ title: 'Atención', text: 'Seleccioná la editorial y el formato', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+    if (bulkForm.criterio === 'proveedor_formato' && (!bulkForm.proveedor || !bulkForm.formato)) {
+        Swal.fire({ title: 'Atención', text: 'Seleccioná el proveedor y el formato', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
         return;
     }
     if (bulkForm.criterio === 'serie' && !bulkForm.serie) {
@@ -309,7 +309,7 @@ const submitBulk = () => {
                                     </svg>
                                     <div>
                                         <p class="font-black text-white uppercase tracking-tight">{{ item.nombre }}</p>
-                                        <p class="text-[10px] text-white/30 font-bold uppercase">{{ item.editorial || 'S/E' }} • SERIE</p>
+                                        <p class="text-[10px] text-white/30 font-bold uppercase">{{ item.proveedor || 'S/E' }} • SERIE</p>
                                     </div>
                                 </div>
                             </td>
@@ -327,7 +327,7 @@ const submitBulk = () => {
                         <tr v-if="item.is_serie && expandedSeries[item.id]" v-for="tomo in item.tomos" :key="tomo.id" class="border-b border-white/5 bg-black/40 hover:bg-black/60 transition-colors">
                             <td class="px-6 py-4 pl-14 border-l-2 border-brand-red">
                                 <p class="font-black text-white/90">{{ tomo.master?.titulo }} {{ tomo.numero_tomo }}</p>
-                                <p class="text-[9px] text-white/30 font-bold uppercase">{{ tomo.master?.editorial?.nombre || 'S/E' }}</p>
+                                <p class="text-[9px] text-white/30 font-bold uppercase">{{ tomo.master?.proveedor?.nombre_empresa || 'S/P' }}</p>
                             </td>
                             <td class="px-6 py-4 font-mono text-xs pl-6">{{ tomo.isbn || 'SIN ISBN' }}</td>
                             <td class="px-6 py-4 text-right font-black text-xs">{{ tomo.precio_actual ? fmt(tomo.precio_actual.precio_venta) : 'Sin precio' }}</td>
@@ -346,7 +346,7 @@ const submitBulk = () => {
                                             {{ item.master?.titulo }}
                                             <span v-if="item.numero_tomo" class="text-white/50">#{{ item.numero_tomo }}</span>
                                         </p>
-                                        <p class="text-[10px] text-white/30 font-bold uppercase">{{ item.master?.editorial?.nombre }} • ÚNICO</p>
+                                        <p class="text-[10px] text-white/30 font-bold uppercase">{{ item.master?.proveedor?.nombre_empresa }} • ÚNICO</p>
                                     </div>
                                 </div>
                             </td>
@@ -385,7 +385,7 @@ const submitBulk = () => {
                              <span class="text-brand-red italic">Precio</span> {{ selectedLibro?.master?.titulo }}
                              <span v-if="selectedLibro?.numero_tomo" class="text-white/40 font-black"> #{{ selectedLibro?.numero_tomo }}</span>
                         </h3>
-                        <p class="text-[10px] text-white/30 font-bold uppercase mt-1">{{ selectedLibro?.master?.editorial?.nombre }} {{ selectedLibro?.isbn || 'SIN ISBN' }}</p>
+                        <p class="text-[10px] text-white/30 font-bold uppercase mt-1">{{ selectedLibro?.master?.proveedor?.nombre_empresa }} {{ selectedLibro?.isbn || 'SIN ISBN' }}</p>
                     </div>
                     
                     <div class="px-8 py-6 space-y-6">
@@ -439,27 +439,25 @@ const submitBulk = () => {
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Criterio de Aumento</label>
                                 <select v-model="bulkForm.criterio" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-black uppercase focus:outline-none focus:border-brand-red/50">
-                                    <option value="editorial_formato">Por Editorial y Formato</option>
+                                    <option value="proveedor_formato">Por Proveedor y Formato</option>
                                     <option value="serie">Por Serie individual</option>
                                     <option value="libro_individual">Por Libro Individual</option>
                                 </select>
                             </div>
 
-                            <div v-if="bulkForm.criterio === 'editorial_formato'" class="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-xl border border-white/5">
-                                
-                                <div class="relative">
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">1. Seleccionar Editorial *</label>
-                                    <input v-model="searchEditorialQuery" @focus="showEditorialDropdown = true" type="text" placeholder="Buscar editorial..." class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50 font-bold relative z-50" />
+                            <div v-if="bulkForm.criterio === 'proveedor_formato'" class="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-xl border border-white/5">
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">1. Seleccionar Proveedor *</label>
+                                    <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar proveedor..." class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50 font-bold relative z-50" />
                                     
-                                    <div v-if="showEditorialDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
-                                        <div v-for="e in editorialesFiltradas" :key="e" @mousedown.prevent="bulkForm.editorial = e; searchEditorialQuery = e; showEditorialDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-black" :class="bulkForm.editorial === e ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
+                                    <div v-if="showProveedorDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
+                                        <div v-for="e in proveedoresFiltrados" :key="e" @mousedown.prevent="bulkForm.proveedor = e; searchProveedorQuery = e; showProveedorDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-black" :class="bulkForm.proveedor === e ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
                                             {{ e }}
                                         </div>
-                                        <div v-if="editorialesFiltradas.length === 0" class="px-4 py-3 text-xs text-white/30 italic text-center">No hay resultados</div>
+                                        <div v-if="proveedoresFiltrados.length === 0" class="px-4 py-3 text-xs text-white/30 italic text-center">No hay resultados</div>
                                     </div>
-                                    <div v-if="showEditorialDropdown" class="fixed inset-0 z-40" @click="showEditorialDropdown = false"></div>
+                                    <div v-if="showProveedorDropdown" class="fixed inset-0 z-40" @click="showProveedorDropdown = false"></div>
                                 </div>
-
                                 <div>
                                     <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">2. Seleccionar Formato *</label>
                                     <select v-model="bulkForm.formato" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50 uppercase">

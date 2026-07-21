@@ -15,7 +15,6 @@ class StoreProveedorRequest extends FormRequest
     {
         return [
             'nombre_empresa' => 'required|string|max:255',
-            'nombre_contacto' => 'nullable|string|max:255',
             'telefono'        => 'nullable|string|max:50',
             'email'           => 'nullable|email|max:255',
             'direccion'       => 'nullable|string|max:255',

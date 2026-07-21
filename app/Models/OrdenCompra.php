@@ -9,6 +9,8 @@ class OrdenCompra extends Model
 {
     use SoftDeletes;
 
+    protected $table = 'ordenes_compra';
+
     protected $fillable = [
         'numero_orden', 'proveedor_id', 'sucursal_id', 'estado',
         'fecha', 'fecha_entrega_estimada', 'total', 'observaciones', 'user_id',

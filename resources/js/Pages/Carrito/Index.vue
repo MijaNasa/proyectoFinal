@@ -79,7 +79,7 @@ const irACheckout = () => {
                         <!-- Info -->
                         <div class="flex-1 min-w-0">
                             <h3 class="font-black uppercase tracking-tighter text-lg leading-tight mb-1 line-clamp-2">{{ item.titulo }}</h3>
-                            <p class="text-xs font-bold uppercase tracking-widest text-white/30 mb-4">{{ item.editorial }} · ISBN: {{ item.isbn }}</p>
+                            <p class="text-xs font-bold uppercase tracking-widest text-white/30 mb-4">{{ item.proveedor }} • ISBN: {{ item.isbn }}</p>
                             <div class="flex items-center gap-4">
                                 <!-- Cantidad -->
                                 <div class="flex items-center gap-2 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5">

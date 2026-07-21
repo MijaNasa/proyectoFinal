@@ -14,7 +14,7 @@ class PrecioController extends Controller
     {
         // 1. Validamos que lleguen los datos obligatorios
         $request->validate([
-            'criterio'     => 'required|in:serie,editorial_formato,libro_individual',
+            'criterio'     => 'required|in:serie,proveedor_formato,libro_individual',
             'nuevo_precio' => 'required|numeric|min:0',
             'libro_id'     => 'nullable|exists:libros,id'
         ]);
@@ -29,8 +29,8 @@ class PrecioController extends Controller
         } elseif ($request->criterio === 'libro_individual') {
             $query->where('id', $request->libro_id);
         } else {
-            $query->whereHas('master.editorial', function ($q) use ($request) {
-                $q->where('nombre', $request->editorial);
+            $query->whereHas('master.proveedor', function ($q) use ($request) {
+                $q->where('nombre_empresa', $request->proveedor);
             });
             $query->whereHas('master', function ($q) use ($request) {
                 $q->where('formato', $request->formato);
@@ -52,7 +52,7 @@ class PrecioController extends Controller
             $libro->precios()->create([
                 'precio_compra' => $costoActual,
                 'precio_venta'  => $request->nuevo_precio,
-                'motivo'        => 'Aumento editorial',
+                'motivo'        => 'Aumento proveedor',
                 'fecha_desde'   => now(),
                 'activo'        => true,
             ]);
@@ -67,9 +67,9 @@ class PrecioController extends Controller
         $search = $request->get('search', '');
 
         $query = Libro::with([
-            'master:id,titulo,autor_id,editorial_id,formato',
+            'master:id,titulo,autor_id,proveedor_id,formato',
             'master.autor:id,nombre,apellido',
-            'master.editorial:id,nombre',
+            'master.proveedor:id,nombre_empresa',
             'serie:id,nombre',
             'precios' => fn($q) => $q->orderByDesc('fecha_desde')->limit(5),
         ])
@@ -114,7 +114,7 @@ class PrecioController extends Controller
         $opcionesMasivas = [
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
             'series' => \App\Models\LibroMaster::orderBy('titulo')->pluck('titulo'),
-            'editoriales' => \App\Models\Editorial::orderBy('nombre')->pluck('nombre'),
+            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->pluck('nombre_empresa'),
             'libros' => Libro::with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
                 return [
                     'id' => $l->id,
@@ -158,7 +158,7 @@ class PrecioController extends Controller
             $libro->precios()->create([
                 'precio_venta'  => $request->precio_venta,
                 'precio_compra' => $costoActual,
-                'motivo'        => 'Aumento editorial',
+                'motivo'        => 'Aumento proveedor',
                 'fecha_desde'   => now(),
                 'activo'        => true,
             ]);

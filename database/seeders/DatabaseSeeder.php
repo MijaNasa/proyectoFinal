@@ -16,11 +16,14 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Datos base (Seeders existentes)
         $this->call([
             PaisSeeder::class,
             GeografiaSeeder::class,
             TipoClienteSeeder::class,
+            IdiomaSeeder::class,
+            CategoriaSeeder::class,
+            SucursalSeeder::class,
+            ProveedorSeeder::class,
         ]);
 
         // 2b. Cargos y permisos (se llama después de crear sucursales y admin user)
@@ -40,16 +43,16 @@ class DatabaseSeeder extends Seeder
         \App\Models\Categoria::factory()->count(10)->create();
         \App\Models\Idioma::factory()->count(5)->create();
 
-        // Creamos Autores y Editoriales
+        // Creamos Autores
         $autores = \App\Models\Autor::factory()->count(20)->create();
-        $editoriales = \App\Models\Editorial::factory()->count(10)->create();
+        $proveedores = \App\Models\Proveedor::all();
 
         // Creamos Libros (Master y Variantes con Stock)
-        foreach ($editoriales as $editorial) {
-            $libroMasters = \App\Models\LibroMaster::factory()->count(5)->create([
+        foreach ($proveedores as $proveedor) {
+            $libroMasters = \App\Models\LibroMaster::factory()->count(2)->create([
                 'autor_id' => $autores->random()->id,
                 'categoria_id' => \App\Models\Categoria::inRandomOrder()->first()->id,
-                'editorial_id' => $editorial->id,
+                'proveedor_id' => $proveedor->id,
                 'idioma_id' => \App\Models\Idioma::inRandomOrder()->first()->id,
             ]);
 
@@ -71,9 +74,9 @@ class DatabaseSeeder extends Seeder
             }
         }
 
-        // 4. Clientes y Proveedores
+        // 4. Clientes
         \App\Models\Cliente::factory()->count(20)->create();
-        \App\Models\Proveedor::factory()->count(10)->create();
+        // Proveedores ya fueron creados por el ProveedorSeeder y usados arriba.
 
         // 5. Ventas para el Dashboard
         \App\Models\Venta::factory()->count(50)->create();

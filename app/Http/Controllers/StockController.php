@@ -68,13 +68,17 @@ class StockController extends Controller
     {
         $stock = Stock::create($request->safe()->except(['motivo']));
 
-        MovimientoStock::create([
-            'libro_id' => $stock->libro_id,
+        $movimiento = MovimientoStock::create([
             'tipo' => 'ajuste',
-            'cantidad' => $stock->cantidad_disponible,
             'sucursal_destino_id' => $stock->sucursal_id,
             'user_id' => auth()->id(),
             'motivo' => $request->motivo ?? 'Ingreso manual inicial desde panel de Stock'
+        ]);
+
+        $movimiento->detalles()->create([
+            'libro_id' => $stock->libro_id,
+            'cantidad' => $stock->cantidad_disponible,
+            'costo_unitario' => 0
         ]);
 
         return redirect()->route('stocks.index')->with('message', 'Stock registrado con éxito');
@@ -95,13 +99,17 @@ class StockController extends Controller
         $delta = $cantidadNueva - $cantidadAnterior;
 
         if ($delta !== 0) {
-            MovimientoStock::create([
-                'libro_id' => $stock->libro_id,
+            $movimiento = MovimientoStock::create([
                 'tipo' => 'ajuste',
-                'cantidad' => $delta,
                 'sucursal_destino_id' => $stock->sucursal_id,
                 'user_id' => auth()->id(),
                 'motivo' => $request->motivo ?? 'Ajuste manual desde panel de Stock'
+            ]);
+
+            $movimiento->detalles()->create([
+                'libro_id' => $stock->libro_id,
+                'cantidad' => $delta,
+                'costo_unitario' => 0
             ]);
         }
 

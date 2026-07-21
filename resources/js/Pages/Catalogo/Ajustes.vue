@@ -7,7 +7,7 @@ import Swal from 'sweetalert2';
 const props = defineProps({
     autores: Array,
     categorias: Array,
-    editoriales: Array,
+    proveedores: Array,
     idiomas: Array
 });
 
@@ -17,7 +17,7 @@ const searchQuery = ref('');
 const tabs = [
     { id: 'autores', name: 'Autores' },
     { id: 'categorias', name: 'Categorías' },
-    { id: 'editoriales', name: 'Editoriales' },
+    { id: 'proveedores', name: 'Proveedores' },
     { id: 'idiomas', name: 'Idiomas' }
 ];
 
@@ -30,7 +30,7 @@ const filteredItems = computed(() => {
     let list = [];
     if (currentTab.value === 'autores') list = props.autores;
     else if (currentTab.value === 'categorias') list = props.categorias;
-    else if (currentTab.value === 'editoriales') list = props.editoriales;
+    else if (currentTab.value === 'proveedores') list = props.proveedores;
     else if (currentTab.value === 'idiomas') list = props.idiomas;
 
     if (!searchQuery.value) return list;
@@ -40,8 +40,8 @@ const filteredItems = computed(() => {
         if (currentTab.value === 'autores') {
             return (item.nombre && item.nombre.toLowerCase().includes(term)) ||
                    (item.apellido && item.apellido.toLowerCase().includes(term));
-        } else if (currentTab.value === 'editoriales') {
-            return (item.nombre && item.nombre.toLowerCase().includes(term)) ||
+        } else if (currentTab.value === 'proveedores') {
+            return (item.nombre_empresa && item.nombre_empresa.toLowerCase().includes(term)) ||
                    (item.email && item.email.toLowerCase().includes(term));
         } else {
             return item.nombre && item.nombre.toLowerCase().includes(term);
@@ -58,8 +58,13 @@ const editingId = ref(null);
 const editForm = useForm({
     nombre: '',
     apellido: '',
+    codigo: '',
+    
+    // Campos Proveedor
+    nombre_empresa: '',
+    telefono: '',
     email: '',
-    codigo: ''
+    direccion: ''
 });
 
 const openCreateModal = () => {
@@ -69,8 +74,11 @@ const openCreateModal = () => {
     
     editForm.nombre = '';
     editForm.apellido = '';
-    editForm.email = '';
     editForm.codigo = '';
+    editForm.nombre_empresa = '';
+    editForm.telefono = '';
+    editForm.email = '';
+    editForm.direccion = '';
     
     editForm.clearErrors();
     
@@ -84,8 +92,11 @@ const openEditModal = (item) => {
 
     editForm.nombre = item.nombre || '';
     editForm.apellido = item.apellido || '';
-    editForm.email = item.email || '';
     editForm.codigo = item.codigo || '';
+    editForm.nombre_empresa = item.nombre_empresa || '';
+    editForm.telefono = item.telefono || '';
+    editForm.email = item.email || '';
+    editForm.direccion = item.direccion || '';
 
     editForm.clearErrors();
 
@@ -169,6 +180,13 @@ const confirmDelete = (item) => {
         }
     });
 };
+    const itemName = computed(() => {
+        if (editingType.value === 'autores') return 'Autor';
+        if (editingType.value === 'categorias') return 'Categoría';
+        if (editingType.value === 'proveedores') return 'Proveedor';
+        if (editingType.value === 'idiomas') return 'Idioma';
+        return 'Metadato';
+    });
 </script>
 
 <template>
@@ -228,10 +246,11 @@ const confirmDelete = (item) => {
                             <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-brand-red">
                                 <th class="p-4" v-if="currentTab === 'autores'">Autor</th>
                                 <th class="p-4" v-else-if="currentTab === 'categorias'">Categoría</th>
-                                <th class="p-4" v-else-if="currentTab === 'editoriales'">Editorial</th>
+                                <th class="p-4" v-else-if="currentTab === 'proveedores'">Proveedor</th>
                                 <th class="p-4" v-else-if="currentTab === 'idiomas'">Idioma</th>
 
-                                <th class="p-4" v-if="currentTab === 'editoriales'">Email</th>
+                                <th class="p-4" v-if="currentTab === 'proveedores'">Email</th>
+                                <th class="p-4" v-if="currentTab === 'proveedores'">Teléfono</th>
 
                                 <th class="p-4 text-center">Obras Asociadas</th>
                                 <th class="p-4 text-right">Acciones</th>
@@ -248,13 +267,19 @@ const confirmDelete = (item) => {
                                     <div class="font-black text-white" v-if="currentTab === 'autores'">
                                         {{ item.apellido }}, {{ item.nombre }}
                                     </div>
+                                    <div class="font-black text-white" v-else-if="currentTab === 'proveedores'">
+                                        {{ item.nombre_empresa }}
+                                    </div>
                                     <div class="font-black text-white" v-else>
                                         {{ item.nombre }}
                                     </div>
                                 </td>
 
-                                <td class="p-4 text-white/70 font-mono" v-if="currentTab === 'editoriales'">
+                                <td class="p-4 text-white/70 font-mono" v-if="currentTab === 'proveedores'">
                                     {{ item.email || 'N/A' }}
+                                </td>
+                                <td class="p-4 text-white/70 font-mono" v-if="currentTab === 'proveedores'">
+                                    {{ item.telefono || 'N/A' }}
                                 </td>
 
                                 <td class="p-4 text-center">
@@ -296,7 +321,7 @@ const confirmDelete = (item) => {
                     
                     <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center">
                         <h3 class="text-lg font-black uppercase tracking-tighter text-white">
-                            {{ isCreating ? 'Crear' : 'Editar' }} <span class="italic text-white">Metadato</span>
+                            {{ isCreating ? 'Crear' : 'Editar' }} <span class="italic text-white">{{ itemName }}</span>
                         </h3>
                         <button @click="showEditModal = false" class="text-white/80 hover:text-white transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -326,16 +351,26 @@ const confirmDelete = (item) => {
                             </div>
                         </div>
 
-                        <div v-if="editingType === 'editoriales'" class="space-y-4">
+                        <div v-if="editingType === 'proveedores'" class="space-y-4">
                             <div>
-                                <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Nombre *</label>
-                                <input v-model="editForm.nombre" type="text" class="input-field w-full" required />
-                                <span v-if="editForm.errors.nombre" class="text-brand-red text-xs mt-1">{{ editForm.errors.nombre }}</span>
+                                <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Nombre de Empresa *</label>
+                                <input v-model="editForm.nombre_empresa" type="text" class="input-field w-full" required />
+                                <span v-if="editForm.errors.nombre_empresa" class="text-brand-red text-xs mt-1">{{ editForm.errors.nombre_empresa }}</span>
                             </div>
                             <div>
-                                <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Email de Contacto *</label>
+                                <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Email *</label>
                                 <input v-model="editForm.email" type="email" class="input-field w-full" required />
                                 <span v-if="editForm.errors.email" class="text-brand-red text-xs mt-1">{{ editForm.errors.email }}</span>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Teléfono</label>
+                                <input v-model="editForm.telefono" type="text" class="input-field w-full" />
+                                <span v-if="editForm.errors.telefono" class="text-brand-red text-xs mt-1">{{ editForm.errors.telefono }}</span>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Dirección</label>
+                                <input v-model="editForm.direccion" type="text" class="input-field w-full" />
+                                <span v-if="editForm.errors.direccion" class="text-brand-red text-xs mt-1">{{ editForm.errors.direccion }}</span>
                             </div>
                         </div>
 

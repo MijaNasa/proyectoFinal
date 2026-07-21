@@ -3,7 +3,6 @@
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\AutorController;
-use App\Http\Controllers\EditorialController;
 use App\Http\Controllers\IdiomaController;
 use App\Http\Controllers\LibroMasterController;
 use App\Http\Controllers\LibroController;

@@ -22,7 +22,7 @@ class StoreLibroMasterRequest extends FormRequest
             'portada' => ['nullable', 'image', 'mimes:jpg,jpeg,png,gif,webp', 'max:2048'],
             'autor_id' => ['required'],
             'categoria_id' => ['required'],
-            'editorial_id' => ['required'],
+            'proveedor_id' => ['required'],
             'idioma_id' => ['required'],
             'formato' => ['required', 'string', 'max:255'],
             'synopsis' => ['nullable', 'string'],

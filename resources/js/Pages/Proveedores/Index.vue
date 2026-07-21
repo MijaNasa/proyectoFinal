@@ -10,12 +10,12 @@ const props = defineProps({
     filters: Object,
 });
 
-const search = ref(props.filters.search || '');
+const search = ref(props.filters?.search || '');
+const estadoFiltro = ref(props.filters?.estado || 'activos');
 
 const form = useForm({
     id: null,
     nombre_empresa: '',
-    nombre_contacto: '',
     telefono: '',
     email: '',
     direccion: '',
@@ -61,7 +61,6 @@ const openModal = (proveedor = null) => {
         isEditing.value = true;
         form.id = proveedor.id;
         form.nombre_empresa = proveedor.nombre_empresa;
-        form.nombre_contacto = proveedor.nombre_contacto || '';
         form.telefono = proveedor.telefono || '';
         form.email = proveedor.email || '';
         form.direccion = proveedor.direccion || '';
@@ -120,7 +119,15 @@ const deleteProveedor = (id) => {
 };
 
 const handleSearch = () => {
-    window.location.href = route('proveedores.index', { search: search.value });
+    window.location.href = route('proveedores.index', { 
+        search: search.value,
+        estado: estadoFiltro.value 
+    });
+};
+
+const setEstado = (estado) => {
+    estadoFiltro.value = estado;
+    handleSearch();
 };
 </script>
 
@@ -144,13 +151,13 @@ const handleSearch = () => {
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="card mb-8">
+                <div class="card mb-6">
                     <div class="flex items-center gap-4">
                         <input
                             v-model="search"
                             @keyup.enter="handleSearch"
                             type="text"
-                            placeholder="Buscar por empresa, contacto o email..."
+                            placeholder="Buscar por empresa o email..."
                             class="input-field flex-1"
                         >
                         <button @click="handleSearch" class="btn-primary py-2 px-4 bg-white/5 hover:bg-white/10 text-white">
@@ -159,14 +166,34 @@ const handleSearch = () => {
                     </div>
                 </div>
 
+                <!-- Filtros -->
+                <div class="flex border-b border-white/10 gap-2 mb-4">
+                    <button 
+                        @click="setEstado('activos')"
+                        class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
+                        :class="estadoFiltro === 'activos'
+                            ? 'border-brand-red text-brand-red bg-brand-red/5' 
+                            : 'border-transparent text-white/50 hover:text-white hover:bg-white/5'"
+                    >
+                        Activos
+                    </button>
+                    <button 
+                        @click="setEstado('inactivos')"
+                        class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
+                        :class="estadoFiltro === 'inactivos'
+                            ? 'border-brand-red text-brand-red bg-brand-red/5' 
+                            : 'border-transparent text-white/50 hover:text-white hover:bg-white/5'"
+                    >
+                        Inactivos
+                    </button>
+                </div>
+
                 <div class="card p-0 overflow-hidden">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-brand-red/10 border-b border-brand-red/20">
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Empresa</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Contacto</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Teléfono / Email</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Estado</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Deuda</th>
                                 <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Acciones</th>
                             </tr>
@@ -177,16 +204,9 @@ const handleSearch = () => {
                                     <div class="font-bold uppercase">{{ proveedor.nombre_empresa }}</div>
                                     <div class="text-xs text-white/40">{{ proveedor.direccion || 'Sin dirección' }}</div>
                                 </td>
-                                <td class="p-4 text-white/70">
-                                    {{ proveedor.nombre_contacto || '—' }}
-                                </td>
                                 <td class="p-4">
                                     <div class="text-sm">{{ proveedor.telefono || '—' }}</div>
                                     <div class="text-xs text-white/40">{{ proveedor.email || '—' }}</div>
-                                </td>
-                                <td class="p-4 text-xs uppercase font-black">
-                                    <span v-if="proveedor.activo" class="text-green-500">Activo</span>
-                                    <span v-else class="text-brand-red">Inactivo</span>
                                 </td>
                                 <td class="p-4 text-right">
                                     <span class="font-black text-sm" :class="proveedor.deuda_actual > 0 ? 'text-brand-red' : 'text-white/30'">
@@ -224,7 +244,7 @@ const handleSearch = () => {
                                 </td>
                             </tr>
                             <tr v-if="proveedores.data.length === 0">
-                                <td colspan="6" class="p-12 text-center text-white/30 italic">No se encontraron proveedores registrados</td>
+                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron proveedores registrados</td>
                             </tr>
                         </tbody>
                     </table>
@@ -257,10 +277,6 @@ const handleSearch = () => {
                             <label class="block text-xs font-bold uppercase tracking-widest text-brand-red mb-1">Nombre de Empresa</label>
                             <input v-model="form.nombre_empresa" type="text" class="input-field w-full" :class="{'border-brand-red': form.errors.nombre_empresa}">
                             <div v-if="form.errors.nombre_empresa" class="text-brand-red text-[10px] mt-1 uppercase font-bold">{{ form.errors.nombre_empresa }}</div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Nombre de Contacto</label>
-                            <input v-model="form.nombre_contacto" type="text" class="input-field w-full">
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Teléfono</label>

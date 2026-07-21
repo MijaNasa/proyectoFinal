@@ -23,6 +23,11 @@ class Libro extends Model
         'activo' => 'boolean',
     ];
 
+    public function setIsbnAttribute($value)
+    {
+        $this->attributes['isbn'] = preg_replace('/[^0-9]/', '', $value); 
+    }
+
     public function master(): BelongsTo
     {
         return $this->belongsTo(LibroMaster::class, 'master_id');
