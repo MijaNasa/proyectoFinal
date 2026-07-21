@@ -18,7 +18,7 @@ class Transaccion extends Model
     protected $fillable = [
         'tipo', 'monto', 'metodo_pago', 'fecha', 'sucursal_id', 
         'transaccionable_id', 'transaccionable_type', 
-        'descripcion', 'user_id'
+        'descripcion', 'comprobante', 'user_id'
     ];
 
     public function sucursal(): BelongsTo

@@ -30,6 +30,8 @@ const pagoForm = useForm({
     proveedor_id: null,
     monto: '',
     metodo_pago: 'Transferencia',
+    fecha: new Date().toISOString().split('T')[0],
+    comprobante: '',
     descripcion: '',
 });
 
@@ -307,70 +309,96 @@ const setEstado = (estado) => {
             </div>
             </div>
         </div>
+        </template>
+        
         <!-- Modal Pago -->
         <template v-if="showPagoModal">
         <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showPagoModal = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-center justify-center p-4">
-            <div class="relative w-full max-w-md card p-0 border border-green-500/30 shadow-[0_0_60px_rgba(34,197,94,0.08)] overflow-hidden my-8">
-                <div class="bg-gradient-to-r from-green-700 to-black p-6 flex justify-between items-center">
-                    <h3 class="text-xl font-black uppercase tracking-tighter italic">
-                        Pago a <span class="text-white">Proveedor</span>
-                    </h3>
-                    <button @click="showPagoModal = false" class="text-white/80 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
+                <div class="relative w-full max-w-md card p-0 border border-brand-red/30 shadow-[0_0_60px_rgba(230,25,25,0.08)] overflow-hidden my-8">
+                    <div class="bg-gradient-to-r from-brand-red to-black p-6 flex justify-between items-center">
+                        <h3 class="text-xl font-black uppercase tracking-tighter italic text-white">
+                            Pago a Proveedor
+                        </h3>
+                        <button @click="showPagoModal = false" class="text-white/80 hover:text-white transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="submitPago" class="p-8 space-y-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Monto ($)</label>
+                                <input
+                                    v-model="pagoForm.monto"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    placeholder="0.00"
+                                    class="input-field w-full text-right font-mono text-xl"
+                                    :class="{ 'border-brand-red': pagoForm.errors.monto }"
+                                >
+                                <p v-if="pagoForm.errors.monto" class="text-brand-red text-xs mt-1">{{ pagoForm.errors.monto }}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Fecha de Pago</label>
+                                <input
+                                    v-model="pagoForm.fecha"
+                                    type="date"
+                                    class="input-field w-full"
+                                    :class="{ 'border-brand-red': pagoForm.errors.fecha }"
+                                >
+                                <p v-if="pagoForm.errors.fecha" class="text-brand-red text-xs mt-1">{{ pagoForm.errors.fecha }}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Método de Pago</label>
+                                <select v-model="pagoForm.metodo_pago" class="input-field w-full bg-brand-black font-black uppercase text-xs">
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Tarjeta">Tarjeta de Crédito</option>
+                                    <option value="Débito">Débito</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Comprobante (Opcional)</label>
+                                <input
+                                    v-model="pagoForm.comprobante"
+                                    type="text"
+                                    placeholder="Nro. operación..."
+                                    class="input-field w-full"
+                                    maxlength="255"
+                                >
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Descripción (opcional)</label>
+                            <input
+                                v-model="pagoForm.descripcion"
+                                type="text"
+                                placeholder="Pago a proveedor..."
+                                class="input-field w-full"
+                                maxlength="255"
+                            >
+                        </div>
+
+                        <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
+                            <button type="button" @click="showPagoModal = false" class="px-6 py-2 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-widest">
+                                Cancelar
+                            </button>
+                            <button type="submit" :disabled="pagoForm.processing" class="btn-primary px-10">
+                                {{ pagoForm.processing ? 'Procesando...' : 'Confirmar Pago' }}
+                            </button>
+                        </div>
+                    </form>
                 </div>
-
-                <form @submit.prevent="submitPago" class="p-8 space-y-6">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Monto ($)</label>
-                        <input
-                            v-model="pagoForm.monto"
-                            type="number"
-                            step="0.01"
-                            min="0.01"
-                            placeholder="0.00"
-                            class="input-field w-full text-right font-mono text-xl"
-                            :class="{ 'border-brand-red': pagoForm.errors.monto }"
-                        >
-                        <p v-if="pagoForm.errors.monto" class="text-brand-red text-xs mt-1">{{ pagoForm.errors.monto }}</p>
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Método de Pago</label>
-                        <select v-model="pagoForm.metodo_pago" class="input-field w-full bg-brand-black font-black uppercase text-xs">
-                            <option value="Transferencia">Transferencia</option>
-                            <option value="Efectivo">Efectivo</option>
-                            <option value="Tarjeta">Tarjeta de Crédito</option>
-                            <option value="Débito">Débito</option>
-                        </select>
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Descripción (opcional)</label>
-                        <input
-                            v-model="pagoForm.descripcion"
-                            type="text"
-                            placeholder="Pago a proveedor..."
-                            class="input-field w-full"
-                            maxlength="255"
-                        >
-                    </div>
-
-                    <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
-                        <button type="button" @click="showPagoModal = false" class="px-6 py-2 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-widest">
-                            Cancelar
-                        </button>
-                        <button type="submit" :disabled="pagoForm.processing" class="px-10 py-3 bg-green-600 hover:bg-green-500 text-white font-black uppercase text-xs tracking-widest rounded-lg transition-colors disabled:opacity-50">
-                            {{ pagoForm.processing ? 'Procesando...' : 'Confirmar Pago' }}
-                        </button>
-                    </div>
-                </form>
-            </div>
             </div>
         </div>
-        </template>
         </template>
     </AuthenticatedLayout>
 </template>

@@ -33,11 +33,6 @@ class Libro extends Model
         return $this->belongsTo(LibroMaster::class, 'master_id');
     }
 
-    public function serie(): BelongsTo
-    {
-        return $this->belongsTo(Serie::class);
-    }
-
     public function precios(): HasMany
     {
         return $this->hasMany(PrecioLibro::class);
@@ -46,6 +41,11 @@ class Libro extends Model
     public function stocks(): HasMany
     {
         return $this->hasMany(Stock::class);
+    }
+
+    public function ventaDetalles(): HasMany
+    {
+        return $this->hasMany(VentaDetalle::class);
     }
 
     public function precioActual()

@@ -6,6 +6,7 @@ import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     libros: Object,
+    preventas: Array,
     categorias: Array,
     autores: Array,
     series: Array,
@@ -129,6 +130,34 @@ const agregarAlCarrito = (libro) => {
         preserveScroll: true,
         preserveState: true,
     });
+};
+
+// Drag to scroll logic for Preventas carousel
+const carouselRef = ref(null);
+let isDown = false;
+let startX;
+let scrollLeft;
+
+const onMouseDown = (e) => {
+    isDown = true;
+    carouselRef.value.classList.add('active');
+    startX = e.pageX - carouselRef.value.offsetLeft;
+    scrollLeft = carouselRef.value.scrollLeft;
+};
+const onMouseLeave = () => {
+    isDown = false;
+    carouselRef.value.classList.remove('active');
+};
+const onMouseUp = () => {
+    isDown = false;
+    carouselRef.value.classList.remove('active');
+};
+const onMouseMove = (e) => {
+    if (!isDown) return;
+    e.preventDefault();
+    const x = e.pageX - carouselRef.value.offsetLeft;
+    const walk = (x - startX) * 2; // scroll-fast multiplier
+    carouselRef.value.scrollLeft = scrollLeft - walk;
 };
 </script>
 
@@ -254,7 +283,61 @@ const agregarAlCarrito = (libro) => {
                 </aside>
 
                 <!-- Contenido -->
-                <div class="flex-1 min-w-0">
+                <div class="flex-1 min-w-0 overflow-hidden">
+
+                    <!-- Preventas Activas -->
+                    <div v-if="preventas?.length > 0" class="mb-12">
+                        <div class="flex items-center gap-3 mb-6">
+                            <h2 class="text-xl font-black uppercase tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-brand-red to-orange-500">Preventas Activas</h2>
+                            <div class="h-px flex-1 bg-gradient-to-r from-brand-red/30 to-transparent"></div>
+                        </div>
+
+                        <div 
+                            ref="carouselRef"
+                            class="flex gap-5 overflow-x-auto pb-4 snap-x cursor-grab active:cursor-grabbing select-none scrollbar-hide"
+                            @mousedown="onMouseDown"
+                            @mouseleave="onMouseLeave"
+                            @mouseup="onMouseUp"
+                            @mousemove="onMouseMove"
+                            style="scrollbar-width: none; -ms-overflow-style: none;"
+                        >
+                            <component
+                                :is="getStockStatus(libro) === 'sin_stock' ? 'div' : Link"
+                                v-for="libro in preventas"
+                                :key="'prev-'+libro.id"
+                                :href="getStockStatus(libro) === 'sin_stock' ? undefined : route('catalogo.show', libro.id)"
+                                class="group flex-shrink-0 w-40 md:w-48 snap-start"
+                                :class="{ 'cursor-not-allowed': getStockStatus(libro) === 'sin_stock' }"
+                            >
+                                <div class="relative aspect-[2/3] overflow-hidden rounded-xl bg-black border-2 border-brand-red/50 shadow-[0_0_15px_rgba(230,25,25,0.2)] transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-[0_15px_35px_rgba(230,25,25,0.4)] group-hover:border-brand-red">
+                                    <div class="absolute top-2 left-2 z-10 bg-brand-red text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg">Preventa</div>
+                                    <img
+                                        :src="libro.portada_url"
+                                        :alt="libro.titulo"
+                                        class="w-full h-full object-cover transition-all duration-700 pointer-events-none group-hover:scale-110"
+                                        draggable="false"
+                                    >
+                                    <div v-if="getStockStatus(libro) === 'sin_stock'" class="absolute inset-0 bg-black/60 flex items-center justify-center">
+                                        <span class="text-[9px] font-black uppercase tracking-widest text-white/50 bg-black/80 px-2 py-1 rounded">Sin Stock</span>
+                                    </div>
+                                </div>
+                                <div class="mt-3 space-y-1 text-left px-1">
+                                    <h3 class="font-black uppercase tracking-tighter text-sm leading-tight transition-colors line-clamp-2 group-hover:text-brand-red">{{ libro.master?.titulo }} {{ libro.numero_tomo ? '- Tomo ' + libro.numero_tomo : '' }}</h3>
+                                    <div class="flex flex-col gap-1">
+                                        <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 line-clamp-1">{{ libro.master?.autor ? libro.master.autor.apellido + ', ' + libro.master.autor.nombre : 'Autor Desconocido' }}</span>
+                                        <div class="flex items-center justify-between mt-1">
+                                            <span class="text-base font-black text-brand-red italic">{{ getPrecio(libro) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </component>
+                        </div>
+                    </div>
+
+                    <div v-if="preventas?.length > 0" class="flex items-center gap-3 mb-6">
+                        <h2 class="text-xl font-black uppercase tracking-[0.2em] text-white">Stock Disponible</h2>
+                        <div class="h-px flex-1 bg-gradient-to-r from-white/10 to-transparent"></div>
+                    </div>
 
                     <!-- Chips activos -->
                     <div v-if="activeChips.length" class="flex flex-wrap gap-2 mb-6">

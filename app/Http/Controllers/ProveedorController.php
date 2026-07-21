@@ -58,8 +58,6 @@ class ProveedorController extends Controller
 
     public function show(Proveedor $proveedor)
     {
-        $proveedor->load(['series:id,nombre,activo,proveedor_id']);
-
         $pagos = $proveedor->transacciones()
             ->latest('fecha')
             ->get(['id', 'monto', 'metodo_pago', 'descripcion', 'fecha'])
@@ -81,8 +79,10 @@ class ProveedorController extends Controller
             ->map(function ($orden) {
                 return [
                     'id' => 'orden_' . $orden->id,
+                    'real_id' => $orden->id,
+                    'numero_orden' => $orden->numero_orden,
                     'tipo' => 'deuda',
-                    'fecha' => $orden->fecha . ' 00:00:00', // To match datetime format for sorting
+                    'fecha' => $orden->fecha . 'T00:00:00', // Format for JS Date parser
                     'descripcion' => 'Orden de Compra ' . $orden->numero_orden,
                     'metodo_pago' => 'Cuenta Corriente',
                     'monto' => $orden->total,
@@ -110,36 +110,39 @@ class ProveedorController extends Controller
         $request->validate([
             'monto'       => 'required|numeric|min:0.01',
             'metodo_pago' => 'required|in:Efectivo,Transferencia,Tarjeta,Débito',
+            'fecha'       => 'required|date',
+            'comprobante' => 'nullable|string|max:255',
             'descripcion' => 'nullable|string|max:255',
         ]);
 
         DB::transaction(function () use ($request, $proveedor) {
             $proveedor->decrement('deuda_actual', $request->monto);
 
+            $fechaHora = $request->fecha . ' ' . date('H:i:s');
+
             Transaccion::create([
                 'tipo'                 => 'egreso',
                 'monto'                => $request->monto,
                 'metodo_pago'          => $request->metodo_pago,
-                'fecha'                => now(),
+                'fecha'                => $fechaHora,
                 'sucursal_id'          => auth()->user()->empleado?->sucursal_id,
                 'transaccionable_id'   => $proveedor->id,
                 'transaccionable_type' => Proveedor::class,
                 'descripcion'          => $request->descripcion ?: 'Pago a proveedor',
+                'comprobante'          => $request->comprobante,
                 'user_id'              => auth()->id(),
             ]);
         });
 
-        return redirect()->route('proveedores.index')->with('message', 'Pago registrado con éxito');
+        return redirect()->back()->with('message', 'Pago registrado con éxito');
     }
 
     public function destroy(Proveedor $proveedor)
     {
-        $tieneSeries = $proveedor->series()->exists();
-        $tieneLibros = $proveedor->libroMasters()->exists();
-
-        if ($tieneSeries || $tieneLibros) {
-            return redirect()->back()
-                ->with('error', 'No se puede eliminar el proveedor porque tiene obras o series asociadas.');
+        $tieneLibros = \App\Models\LibroMaster::where('proveedor_id', $proveedor->id)->exists();
+        if ($tieneLibros) {
+            return redirect()->route('proveedores.index')
+                ->with('error', 'No se puede eliminar el proveedor porque tiene obras asociadas.');
         }
 
         $proveedor->delete();

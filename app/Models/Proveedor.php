@@ -15,13 +15,8 @@ class Proveedor extends Model
     protected $table = 'proveedores';
 
     protected $fillable = [
-        'nombre_empresa', 'nombre_contacto', 'telefono', 'email', 'direccion', 'activo', 'deuda_actual',
+        'nombre_empresa', 'nombre_contacto', 'telefono', 'email', 'activo', 'deuda_actual',
     ];
-
-    public function series(): HasMany
-    {
-        return $this->hasMany(Serie::class);
-    }
 
     public function libroMasters(): HasMany
     {

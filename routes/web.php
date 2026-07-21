@@ -13,7 +13,6 @@ use App\Http\Controllers\EmpleadoController;
 use App\Http\Controllers\VentaController;
 use App\Http\Controllers\CierreCajaController;
 use App\Http\Controllers\ProveedorController;
-use App\Http\Controllers\SerieController;
 use App\Http\Controllers\CargoController;
 use App\Http\Controllers\RutaRepartoController;
 use App\Http\Controllers\ReporteController;
@@ -163,7 +162,6 @@ Route::middleware('auth')->group(function () {
     Route::middleware('permiso:proveedores.acceder')->group(function () {
         Route::resource('proveedores', ProveedorController::class)->except(['create', 'edit'])->parameters(['proveedores' => 'proveedor']);
         Route::post('proveedores/{proveedor}/pago', [ProveedorController::class, 'registrarPago'])->name('proveedores.pago');
-        Route::resource('series', SerieController::class)->except(['show', 'create', 'edit']);
 
         // Órdenes de Compra
         Route::get('ordenes-compra/search-libros', [OrdenCompraController::class, 'searchLibros'])->name('ordenes-compra.search-libros');

@@ -6,7 +6,6 @@ use App\Models\LibroMaster;
 use App\Models\Libro;
 use App\Models\Categoria;
 use App\Models\Autor;
-use App\Models\Serie;
 use App\Models\Proveedor;
 use App\Models\Idioma;
 use Illuminate\Http\Request;
@@ -22,7 +21,6 @@ class PublicCatalogoController extends Controller
                 'master.categoria',
                 'master.proveedor',
                 'master.idioma',
-                'serie',
                 'precioActual',
                 'stocks.sucursal'
             ])
@@ -54,9 +52,7 @@ class PublicCatalogoController extends Controller
             });
         }
 
-        if ($request->filled('serie')) {
-            $query->where('serie_id', $request->serie);
-        }
+
 
         if ($request->filled('proveedor')) {
             $query->whereHas('master', function ($q) use ($request) {
@@ -72,6 +68,25 @@ class PublicCatalogoController extends Controller
 
         $query->withSum('stocks', 'cantidad_disponible');
 
+        // Check if there are any search filters applied
+        $hasFilters = $request->filled('search') || $request->filled('categoria') || 
+                      $request->filled('autor') || $request->filled('proveedor') || 
+                      $request->filled('idioma');
+
+        $preventas = collect();
+
+        if (!$hasFilters) {
+            // Fetch preventas separately
+            $preventas = clone $query;
+            $preventas = $preventas->where('permite_preventa', true)
+                                   ->orderByRaw('(select coalesce(sum(cantidad_disponible), 0) from stocks where stocks.libro_id = libros.id) > 0 desc')
+                                   ->latest()
+                                   ->get();
+                                   
+            // Exclude preventas from main catalog
+            $query->where('permite_preventa', false);
+        }
+
         $libros = $query->orderByRaw('(select coalesce(sum(cantidad_disponible), 0) from stocks where stocks.libro_id = libros.id) > 0 desc')
                         ->latest()
                         ->paginate(24)
@@ -79,9 +94,10 @@ class PublicCatalogoController extends Controller
 
         return Inertia::render('Catalogo/Index', [
             'libros'      => $libros,
+            'preventas'   => $preventas,
             'categorias'  => Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'autores'     => Autor::where('activo', true)->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
-            'series'      => Serie::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'series'      => [], // Removido por desuso
             'proveedores' => Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
             'idiomas'     => Idioma::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'filters'     => $request->only(['search', 'categoria', 'autor', 'serie', 'proveedor', 'idioma']),
@@ -105,19 +121,18 @@ class PublicCatalogoController extends Controller
         ->where('activo', true)
         ->findOrFail($id);
 
-        // Fetch related books (from the same series, or same category if no series)
+        // Fetch related books (from the same master, or same category if no master)
         $relacionados = collect();
-        if ($libro->serie_id) {
-            $relacionados = Libro::with(['master.autor', 'serie', 'precioActual', 'stocks'])
-                ->where('serie_id', $libro->serie_id)
+        if ($libro->master_id) {
+            $relacionados = Libro::with(['master.autor', 'precioActual', 'stocks'])
+                ->where('master_id', $libro->master_id)
                 ->where('id', '!=', $libro->id)
                 ->where('activo', true)
                 ->whereHas('master', fn($q) => $q->where('activo', true))
-                ->orderBy('numero_tomo')
                 ->take(6)
                 ->get();
         } else {
-            $relacionados = Libro::with(['master.autor', 'serie', 'precioActual', 'stocks'])
+            $relacionados = Libro::with(['master.autor', 'precioActual', 'stocks'])
                 ->whereHas('master', function ($q) use ($libro) {
                     $q->where('categoria_id', $libro->master->categoria_id)
                       ->where('activo', true);

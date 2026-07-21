@@ -1,6 +1,8 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link } from '@inertiajs/vue3';
+import { ref } from 'vue';
+import { Head, Link, useForm } from '@inertiajs/vue3';
+import Swal from 'sweetalert2';
 
 const props = defineProps({
     proveedor: Object,
@@ -14,6 +16,36 @@ const formatCurrency = (v) =>
 
 const formatFecha = (f) =>
     new Date(f).toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+
+const showPagoModal = ref(false);
+const pagoForm = useForm({
+    proveedor_id: props.proveedor.id,
+    monto: '',
+    metodo_pago: 'Transferencia',
+    fecha: new Date().toISOString().split('T')[0],
+    comprobante: '',
+    descripcion: '',
+});
+
+const openPagoModal = () => {
+    pagoForm.reset();
+    pagoForm.proveedor_id = props.proveedor.id;
+    showPagoModal.value = true;
+};
+
+const submitPago = () => {
+    pagoForm.post(route('proveedores.pago', pagoForm.proveedor_id), {
+        onSuccess: () => {
+            showPagoModal.value = false;
+            Swal.fire({
+                title: '¡Pago registrado!',
+                text: 'El pago al proveedor fue registrado correctamente',
+                icon: 'success',
+                background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919',
+            });
+        },
+    });
+};
 </script>
 
 <template>
@@ -60,54 +92,23 @@ const formatFecha = (f) =>
                                     <span v-if="proveedor.direccion">{{ proveedor.direccion }}</span>
                                 </div>
                             </div>
-                            <div class="text-right">
-                                <p class="text-[10px] uppercase tracking-widest text-white/30 font-black mb-1">Deuda Actual</p>
-                                <p class="text-3xl font-black italic" :class="proveedor.deuda_actual > 0 ? 'text-brand-red' : 'text-white/30'">
-                                    {{ formatCurrency(proveedor.deuda_actual ?? 0) }}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Stats -->
-                    <div class="grid grid-cols-4 divide-x divide-white/5">
-                        <div class="p-6 text-center">
-                            <p class="text-3xl font-black text-white">{{ formatCurrency(stats.total_deuda_historica ?? 0) }}</p>
-                            <p class="text-[9px] uppercase tracking-widest text-white/30 font-black mt-1">Deuda Histórica (Recibido)</p>
-                        </div>
-                        <div class="p-6 text-center">
-                            <p class="text-3xl font-black text-white">{{ stats.cantidad_pagos }}</p>
-                            <p class="text-[9px] uppercase tracking-widest text-white/30 font-black mt-1">Pagos Realizados</p>
-                        </div>
-                        <div class="p-6 text-center">
-                            <p class="text-3xl font-black text-green-400">{{ formatCurrency(stats.total_pagado) }}</p>
-                            <p class="text-[9px] uppercase tracking-widest text-white/30 font-black mt-1">Total Pagado</p>
-                        </div>
-                        <div class="p-6 text-center">
-                            <p class="text-3xl font-black text-white">{{ proveedor.series?.length ?? 0 }}</p>
-                            <p class="text-[9px] uppercase tracking-widest text-white/30 font-black mt-1">Series Asociadas</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Series -->
-                <div v-if="proveedor.series?.length">
-                    <h3 class="text-xs font-black uppercase tracking-widest text-white/30 mb-3">Series del proveedor</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <div
-                            v-for="serie in proveedor.series"
-                            :key="serie.id"
-                            class="card p-4 border flex flex-col justify-between"
-                            :class="serie.activo ? 'bg-white/[0.02] border-white/5' : 'bg-black border-red-500/20 opacity-70'"
-                        >
-                            <h4 class="text-sm font-black uppercase tracking-tighter" :class="serie.activo ? 'text-white' : 'text-white/40 line-through'">{{ serie.nombre }}</h4>
-                            <div v-if="metricasSuscripciones[serie.id] && serie.activo" class="mt-4 pt-3 border-t border-white/5">
-                                <p class="text-[9px] font-black uppercase tracking-widest text-brand-red">
-                                    Suscriptores Activos: 
-                                    <span class="text-white/60 ml-1">
-                                        {{ metricasSuscripciones[serie.id].map(m => `${m.total} (${m.sucursal})`).join(' | ') }}
-                                    </span>
-                                </p>
+                            <div class="flex flex-col items-end gap-3">
+                                <div class="text-right">
+                                    <p class="text-[10px] uppercase tracking-widest text-white/30 font-black mb-1">DEUDA TOTAL</p>
+                                    <p class="text-5xl font-black italic leading-none" :class="proveedor.deuda_actual > 0 ? 'text-brand-red' : 'text-white/30'">
+                                        {{ formatCurrency(proveedor.deuda_actual ?? 0) }}
+                                    </p>
+                                    
+                                    <!-- Secondary Stats -->
+                                    <div class="flex items-center gap-4 mt-3 justify-end text-[9px] font-black tracking-widest text-white/40 uppercase">
+                                        <div title="Total Comprado (Histórico)">Comprado: <span class="text-white/60 ml-1">{{ formatCurrency(stats.total_deuda_historica ?? 0) }}</span></div>
+                                        <div title="Total Pagado Registrado">Pagado: <span class="text-white/60 ml-1">{{ formatCurrency(stats.total_pagado) }}</span></div>
+                                    </div>
+                                </div>
+                                <button v-if="proveedor.deuda_actual > 0" @click="openPagoModal" class="px-6 py-2 bg-brand-red text-white hover:bg-brand-red/80 font-black uppercase text-[10px] tracking-widest rounded transition-all mt-1 flex items-center gap-2 shadow-lg shadow-brand-red/20">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 00-2 2v4h16V6a2 2 0 00-2-2H4zm2 3a1 1 0 011-1h.01a1 1 0 110 2H7a1 1 0 01-1-1zm8 0a1 1 0 011-1h.01a1 1 0 110 2H15a1 1 0 01-1-1zm-4 0a1 1 0 011-1h.01a1 1 0 110 2H11a1 1 0 01-1-1zM2 12v2a2 2 0 002 2h12a2 2 0 002-2v-2H2z" clip-rule="evenodd" /></svg>
+                                    Registrar Pago
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -115,7 +116,7 @@ const formatFecha = (f) =>
 
                 <!-- Historial de Cuenta Corriente -->
                 <div>
-                    <h3 class="text-xs font-black uppercase tracking-widest text-white/30 mb-4">Historial Incompleto de Cuenta Corriente</h3>
+                    <h3 class="text-xs font-black uppercase tracking-widest text-white/30 mb-4">ÚLTIMOS MOVIMIENTOS</h3>
 
                     <div v-if="historial.length === 0" class="card py-16 text-center text-white/20 italic">
                         No hay movimientos registrados para este proveedor.
@@ -139,8 +140,12 @@ const formatFecha = (f) =>
                                             {{ item.metodo_pago }}
                                         </span>
                                     </td>
-                                    <td class="p-4 text-sm text-white/50 italic font-black">
-                                        {{ item.tipo === 'pago' ? 'Pago: ' : 'Deuda: ' }} <span class="font-normal">{{ item.descripcion }}</span>
+                                    <td class="p-4 text-sm italic font-black" :class="item.tipo === 'pago' ? 'text-white/50' : ''">
+                                        <span v-if="item.tipo === 'pago'">Pago: <span class="font-normal">{{ item.descripcion }}</span></span>
+                                        <Link v-else :href="route('ordenes-compra.index', { search: item.numero_orden })" class="text-white/80 hover:text-white transition-colors flex items-center gap-1.5 group">
+                                            Deuda: <span class="font-normal">{{ item.descripcion }}</span>
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red opacity-0 group-hover:opacity-100 transition-opacity" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                                        </Link>
                                     </td>
                                     <td class="p-4 text-right font-black" :class="item.tipo === 'pago' ? 'text-green-400' : 'text-brand-red'">
                                         {{ item.tipo === 'pago' ? '-' : '+' }} {{ formatCurrency(item.monto) }}
@@ -154,4 +159,94 @@ const formatFecha = (f) =>
             </div>
         </div>
     </AuthenticatedLayout>
+
+    <!-- Modal Pago -->
+    <template v-if="showPagoModal">
+        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showPagoModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+                <div class="relative w-full max-w-md card p-0 border border-brand-red/30 shadow-[0_0_60px_rgba(230,25,25,0.08)] overflow-hidden my-8">
+                    <div class="bg-gradient-to-r from-brand-red to-black p-6 flex justify-between items-center">
+                        <h3 class="text-xl font-black uppercase tracking-tighter italic text-white">
+                            Pago a Proveedor
+                        </h3>
+                        <button @click="showPagoModal = false" class="text-white/80 hover:text-white transition-colors">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="submitPago" class="p-8 space-y-6">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Monto ($)</label>
+                                <input
+                                    v-model="pagoForm.monto"
+                                    type="number"
+                                    step="0.01"
+                                    min="0.01"
+                                    placeholder="0.00"
+                                    class="input-field w-full text-right font-mono text-xl"
+                                    :class="{ 'border-brand-red': pagoForm.errors.monto }"
+                                >
+                                <p v-if="pagoForm.errors.monto" class="text-brand-red text-xs mt-1">{{ pagoForm.errors.monto }}</p>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Fecha de Pago</label>
+                                <input
+                                    v-model="pagoForm.fecha"
+                                    type="date"
+                                    class="input-field w-full"
+                                    :class="{ 'border-brand-red': pagoForm.errors.fecha }"
+                                >
+                                <p v-if="pagoForm.errors.fecha" class="text-brand-red text-xs mt-1">{{ pagoForm.errors.fecha }}</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Método de Pago</label>
+                                <select v-model="pagoForm.metodo_pago" class="input-field w-full bg-brand-black font-black uppercase text-xs">
+                                    <option value="Transferencia">Transferencia</option>
+                                    <option value="Efectivo">Efectivo</option>
+                                    <option value="Tarjeta">Tarjeta de Crédito</option>
+                                    <option value="Débito">Débito</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Comprobante (Opcional)</label>
+                                <input
+                                    v-model="pagoForm.comprobante"
+                                    type="text"
+                                    placeholder="Nro. operación..."
+                                    class="input-field w-full"
+                                    maxlength="255"
+                                >
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Descripción (opcional)</label>
+                            <input
+                                v-model="pagoForm.descripcion"
+                                type="text"
+                                placeholder="Pago a proveedor..."
+                                class="input-field w-full"
+                                maxlength="255"
+                            >
+                        </div>
+
+                        <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
+                            <button type="button" @click="showPagoModal = false" class="px-6 py-2 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-widest">
+                                Cancelar
+                            </button>
+                            <button type="submit" :disabled="pagoForm.processing" class="btn-primary px-10">
+                                {{ pagoForm.processing ? 'Procesando...' : 'Confirmar Pago' }}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </template>
 </template>

@@ -114,7 +114,7 @@ class PrecioController extends Controller
         $opcionesMasivas = [
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
             'series' => \App\Models\LibroMaster::orderBy('titulo')->pluck('titulo'),
-            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->pluck('nombre_empresa'),
+            'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->pluck('nombre_empresa'),
             'libros' => Libro::with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
                 return [
                     'id' => $l->id,

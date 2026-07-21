@@ -80,31 +80,27 @@ async function editOrden(orden) {
     form.sucursal_id   = orden.sucursal_id;
     form.observaciones = orden.observaciones || '';
 
-    // Obtener los ítems de la orden
-    try {
-        const res = await fetch(route('ordenes-compra.show', orden.id), {
-            headers: { 'Accept': 'application/json', 'X-Inertia': 'true', 'X-Inertia-Version': '' }
-        });
-        const json = await res.json();
-        const fullOrden = json.props.orden;
-        
-        form.items = fullOrden.items.map(item => ({
+    // Configurar form
+    form.proveedor_id  = orden.proveedor_id;
+    form.sucursal_id   = orden.sucursal_id;
+    form.observaciones = orden.observaciones || '';
+
+    // Usar los ítems pre-cargados
+    if (orden.items) {
+        form.items = orden.items.map(item => ({
             libro_id:        item.libro_id,
             cantidad:        item.cantidad,
             precio_unitario: parseFloat(item.precio_unitario),
         }));
         
-        itemDdOpen.value   = fullOrden.items.map(() => false);
-        itemSearches.value = fullOrden.items.map(() => '');
-        itemResults.value  = fullOrden.items.map(() => []);
-        itemLoadings.value = fullOrden.items.map(() => false);
-        itemLabels.value   = fullOrden.items.map(item => {
-            const tomo = item.libro.numero_tomo ? ' - Tomo ' + item.libro.numero_tomo : '';
-            return item.libro.master.titulo + tomo;
+        itemDdOpen.value   = orden.items.map(() => false);
+        itemSearches.value = orden.items.map(() => '');
+        itemResults.value  = orden.items.map(() => []);
+        itemLoadings.value = orden.items.map(() => false);
+        itemLabels.value   = orden.items.map(item => {
+            const tomo = item.libro?.numero_tomo ? ' - Tomo ' + item.libro.numero_tomo : '';
+            return (item.libro?.master?.titulo || '') + tomo;
         });
-
-    } catch (e) {
-        console.error(e);
     }
     
     showModal.value = true;
@@ -491,9 +487,15 @@ const decodeLabel = (l) => {
                                         <template v-else>
                                             <button v-for="l in itemResults[i]" :key="l.id" type="button"
                                                 @click="selectItemLibro(i, l)"
-                                                class="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors"
+                                                class="w-full text-left px-3 py-2 text-sm text-white/70 hover:bg-white/10 transition-colors flex justify-between items-center"
                                                 :class="{ 'text-white font-bold': item.libro_id == l.id }">
-                                                {{ l.titulo }}
+                                                <span class="truncate pr-2">{{ l.titulo }}</span>
+                                                <div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shrink-0">
+                                                    <span class="text-white/30">Stock: {{ l.stock }}</span>
+                                                    <span v-if="l.reservas > 0" class="bg-brand-red text-white px-1.5 py-0.5 rounded shadow-sm shadow-brand-red/20">
+                                                        Reservas: {{ l.reservas }}
+                                                    </span>
+                                                </div>
                                             </button>
                                         </template>
                                     </div>

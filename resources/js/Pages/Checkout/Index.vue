@@ -210,7 +210,7 @@ const confirmar = () => {
                             <h2 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red underline decoration-2 underline-offset-4">
                                 Datos de Contacto
                             </h2>
-                            <Link :href="route('login')" class="text-xs text-white/50 hover:text-white transition-colors underline underline-offset-4">
+                            <Link :href="route('login', { redirect: '/checkout' })" class="text-xs text-white/50 hover:text-white transition-colors underline underline-offset-4">
                                 ¿Ya tenés cuenta? Ingresá
                             </Link>
                         </div>

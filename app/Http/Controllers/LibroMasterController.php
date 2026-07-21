@@ -85,7 +85,7 @@ class LibroMasterController extends Controller
             'librosMaster' => $librosMaster,
             'autores' => \App\Models\Autor::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'categorias' => \App\Models\Categoria::orderBy('nombre')->get(['id', 'nombre']),
-            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
+            'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
             'idiomas' => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
             'filters' => $request->only(['search'])
         ]);

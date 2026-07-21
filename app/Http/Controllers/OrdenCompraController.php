@@ -10,8 +10,10 @@ class OrdenCompraController extends Controller
 {
     public function index(Request $request)
     {
-        $query = OrdenCompra::with(['proveedor', 'sucursal', 'user:id,name,apellido'])
-            ->latest();
+        $query = OrdenCompra::with([
+            'proveedor', 'sucursal', 'user:id,name,apellido',
+            'items.libro.master:id,titulo', 'items.libro:id,master_id,isbn,numero_tomo'
+        ])->latest();
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -36,7 +38,7 @@ class OrdenCompraController extends Controller
 
         return inertia('OrdenesCompra/Index', [
             'ordenes'     => $ordenes,
-            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->get(['id', 'nombre_empresa as nombre']),
+            'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa as nombre']),
             'sucursales'  => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
             'stats'       => $stats,
             'filters'     => $request->only(['search', 'estado']),
@@ -177,7 +179,7 @@ class OrdenCompraController extends Controller
             }
 
             $movimiento = \App\Models\MovimientoStock::create([
-                'tipo' => 'ingreso',
+                'tipo' => 'ingreso_proveedor',
                 'sucursal_destino_id' => $fresh->sucursal_id,
                 'user_id' => auth()->id(),
                 'motivo' => "Recepción de Orden de Compra {$fresh->numero_orden}",
@@ -190,10 +192,16 @@ class OrdenCompraController extends Controller
                 )->increment('cantidad_disponible', $item->cantidad);
 
                 \App\Models\MovimientoStockDetalle::create([
-                    'movimiento_stock_id' => $movimiento->id,
+                    'movimiento_id' => $movimiento->id,
                     'libro_id' => $item->libro_id,
                     'cantidad' => $item->cantidad,
+                    'costo_unitario' => $item->precio_unitario,
                 ]);
+
+                $libro = \App\Models\Libro::find($item->libro_id);
+                if ($libro) {
+                    $libro->recalcularCostoPPP($item->precio_unitario, $item->cantidad);
+                }
             }
 
             $proveedor = \App\Models\Proveedor::find($fresh->proveedor_id);
@@ -216,7 +224,13 @@ class OrdenCompraController extends Controller
         $q = trim($request->get('q', ''));
         $proveedor_id = $request->get('proveedor_id');
 
-        $query = \App\Models\Libro::with('master:id,titulo,proveedor_id');
+        $query = \App\Models\Libro::with('master:id,titulo,proveedor_id')
+            ->withSum('stocks', 'cantidad_disponible')
+            ->withSum(['ventaDetalles as reservas_pendientes' => function($q) {
+                $q->whereHas('venta', function($qVenta) {
+                    $qVenta->whereIn('estado', ['pendiente', 'pagado', 'pendiente_pago']);
+                });
+            }], 'cantidad');
 
         if ($proveedor_id) {
             $query->whereHas('master', fn($query) => $query->where('proveedor_id', $proveedor_id));
@@ -233,8 +247,10 @@ class OrdenCompraController extends Controller
             ->limit(50)
             ->get()
             ->map(fn($l) => [
-                'id'    => $l->id,
-                'titulo'=> $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
+                'id'       => $l->id,
+                'titulo'   => $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
+                'stock'    => $l->stocks_sum_cantidad_disponible ?? 0,
+                'reservas' => $l->reservas_pendientes ?? 0,
             ]);
 
         return response()->json($libros);
