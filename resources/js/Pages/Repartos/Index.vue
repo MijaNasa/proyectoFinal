@@ -1,7 +1,7 @@
 <script setup>
-import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import { ref, computed, watch } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -34,8 +34,19 @@ const form = useForm({
 });
 
 const submitSearch = () => {
-    router.get(route('rutas-reparto.index'), { search: search.value, fecha: fecha.value }, { preserveState: true });
+    router.get(route('rutas-reparto.index'), { search: search.value, fecha: fecha.value }, { 
+        preserveState: true,
+        replace: true
+    });
 };
+
+let searchTimeout = null;
+watch([search, fecha], () => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        submitSearch();
+    }, 300);
+});
 
 const submitCrear = () => {
     form.post(route('rutas-reparto.store'), {
@@ -99,44 +110,24 @@ const contarEstados = (paradas) =>
 
         <div class="px-8 py-8 space-y-8">
 
-            <!-- Stats -->
-            <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Total Rutas</p>
-                    <p class="text-3xl font-black text-white">{{ stats.total }}</p>
-                </div>
-                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Activas</p>
-                    <p class="text-3xl font-black text-green-400">{{ stats.activas }}</p>
-                </div>
-                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Paradas Hoy</p>
-                    <p class="text-3xl font-black text-blue-400">{{ stats.paradas_hoy }}</p>
-                </div>
-                <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                    <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Entregadas Hoy</p>
-                    <p class="text-3xl font-black text-brand-red">{{ stats.entregadas_hoy }}</p>
-                </div>
-            </div>
+
 
             <!-- Filtros -->
             <div class="flex flex-col sm:flex-row gap-3">
-                <input
-                    v-model="search"
-                    @keyup.enter="submitSearch"
-                    type="text"
-                    placeholder="Buscar por nombre..."
-                    class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
-                />
+                <div class="relative flex-1">
+                    <input
+                        v-model="search"
+                        type="text"
+                        placeholder="Buscar por nombre..."
+                        class="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
+                    />
+                    <svg class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </div>
                 <input
                     v-model="fecha"
-                    @change="submitSearch"
                     type="date"
                     class="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50"
                 />
-                <button @click="submitSearch" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest">
-                    Filtrar
-                </button>
             </div>
 
             <!-- Tabla -->

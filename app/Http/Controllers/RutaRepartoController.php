@@ -26,20 +26,11 @@ class RutaRepartoController extends Controller
 
         $rutas = $query->latest('fecha')->paginate(10)->withQueryString();
 
-        $stats = [
-            'total'          => RutaReparto::count(),
-            'activas'        => RutaReparto::where('activa', true)->count(),
-            'paradas_hoy'    => ParadaReparto::whereHas('ruta', fn($q) => $q->where('fecha', today()))->count(),
-            'entregadas_hoy' => ParadaReparto::where('estado', 'entregada')
-                                    ->whereHas('ruta', fn($q) => $q->where('fecha', today()))->count(),
-        ];
-
         return inertia('Repartos/Index', [
             'rutas'        => $rutas,
             'repartidores' => Empleado::with('user:id,name,apellido')->whereHas('cargos', function($q) {
                 $q->where('nombre', 'REPARTIDOR');
             })->get(['id', 'user_id']),
-            'stats'        => $stats,
             'filters'      => $request->only(['search', 'fecha']),
         ]);
     }
