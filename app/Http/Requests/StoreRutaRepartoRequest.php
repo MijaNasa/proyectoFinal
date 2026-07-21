@@ -14,9 +14,14 @@ class StoreRutaRepartoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre'        => 'required|string|max:255',
-            'fecha'         => 'required|date',
             'repartidor_id' => 'required|exists:empleados,id',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'repartidor_id.required' => 'Debes seleccionar un repartidor.',
         ];
     }
 }

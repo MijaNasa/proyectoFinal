@@ -12,12 +12,60 @@ const props = defineProps({
     ventas_disponibles: Array,
 });
 
+const localParadas = ref([]);
+watch(() => props.ruta.paradas, (newVal) => {
+    localParadas.value = [...(newVal || [])];
+}, { immediate: true, deep: true });
+
+const draggedIndex = ref(null);
+
+const onDragStart = (index, event) => {
+    draggedIndex.value = index;
+    if (event.dataTransfer) {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', index);
+    }
+};
+
+const onDragEnter = (event) => {
+    event.preventDefault();
+};
+
+const onDragOver = (event) => {
+    event.preventDefault();
+};
+
+const onDrop = (index) => {
+    if (draggedIndex.value === null || draggedIndex.value === index) return;
+    
+    const draggedItem = localParadas.value[draggedIndex.value];
+    localParadas.value.splice(draggedIndex.value, 1);
+    localParadas.value.splice(index, 0, draggedItem);
+    
+    // Update local order
+    localParadas.value.forEach((p, i) => { p.orden = i + 1; });
+    
+    // Send to backend
+    guardarNuevoOrden();
+    
+    draggedIndex.value = null;
+};
+
+const guardarNuevoOrden = () => {
+    const orden = localParadas.value.map(p => p.id);
+    router.post(route('rutas-reparto.reordenar', props.ruta.id), { orden }, {
+        preserveScroll: true,
+        preserveState: true,
+        onSuccess: () => {
+            updateMap();
+        }
+    });
+};
+
 // ──────────────────────────────────────────
 // Editar cabecera de ruta
 // ──────────────────────────────────────────
 const editForm = useForm({
-    nombre:        props.ruta.nombre,
-    fecha:         props.ruta.fecha,
     repartidor_id: props.ruta.repartidor_id ?? '',
 });
 
@@ -26,6 +74,14 @@ const submitEdit = () => editForm.put(route('rutas-reparto.update', props.ruta.i
 const iniciarRuta = () => {
     if (confirm("¿Estás seguro de iniciar la ruta? Esto notificará a los clientes que sus pedidos están en camino.")) {
         router.post(route('rutas-reparto.iniciar', props.ruta.id), {}, {
+            preserveScroll: true
+        });
+    }
+};
+
+const finalizarRuta = () => {
+    if (confirm("¿Estás seguro de finalizar la ruta manualmente? Las ventas no entregadas volverán a estar disponibles.")) {
+        router.post(route('rutas-reparto.finalizar', props.ruta.id), {}, {
             preserveScroll: true
         });
     }
@@ -123,7 +179,7 @@ const estadoConfig = {
 };
 
 const counts = computed(() => {
-    const arr = props.ruta.paradas || [];
+    const arr = localParadas.value || [];
     return {
         total: arr.length,
         entregadas: arr.filter(p => p.estado === 'entregada').length,
@@ -175,11 +231,40 @@ const updateMap = () => {
     const originMarker = L.marker(originCoords, { icon: originMarkerIcon }).addTo(map);
     markers.push(originMarker);
 
-    const validParadas = props.ruta.paradas?.filter(p => p.latitud && p.longitud) || [];
+    const validParadas = localParadas.value?.filter(p => p.latitud && p.longitud) || [];
     if (validParadas.length === 0) return;
 
-    // Crear lista de puntos [Origen, ...Paradas, Origen]
-    const latlngs = [originCoords, ...validParadas.map(p => [p.latitud, p.longitud]), originCoords];
+    // Crear lista de puntos
+    let latlngs = [];
+    const todasFinalizadas = validParadas.length > 0 && validParadas.every(p => ['entregada', 'fallida'].includes(p.estado));
+
+    if (props.ruta.estado === 'finalizada') {
+        latlngs = []; // No mostrar caminos si ya está finalizada
+    } else if (props.ruta.activa || todasFinalizadas) {
+        // Encontrar el objetivo actual (el primero que no está terminado)
+        const targetIndex = validParadas.findIndex(p => ['en camino', 'pendiente'].includes(p.estado));
+        
+        let startCoord = originCoords;
+        let endCoord = originCoords;
+
+        if (targetIndex !== -1) {
+            endCoord = [validParadas[targetIndex].latitud, validParadas[targetIndex].longitud];
+            if (targetIndex > 0) {
+                startCoord = [validParadas[targetIndex - 1].latitud, validParadas[targetIndex - 1].longitud];
+            }
+        } else {
+            // Todos terminados, volvemos a casa
+            endCoord = originCoords;
+            if (validParadas.length > 0) {
+                startCoord = [validParadas[validParadas.length - 1].latitud, validParadas[validParadas.length - 1].longitud];
+            }
+        }
+        
+        latlngs = [startCoord, endCoord];
+    } else {
+        // Si no está iniciada y no está terminada, mostramos todo el recorrido
+        latlngs = [originCoords, ...validParadas.map(p => [p.latitud, p.longitud]), originCoords];
+    }
 
     validParadas.forEach((p) => {
         const color = estadoConfig[p.estado]?.hex || '#facc15';
@@ -239,7 +324,7 @@ onMounted(() => {
     nextTick(() => initMap());
 });
 
-watch(() => props.ruta.paradas, () => {
+watch(localParadas, () => {
     nextTick(() => updateMap());
 }, { deep: true });
 
@@ -272,34 +357,9 @@ watch(() => props.ruta.paradas, () => {
                 </div>
             </div>
 
-            <!-- 2. RESUMEN Y PROGRESO -->
-            <div class="bg-[#111] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col xl:flex-row gap-8">
-                <!-- Resumen (Izquierda) -->
-                <div class="flex-1 xl:max-w-md">
-                    <h4 class="text-[9px] font-black uppercase tracking-widest text-white/30 mb-4">Resumen de Ruta</h4>
-                    <div class="grid grid-cols-4 gap-2">
-                        <div>
-                            <div class="w-full h-1 bg-green-400 rounded-full mb-2"></div>
-                            <span class="text-[10px] font-black text-green-400 uppercase block">{{ counts.entregadas }} Entregadas</span>
-                        </div>
-                        <div>
-                            <div class="w-full h-1 bg-yellow-400 rounded-full mb-2"></div>
-                            <span class="text-[10px] font-black text-yellow-400 uppercase block">{{ counts.pendientes }} Pendientes</span>
-                        </div>
-                        <div>
-                            <div class="w-full h-1 bg-blue-400 rounded-full mb-2"></div>
-                            <span class="text-[10px] font-black text-blue-400 uppercase block">{{ counts.en_camino }} En Camino</span>
-                        </div>
-                        <div>
-                            <div class="w-full h-1 bg-red-400 rounded-full mb-2"></div>
-                            <span class="text-[10px] font-black text-red-400 uppercase block">{{ counts.fallidas }} Fallidas</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="hidden xl:block w-px bg-white/5 mx-2"></div>
-
-                <!-- Progreso Visual (Derecha) -->
+            <!-- 2. PROGRESO -->
+            <div class="bg-[#111] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col gap-8">
+                <!-- Progreso Visual -->
                 <div class="flex-1 flex flex-col justify-center">
                     <div class="flex justify-between items-center mb-4">
                         <h4 class="text-[9px] font-black uppercase tracking-widest text-white/30">Progreso</h4>
@@ -391,7 +451,7 @@ watch(() => props.ruta.paradas, () => {
                         <!-- Timeline Line -->
                         <div class="absolute left-[19px] top-4 bottom-4 w-px bg-white/10 z-0"></div>
 
-                        <div v-if="!ruta.paradas?.length" class="text-center text-white/30 text-xs mt-10">
+                        <div v-if="!localParadas?.length" class="text-center text-white/30 text-xs mt-10">
                             Sin paradas asignadas.
                         </div>
 
@@ -407,8 +467,14 @@ watch(() => props.ruta.paradas, () => {
                         </div>
 
                         <!-- Card Parada -->
-                        <div v-for="parada in ruta.paradas" :key="parada.id" class="relative z-10 flex gap-4"
-                             :class="{ 'opacity-50 grayscale transition-all duration-500': ['entregada', 'fallida'].includes(parada.estado) }">
+                        <div v-for="(parada, index) in localParadas" :key="parada.id" 
+                             class="relative z-10 flex gap-4 cursor-grab active:cursor-grabbing"
+                             :class="{ 'opacity-50 grayscale transition-all duration-500': ['entregada', 'fallida'].includes(parada.estado), 'opacity-25': draggedIndex === index }"
+                             draggable="true"
+                             @dragstart="onDragStart(index, $event)"
+                             @dragenter="onDragEnter($event)"
+                             @dragover="onDragOver($event)"
+                             @drop="onDrop(index)">
                             <!-- Circular Badge -->
                             <div class="w-10 h-10 rounded-full flex items-center justify-center border-4 border-[#111] text-xs font-black shrink-0 mt-1"
                                  :class="estadoConfig[parada.estado]?.color.split(' ')[1] + ' text-white'">
@@ -437,7 +503,7 @@ watch(() => props.ruta.paradas, () => {
                                 </div>
 
                                 <div class="flex gap-2">
-                                    <button @click="abrirEstadoModal(parada)" class="flex-1 py-1.5 rounded-md bg-white/5 border border-white/10 hover:bg-brand-red hover:border-brand-red hover:text-white transition-all text-[9px] font-black uppercase tracking-widest text-white/70">
+                                    <button v-if="ruta.estado !== 'finalizada'" @click="abrirEstadoModal(parada)" class="flex-1 py-1.5 rounded-md bg-white/5 border border-white/10 hover:bg-brand-red hover:border-brand-red hover:text-white transition-all text-[9px] font-black uppercase tracking-widest text-white/70">
                                         Cambiar Estado
                                     </button>
                                 </div>
@@ -462,7 +528,7 @@ watch(() => props.ruta.paradas, () => {
                     
                     <h4 class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-4">Datos y Acciones</h4>
 
-                    <div class="grid grid-cols-2 gap-2 mb-6">
+                    <div v-if="ruta.estado !== 'finalizada'" class="grid grid-cols-2 gap-2 mb-6">
                         <button @click="showAsignarModal = true" class="py-2.5 rounded-lg border border-white/10 hover:bg-white/5 text-[9px] font-black uppercase tracking-widest text-white/70 transition-colors">
                             Agregar Entrega
                         </button>
@@ -471,28 +537,20 @@ watch(() => props.ruta.paradas, () => {
                         </button>
                     </div>
 
-                    <div class="w-full h-px bg-white/5 mb-6"></div>
+                    <div v-if="ruta.estado !== 'finalizada'" class="w-full h-px bg-white/5 mb-6"></div>
 
                     <form @submit.prevent="submitEdit" class="space-y-4">
                         <div>
-                            <label class="block text-[9px] font-black uppercase tracking-widest text-white/30 mb-1.5">Nombre</label>
-                            <input v-model="editForm.nombre" type="text" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-brand-red/50 focus:outline-none" />
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-black uppercase tracking-widest text-white/30 mb-1.5">Fecha</label>
-                            <input v-model="editForm.fecha" type="date" class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-brand-red/50 focus:outline-none" />
-                        </div>
-                        <div>
-                            <label class="block text-[9px] font-black uppercase tracking-widest text-white/30 mb-1.5">Repartidor</label>
-                            <select v-model="editForm.repartidor_id" class="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-brand-red/50 focus:outline-none appearance-none">
+                            <label class="block text-[9px] font-black uppercase tracking-widest text-white/30 mb-1.5">Repartidor Asignado</label>
+                            <select v-model="editForm.repartidor_id" :disabled="ruta.estado === 'finalizada' || ruta.activa" class="w-full bg-[#1a1a1a] border border-white/10 rounded-lg px-3 py-2 text-xs text-white focus:border-brand-red/50 focus:outline-none appearance-none disabled:opacity-50">
                                 <option value="">Sin asignar</option>
                                 <option v-for="r in repartidores" :key="r.id" :value="r.id">
                                     {{ r.user?.name }} {{ r.user?.apellido }}
                                 </option>
                             </select>
                         </div>
-                        <div class="pt-4">
-                            <button type="submit" :disabled="editForm.processing" class="w-full btn-primary py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_rgba(230,25,25,0.2)]">
+                        <div class="pt-4" v-if="ruta.estado !== 'finalizada'">
+                            <button type="submit" :disabled="editForm.processing || ruta.activa" class="w-full btn-primary py-3 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-[0_0_20px_rgba(230,25,25,0.2)]">
                                 {{ editForm.processing ? 'Guardando...' : 'Guardar Cambios' }}
                             </button>
                         </div>
@@ -501,10 +559,20 @@ watch(() => props.ruta.paradas, () => {
                     <!-- Iniciar Ruta -->
                     <div class="mt-6 bg-white/5 border border-white/10 rounded-xl p-5 shadow-inner">
                         <h4 class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-3 text-center">Control de Ruta</h4>
-                        <div v-if="ruta.activa" class="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
-                            <span class="text-green-400 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">
-                                <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-                                Ruta En Curso
+                        <div v-if="ruta.activa" class="space-y-3">
+                            <div class="bg-green-500/10 border border-green-500/20 rounded-xl p-4 text-center">
+                                <span class="text-green-400 text-xs font-black uppercase tracking-widest flex items-center justify-center gap-2">
+                                    <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+                                    Ruta En Curso
+                                </span>
+                            </div>
+                            <button type="button" @click="finalizarRuta" class="w-full py-3 bg-[#1a1a1a] border border-white/10 hover:border-brand-red/50 hover:bg-brand-red/10 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex justify-center items-center gap-2">
+                                🛑 Finalizar Ruta
+                            </button>
+                        </div>
+                        <div v-else-if="ruta.estado === 'finalizada'" class="bg-white/5 border border-white/10 rounded-xl p-4 text-center">
+                            <span class="text-white/40 text-xs font-black uppercase tracking-widest">
+                                Ruta Finalizada
                             </span>
                         </div>
                         <div v-else>
@@ -532,7 +600,7 @@ watch(() => props.ruta.paradas, () => {
 
                     <form @submit.prevent="submitEstado" class="space-y-4">
                         <div class="grid grid-cols-2 gap-2">
-                            <button v-for="opt in ['pendiente', 'en camino', 'entregada', 'fallida']" :key="opt"
+                            <button v-for="opt in ['en camino', 'entregada', 'fallida']" :key="opt"
                                     type="button" @click="estadoForm.estado = opt"
                                     class="py-2.5 rounded-lg border text-[9px] font-black uppercase tracking-wider transition-all"
                                     :class="estadoForm.estado === opt ? estadoConfig[opt]?.color + ' border-current scale-95' : 'border-white/10 text-white/30 hover:border-white/30'">

@@ -15,7 +15,7 @@ class RutaReparto extends Model
 
     protected $table = 'rutas_reparto';
 
-    protected $fillable = ['nombre', 'fecha', 'repartidor_id', 'activa'];
+    protected $fillable = ['nombre', 'fecha', 'repartidor_id', 'activa', 'estado'];
 
     protected $casts = ['activa' => 'boolean'];
 

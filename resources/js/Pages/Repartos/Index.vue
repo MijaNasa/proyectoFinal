@@ -30,8 +30,6 @@ const selectRepartidor = (id) => {
 };
 
 const form = useForm({
-    nombre:        '',
-    fecha:         new Date().toISOString().slice(0, 10),
     repartidor_id: '',
 });
 
@@ -196,11 +194,13 @@ const contarEstados = (paradas) =>
                             <td class="px-6 py-4 text-center">
                                 <span
                                     class="text-[10px] font-black px-3 py-1 rounded-full border"
-                                    :class="ruta.activa
-                                        ? 'text-green-400 bg-green-400/10 border-green-400/30'
-                                        : 'text-white/20 bg-white/5 border-white/10'"
+                                    :class="{
+                                        'text-yellow-400 bg-yellow-400/10 border-yellow-400/30': ruta.estado === 'pendiente',
+                                        'text-green-400 bg-green-400/10 border-green-400/30': ruta.estado === 'activa',
+                                        'text-white/20 bg-white/5 border-white/10': ruta.estado === 'finalizada'
+                                    }"
                                 >
-                                    {{ ruta.activa ? 'Activa' : 'Cerrada' }}
+                                    {{ ruta.estado === 'pendiente' ? 'Pendiente' : (ruta.estado === 'activa' ? 'En Curso' : 'Finalizada') }}
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-right">
@@ -246,29 +246,6 @@ const contarEstados = (paradas) =>
                     </h3>
 
                     <form @submit.prevent="submitCrear" class="space-y-4">
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Nombre</label>
-                            <input
-                                v-model="form.nombre"
-                                type="text"
-                                placeholder="Ej: Ruta Norte - Sábado"
-                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
-                                :class="{ 'border-red-500': form.errors.nombre }"
-                            />
-                            <p v-if="form.errors.nombre" class="text-red-400 text-xs mt-1">{{ form.errors.nombre }}</p>
-                        </div>
-
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Fecha</label>
-                            <input
-                                v-model="form.fecha"
-                                type="date"
-                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50"
-                                :class="{ 'border-red-500': form.errors.fecha }"
-                            />
-                            <p v-if="form.errors.fecha" class="text-red-400 text-xs mt-1">{{ form.errors.fecha }}</p>
-                        </div>
-
                         <div class="relative">
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Repartidor</label>
                             <button
@@ -294,6 +271,7 @@ const contarEstados = (paradas) =>
                                 </button>
                             </div>
                             <div v-if="showRepartidorDrop" class="fixed inset-0 z-10" @click="showRepartidorDrop = false" />
+                            <p v-if="form.errors.repartidor_id" class="text-red-400 text-xs mt-1">{{ form.errors.repartidor_id }}</p>
                         </div>
 
                         <div class="flex gap-3 pt-2">

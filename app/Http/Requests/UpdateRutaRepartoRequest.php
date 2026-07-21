@@ -14,8 +14,6 @@ class UpdateRutaRepartoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'nombre'        => 'required|string|max:255',
-            'fecha'         => 'required|date',
             'repartidor_id' => 'nullable|exists:empleados,id',
             'activa'        => 'boolean',
         ];

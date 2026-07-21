@@ -46,7 +46,16 @@ class RutaRepartoController extends Controller
 
     public function store(StoreRutaRepartoRequest $request)
     {
-        $ruta = RutaReparto::create($request->validated());
+        $data = $request->validated();
+        $data['activa'] = false; // Las rutas siempre nacen inactivas
+        $data['estado'] = 'pendiente';
+        
+        // Auto generar nombre "Envío 000X"
+        $nextId = (RutaReparto::withTrashed()->max('id') ?? 0) + 1;
+        $data['nombre'] = 'Envío ' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+        $data['fecha'] = now()->toDateString();
+        
+        $ruta = RutaReparto::create($data);
 
         return redirect()->route('rutas-reparto.show', $ruta)
             ->with('message', 'Ruta de reparto creada');
@@ -67,6 +76,7 @@ class RutaRepartoController extends Controller
             ->where('tipo_envio', 'domicilio')
             ->whereNotNull('direccion_envio')
             ->whereIn('estado', ['en_preparacion'])
+            ->whereDoesntHave('paradas', fn($q) => $q->whereIn('estado', ['en camino', 'entregada']))
             ->whereDoesntHave('paradas', fn($q) => $q->where('ruta_reparto_id', $rutasReparto->id))
             ->latest()
             ->get();
@@ -129,12 +139,18 @@ class RutaRepartoController extends Controller
                 }
 
                 // Una venta solo puede estar en una ruta activa a la vez
-                $yaAsignada = ParadaReparto::where('venta_id', $venta->id)
+                $paradaExistente = ParadaReparto::where('venta_id', $venta->id)
                     ->whereIn('estado', ['pendiente', 'en camino', 'entregada'])
-                    ->exists();
+                    ->first();
 
-                if ($yaAsignada) {
-                    continue;
+                if ($paradaExistente) {
+                    if ($paradaExistente->estado === 'pendiente') {
+                        // Si estaba pendiente en otra ruta (quizás olvidada), la removemos de la anterior
+                        $paradaExistente->delete();
+                    } else {
+                        // Si ya está en camino o entregada, no la tocamos
+                        continue;
+                    }
                 }
 
                 $orden = ($rutasReparto->paradas()->max('orden') ?? 0) + 1;
@@ -228,6 +244,13 @@ class RutaRepartoController extends Controller
             }
         });
 
+        // Verificar si quedan paradas sin finalizar
+        $todasFinalizadas = !$rutasReparto->paradas()->whereIn('estado', ['pendiente', 'en camino'])->exists();
+        if ($todasFinalizadas && $rutasReparto->estado !== 'finalizada') {
+            $rutasReparto->update(['activa' => false, 'estado' => 'finalizada']);
+            return back()->with('message', 'Estado actualizado. La ruta se ha finalizado automáticamente.');
+        }
+
         return back()->with('message', 'Estado actualizado');
     }
 
@@ -295,7 +318,11 @@ class RutaRepartoController extends Controller
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($rutasReparto) {
-            $rutasReparto->update(['activa' => true]);
+            $rutasReparto->update([
+                'activa' => true,
+                'estado' => 'activa',
+                'fecha' => now()->toDateString() // Seteamos la fecha al momento de iniciar
+            ]);
 
             foreach ($rutasReparto->paradas as $parada) {
                 if ($parada->estado === 'pendiente') {
@@ -308,5 +335,48 @@ class RutaRepartoController extends Controller
         });
 
         return back()->with('message', 'Ruta iniciada. Las ventas ahora están en camino.');
+    }
+
+    public function finalizarRuta(RutaReparto $rutasReparto)
+    {
+        if ($rutasReparto->estado === 'finalizada') {
+            return back()->with('error', 'La ruta ya se encuentra finalizada.');
+        }
+
+        \Illuminate\Support\Facades\DB::transaction(function () use ($rutasReparto) {
+            $rutasReparto->update(['activa' => false, 'estado' => 'finalizada']);
+
+            foreach ($rutasReparto->paradas as $parada) {
+                if (in_array($parada->estado, ['pendiente', 'en camino'])) {
+                    // Volver la venta a 'en_preparacion'
+                    if ($parada->venta) {
+                        $parada->venta->update(['estado' => 'en_preparacion']);
+                    }
+                    // Devolver la parada a estado pendiente para que pueda ser recogida por otra ruta
+                    if ($parada->estado === 'en camino') {
+                        $parada->update(['estado' => 'pendiente']);
+                    }
+                }
+            }
+        });
+
+        return back()->with('message', 'Ruta finalizada. Las ventas pendientes volvieron a estar en preparación.');
+    }
+
+    public function reordenarParadas(Request $request, RutaReparto $rutasReparto)
+    {
+        $request->validate([
+            'orden'   => 'required|array',
+            'orden.*' => 'exists:paradas_reparto,id',
+        ]);
+
+        DB::transaction(function () use ($request, $rutasReparto) {
+            foreach ($request->orden as $index => $paradaId) {
+                // $index starts at 0, so order is $index + 1
+                $rutasReparto->paradas()->where('id', $paradaId)->update(['orden' => $index + 1]);
+            }
+        });
+
+        return back()->with('message', 'Orden actualizado correctamente.');
     }
 }
