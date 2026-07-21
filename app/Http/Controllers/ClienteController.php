@@ -261,7 +261,7 @@ class ClienteController extends Controller
 
             foreach ($ventas as $venta) {
                 $venta->update([
-                    'estado_envio' => 'pendiente',
+                    'estado' => 'en_preparacion',
                     'direccion_envio' => $request->direccion_envio,
                     'motivo_pendiente' => null, // Ya no está en acumulación
                 ]);

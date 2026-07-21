@@ -96,9 +96,9 @@ class SucursalController extends Controller
             return redirect()->back()->with('error', 'No se puede eliminar la sucursal porque todavía tiene stock disponible.');
         }
 
-        // Verificar si hay ventas con envíos pendientes
+        // Verificar si hay ventas sin terminar (estado_envio ya no existe, se unifico en 'estado')
         $tieneEnviosPendientes = \App\Models\Venta::where('sucursal_id', $sucursal->id)
-            ->where('estado_envio', 'pendiente')
+            ->whereNotIn('estado', ['finalizado', 'cancelado'])
             ->exists();
 
         if ($tieneEnviosPendientes) {
