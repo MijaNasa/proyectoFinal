@@ -9,7 +9,6 @@ const props = defineProps({
     obras: Object,
     sucursales: Array,
     libros: Array,
-    tiposMovimiento: Array,
     stocksExistentes: Array,
     filters: Object
 });
@@ -24,7 +23,6 @@ const form = useForm({
     cantidad_disponible: 0,
     ubicacion_text: '',
     activo: true,
-    tipo_movimiento_id: null,
     motivo: '',
 });
 
@@ -37,15 +35,9 @@ const nuevoTotal = computed(() => {
     return Math.max(0, cantidadActual.value + delta);
 });
 
-const tipoIngreso = computed(() => props.tiposMovimiento.find(t => t.codigo === 'INGRESO_MANUAL'));
-const tiposEgreso = computed(() => props.tiposMovimiento.filter(t => t.codigo.startsWith('EGRESO_')));
-
 watch(() => ajusteTipo.value, (tipo) => {
     if (tipo === '+') {
-        form.tipo_movimiento_id = tipoIngreso.value?.id ?? null;
         form.motivo = '';
-    } else {
-        form.tipo_movimiento_id = null;
     }
 });
 
@@ -114,7 +106,6 @@ watch([() => form.libro_id, () => form.sucursal_id], ([libro_id, sucursal_id]) =
 const openModal = (stock = null) => {
     ajusteTipo.value = '+';
     ajusteCantidad.value = 0;
-    form.tipo_movimiento_id = tipoIngreso.value?.id ?? null;
     form.motivo = '';
     if (stock) {
         isEditing.value = true;
@@ -158,10 +149,6 @@ const submit = () => {
     }
     if (!form.sucursal_id) {
         form.setError('sucursal_id', 'Seleccioná una sucursal antes de continuar.');
-        return;
-    }
-    if (ajusteTipo.value === '-' && !form.tipo_movimiento_id) {
-        form.setError('tipo_movimiento_id', 'Seleccioná el motivo del egreso.');
         return;
     }
     form.cantidad_disponible = nuevoTotal.value;
@@ -329,8 +316,10 @@ const getTomoStockColor = (qty) => {
                                                             <div class="text-[10px] text-white/40 font-mono">ISBN: {{ tomo.isbn || 'S/I' }}</div>
                                                         </td>
                                                         <td class="py-3 px-4 text-center" v-for="s in sucursales" :key="s.id">
-                                                            <div 
-                                                                class="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded"
+                                                            <div
+                                                                @click="openModalFromGrid(tomo, s)"
+                                                                title="Click para cargar/editar stock"
+                                                                class="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded cursor-pointer hover:bg-brand-red/20 hover:ring-1 hover:ring-brand-red/40 transition-colors"
                                                             >
                                                                 <span class="font-black text-sm" :class="getTomoStockColor(getTomoStock(tomo, s.id))">
                                                                     {{ getTomoStock(tomo, s.id) }}
