@@ -1,5 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
+import SearchableSelect from '@/Components/SearchableSelect.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 
@@ -46,6 +47,8 @@ const estadoColor = {
 
 // ── Modal crear orden ─────────────────────────────────────────────────────────
 const showModal = ref(false);
+const isEditing = ref(false);
+const editId    = ref(null);
 
 const form = useForm({
     proveedor_id:           '',
@@ -55,6 +58,8 @@ const form = useForm({
 });
 
 function openModal() {
+    isEditing.value = false;
+    editId.value    = null;
     form.reset();
     form.items = [];
     itemDdOpen.value = [];
@@ -62,6 +67,46 @@ function openModal() {
     itemResults.value = [];
     itemLoadings.value = [];
     itemLabels.value = [];
+    showModal.value = true;
+}
+
+async function editOrden(orden) {
+    isEditing.value = true;
+    editId.value    = orden.id;
+    form.reset();
+    
+    // Configurar form
+    form.proveedor_id  = orden.proveedor_id;
+    form.sucursal_id   = orden.sucursal_id;
+    form.observaciones = orden.observaciones || '';
+
+    // Obtener los ítems de la orden
+    try {
+        const res = await fetch(route('ordenes-compra.show', orden.id), {
+            headers: { 'Accept': 'application/json', 'X-Inertia': 'true', 'X-Inertia-Version': '' }
+        });
+        const json = await res.json();
+        const fullOrden = json.props.orden;
+        
+        form.items = fullOrden.items.map(item => ({
+            libro_id:        item.libro_id,
+            cantidad:        item.cantidad,
+            precio_unitario: parseFloat(item.precio_unitario),
+        }));
+        
+        itemDdOpen.value   = fullOrden.items.map(() => false);
+        itemSearches.value = fullOrden.items.map(() => '');
+        itemResults.value  = fullOrden.items.map(() => []);
+        itemLoadings.value = fullOrden.items.map(() => false);
+        itemLabels.value   = fullOrden.items.map(item => {
+            const tomo = item.libro.numero_tomo ? ' - Tomo ' + item.libro.numero_tomo : '';
+            return item.libro.master.titulo + tomo;
+        });
+
+    } catch (e) {
+        console.error(e);
+    }
+    
     showModal.value = true;
 }
 
@@ -88,23 +133,38 @@ const totalOrden = computed(() =>
 );
 
 function submitOrden() {
-    form.post(route('ordenes-compra.store'), {
-        onSuccess: () => {
-            showModal.value = false;
-            form.reset();
-            form.items = [];
-            itemDdOpen.value = [];
-            itemSearches.value = [];
-            itemResults.value = [];
-            itemLoadings.value = [];
-            itemLabels.value = [];
-        },
-    });
+    if (form.items.length === 0) return;
+    
+    if (isEditing.value) {
+        form.put(route('ordenes-compra.update', editId.value), {
+            onSuccess: () => {
+                showModal.value = false;
+                form.reset();
+                form.items = [];
+                itemDdOpen.value = [];
+                itemSearches.value = [];
+                itemResults.value = [];
+                itemLoadings.value = [];
+                itemLabels.value = [];
+            },
+        });
+    } else {
+        form.post(route('ordenes-compra.store'), {
+            onSuccess: () => {
+                showModal.value = false;
+                form.reset();
+                form.items = [];
+                itemDdOpen.value = [];
+                itemSearches.value = [];
+                itemResults.value = [];
+                itemLoadings.value = [];
+                itemLabels.value = [];
+            },
+        });
+    }
 }
 
 // ── Dropdowns custom ──────────────────────────────────────────────────────────
-const ddProvOpen         = ref(false);
-const ddSucOpen          = ref(false);
 const ddEstadoOpen       = ref(false);
 const ddEstadoFilterOpen = ref(false);
 const itemDdOpen         = ref([]);
@@ -289,6 +349,12 @@ const decodeLabel = (l) => {
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                         </svg>
                                     </Link>
+                                    <button v-if="['borrador', 'confirmada'].includes(o.estado)" @click="editOrden(o)"
+                                        class="p-1.5 rounded-lg hover:bg-yellow-500/20 text-yellow-400/60 hover:text-yellow-400 transition-colors" title="Editar">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                        </svg>
+                                    </button>
                                     <button v-if="o.estado === 'borrador'" @click="confirmar(o)"
                                         class="p-1.5 rounded-lg hover:bg-blue-500/20 text-blue-400/60 hover:text-blue-400 transition-colors" title="Confirmar">
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -336,7 +402,7 @@ const decodeLabel = (l) => {
             <div class="bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-4xl shadow-2xl" @click.stop>
 
                 <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-lg font-black uppercase tracking-tighter text-white">Nueva Orden de Compra</h2>
+                    <h2 class="text-lg font-black uppercase tracking-tighter text-white">{{ isEditing ? 'Editar Orden de Compra' : 'Nueva Orden de Compra' }}</h2>
                     <button @click="showModal = false" class="text-white/40 hover:text-white transition-colors">
                         <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -349,52 +415,35 @@ const decodeLabel = (l) => {
                     <!-- Proveedor -->
                     <div class="grid grid-cols-2 gap-4">
                         <div>
-                            <label class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1 block">Proveedor *</label>
-                            <div class="relative">
-                                <button type="button" @click="ddProvOpen = !ddProvOpen"
-                                    class="w-full flex items-center justify-between bg-white/5 border border-white/10 text-white/80 text-sm rounded-xl px-4 py-2.5">
-                                    <span>{{ ddProvLabel() }}</span>
-                                    <svg class="w-4 h-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                </button>
-                                <div v-if="ddProvOpen" class="absolute z-30 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-xl max-h-48 overflow-y-auto">
-                                    <button v-for="p in proveedores" :key="p.id" type="button"
-                                        @click="
-                                            form.proveedor_id = p.id;
-                                            form.items = [];
-                                            itemDdOpen = [];
-                                            itemSearches = [];
-                                            itemResults = [];
-                                            itemLoadings = [];
-                                            itemLabels = [];
-                                            ddProvOpen = false;
-                                        "
-                                        class="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:bg-white/10 transition-colors"
-                                        :class="{ 'text-white font-bold': form.proveedor_id == p.id }">
-                                        {{ p.nombre }}
-                                    </button>
-                                </div>
-                            </div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-brand-red mb-1 block">Proveedor *</label>
+                            <SearchableSelect
+                                v-model="form.proveedor_id"
+                                :options="proveedores"
+                                placeholder="-- Seleccionar Proveedor --"
+                                @update:modelValue="() => {
+                                    if (!isEditing) {
+                                        form.items = [];
+                                        itemDdOpen = [];
+                                        itemSearches = [];
+                                        itemResults = [];
+                                        itemLoadings = [];
+                                        itemLabels = [];
+                                    }
+                                }"
+                                :required="true"
+                            />
                             <p v-if="form.errors.proveedor_id" class="text-red-400 text-xs mt-1">{{ form.errors.proveedor_id }}</p>
                         </div>
 
                         <!-- Sucursal -->
                         <div>
-                            <label class="text-[10px] font-black uppercase tracking-widest text-white/40 mb-1 block">Sucursal destino *</label>
-                            <div class="relative">
-                                <button type="button" @click="ddSucOpen = !ddSucOpen"
-                                    class="w-full flex items-center justify-between bg-white/5 border border-white/10 text-white/80 text-sm rounded-xl px-4 py-2.5">
-                                    <span>{{ ddSucLabel() }}</span>
-                                    <svg class="w-4 h-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                </button>
-                                <div v-if="ddSucOpen" class="absolute z-30 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-xl">
-                                    <button v-for="s in sucursales" :key="s.id" type="button"
-                                        @click="form.sucursal_id = s.id; ddSucOpen = false"
-                                        class="w-full text-left px-4 py-2.5 text-sm text-white/70 hover:bg-white/10 transition-colors"
-                                        :class="{ 'text-white font-bold': form.sucursal_id == s.id }">
-                                        {{ s.nombre }}
-                                    </button>
-                                </div>
-                            </div>
+                            <label class="text-[10px] font-black uppercase tracking-widest text-brand-red mb-1 block">Sucursal destino *</label>
+                            <SearchableSelect
+                                v-model="form.sucursal_id"
+                                :options="sucursales"
+                                placeholder="-- Seleccionar Sucursal --"
+                                :required="true"
+                            />
                             <p v-if="form.errors.sucursal_id" class="text-red-400 text-xs mt-1">{{ form.errors.sucursal_id }}</p>
                         </div>
                     </div>
@@ -410,8 +459,6 @@ const decodeLabel = (l) => {
                     <div>
                         <div class="flex items-center justify-between mb-2">
                             <label class="text-[10px] font-black uppercase tracking-widest text-white/40">Ítems *</label>
-                            <button type="button" @click="addItem()"
-                                class="text-xs font-bold text-[#e61919] hover:text-red-400 transition-colors">+ Agregar libro</button>
                         </div>
 
                         <div v-if="form.items.length === 0" class="text-center text-white/30 text-sm py-6 border border-dashed border-white/10 rounded-xl">
@@ -419,11 +466,11 @@ const decodeLabel = (l) => {
                         </div>
 
                         <div v-for="(item, i) in form.items" :key="i"
-                            class="flex gap-3 items-start mb-3 p-3 bg-white/5 border border-white/10 rounded-xl">
+                            class="flex gap-3 items-start mb-3 w-full">
 
                             <!-- Libro dropdown con autocomplete AJAX -->
                             <div class="flex-1 relative">
-                                <label class="block text-[9px] uppercase font-black text-brand-red mb-1">Libro a pedir</label>
+                                <label v-if="i === 0" class="block text-[9px] uppercase font-black text-brand-red mb-1">Libro a pedir</label>
                                 <button type="button" @click="openItemDd(i)"
                                     class="w-full flex items-center justify-between bg-white/5 border border-white/10 text-white/80 text-sm rounded-xl px-3 py-2">
                                     <span class="truncate">{{ itemLabels[i] || 'Seleccionar libro' }}</span>
@@ -455,14 +502,14 @@ const decodeLabel = (l) => {
 
                             <!-- Cantidad -->
                             <div class="w-24">
-                                <label class="block text-[9px] uppercase font-black text-brand-red mb-1">Cantidad</label>
+                                <label v-if="i === 0" class="block text-[9px] uppercase font-black text-brand-red mb-1">Cantidad</label>
                                 <input v-model.number="item.cantidad" type="number" min="1" placeholder="Ej: 10"
                                     class="w-full bg-white/5 border border-white/10 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-white/30" />
                             </div>
 
                             <!-- Precio unitario -->
                             <div class="w-32">
-                                <label class="block text-[9px] uppercase font-black text-brand-red mb-1">Precio Unit.</label>
+                                <label v-if="i === 0" class="block text-[9px] uppercase font-black text-brand-red mb-1">Precio Unit.</label>
                                 <div class="relative">
                                     <span class="absolute left-3 top-2 text-white/40 text-sm">$</span>
                                     <input v-model.number="item.precio_unitario" type="number" min="0" step="0.01" placeholder="0.00"
@@ -471,15 +518,23 @@ const decodeLabel = (l) => {
                             </div>
 
                             <!-- Subtotal -->
-                            <div class="w-28 text-right pt-6 font-mono text-sm text-white/60">
+                            <div class="w-28 text-right font-mono text-sm text-white/60" :class="i === 0 ? 'pt-6' : 'pt-2'">
                                 {{ fmt(item.cantidad * item.precio_unitario) }}
                             </div>
 
                             <button type="button" @click="removeItem(i)"
-                                class="pt-6 text-white/20 hover:text-red-400 transition-colors">
+                                class="text-white/20 hover:text-red-400 transition-colors" :class="i === 0 ? 'pt-6' : 'pt-2'">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
                                 </svg>
+                            </button>
+                        </div>
+                        
+                        <!-- Botón Agregar abajo -->
+                        <div class="mt-4 flex justify-center">
+                            <button type="button" @click="addItem()"
+                                class="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-sm font-bold text-white/70 hover:text-white transition-colors">
+                                <span class="text-brand-red text-lg leading-none">+</span> Agregar libro
                             </button>
                         </div>
 
@@ -498,8 +553,8 @@ const decodeLabel = (l) => {
                                 Cancelar
                             </button>
                             <button type="submit" :disabled="form.processing || form.items.length === 0"
-                                class="px-5 py-2.5 rounded-xl bg-[#e61919] hover:bg-red-700 text-white text-sm font-black uppercase tracking-widest transition-colors disabled:opacity-40">
-                                Crear Orden
+                                class="bg-[#e61919] hover:bg-red-700 text-white text-sm font-black uppercase tracking-widest px-6 py-2.5 rounded-xl transition-colors">
+                                {{ isEditing ? 'Guardar Cambios' : 'Crear Orden' }}
                             </button>
                         </div>
                     </div>

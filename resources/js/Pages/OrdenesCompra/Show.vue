@@ -98,7 +98,7 @@ const print = () => window.print();
                 <tbody class="divide-y divide-gray-100">
                     <tr v-for="item in orden.items" :key="item.id">
                         <td class="py-3">
-                            <p class="font-bold text-black">{{ item.libro?.master?.titulo }}</p>
+                            <p class="font-bold text-black">{{ item.libro?.master?.titulo }} <span v-if="item.libro?.numero_tomo">- Tomo {{ item.libro.numero_tomo }}</span></p>
                             <p v-if="item.libro?.isbn" class="text-[10px] font-mono text-gray-400 mt-0.5">ISBN: {{ item.libro.isbn }}</p>
                         </td>
                         <td class="py-3 text-center font-bold text-gray-700">{{ item.cantidad }}</td>

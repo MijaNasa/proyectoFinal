@@ -63,7 +63,7 @@ class OrdenCompraController extends Controller
                 'numero_orden'           => 'OC-TEMP',
                 'proveedor_id'           => $request->proveedor_id,
                 'sucursal_id'            => $request->sucursal_id,
-                'estado'                 => 'borrador',
+                'estado'                 => 'confirmada',
                 'fecha'                  => now()->toDateString(),
                 'total'                  => $total,
                 'observaciones'          => $request->observaciones,
@@ -88,6 +88,48 @@ class OrdenCompraController extends Controller
             ->with('message', "Orden {$orden->numero_orden} creada.");
     }
 
+    public function update(Request $request, OrdenCompra $ordenesCompra)
+    {
+        if (!in_array($ordenesCompra->estado, ['borrador', 'confirmada'])) {
+            return back()->withErrors(['estado' => 'Solo se puede editar una orden en borrador o confirmada.']);
+        }
+
+        $request->validate([
+            'proveedor_id'           => 'required|exists:proveedores,id',
+            'sucursal_id'            => 'required|exists:sucursales,id',
+            'observaciones'          => 'nullable|string',
+            'items'                  => 'required|array|min:1',
+            'items.*.libro_id'       => 'required|exists:libros,id',
+            'items.*.cantidad'       => 'required|integer|min:1',
+            'items.*.precio_unitario'=> 'required|numeric|min:0',
+        ]);
+
+        $total = collect($request->items)->sum(fn($i) => $i['cantidad'] * $i['precio_unitario']);
+
+        \DB::transaction(function () use ($request, $ordenesCompra, $total) {
+            $ordenesCompra->update([
+                'proveedor_id'           => $request->proveedor_id,
+                'sucursal_id'            => $request->sucursal_id,
+                'total'                  => $total,
+                'observaciones'          => $request->observaciones,
+            ]);
+
+            $ordenesCompra->items()->delete();
+
+            foreach ($request->items as $item) {
+                $ordenesCompra->items()->create([
+                    'libro_id'        => $item['libro_id'],
+                    'cantidad'        => $item['cantidad'],
+                    'precio_unitario' => $item['precio_unitario'],
+                    'subtotal'        => $item['cantidad'] * $item['precio_unitario'],
+                ]);
+            }
+        });
+
+        return redirect()->route('ordenes-compra.index')
+            ->with('message', "Orden {$ordenesCompra->numero_orden} actualizada.");
+    }
+
     public function show(OrdenCompra $ordenesCompra)
     {
         $ordenesCompra->load([
@@ -95,7 +137,7 @@ class OrdenCompraController extends Controller
             'sucursal',
             'user:id,name,apellido',
             'items.libro.master:id,titulo',
-            'items.libro:id,master_id,isbn',
+            'items.libro:id,master_id,isbn,numero_tomo',
         ]);
 
         return inertia('OrdenesCompra/Show', ['orden' => $ordenesCompra]);
@@ -134,11 +176,24 @@ class OrdenCompraController extends Controller
                 ]);
             }
 
+            $movimiento = \App\Models\MovimientoStock::create([
+                'tipo' => 'ingreso',
+                'sucursal_destino_id' => $fresh->sucursal_id,
+                'user_id' => auth()->id(),
+                'motivo' => "Recepción de Orden de Compra {$fresh->numero_orden}",
+            ]);
+
             foreach ($fresh->items as $item) {
                 \App\Models\Stock::firstOrCreate(
                     ['libro_id' => $item->libro_id, 'sucursal_id' => $fresh->sucursal_id],
                     ['cantidad_disponible' => 0]
                 )->increment('cantidad_disponible', $item->cantidad);
+
+                \App\Models\MovimientoStockDetalle::create([
+                    'movimiento_stock_id' => $movimiento->id,
+                    'libro_id' => $item->libro_id,
+                    'cantidad' => $item->cantidad,
+                ]);
             }
 
             $proveedor = \App\Models\Proveedor::find($fresh->proveedor_id);
