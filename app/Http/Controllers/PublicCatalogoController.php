@@ -72,7 +72,7 @@ class PublicCatalogoController extends Controller
 
         $query->withSum('stocks', 'cantidad_disponible');
 
-        $libros = $query->orderByRaw('COALESCE(stocks_sum_cantidad_disponible, 0) > 0 DESC')
+        $libros = $query->orderByRaw('(select coalesce(sum(cantidad_disponible), 0) from stocks where stocks.libro_id = libros.id) > 0 desc')
                         ->latest()
                         ->paginate(24)
                         ->withQueryString();
