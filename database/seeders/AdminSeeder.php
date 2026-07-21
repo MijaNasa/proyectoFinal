@@ -16,6 +16,7 @@ class AdminSeeder extends Seeder
         $this->call(PaisSeeder::class);
         $this->call(GeografiaSeeder::class);
         $this->call(TipoClienteSeeder::class);
+        $this->call(EditorialSeeder::class);
 
         DB::transaction(function () {
             // La geografia real (Argentina/Santa Fe/Rosario/Funes) ya la crea GeografiaSeeder arriba
