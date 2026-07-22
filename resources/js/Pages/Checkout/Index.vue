@@ -364,7 +364,7 @@ const confirmar = () => {
                                             type="text"
                                             placeholder="Buscá tu dirección..."
                                             autocomplete="off"
-                                            @focus="if (sugerencias.length) mostrarSugerencias = true"
+                                            @focus="mostrarSugerencias = sugerencias.length > 0"
                                             @blur="setTimeout(() => mostrarSugerencias = false, 150)"
                                             class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
                                             :class="addressSelected
