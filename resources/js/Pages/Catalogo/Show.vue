@@ -97,7 +97,7 @@ const agregarAlCarrito = () => {
                             </p>
                             
                             <div class="mt-6 flex flex-wrap gap-4 text-xs font-bold uppercase tracking-widest text-white/40">
-                                <span v-if="libro.master?.proveedor">Proveedor {{ libro.master.proveedor.nombre_empresa }}</span>
+                                <span v-if="libro.master?.proveedor">Editorial: {{ libro.master.proveedor.nombre_empresa }}</span>
                                 <span v-if="libro.master?.idioma">{{ libro.master.idioma.nombre }}</span>
                                 <span v-if="libro.año_edicion">{{ libro.año_edicion }}</span>
                                 <span v-if="libro.cantidad_paginas">{{ libro.cantidad_paginas }} págs</span>

@@ -111,7 +111,6 @@ class PublicCatalogoController extends Controller
             'master.categoria',
             'master.proveedor',
             'master.idioma',
-            'serie',
             'precioActual',
             'stocks.sucursal'
         ])

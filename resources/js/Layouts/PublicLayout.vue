@@ -1,10 +1,12 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
+import AgentSidebar from '@/Components/AgentSidebar.vue';
 
 const logout = () => router.post(route('logout'));
 
 const isMenuOpen = ref(false);
+const isTerminalMenuOpen = ref(false);
 const page = usePage();
 const carritoCount = computed(() => page.props.carritoCount ?? 0);
 const user = computed(() => page.props.auth?.user ?? null);
@@ -31,7 +33,12 @@ watch(() => page.props.flash, (flash) => {
         <nav class="sticky top-0 z-50 bg-[#0A0A0A]/80 backdrop-blur-md border-b border-white/5">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div class="flex justify-between h-20">
-                    <div class="flex items-center">
+                    <div class="flex items-center gap-4">
+                        <button v-if="page.props.auth?.empleado || page.props.auth?.esAdmin" @click="isTerminalMenuOpen = true" class="hidden md:flex p-2 text-white/60 hover:text-brand-red hover:bg-brand-red/10 rounded-lg transition-colors items-center justify-center">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                            </svg>
+                        </button>
                         <Link :href="route('catalogo.index')" class="flex items-center gap-2 group">
                             <div class="w-10 h-10 bg-brand-red flex items-center justify-center rounded-lg rotate-3 group-hover:rotate-6 transition-transform shadow-[0_0_20px_rgba(230,25,25,0.3)]">
                                 <span class="text-2xl font-black italic">P</span>
@@ -97,6 +104,7 @@ watch(() => page.props.flash, (flash) => {
                     <Link :href="route('catalogo.index')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Catálogo</Link>
 
                     <template v-if="user">
+                        <button v-if="page.props.auth?.empleado || page.props.auth?.esAdmin" @click="isTerminalMenuOpen = true; isMenuOpen = false" class="block text-lg font-bold uppercase text-brand-red hover:text-white">Terminal</button>
                         <Link :href="route('mi-cuenta.index')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Mi Cuenta</Link>
                         <button @click="logout" class="block text-lg font-bold uppercase text-white/40 hover:text-brand-red">Salir</button>
                     </template>
@@ -104,6 +112,23 @@ watch(() => page.props.flash, (flash) => {
                         <Link :href="route('login')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Iniciar Sesión</Link>
                         <Link :href="route('register')" class="block btn-primary text-center">Registrarse</Link>
                     </template>
+                </div>
+            </transition>
+            <!-- Agent Sidebar Drawer -->
+            <transition name="slide-left">
+                <div v-if="isTerminalMenuOpen" class="fixed inset-y-0 left-0 z-[60] flex">
+                    <!-- The Sidebar Component -->
+                    <AgentSidebar />
+                    
+                    <!-- Backdrop -->
+                    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm -z-10" @click="isTerminalMenuOpen = false"></div>
+                    
+                    <!-- Close button -->
+                    <button @click="isTerminalMenuOpen = false" class="absolute top-4 -right-12 text-white/60 hover:text-white p-2">
+                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
                 </div>
             </transition>
         </nav>
@@ -181,4 +206,10 @@ watch(() => page.props.flash, (flash) => {
 .toast-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
 .toast-enter-from  { opacity: 0; transform: translateY(12px); }
 .toast-leave-to    { opacity: 0; transform: translateY(12px); }
+.slide-left-enter-active, .slide-left-leave-active {
+  transition: transform 0.3s ease;
+}
+.slide-left-enter-from, .slide-left-leave-to {
+  transform: translateX(-100%);
+}
 </style>
