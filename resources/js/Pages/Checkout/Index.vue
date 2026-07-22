@@ -25,7 +25,7 @@ const comentario          = ref('');
 const procesando          = ref(false);
 const inputRef            = ref(null);
 
-const provincia = ref('');
+const provincia = ref('Santa Fe');
 const localidad = ref('');
 
 const provincias = [
@@ -35,8 +35,11 @@ const provincias = [
     'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán'
 ];
 
+// Gran Rosario: zona de reparto local sin recargo de envío
 const localidadesSantaFe = [
-    'Rosario', 'Otra localidad'
+    'Rosario', 'Funes', 'Roldán', 'Pérez', 'Granadero Baigorria',
+    'Villa Gobernador Gálvez', 'San Lorenzo', 'Capitán Bermúdez',
+    'Puerto General San Martín', 'Fray Luis Beltrán',
 ];
 
 const guestNombre   = ref('');
@@ -56,7 +59,7 @@ const formatPrecio = (valor) =>
 
 const esEnvioLocal = computed(() => {
     if (tipoEnvio.value !== 'domicilio') return true;
-    return provincia.value === 'Santa Fe' && localidad.value === 'Rosario';
+    return provincia.value === 'Santa Fe' && localidadesSantaFe.includes(localidad.value);
 });
 
 const costoEnvio = computed(() => {
@@ -80,7 +83,6 @@ const buscarDirecciones = async (query) => {
     try {
         const params = new URLSearchParams({
             q: query,
-            lang: 'es',
             limit: '5',
             lat: '-32.9468',
             lon: '-60.6393',
@@ -122,7 +124,7 @@ watch(tipoEnvio, (val) => {
     depto.value = '';
     cp.value    = '';
     comentario.value = '';
-    provincia.value = '';
+    provincia.value = 'Santa Fe';
     localidad.value = '';
     sugerencias.value = [];
     mostrarSugerencias.value = false;
