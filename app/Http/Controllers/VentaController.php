@@ -176,7 +176,12 @@ class VentaController extends Controller
                 $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
 
                 // 1. Validar Stock y Lock
+                $tienePreventas = false;
                 foreach ($request->items as $item) {
+                    if ($librosModels[$item['libro_id']]->permite_preventa) {
+                        $tienePreventas = true;
+                        continue;
+                    }
                     $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
                         ->where('sucursal_id', $sucursal_id)
                         ->lockForUpdate()
@@ -186,7 +191,7 @@ class VentaController extends Controller
                         throw new \RuntimeException("No existe registro de stock para el libro ID {$item['libro_id']} en esta sucursal.");
                     }
 
-                    if ($stock->cantidad_disponible <= 0 && !$librosModels[$item['libro_id']]->permite_preventa) {
+                    if ($stock->cantidad_disponible <= 0) {
                         throw new \RuntimeException("Producto agotado y sin preventa habilitada");
                     }
                 }
@@ -345,9 +350,11 @@ class VentaController extends Controller
                         'subtotal'        => $item['cantidad'] * $precio,
                     ]);
 
-                    \App\Models\Stock::where('libro_id', $item['libro_id'])
-                        ->where('sucursal_id', $sucursal_id)
-                        ->decrement('cantidad_disponible', $item['cantidad']);
+                    if (!$librosModels[$item['libro_id']]->permite_preventa) {
+                        \App\Models\Stock::where('libro_id', $item['libro_id'])
+                            ->where('sucursal_id', $sucursal_id)
+                            ->decrement('cantidad_disponible', $item['cantidad']);
+                    }
                 }
 
                 if ($monto_saldo_usado > 0) {
@@ -578,7 +585,7 @@ class VentaController extends Controller
         }
 
         \DB::transaction(function () use ($venta, $user) {
-            $fresh = Venta::lockForUpdate()->find($venta->id);
+            $fresh = Venta::with('detalles.libro')->lockForUpdate()->find($venta->id);
             if ($fresh->estado !== 'pendiente_pago') return;
 
             // Calculate pending amount
@@ -597,24 +604,30 @@ class VentaController extends Controller
                 ]);
             }
 
-            // Verify if there are pending transfers
-            $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $fresh->id)->exists();
-            $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
-            if (!$tieneTraslados) {
-                if ($fresh->tipo_envio === 'retiro') {
-                    $nuevoEstado = 'listo_para_retiro';
-                } elseif ($fresh->tipo_envio === 'acumulacion') {
-                    $nuevoEstado = 'acumulado';
-                }
-            }
+            $tienePreventas = $fresh->detalles->contains(fn($detalle) => $detalle->libro && $detalle->libro->permite_preventa);
 
-            if ($tieneTraslados) {
-                \App\Models\TransferenciaStock::where('venta_id', $fresh->id)
-                    ->where('estado', 'pendiente')
-                    ->update(['estado' => 'pendiente_envio']);
-                    
-                $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
-                \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
+            if ($tienePreventas) {
+                $nuevoEstado = 'en_preventa';
+            } else {
+                // Verify if there are pending transfers
+                $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $fresh->id)->exists();
+                $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
+                if (!$tieneTraslados) {
+                    if ($fresh->tipo_envio === 'retiro') {
+                        $nuevoEstado = 'listo_para_retiro';
+                    } elseif ($fresh->tipo_envio === 'acumulacion') {
+                        $nuevoEstado = 'acumulado';
+                    }
+                }
+
+                if ($tieneTraslados) {
+                    \App\Models\TransferenciaStock::where('venta_id', $fresh->id)
+                        ->where('estado', 'pendiente')
+                        ->update(['estado' => 'pendiente_envio']);
+                        
+                    $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
+                    \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
+                }
             }
 
             $fresh->update([

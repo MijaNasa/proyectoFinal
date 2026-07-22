@@ -13,6 +13,7 @@ const puedeEditarEstado = page.props.auth?.esAdmin || page.props.auth?.esGerente
 
 const estados = [
     { value: 'pendiente_pago',     label: 'Pendiente de pago' },
+    { value: 'en_preventa',        label: 'Esperando preventa' },
     { value: 'esperando_traslado', label: 'Esperando traslado entre sucursales' },
     { value: 'en_preparacion',     label: 'Envío en preparación' },
     { value: 'listo_para_retiro',  label: 'Listo para retirar' },
@@ -182,6 +183,8 @@ const print = () => window.print();
                     <p v-if="venta.direccion_envio" class="text-gray-500 text-xs mt-1">
                         Envío: {{ venta.direccion_envio }}
                     </p>
+                    <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mt-2 mb-1">Sucursal</p>
+                    <p class="font-bold text-black">{{ venta.sucursal?.nombre || 'Sucursal Desconocida' }}</p>
                 </div>
                 <div>
                     <template v-if="venta.tipo === 'presencial' || venta.origen === 'whatsapp' || venta.origen === 'redes'">

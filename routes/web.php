@@ -164,6 +164,7 @@ Route::middleware('auth')->group(function () {
         Route::post('proveedores/{proveedor}/pago', [ProveedorController::class, 'registrarPago'])->name('proveedores.pago');
 
         // Órdenes de Compra
+        Route::get('ordenes-compra/preventas', [OrdenCompraController::class, 'getPreventas'])->name('ordenes-compra.preventas');
         Route::get('ordenes-compra/search-libros', [OrdenCompraController::class, 'searchLibros'])->name('ordenes-compra.search-libros');
         Route::resource('ordenes-compra', OrdenCompraController::class)->except(['create', 'edit']);
         Route::post('ordenes-compra/{ordenesCompra}/confirmar', [OrdenCompraController::class, 'confirmar'])->name('ordenes-compra.confirmar');

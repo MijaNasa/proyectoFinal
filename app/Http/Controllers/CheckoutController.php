@@ -285,22 +285,30 @@ class CheckoutController extends Controller
         $total += $costo_envio;
 
         try {
-            $result = DB::transaction(function () use ($request, $processedItems, $sucursal_id, $total, $cliente, $userId, $clienteId, $costo_envio) {
-                // Verificar Stock TOTAL y Lock
+            $result = DB::transaction(function () use ($request, $processedItems, $sucursal_id, $total, $cliente, $userId, $clienteId, $costo_envio, $librosModels) {
+                // Verificar Stock TOTAL y Lock (solo para no preventas)
                 $requerido = [];
+                $tienePreventas = false;
                 foreach ($processedItems as $item) {
+                    if ($librosModels[$item['libro_id']]->permite_preventa) {
+                        $tienePreventas = true;
+                        continue;
+                    }
                     $requerido[$item['libro_id']] = ($requerido[$item['libro_id']] ?? 0) + $item['cantidad'];
                 }
 
-                $stocks = Stock::whereIn('libro_id', array_keys($requerido))
-                    ->lockForUpdate()
-                    ->get()
-                    ->groupBy('libro_id');
+                $stocks = collect();
+                if (!empty($requerido)) {
+                    $stocks = Stock::whereIn('libro_id', array_keys($requerido))
+                        ->lockForUpdate()
+                        ->get()
+                        ->groupBy('libro_id');
 
-                foreach ($requerido as $libroId => $cant) {
-                    $stockGlobal = isset($stocks[$libroId]) ? $stocks[$libroId]->sum('cantidad_disponible') : 0;
-                    if ($stockGlobal < $cant) {
-                        throw new \RuntimeException("Stock global insuficiente para procesar la orden.");
+                    foreach ($requerido as $libroId => $cant) {
+                        $stockGlobal = isset($stocks[$libroId]) ? $stocks[$libroId]->sum('cantidad_disponible') : 0;
+                        if ($stockGlobal < $cant) {
+                            throw new \RuntimeException("Stock global insuficiente para procesar la orden.");
+                        }
                     }
                 }
 
@@ -364,7 +372,17 @@ class CheckoutController extends Controller
                 }
 
                 // Si se resolvió el pago inmediatamente o si es Efectivo/Transferencia (reserva), hacer los traslados y descuentos
-                if ($estado === 'en_preparacion' || $estado === 'esperando_traslado' || in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) {
+                $debeDescontar = false;
+                if ($estado === 'en_preparacion' || $estado === 'esperando_traslado') {
+                    $debeDescontar = true;
+                } elseif (in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) {
+                    // Si es Transferencia o Efectivo y tiene preventa, no descontamos stock aún
+                    if (!$tienePreventas) {
+                        $debeDescontar = true;
+                    }
+                }
+
+                if ($debeDescontar) {
                     $requiereTraslados = false;
 
                     foreach ($requerido as $libroId => $cantFaltante) {
@@ -630,69 +648,82 @@ class CheckoutController extends Controller
     private function handleApproved(Venta $venta, string $paymentId): void
     {
         DB::transaction(function () use ($venta, $paymentId) {
-            $fresh = Venta::with('detalles')->lockForUpdate()->find($venta->id);
+            $fresh = Venta::with(['detalles', 'detalles.libro'])->lockForUpdate()->find($venta->id);
 
             if (!$fresh || $fresh->estado !== 'pendiente_pago') return;
 
             $requiereTraslados = false;
+            $tienePreventas = false;
             
-            // Agrupar requerimientos
+            // Agrupar requerimientos (solo para los que NO son preventa)
             $requerido = [];
             foreach ($fresh->detalles as $detalle) {
+                if ($detalle->libro && $detalle->libro->permite_preventa) {
+                    $tienePreventas = true;
+                    continue; // NO descontamos stock ni pedimos traslados para preventas an
+                }
                 $requerido[$detalle->libro_id] = ($requerido[$detalle->libro_id] ?? 0) + $detalle->cantidad;
             }
 
-            $stocks = Stock::whereIn('libro_id', array_keys($requerido))
-                ->lockForUpdate()
-                ->get()
-                ->groupBy('libro_id');
+            if (!empty($requerido)) {
+                $stocks = Stock::whereIn('libro_id', array_keys($requerido))
+                    ->lockForUpdate()
+                    ->get()
+                    ->groupBy('libro_id');
 
-            foreach ($requerido as $libroId => $cantFaltante) {
-                // 1. Tratar de cubrir con stock local
-                $stockLocal = $stocks[$libroId]->where('sucursal_id', $fresh->sucursal_id)->first();
-                
-                if ($stockLocal && $stockLocal->cantidad_disponible > 0) {
-                    $aDescontarLocal = min($stockLocal->cantidad_disponible, $cantFaltante);
-                    $stockLocal->decrement('cantidad_disponible', $aDescontarLocal);
-                    $cantFaltante -= $aDescontarLocal;
-                }
-
-                // 2. Si todavía falta, pedir traslados
-                if ($cantFaltante > 0) {
-                    $requiereTraslados = true;
-                    $otrasSucursales = $stocks[$libroId]->where('sucursal_id', '!=', $fresh->sucursal_id)
-                        ->sortByDesc('cantidad_disponible');
-
-                    foreach ($otrasSucursales as $otroStock) {
-                        if ($cantFaltante <= 0) break;
-                        if ($otroStock->cantidad_disponible <= 0) continue;
-
-                        $aTrasladar = min($otroStock->cantidad_disponible, $cantFaltante);
-                        $otroStock->decrement('cantidad_disponible', $aTrasladar);
+                foreach ($requerido as $libroId => $cantFaltante) {
+                    // 1. Tratar de cubrir con stock local
+                    if (isset($stocks[$libroId])) {
+                        $stockLocal = $stocks[$libroId]->where('sucursal_id', $fresh->sucursal_id)->first();
                         
-                        \App\Models\TransferenciaStock::create([
-                            'venta_id'            => $fresh->id,
-                            'libro_id'            => $libroId,
-                            'sucursal_origen_id'  => $otroStock->sucursal_id,
-                            'sucursal_destino_id' => $fresh->sucursal_id,
-                            'cantidad'            => $aTrasladar,
-                            'motivo'              => "Traslado automático por Venta Web #{$fresh->id}",
-                            'estado'              => 'pendiente_envio',
-                            'user_id'             => Auth::user()?->id ?? 1,
-                            'fecha'               => now(),
-                        ]);
+                        if ($stockLocal && $stockLocal->cantidad_disponible > 0) {
+                            $aDescontarLocal = min($stockLocal->cantidad_disponible, $cantFaltante);
+                            $stockLocal->decrement('cantidad_disponible', $aDescontarLocal);
+                            $cantFaltante -= $aDescontarLocal;
+                        }
 
-                        $cantFaltante -= $aTrasladar;
+                        // 2. Si todava falta, pedir traslados
+                        if ($cantFaltante > 0) {
+                            $requiereTraslados = true;
+                            $otrasSucursales = $stocks[$libroId]->where('sucursal_id', '!=', $fresh->sucursal_id)
+                                ->sortByDesc('cantidad_disponible');
+
+                            foreach ($otrasSucursales as $otroStock) {
+                                if ($cantFaltante <= 0) break;
+                                if ($otroStock->cantidad_disponible <= 0) continue;
+
+                                $aTrasladar = min($otroStock->cantidad_disponible, $cantFaltante);
+                                $otroStock->decrement('cantidad_disponible', $aTrasladar);
+                                
+                                \App\Models\TransferenciaStock::create([
+                                    'venta_id'            => $fresh->id,
+                                    'libro_id'            => $libroId,
+                                    'sucursal_origen_id'  => $otroStock->sucursal_id,
+                                    'sucursal_destino_id' => $fresh->sucursal_id,
+                                    'cantidad'            => $aTrasladar,
+                                    'motivo'              => "Traslado automtico por Venta Web #{$fresh->id}",
+                                    'estado'              => 'pendiente_envio',
+                                    'user_id'             => Auth::user()?->id ?? 1,
+                                    'fecha'               => now(),
+                                ]);
+
+                                $cantFaltante -= $aTrasladar;
+                            }
+                        }
                     }
                 }
             }
 
-            $nuevoEstado = $requiereTraslados ? 'esperando_traslado' : 'en_preparacion';
-            if (!$requiereTraslados) {
-                if ($fresh->tipo_envio === 'retiro') {
-                    $nuevoEstado = 'listo_para_retiro';
-                } elseif ($fresh->tipo_envio === 'acumulacion') {
-                    $nuevoEstado = 'acumulado';
+            if ($tienePreventas) {
+                $nuevoEstado = 'en_preventa';
+            } else {
+                $nuevoEstado = $requiereTraslados ? 'esperando_traslado' : 'en_preparacion';
+                if (!$requiereTraslados) {
+                    if ($fresh->tipo_envio === 'retiro') {
+                        $nuevoEstado = 'listo_para_retiro';
+                    } elseif ($fresh->tipo_envio === 'acumulacion') {
+                        $nuevoEstado = 'acumulado';
+                    }
                 }
             }
 

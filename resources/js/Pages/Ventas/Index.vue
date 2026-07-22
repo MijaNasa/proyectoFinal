@@ -20,6 +20,7 @@ const puedeEditarEstado = computed(() =>
 );
 
 const estadoOpciones = [
+    { value: 'en_preventa',        label: 'Esperando preventa', tipos: ['online'] },
     { value: 'pendiente_pago',     label: 'Pendiente de pago',  tipos: ['online', 'presencial'] },
     { value: 'esperando_traslado', label: 'Esperando traslado entre sucursales', tipos: ['online'] },
     { value: 'en_preparacion',     label: 'Envío en preparación',     tipos: ['online'] },
@@ -42,6 +43,7 @@ const estadoOpcionesFiltradas = computed(() => {
 });
 
 const estadoColores = {
+    en_preventa:        'bg-fuchsia-500/20 text-fuchsia-400',
     pendiente_pago:     'bg-yellow-500/20 text-yellow-400',
     esperando_traslado: 'bg-purple-500/20 text-purple-400',
     en_preparacion:     'bg-blue-500/20 text-blue-400',
@@ -992,13 +994,21 @@ onMounted(() => {
                 </div>
 
                 <div class="p-8">
-                    <div class="grid grid-cols-3 gap-8 mb-8 pb-8 border-b border-white/5">
+                    <div class="grid grid-cols-4 gap-8 mb-8 pb-8 border-b border-white/5">
                         <div class="space-y-1">
                             <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Cliente</div>
                             <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs font-black uppercase block hover:text-brand-red transition-colors">{{ selectedVenta.cliente?.user?.name }} {{ selectedVenta.cliente?.user?.apellido }}</Link>
                             <div v-else class="text-xs font-black uppercase">Cliente Mostrador</div>
                         </div>
                         <div class="space-y-1 text-center">
+                            <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Total</div>
+                            <div class="text-xs font-black text-brand-red uppercase">{{ formatCurrency(selectedVenta.total) }}</div>
+                        </div>
+                        <div class="space-y-1 text-center">
+                            <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Sucursal</div>
+                            <div class="text-xs font-black uppercase">{{ selectedVenta.sucursal?.nombre || 'N/A' }}</div>
+                        </div>
+                        <div class="space-y-1 text-right">
                             <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Medio de Pago</div>
                             <div class="text-xs font-black uppercase">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
                         </div>

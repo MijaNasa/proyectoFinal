@@ -178,6 +178,38 @@ function ddSucLabel() {
     const s = props.sucursales.find(x => x.id == form.sucursal_id);
     return s ? s.nombre : 'Seleccionar sucursal';
 }
+import { watch } from 'vue';
+
+watch([() => form.proveedor_id, () => form.sucursal_id], ([newProveedor, newSucursal]) => {
+    if (newProveedor && newSucursal) {
+        window.axios.get(route('ordenes-compra.preventas', { proveedor_id: newProveedor, sucursal_id: newSucursal }))
+            .then(response => {
+                const preventas = response.data;
+                if (preventas && preventas.length > 0) {
+                    form.items = preventas.map(p => ({
+                        libro_id: p.id,
+                        cantidad: p.reservas,
+                        precio_unitario: p.precio_unitario || 0,
+                        stock: p.stock,
+                        reservas: p.reservas,
+                    }));
+                    itemDdOpen.value = preventas.map(() => false);
+                    itemSearches.value = preventas.map(() => '');
+                    itemResults.value = preventas.map(() => []);
+                    itemLoadings.value = preventas.map(() => false);
+                    
+                    preventas.forEach((p, i) => {
+                        itemLabels.value[i] = p.titulo;
+                    });
+                } else {
+                    form.items = [{ libro_id: null, cantidad: 1, precio_unitario: 0, stock: null, reservas: 0 }];
+                    itemLabels.value = {};
+                }
+            })
+            .catch(error => console.error("Error fetching preventas:", error));
+    }
+});
+
 function openItemDd(i) {
     if (!form.proveedor_id) {
         alert('Por favor, selecciona un proveedor primero.');
@@ -472,6 +504,9 @@ const decodeLabel = (l) => {
                                     <span class="truncate">{{ itemLabels[i] || 'Seleccionar libro' }}</span>
                                     <svg class="w-4 h-4 text-white/40 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                 </button>
+                                <p v-if="item.reservas > 0" class="text-[10px] text-fuchsia-400 mt-1 font-bold">
+                                    ⚡ ¡Hay {{ item.reservas }} tomo(s) vendido(s) en preventa!
+                                </p>
                                 <div v-if="itemDdOpen[i]" class="absolute z-40 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-xl">
                                     <div class="p-2 border-b border-white/10">
                                         <input

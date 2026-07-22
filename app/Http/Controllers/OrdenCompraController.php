@@ -213,6 +213,67 @@ class OrdenCompraController extends Controller
             $proveedor->increment('deuda_actual', $fresh->total);
 
             $fresh->update(['estado' => 'recibida']);
+
+            // Liberación automática de Preventas
+            $ventasPreventa = \App\Models\Venta::where('estado', 'en_preventa')
+                ->where('sucursal_id', $fresh->sucursal_id)
+                ->with(['detalles.libro'])
+                ->lockForUpdate()
+                ->get();
+
+            foreach ($ventasPreventa as $ventaPre) {
+                $todasPreventasCubiertas = true;
+                $detallesADescontar = [];
+                
+                foreach ($ventaPre->detalles as $detalle) {
+                    if ($detalle->libro && $detalle->libro->permite_preventa) {
+                        $stockLocal = \App\Models\Stock::where('libro_id', $detalle->libro_id)
+                            ->where('sucursal_id', $fresh->sucursal_id)
+                            ->lockForUpdate()
+                            ->first();
+                            
+                        if (!$stockLocal || $stockLocal->cantidad_disponible < $detalle->cantidad) {
+                            $todasPreventasCubiertas = false;
+                            break;
+                        }
+                        
+                        $detallesADescontar[] = [
+                            'stock' => $stockLocal,
+                            'cantidad' => $detalle->cantidad
+                        ];
+                    }
+                }
+                
+                if ($todasPreventasCubiertas && !empty($detallesADescontar)) {
+                    // Descontar stock
+                    foreach ($detallesADescontar as $desc) {
+                        $desc['stock']->decrement('cantidad_disponible', $desc['cantidad']);
+                    }
+                    
+                    // Cambiar estado
+                    $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $ventaPre->id)->exists();
+                    $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
+                    
+                    if (!$tieneTraslados) {
+                        if ($ventaPre->tipo_envio === 'retiro') {
+                            $nuevoEstado = 'listo_para_retiro';
+                        } elseif ($ventaPre->tipo_envio === 'acumulacion') {
+                            $nuevoEstado = 'acumulado';
+                        }
+                    }
+                    
+                    $ventaPre->update(['estado' => $nuevoEstado]);
+                    
+                    if ($tieneTraslados) {
+                        \App\Models\TransferenciaStock::where('venta_id', $ventaPre->id)
+                            ->where('estado', 'pendiente')
+                            ->update(['estado' => 'pendiente_envio']);
+                            
+                        $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
+                        \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($ventaPre));
+                    }
+                }
+            }
         });
 
         return redirect()->route('ordenes-compra.index')
@@ -251,6 +312,42 @@ class OrdenCompraController extends Controller
                 'titulo'   => $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
                 'stock'    => $l->stocks_sum_cantidad_disponible ?? 0,
                 'reservas' => $l->reservas_pendientes ?? 0,
+            ]);
+
+        return response()->json($libros);
+    }
+
+    public function getPreventas(Request $request): \Illuminate\Http\JsonResponse
+    {
+        $proveedor_id = $request->get('proveedor_id');
+        $sucursal_id = $request->get('sucursal_id');
+
+        if (!$proveedor_id || !$sucursal_id) {
+            return response()->json([]);
+        }
+
+        $libros = \App\Models\Libro::with('master:id,titulo,proveedor_id')
+            ->whereHas('master', fn($q) => $q->where('proveedor_id', $proveedor_id))
+            ->where('permite_preventa', true)
+            ->whereHas('ventaDetalles', function($q) use ($sucursal_id) {
+                $q->whereHas('venta', function($qVenta) use ($sucursal_id) {
+                    $qVenta->where('estado', 'en_preventa')
+                           ->where('sucursal_id', $sucursal_id);
+                });
+            })
+            ->withSum(['ventaDetalles as reservas_pendientes' => function($q) use ($sucursal_id) {
+                $q->whereHas('venta', function($qVenta) use ($sucursal_id) {
+                    $qVenta->where('estado', 'en_preventa')
+                           ->where('sucursal_id', $sucursal_id);
+                });
+            }], 'cantidad')
+            ->get()
+            ->map(fn($l) => [
+                'id'       => $l->id,
+                'titulo'   => $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
+                'stock'    => 0,
+                'reservas' => (int) $l->reservas_pendientes,
+                'precio_unitario' => $l->precioOriginal ?? 0,
             ]);
 
         return response()->json($libros);
