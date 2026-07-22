@@ -158,10 +158,10 @@ const agregarAlCarrito = () => {
                                     >−</button>
                                     <span class="text-lg font-black text-white w-8 text-center">{{ cantidad }}</span>
                                     <button
-                                        @click="cantidad = Math.min(getStockTotal(libro), cantidad + 1)"
-                                        :disabled="getStockStatus(libro) === 'sin_stock' || cantidad >= getStockTotal(libro)"
+                                        @click="cantidad = Math.min(5, getStockTotal(libro), cantidad + 1)"
+                                        :disabled="getStockStatus(libro) === 'sin_stock' || cantidad >= Math.min(5, getStockTotal(libro))"
                                         class="font-black text-xl leading-none w-8 text-center transition-colors"
-                                        :class="cantidad >= getStockTotal(libro) ? 'text-white/20 cursor-not-allowed' : 'text-white/50 hover:text-white'"
+                                        :class="cantidad >= Math.min(5, getStockTotal(libro)) ? 'text-white/20 cursor-not-allowed' : 'text-white/50 hover:text-white'"
                                     >+</button>
                                 </div>
 
