@@ -994,55 +994,51 @@ onMounted(() => {
                 </div>
 
                 <div class="p-8">
-                    <div class="grid grid-cols-4 gap-8 mb-8 pb-8 border-b border-white/5">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 pb-8 border-b border-white/10">
                         <div class="space-y-1">
-                            <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Cliente</div>
+                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Cliente</div>
                             <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs font-black uppercase block hover:text-brand-red transition-colors">{{ selectedVenta.cliente?.user?.name }} {{ selectedVenta.cliente?.user?.apellido }}</Link>
-                            <div v-else class="text-xs font-black uppercase">Cliente Mostrador</div>
+                            <div v-else class="text-xs font-black uppercase text-white/90">Cliente Mostrador</div>
                         </div>
-                        <div class="space-y-1 text-center">
-                            <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Total</div>
-                            <div class="text-xs font-black text-brand-red uppercase">{{ formatCurrency(selectedVenta.total) }}</div>
+                        <div class="space-y-1 md:text-center">
+                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Sucursal</div>
+                            <div class="text-xs font-black uppercase text-white/90">{{ selectedVenta.sucursal?.nombre || 'N/A' }}</div>
                         </div>
-                        <div class="space-y-1 text-center">
-                            <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Sucursal</div>
-                            <div class="text-xs font-black uppercase">{{ selectedVenta.sucursal?.nombre || 'N/A' }}</div>
+                        <div class="space-y-1 md:text-center">
+                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Medio de Pago</div>
+                            <div class="text-xs font-black uppercase text-white/90">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
                         </div>
-                        <div class="space-y-1 text-right">
-                            <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Medio de Pago</div>
-                            <div class="text-xs font-black uppercase">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
-                        </div>
-                        <div class="space-y-1 text-right">
-                            <div class="text-[8px] font-black uppercase tracking-widest text-white/30">Fecha / Canal</div>
-                            <div class="text-xs font-black">{{ selectedVenta.fecha }}</div>
+                        <div class="space-y-1 md:text-right">
+                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Fecha / Canal</div>
+                            <div class="text-xs font-black text-white/90">{{ selectedVenta.fecha }}</div>
                             <div class="text-[10px] font-black uppercase text-brand-red italic tracking-widest">{{ selectedVenta.tipo }}</div>
                         </div>
                     </div>
 
-                    <table class="w-full text-left mb-8">
+                    <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="text-[8px] font-black uppercase tracking-widest text-white/20 border-b border-white/5">
-                                <th class="pb-4">Producto</th>
-                                <th class="pb-4 text-center">Cant.</th>
-                                <th class="pb-4 text-right">P. Unit</th>
-                                <th class="pb-4 text-right italic text-brand-red">Subtotal</th>
+                            <tr class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 border-b border-white/5">
+                                <th class="py-3 px-2">Producto</th>
+                                <th class="py-3 px-2 text-center">Cant.</th>
+                                <th class="py-3 px-2 text-right">P. Unit</th>
+                                <th class="py-3 px-2 text-right text-brand-red">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr v-for="item in selectedVenta.detalles" :key="item.id">
-                                <td class="py-4">
-                                    <div class="text-xs font-black uppercase tracking-tighter">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
-                                    <div class="text-[9px] text-white/30 font-mono italic">ISBN: {{ item.libro?.isbn }}</div>
+                            <tr v-for="item in selectedVenta.detalles" :key="item.id" class="group hover:bg-white/[0.02] transition-colors">
+                                <td class="py-4 px-2">
+                                    <div class="text-xs font-black uppercase tracking-wide text-white/90 group-hover:text-white transition-colors">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
+                                    <div class="text-[10px] text-white/40 font-mono mt-1">ISBN: {{ item.libro?.isbn }}</div>
                                 </td>
-                                <td class="py-4 text-center text-xs font-black italic">{{ item.cantidad }}</td>
-                                <td class="py-4 text-right text-xs font-mono text-white/40">{{ formatCurrency(item.precio_unitario) }}</td>
-                                <td class="py-4 text-right text-xs font-black">{{ formatCurrency(item.subtotal) }}</td>
+                                <td class="py-4 px-2 text-center text-xs font-black text-white/90">{{ item.cantidad }}</td>
+                                <td class="py-4 px-2 text-right text-xs font-mono text-white/50">{{ formatCurrency(item.precio_unitario) }}</td>
+                                <td class="py-4 px-2 text-right text-sm font-black text-white/90">{{ formatCurrency(item.subtotal) }}</td>
                             </tr>
                         </tbody>
                         <tfoot>
-                            <tr>
-                                <td colspan="3" class="py-4 text-right text-xs font-black uppercase tracking-[0.2em] text-white/40">Total de la Compra</td>
-                                <td class="py-4 text-right text-sm font-black italic text-white">{{ formatCurrency(selectedVenta.total) }}</td>
+                            <tr class="border-t border-white/10">
+                                <td colspan="3" class="py-6 text-right text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Total de la Compra</td>
+                                <td class="py-6 text-right text-2xl font-black italic text-white">{{ formatCurrency(selectedVenta.total) }}</td>
                             </tr>
                         </tfoot>
                     </table>
