@@ -34,11 +34,18 @@ class VentaController extends Controller
             $query->where('estado', 'en_preparacion');
         }
 
-        $tab = $request->get('tab', 'activas');
-        if ($tab === 'canceladas') {
-            $query->where('estado', 'cancelado');
+        if ($request->filled('estados')) {
+            $estados = is_array($request->estados) ? $request->estados : [$request->estados];
+            $query->whereIn('estado', $estados);
         } else {
-            $query->where('estado', '!=', 'cancelado');
+            $tab = $request->get('tab', 'activas');
+            if ($tab === 'canceladas') {
+                $query->where('estado', 'cancelado');
+            } elseif ($tab === 'finalizadas') {
+                $query->where('estado', 'finalizado');
+            } else {
+                $query->whereNotIn('estado', ['cancelado', 'finalizado']);
+            }
         }
 
         $ventas = $query->latest()->paginate(10)->withQueryString();
@@ -54,7 +61,8 @@ class VentaController extends Controller
             'recaudacion'      => (float) $statsHoy->recaudacion,
             'promedio_ticket'  => (float) $statsHoy->promedio,
             'stock_total'      => (int)   \App\Models\Stock::sum('cantidad_disponible'),
-            'total_activas'    => Venta::where('estado', '!=', 'cancelado')->count(),
+            'total_activas'    => Venta::whereNotIn('estado', ['cancelado', 'finalizado'])->count(),
+            'total_finalizadas'=> Venta::where('estado', 'finalizado')->count(),
             'total_canceladas' => Venta::where('estado', 'cancelado')->count(),
         ];
 
@@ -62,7 +70,7 @@ class VentaController extends Controller
             'ventas'     => $ventas,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
             'stats'      => $stats,
-            'filters'    => $request->only(['search', 'abonadas_pendientes', 'tab']),
+            'filters'    => $request->only(['search', 'abonadas_pendientes', 'tab', 'estados']),
         ]);
     }
 

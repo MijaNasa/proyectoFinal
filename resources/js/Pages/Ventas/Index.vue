@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
@@ -61,6 +61,34 @@ const estadoForm = useForm({ estado: '', direccion_envio: null, tracking_code: n
 const search = ref(props.filters.search || '');
 const abonadasPendientes = ref(props.filters.abonadas_pendientes === '1' || props.filters.abonadas_pendientes === true);
 const showPosModal = ref(false);
+
+const showEstadoDropdown = ref(false);
+const selectedEstados = ref(props.filters.estados || []);
+
+const toggleEstadoDropdown = () => {
+    showEstadoDropdown.value = !showEstadoDropdown.value;
+};
+
+const clearEstados = () => {
+    selectedEstados.value = [];
+    showEstadoDropdown.value = false;
+    handleSearch();
+};
+
+const closeDropdownsOnClickOutside = (event) => {
+    const container = document.getElementById('estado-filter-dropdown-container');
+    if (container && !container.contains(event.target)) {
+        showEstadoDropdown.value = false;
+    }
+};
+
+onMounted(() => {
+    document.addEventListener('click', closeDropdownsOnClickOutside);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('click', closeDropdownsOnClickOutside);
+});
 const showDetailModal = ref(false);
 const selectedVenta = ref(null);
 const expandedVentas = ref([]);
@@ -490,7 +518,8 @@ const handleSearch = () => {
     router.get(route('ventas.index'), {
         search: search.value,
         abonadas_pendientes: abonadasPendientes.value ? 1 : null,
-        tab: currentTab.value
+        tab: currentTab.value,
+        estados: selectedEstados.value.length > 0 ? selectedEstados.value : null
     }, { preserveState: true, preserveScroll: true, replace: true });
 };
 
@@ -524,6 +553,7 @@ const eliminarCanceladas = () => {
 
 const switchTab = (tab) => {
     currentTab.value = tab;
+    selectedEstados.value = [];
     handleSearch();
 };
 
@@ -672,7 +702,7 @@ onMounted(() => {
                     </div>
                 </div>
 
-                <!-- Tabs (Activas / Canceladas) -->
+                <!-- Tabs (Activas / Finalizadas / Canceladas) -->
                 <div class="flex justify-between items-center border-b border-white/10 mb-4">
                     <div class="flex gap-1">
                         <button
@@ -683,6 +713,13 @@ onMounted(() => {
                             Ventas Activas ({{ stats.total_activas }})
                         </button>
                         <button
+                            @click="switchTab('finalizadas')"
+                            class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
+                            :class="currentTab === 'finalizadas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
+                        >
+                            Ventas Finalizadas ({{ stats.total_finalizadas }})
+                        </button>
+                        <button
                             @click="switchTab('canceladas')"
                             class="px-6 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
                             :class="currentTab === 'canceladas' ? 'border-brand-red text-white' : 'border-transparent text-white/30 hover:text-white'"
@@ -691,25 +728,75 @@ onMounted(() => {
                         </button>
                     </div>
                     
-                    <button 
-                        v-if="currentTab === 'canceladas' && ventas.data.length > 0"
-                        @click="eliminarCanceladas"
-                        class="text-[10px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest transition-colors mr-4"
-                    >
-                        Eliminar Todas
-                    </button>
+                    <div class="flex items-center gap-4 pb-2">
+                        <button 
+                            v-if="currentTab === 'canceladas' && ventas.data.length > 0"
+                            @click="eliminarCanceladas"
+                            class="text-[10px] font-black text-red-400 hover:text-red-300 uppercase tracking-widest transition-colors mr-4"
+                        >
+                            Eliminar Todas
+                        </button>
+                        
+                        <!-- Dropdown de Estados -->
+                        <div v-if="currentTab === 'activas'" class="relative" id="estado-filter-dropdown-container">
+                            <button 
+                                @click.stop="toggleEstadoDropdown"
+                                class="flex items-center gap-2 px-4 py-2 text-[10px] font-black uppercase tracking-[0.15em] bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-white/70 hover:text-white transition-all shadow-inner"
+                            >
+                                <span>Estado ({{ selectedEstados.length || 'Todos' }})</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 transition-transform duration-200" :class="{'rotate-180': showEstadoDropdown}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            
+                            <!-- Dropdown Menu -->
+                            <div 
+                                v-if="showEstadoDropdown"
+                                class="absolute right-0 mt-2 w-64 bg-zinc-950 border border-white/10 rounded-lg shadow-2xl z-50 py-2 max-h-80 overflow-y-auto"
+                            >
+                                <div class="px-3 py-1.5 border-b border-white/5 flex justify-between items-center mb-1">
+                                    <span class="text-[9px] font-black uppercase tracking-wider text-white/40">Filtrar por Estado</span>
+                                    <button 
+                                        v-if="selectedEstados.length > 0"
+                                        @click="clearEstados"
+                                        class="text-[9px] font-black text-brand-red hover:underline uppercase tracking-wider"
+                                    >
+                                        Limpiar
+                                    </button>
+                                </div>
+                                <div class="divide-y divide-white/5">
+                                    <label 
+                                        v-for="opcion in estadoOpciones.filter(e => e.value !== 'finalizado' && e.value !== 'cancelado')" 
+                                        :key="opcion.value"
+                                        class="flex items-center px-4 py-2 hover:bg-white/5 cursor-pointer select-none"
+                                    >
+                                        <input 
+                                            type="checkbox" 
+                                            :value="opcion.value" 
+                                            v-model="selectedEstados" 
+                                            @change="handleSearch"
+                                            class="rounded border-white/10 bg-white/5 text-brand-red focus:ring-0 focus:ring-offset-0 h-4 w-4"
+                                        >
+                                        <span class="ml-3 text-xs font-bold text-white/70 tracking-wide">
+                                            {{ opcion.label }}
+                                        </span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="card p-0 overflow-hidden border-white/5" :class="{'opacity-70': currentTab === 'canceladas'}">
-                    <table class="w-full text-left border-collapse">
+                <div class="card p-0 overflow-hidden border-white/5" :class="{'opacity-70': currentTab === 'canceladas' || currentTab === 'finalizadas'}">
+                    <table class="w-full text-left border-collapse table-fixed">
                         <thead>
                             <tr class="bg-white/[0.02] text-[9px] font-black uppercase tracking-widest text-white/50 border-b border-white/5">
-                                <th class="p-6">Ticket / Fecha</th>
-                                <th class="p-6">Cliente / Canal</th>
-                                <th class="p-6">Sucursal</th>
-                                <th class="p-6">Pago / Envío</th>
-                                <th class="p-6 text-right">Monto Total</th>
-                                <th class="p-6 text-center">Acciones</th>
+                                <th class="p-6 w-[15%]">Ticket / Fecha</th>
+                                <th class="p-6 w-[25%]">Cliente / Canal</th>
+                                <th class="p-6 w-[15%]">Sucursal</th>
+                                <th class="p-6 w-[15%]">Pago / Envío</th>
+                                <th class="p-6 text-right w-[15%]">Monto Total</th>
+                                <th class="p-6 text-center w-[15%]">Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
