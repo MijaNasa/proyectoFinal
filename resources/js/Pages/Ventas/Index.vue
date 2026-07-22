@@ -664,7 +664,7 @@ onMounted(() => {
         <div class="py-12">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <!-- Estadísticas Rápidas -->
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div class="card bg-brand-red/5 border-brand-red/20 p-6">
                         <div class="text-[8px] font-black uppercase tracking-[0.3em] text-brand-red mb-1">Ventas Hoy</div>
                         <div class="text-2xl font-black">{{ stats.ventas_hoy }}</div>
@@ -676,10 +676,6 @@ onMounted(() => {
                     <div class="card p-6 border-white/5">
                         <div class="text-[8px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Ticket Promedio</div>
                         <div class="text-2xl font-black">{{ formatCurrency(stats.promedio_ticket) }}</div>
-                    </div>
-                    <div class="card p-6 border-white/5">
-                        <div class="text-[8px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Stock Global</div>
-                        <div class="text-2xl font-black text-brand-red italic">{{ stats.stock_total }} <span class="text-[10px] font-mono not-italic text-white/20 ml-1">UNITS</span></div>
                     </div>
                 </div>
 

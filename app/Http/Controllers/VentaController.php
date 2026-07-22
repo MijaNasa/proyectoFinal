@@ -60,7 +60,6 @@ class VentaController extends Controller
             'ventas_hoy'       => (int)   $statsHoy->cantidad,
             'recaudacion'      => (float) $statsHoy->recaudacion,
             'promedio_ticket'  => (float) $statsHoy->promedio,
-            'stock_total'      => (int)   \App\Models\Stock::sum('cantidad_disponible'),
             'total_activas'    => Venta::whereNotIn('estado', ['cancelado', 'finalizado'])->count(),
             'total_finalizadas'=> Venta::where('estado', 'finalizado')->count(),
             'total_canceladas' => Venta::where('estado', 'cancelado')->count(),
