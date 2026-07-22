@@ -71,8 +71,24 @@ const costoEnvio = computed(() => {
 
 const totalFinal = computed(() => props.total + costoEnvio.value);
 
+// La calle solo se puede buscar una vez elegida provincia y localidad,
+// asi la busqueda queda acotada a esa zona y no trae calles homonimas de otro lado.
+const direccionHabilitada = computed(() => !!provincia.value && !!localidad.value);
+
+const normalizar = (str) => (str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(new RegExp('[̀-ͯ]', 'g'), '');
+
+const coincideLocalidad = (f) => {
+    const p = f.properties;
+    const objetivo = normalizar(localidad.value);
+    const candidatos = [p.city, p.district, p.county].filter(Boolean).map(normalizar);
+    return candidatos.some(c => c.includes(objetivo) || objetivo.includes(c));
+};
+
 const buscarDirecciones = async (query) => {
-    if (query.trim().length < 3) {
+    if (query.trim().length < 3 || !direccionHabilitada.value) {
         sugerencias.value = [];
         mostrarSugerencias.value = false;
         return;
@@ -82,15 +98,17 @@ const buscarDirecciones = async (query) => {
     buscandoDireccion.value = true;
     try {
         const params = new URLSearchParams({
-            q: query,
-            limit: '5',
+            q: `${query}, ${localidad.value}, ${provincia.value}, Argentina`,
+            limit: '8',
             lat: '-32.9468',
             lon: '-60.6393',
         });
         const res = await fetch(`https://photon.komoot.io/api/?${params.toString()}`);
         const data = await res.json();
         if (consultaId !== ultimaConsultaId) return;
-        sugerencias.value = data.features || [];
+        const features = data.features || [];
+        const filtradas = features.filter(coincideLocalidad);
+        sugerencias.value = filtradas.length > 0 ? filtradas : features;
         mostrarSugerencias.value = sugerencias.value.length > 0;
     } catch {
         sugerencias.value = [];
@@ -140,6 +158,14 @@ watch(tipoEnvio, (val) => {
             medioPago.value = 'Tarjeta';
         }
     }
+});
+
+watch([provincia, localidad], () => {
+    direccionInput.value     = '';
+    direccionFormatted.value = '';
+    addressSelected.value    = false;
+    sugerencias.value        = [];
+    mostrarSugerencias.value = false;
 });
 
 watch(direccionInput, (val) => {
@@ -364,11 +390,12 @@ const confirmar = () => {
                                             ref="inputRef"
                                             v-model="direccionInput"
                                             type="text"
-                                            placeholder="Buscá tu dirección..."
+                                            :disabled="!direccionHabilitada"
+                                            :placeholder="direccionHabilitada ? 'Buscá tu dirección...' : 'Elegí primero provincia y localidad'"
                                             autocomplete="off"
                                             @focus="mostrarSugerencias = sugerencias.length > 0"
                                             @blur="setTimeout(() => mostrarSugerencias = false, 150)"
-                                            class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
+                                            class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                             :class="addressSelected
                                                 ? 'border-green-500/60 focus:border-green-500'
                                                 : 'border-white/10 focus:border-brand-red'"

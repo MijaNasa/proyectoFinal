@@ -97,7 +97,7 @@ const irACheckout = () => {
                                 </div>
                             </div>
                             <p v-if="item.cantidad >= Math.min(5, item.stock_total ?? 5)" class="mt-2 text-[10px] font-black uppercase tracking-widest text-yellow-400">
-                                {{ (item.stock_total ?? 5) <= 5 ? 'No hay más stock disponible.' : 'Llegaste al límite de 5 unidades por compra.' }}
+                                Alcanzaste el límite de unidades de este producto para esta compra.
                             </p>
                         </div>
 

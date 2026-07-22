@@ -38,8 +38,7 @@ class CarritoController extends Controller
         $cantidadActual = $carrito[$id]['cantidad'] ?? 0;
 
         if ($cantidadActual >= $limite) {
-            $motivo = $stockTotal <= 5 ? 'No hay más stock disponible.' : 'Llegaste al límite de 5 unidades por compra.';
-            return back()->with('warning', $motivo);
+            return back()->with('warning', 'Alcanzaste el límite de unidades de este producto para esta compra.');
         }
 
         $nuevaCantidad = min($cantidadActual + $request->cantidad, $limite);
@@ -81,8 +80,7 @@ class CarritoController extends Controller
         session([self::SESSION_KEY => $carrito]);
 
         if ($request->cantidad > $limite) {
-            $motivo = $stockTotal <= 5 ? 'No hay más stock disponible.' : 'Llegaste al límite de 5 unidades por compra.';
-            return back()->with('warning', $motivo);
+            return back()->with('warning', 'Alcanzaste el límite de unidades de este producto para esta compra.');
         }
 
         return back();

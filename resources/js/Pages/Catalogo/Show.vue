@@ -179,7 +179,7 @@ const agregarAlCarrito = () => {
                             </div>
 
                             <p v-if="cantidad >= Math.min(5, getStockTotal(libro)) && getStockStatus(libro) !== 'sin_stock'" class="mt-2 text-[11px] font-black uppercase tracking-widest text-yellow-400">
-                                {{ getStockTotal(libro) <= 5 ? 'No hay más stock disponible.' : 'Llegaste al límite de 5 unidades por compra.' }}
+                                Alcanzaste el límite de unidades de este producto para esta compra.
                             </p>
                             </div>
                         </section>
