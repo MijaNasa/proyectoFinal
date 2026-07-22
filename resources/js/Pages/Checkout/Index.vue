@@ -1,7 +1,7 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { Head, Link, router, usePage } from '@inertiajs/vue3';
-import { ref, computed, watch, nextTick, onUnmounted } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 
 const props = defineProps({
     items: Array,
@@ -45,8 +45,11 @@ const guestDni      = ref('');
 const guestEmail    = ref('');
 const guestTelefono = ref('');
 
-let autocomplete = null;
-let placeListener = null;
+const sugerencias        = ref([]);
+const mostrarSugerencias = ref(false);
+const buscandoDireccion  = ref(false);
+let debounceTimer = null;
+let ultimaConsultaId = 0;
 
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
@@ -65,41 +68,50 @@ const costoEnvio = computed(() => {
 
 const totalFinal = computed(() => props.total + costoEnvio.value);
 
-const MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-const usaMaps  = !!MAPS_KEY;
-
-const loadGoogleMaps = () => new Promise((resolve, reject) => {
-    if (window.google?.maps?.places) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&libraries=places`;
-    s.async = true;
-    s.onload  = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-});
-
-const initAutocomplete = async () => {
-    if (!usaMaps || !inputRef.value) return;
-    try {
-        await loadGoogleMaps();
-        if (autocomplete && placeListener) {
-            window.google.maps.event.removeListener(placeListener);
-        }
-        autocomplete = new window.google.maps.places.Autocomplete(inputRef.value, {
-            types: ['address'],
-            componentRestrictions: { country: 'ar' },
-        });
-        placeListener = autocomplete.addListener('place_changed', () => {
-            const place = autocomplete.getPlace();
-            if (place?.formatted_address) {
-                direccionFormatted.value = place.formatted_address;
-                direccionInput.value     = place.formatted_address;
-                addressSelected.value    = true;
-            }
-        });
-    } catch {
-        // Si falla la carga de Maps, el input sigue funcionando como texto libre
+const buscarDirecciones = async (query) => {
+    if (query.trim().length < 3) {
+        sugerencias.value = [];
+        mostrarSugerencias.value = false;
+        return;
     }
+
+    const consultaId = ++ultimaConsultaId;
+    buscandoDireccion.value = true;
+    try {
+        const params = new URLSearchParams({
+            q: query,
+            lang: 'es',
+            limit: '5',
+            lat: '-32.9468',
+            lon: '-60.6393',
+        });
+        const res = await fetch(`https://photon.komoot.io/api/?${params.toString()}`);
+        const data = await res.json();
+        if (consultaId !== ultimaConsultaId) return;
+        sugerencias.value = data.features || [];
+        mostrarSugerencias.value = sugerencias.value.length > 0;
+    } catch {
+        sugerencias.value = [];
+        mostrarSugerencias.value = false;
+    } finally {
+        if (consultaId === ultimaConsultaId) buscandoDireccion.value = false;
+    }
+};
+
+const formatearSugerencia = (f) => {
+    const p = f.properties;
+    const calle = p.street || p.name || '';
+    const conAltura = p.housenumber ? `${calle} ${p.housenumber}` : calle;
+    return [conAltura, p.city, p.state].filter(Boolean).join(', ');
+};
+
+const seleccionarSugerencia = (f) => {
+    const texto = formatearSugerencia(f);
+    direccionInput.value     = texto;
+    direccionFormatted.value = texto;
+    addressSelected.value    = true;
+    sugerencias.value        = [];
+    mostrarSugerencias.value = false;
 };
 
 watch(tipoEnvio, (val) => {
@@ -112,9 +124,10 @@ watch(tipoEnvio, (val) => {
     comentario.value = '';
     provincia.value = '';
     localidad.value = '';
+    sugerencias.value = [];
+    mostrarSugerencias.value = false;
     if (val === 'domicilio') {
         sucursalId.value = props.sucursal_principal_id;
-        if (usaMaps) nextTick(initAutocomplete);
     } else {
         sucursalId.value = '';
     }
@@ -128,17 +141,18 @@ watch(tipoEnvio, (val) => {
 });
 
 watch(direccionInput, (val) => {
-    if (!usaMaps) {
-        addressSelected.value    = val.trim().length > 5;
-        direccionFormatted.value = val;
-    } else if (addressSelected.value && val !== direccionFormatted.value) {
+    if (addressSelected.value && val !== direccionFormatted.value) {
         addressSelected.value    = false;
         direccionFormatted.value = '';
+    }
+    clearTimeout(debounceTimer);
+    if (!addressSelected.value) {
+        debounceTimer = setTimeout(() => buscarDirecciones(val), 400);
     }
 });
 
 onUnmounted(() => {
-    if (placeListener) window.google?.maps?.event?.removeListener(placeListener);
+    clearTimeout(debounceTimer);
 });
 
 const page = usePage();
@@ -348,8 +362,10 @@ const confirmar = () => {
                                             ref="inputRef"
                                             v-model="direccionInput"
                                             type="text"
-                                            :placeholder="usaMaps ? 'Buscá tu dirección...' : 'Ej: Av. Pellegrini 1234'"
-                                            :autocomplete="usaMaps ? 'off' : 'street-address'"
+                                            placeholder="Buscá tu dirección..."
+                                            autocomplete="off"
+                                            @focus="if (sugerencias.length) mostrarSugerencias = true"
+                                            @blur="setTimeout(() => mostrarSugerencias = false, 150)"
                                             class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors"
                                             :class="addressSelected
                                                 ? 'border-green-500/60 focus:border-green-500'
@@ -362,8 +378,30 @@ const confirmar = () => {
                                         >
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
                                         </svg>
+                                        <svg
+                                            v-else-if="buscandoDireccion"
+                                            class="absolute right-3 top-3.5 w-4 h-4 text-white/30 animate-spin pointer-events-none"
+                                            fill="none" viewBox="0 0 24 24"
+                                        >
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        </svg>
+
+                                        <ul
+                                            v-if="mostrarSugerencias && sugerencias.length"
+                                            class="absolute z-20 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+                                        >
+                                            <li
+                                                v-for="(f, idx) in sugerencias"
+                                                :key="idx"
+                                                @mousedown.prevent="seleccionarSugerencia(f)"
+                                                class="px-4 py-2.5 text-xs text-white/60 hover:bg-white/5 hover:text-white cursor-pointer border-t border-white/5 first:border-t-0"
+                                            >
+                                                {{ formatearSugerencia(f) }}
+                                            </li>
+                                        </ul>
                                     </div>
-                                    <p v-if="usaMaps && !addressSelected && direccionInput.length > 2" class="text-yellow-400/70 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
+                                    <p v-if="!addressSelected && direccionInput.length > 2" class="text-yellow-400/70 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
                                         Seleccioná una dirección de la lista
                                     </p>
                                 </div>
@@ -624,32 +662,4 @@ const confirmar = () => {
 <style scoped>
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-6px); }
-</style>
-
-<style>
-/* Estilos del dropdown de Google Places */
-.pac-container {
-    background: #1a1a1a;
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0.75rem;
-    margin-top: 4px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
-    font-family: inherit;
-    overflow: hidden;
-}
-.pac-item {
-    color: rgba(255, 255, 255, 0.6);
-    border-top: 1px solid rgba(255, 255, 255, 0.05);
-    padding: 10px 16px;
-    cursor: pointer;
-    font-size: 13px;
-    line-height: 1.4;
-}
-.pac-item:first-child { border-top: none; }
-.pac-item:hover,
-.pac-item-selected { background: rgba(255, 255, 255, 0.06); }
-.pac-item-query { color: #fff; font-weight: 700; }
-.pac-matched { color: #e61919; }
-.pac-icon { display: none; }
-.pac-logo:after { display: none; }
 </style>
