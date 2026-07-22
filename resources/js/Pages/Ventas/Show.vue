@@ -2,6 +2,7 @@
 import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
+import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     venta: Object,
@@ -103,12 +104,10 @@ const print = () => window.print();
                     </select>
                 </div>
                 <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="flex-1 min-w-[200px]">
-                    <input
-                        type="text"
+                    <DireccionAutocomplete
                         v-model="estadoForm.direccion_envio"
                         placeholder="Ej: San Martín 123, Rosario"
                         class="bg-white/5 border border-brand-red/30 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-brand-red transition-colors w-full"
-                        required
                     />
                 </div>
                 <div v-if="venta.tipo_envio === 'correo_nacional' || estadoForm.estado === 'correo_nacional'" class="flex-1 min-w-[200px]">

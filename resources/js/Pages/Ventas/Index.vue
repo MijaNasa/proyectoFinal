@@ -4,6 +4,7 @@ import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted, watch } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
+import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     ventas: Object,
@@ -1089,7 +1090,7 @@ onMounted(() => {
                         </div>
                         <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="flex-1 w-full min-w-[200px]">
                             <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Dirección de Envío</label>
-                            <input type="text" v-model="estadoForm.direccion_envio" placeholder="Ej: San Martín 123, Rosario" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" required />
+                            <DireccionAutocomplete v-model="estadoForm.direccion_envio" placeholder="Ej: San Martín 123, Rosario" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" />
                         </div>
                         <div v-if="selectedVenta.tipo_envio === 'correo_nacional'" class="flex-1 w-full min-w-[200px]">
                             <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Código de Seguimiento</label>

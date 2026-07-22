@@ -4,6 +4,7 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, watch } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
+import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     sucursales: Object,
@@ -97,6 +98,13 @@ const deleteSucursal = (id) => {
             form.delete(route('sucursales.destroy', id));
         }
     });
+};
+
+const onSeleccionarDireccionSucursal = (f) => {
+    const p = f.properties;
+    form.calle = p.street || p.name || form.calle;
+    if (p.housenumber) form.numero = p.housenumber;
+    if (p.postcode)    form.codigo_postal = p.postcode;
 };
 
 let debounceTimeout = null;
@@ -219,7 +227,13 @@ watch(search, (value) => {
                             <div class="grid grid-cols-4 gap-4">
                                 <div class="col-span-3">
                                     <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Calle</label>
-                                    <input v-model="form.calle" type="text" class="input-field w-full" :class="{'border-brand-red': form.errors.calle}">
+                                    <DireccionAutocomplete
+                                        v-model="form.calle"
+                                        :contexto="form.ciudad_nombre ? `${form.ciudad_nombre}, Santa Fe, Argentina` : 'Santa Fe, Argentina'"
+                                        @select="onSeleccionarDireccionSucursal"
+                                        class="input-field w-full"
+                                        :class="{'border-brand-red': form.errors.calle}"
+                                    />
                                     <p v-if="form.errors.calle" class="text-brand-red text-[10px] mt-1">{{ form.errors.calle }}</p>
                                 </div>
                                 <div class="col-span-1">

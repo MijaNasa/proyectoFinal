@@ -4,6 +4,7 @@ import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
+import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     proveedores: Object,
@@ -291,7 +292,7 @@ const setEstado = (estado) => {
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Dirección</label>
-                            <input v-model="form.direccion" type="text" class="input-field w-full">
+                            <DireccionAutocomplete v-model="form.direccion" class="input-field w-full" />
                         </div>
                         <div class="flex items-center gap-2 bg-white/5 p-3 rounded border border-white/5">
                             <input type="checkbox" v-model="form.activo" id="proveedor_activo" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">

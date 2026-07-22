@@ -4,6 +4,7 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 import Swal from 'sweetalert2';
+import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     cliente: Object,
@@ -751,14 +752,12 @@ const estadoConfig = {
                         
                         <div>
                             <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Dirección de Envío Consolidada *</label>
-                            <input 
-                                type="text" 
-                                v-model="consolidarForm.direccion_envio" 
+                            <DireccionAutocomplete
+                                v-model="consolidarForm.direccion_envio"
                                 class="input-field w-full bg-black/40 text-sm"
                                 :class="{ 'border-brand-red': consolidarForm.errors.direccion_envio }"
                                 placeholder="Ej: San Martín 123, CABA..."
-                                required
-                            >
+                            />
                             <p class="text-[9px] text-white/40 font-bold mt-2 leading-tight">
                                 Ingresá o verificá la dirección a la cual se enviarán todos estos pedidos. Si el cliente no tenía dirección, podés cargarla aquí mismo.
                             </p>
