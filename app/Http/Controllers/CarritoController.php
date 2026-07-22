@@ -54,6 +54,7 @@ class CarritoController extends Controller
             'portada_url' => $libro->master->portada_url,
             'isbn'        => $libro->isbn,
             'proveedor'   => $libro->master->proveedor->nombre_empresa ?? '',
+            'stock_total' => $stockTotal,
         ];
 
         session([self::SESSION_KEY => $carrito]);
@@ -76,7 +77,13 @@ class CarritoController extends Controller
 
         $limite = min(5, $stockTotal);
         $carrito[$libroId]['cantidad'] = min($request->cantidad, $limite);
+        $carrito[$libroId]['stock_total'] = $stockTotal;
         session([self::SESSION_KEY => $carrito]);
+
+        if ($request->cantidad > $limite) {
+            $motivo = $stockTotal <= 5 ? 'No hay más stock disponible.' : 'Llegaste al límite de 5 unidades por compra.';
+            return back()->with('warning', $motivo);
+        }
 
         return back();
     }

@@ -90,10 +90,15 @@ const irACheckout = () => {
                                     <span class="text-sm font-black text-white w-5 text-center">{{ item.cantidad }}</span>
                                     <button
                                         @click="actualizarCantidad(item.libro_id, item.cantidad + 1)"
-                                        class="text-white/50 hover:text-white font-black text-base leading-none w-5 text-center"
+                                        :disabled="item.cantidad >= Math.min(5, item.stock_total ?? 5)"
+                                        class="font-black text-base leading-none w-5 text-center"
+                                        :class="item.cantidad >= Math.min(5, item.stock_total ?? 5) ? 'text-white/20 cursor-not-allowed' : 'text-white/50 hover:text-white'"
                                     >+</button>
                                 </div>
                             </div>
+                            <p v-if="item.cantidad >= Math.min(5, item.stock_total ?? 5)" class="mt-2 text-[10px] font-black uppercase tracking-widest text-yellow-400">
+                                {{ (item.stock_total ?? 5) <= 5 ? 'No hay más stock disponible.' : 'Llegaste al límite de 5 unidades por compra.' }}
+                            </p>
                         </div>
 
                         <!-- Subtotal -->

@@ -147,6 +147,7 @@ const agregarAlCarrito = () => {
                                 </div>
                             </div>
 
+                            <div>
                             <div class="flex items-center gap-3">
                                 <!-- Selector de cantidad -->
                                 <div class="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-4 py-3">
@@ -175,6 +176,11 @@ const agregarAlCarrito = () => {
                                 >
                                     {{ getStockStatus(libro) === 'sin_stock' ? 'Agotado' : 'Agregar al Carrito' }}
                                 </button>
+                            </div>
+
+                            <p v-if="cantidad >= Math.min(5, getStockTotal(libro)) && getStockStatus(libro) !== 'sin_stock'" class="mt-2 text-[11px] font-black uppercase tracking-widest text-yellow-400">
+                                {{ getStockTotal(libro) <= 5 ? 'No hay más stock disponible.' : 'Llegaste al límite de 5 unidades por compra.' }}
+                            </p>
                             </div>
                         </section>
 
