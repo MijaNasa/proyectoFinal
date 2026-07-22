@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
+import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     autores: Array,
@@ -369,7 +370,7 @@ const confirmDelete = (item) => {
                             </div>
                             <div>
                                 <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Dirección</label>
-                                <input v-model="editForm.direccion" type="text" class="input-field w-full" />
+                                <DireccionAutocomplete v-model="editForm.direccion" class="input-field w-full" />
                                 <span v-if="editForm.errors.direccion" class="text-brand-red text-xs mt-1">{{ editForm.errors.direccion }}</span>
                             </div>
                         </div>
