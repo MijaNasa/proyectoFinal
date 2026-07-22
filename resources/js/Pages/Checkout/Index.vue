@@ -71,9 +71,13 @@ const costoEnvio = computed(() => {
 
 const totalFinal = computed(() => props.total + costoEnvio.value);
 
-// La calle solo se puede buscar una vez elegida provincia y localidad,
-// asi la busqueda queda acotada a esa zona y no trae calles homonimas de otro lado.
-const direccionHabilitada = computed(() => !!provincia.value && !!localidad.value);
+// En Santa Fe la calle se busca recien con localidad elegida (lista corta, acota bien la busqueda).
+// En el resto de provincias alcanza con la provincia: la localidad se completa sola con la
+// direccion que devuelve la API, no tiene sentido pedirsela al usuario como texto libre antes.
+const direccionHabilitada = computed(() => {
+    if (provincia.value === 'Santa Fe') return !!localidad.value;
+    return !!provincia.value;
+});
 
 const normalizar = (str) => (str || '')
     .toLowerCase()
@@ -81,6 +85,7 @@ const normalizar = (str) => (str || '')
     .replace(new RegExp('[̀-ͯ]', 'g'), '');
 
 const coincideLocalidad = (f) => {
+    if (!localidad.value) return true;
     const p = f.properties;
     const objetivo = normalizar(localidad.value);
     const candidatos = [p.city, p.district, p.county].filter(Boolean).map(normalizar);
@@ -97,8 +102,9 @@ const buscarDirecciones = async (query) => {
     const consultaId = ++ultimaConsultaId;
     buscandoDireccion.value = true;
     try {
+        const contexto = [query, localidad.value, provincia.value, 'Argentina'].filter(Boolean).join(', ');
         const params = new URLSearchParams({
-            q: `${query}, ${localidad.value}, ${provincia.value}, Argentina`,
+            q: contexto,
             limit: '8',
             lat: '-32.9468',
             lon: '-60.6393',
@@ -126,12 +132,21 @@ const formatearSugerencia = (f) => {
 };
 
 const seleccionarSugerencia = (f) => {
+    const p = f.properties;
     const texto = formatearSugerencia(f);
     direccionInput.value     = texto;
     direccionFormatted.value = texto;
     addressSelected.value    = true;
     sugerencias.value        = [];
     mostrarSugerencias.value = false;
+
+    // La localidad y el CP quedan definidos por la direccion validada, no hace falta tipearlos
+    if (provincia.value !== 'Santa Fe') {
+        localidad.value = p.city || p.district || p.county || provincia.value;
+    }
+    if (p.postcode) {
+        cp.value = p.postcode;
+    }
 };
 
 watch(tipoEnvio, (val) => {
@@ -160,7 +175,20 @@ watch(tipoEnvio, (val) => {
     }
 });
 
-watch([provincia, localidad], () => {
+watch(provincia, () => {
+    localidad.value           = '';
+    direccionInput.value      = '';
+    direccionFormatted.value  = '';
+    addressSelected.value     = false;
+    cp.value                  = '';
+    sugerencias.value         = [];
+    mostrarSugerencias.value  = false;
+});
+
+watch(localidad, () => {
+    // En provincias fuera de Santa Fe, la localidad se autocompleta al elegir
+    // la direccion (ver seleccionarSugerencia): no hay que resetear nada ahi.
+    if (provincia.value !== 'Santa Fe') return;
     direccionInput.value     = '';
     direccionFormatted.value = '';
     addressSelected.value    = false;
@@ -355,7 +383,7 @@ const confirmar = () => {
                             <div v-if="tipoEnvio === 'domicilio'" class="mt-6 space-y-4">
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
+                                    <div :class="{ 'md:col-span-2': provincia !== 'Santa Fe' }">
                                         <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
                                             Provincia *
                                         </label>
@@ -364,20 +392,19 @@ const confirmar = () => {
                                             <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
                                         </select>
                                     </div>
-                                    <div>
+                                    <div v-if="provincia === 'Santa Fe'">
                                         <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
                                             Localidad *
                                         </label>
-                                        <select v-if="provincia === 'Santa Fe'" v-model="localidad" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider">
+                                        <select v-model="localidad" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider">
                                             <option value="" disabled>-- Localidad --</option>
                                             <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
                                         </select>
-                                        <input v-else type="text" v-model="localidad" placeholder="Ej: Córdoba Capital" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider" />
                                     </div>
                                 </div>
 
-                                <div v-if="provincia && localidad && !esEnvioLocal" class="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-500 text-xs font-bold mt-2">
-                                    ⚠️ El envío a {{ localidad }} se realiza por Correo Nacional con un recargo de {{ formatPrecio(50000) }}.
+                                <div v-if="provincia && (provincia !== 'Santa Fe' || localidad) && !esEnvioLocal" class="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-500 text-xs font-bold mt-2">
+                                    ⚠️ El envío{{ localidad ? ' a ' + localidad : '' }} se realiza por Correo Nacional con un recargo de {{ formatPrecio(50000) }}.
                                 </div>
 
                                 <!-- Autocomplete -->
@@ -391,7 +418,7 @@ const confirmar = () => {
                                             v-model="direccionInput"
                                             type="text"
                                             :disabled="!direccionHabilitada"
-                                            :placeholder="direccionHabilitada ? 'Buscá tu dirección...' : 'Elegí primero provincia y localidad'"
+                                            :placeholder="direccionHabilitada ? 'Buscá tu dirección...' : (provincia === 'Santa Fe' ? 'Elegí primero la localidad' : 'Elegí primero la provincia')"
                                             autocomplete="off"
                                             @focus="mostrarSugerencias = sugerencias.length > 0"
                                             @blur="setTimeout(() => mostrarSugerencias = false, 150)"
@@ -433,6 +460,9 @@ const confirmar = () => {
                                     <p v-if="!addressSelected && direccionInput.length > 2" class="text-yellow-400/70 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
                                         Seleccioná una dirección de la lista
                                     </p>
+                                    <p v-if="provincia !== 'Santa Fe' && addressSelected && localidad" class="text-white/30 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
+                                        Localidad: {{ localidad }}
+                                    </p>
                                 </div>
 
                                 <!-- Extras: Piso, Depto, CP y Comentarios -->
@@ -464,6 +494,7 @@ const confirmar = () => {
                                             <div>
                                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
                                                     CP <span class="text-brand-red">*</span>
+                                                    <span v-if="cp" class="text-white/20 normal-case">(de la dirección)</span>
                                                 </label>
                                                 <input
                                                     v-model="cp"
