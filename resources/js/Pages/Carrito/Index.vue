@@ -42,7 +42,7 @@ const irACheckout = () => {
     <PublicLayout>
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <h1 class="text-5xl font-black uppercase tracking-tighter mb-12">
-                Mi <span class="text-brand-red italic">Carrito</span>
+                Mi <span class="text-brand-red not-italic">Carrito</span>
             </h1>
 
             <!-- Carrito vacío -->

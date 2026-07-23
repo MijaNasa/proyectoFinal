@@ -13,7 +13,7 @@ class VentaController extends Controller
     use GeocodeHelper;
     public function index(Request $request)
     {
-        $query = Venta::with(['cliente.user', 'sucursal', 'detalles.libro.master', 'transacciones']);
+        $query = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones']);
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -453,7 +453,7 @@ class VentaController extends Controller
             'user:id,name,apellido',
             'sucursal:id,nombre,calle,numero,telefono',
             'detalles.libro.master:id,titulo',
-            'detalles.libro:id,master_id,isbn',
+            'detalles.libro:id,master_id,isbn,numero_tomo',
             'transacciones',
         ]);
 

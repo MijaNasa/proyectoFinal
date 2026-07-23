@@ -237,7 +237,7 @@ const formatCurrency = (value) => {
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Base de <span class="text-brand-red italic">Clientes</span>
+                    Base de <span class="text-brand-red not-italic">Clientes</span>
                 </h2>
                 <button @click="crearClienteRapido()" class="btn-primary flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

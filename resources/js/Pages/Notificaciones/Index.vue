@@ -89,7 +89,7 @@ const eliminarTodas = () => {
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                Panel de <span class="text-brand-red italic">Notificaciones</span>
+                Panel de <span class="text-brand-red not-italic">Notificaciones</span>
             </h2>
         </template>
 

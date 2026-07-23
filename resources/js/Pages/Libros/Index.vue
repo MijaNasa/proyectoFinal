@@ -544,7 +544,7 @@ const deshabilitarPreventasMassive = () => {
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Catálogo <span class="text-brand-red italic">Principal</span>
+                    Catálogo <span class="text-brand-red not-italic">Principal</span>
                 </h2>
                 <div class="flex gap-3">
                     <button @click="deshabilitarPreventasMassive" class="px-4 py-2 bg-brand-red/10 text-brand-red border border-brand-red/50 hover:bg-brand-red hover:text-white transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">

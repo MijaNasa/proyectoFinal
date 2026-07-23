@@ -43,15 +43,15 @@ const estadoOpcionesFiltradas = computed(() => {
 });
 
 const estadoColores = {
-    en_preventa:        'bg-fuchsia-500/20 text-fuchsia-400',
-    pendiente_pago:     'bg-yellow-500/20 text-yellow-400',
-    esperando_traslado: 'bg-purple-500/20 text-purple-400',
-    en_preparacion:     'bg-blue-500/20 text-blue-400',
-    listo_para_retiro:  'bg-emerald-500/20 text-emerald-400',
-    acumulado:          'bg-orange-500/20 text-orange-400',
-    enviado:            'bg-indigo-500/20 text-indigo-400',
-    finalizado:         'bg-green-500/20 text-green-400',
-    cancelado:          'bg-red-500/20 text-red-400',
+    en_preventa:        'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20',
+    pendiente_pago:     'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
+    esperando_traslado: 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
+    en_preparacion:     'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+    listo_para_retiro:  'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+    acumulado:          'bg-orange-500/10 text-orange-400 border border-orange-500/20',
+    enviado:            'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20',
+    finalizado:         'bg-green-500/10 text-green-400 border border-green-500/20',
+    cancelado:          'bg-red-500/10 text-red-400 border border-red-500/20',
 };
 
 
@@ -488,7 +488,8 @@ const submitVenta = () => {
 };
 
 const formatCurrency = (value) => {
-    return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+    const formatted = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
+    return formatted.replace(/\$\s*/, '$');
 };
 
 const openPos = () => {
@@ -626,6 +627,36 @@ const confirmarPago = async () => {
     });
 };
 
+const isFormModified = computed(() => {
+    if (!selectedVenta.value) return false;
+    return estadoForm.estado !== selectedVenta.value.estado ||
+           estadoForm.direccion_envio !== (selectedVenta.value.direccion_envio || '') ||
+           estadoForm.tracking_code !== (selectedVenta.value.tracking_code || '');
+});
+
+const formatTicketDate = (fechaStr) => {
+    if (!fechaStr) return '';
+    const d = new Date(fechaStr);
+    const day = d.getDate();
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const month = months[d.getMonth()];
+    const year = d.getFullYear();
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${day} ${month} ${year}, ${hours}:${minutes} hs`;
+};
+
+const getClienteNombre = (venta) => {
+    if (!venta) return 'Cliente Mostrador';
+    if (venta.cliente?.user) {
+        return `${venta.cliente.user.name} ${venta.cliente.user.apellido || ''}`.trim();
+    }
+    if (venta.tipo === 'online' && venta.user) {
+        return `${venta.user.name} ${venta.user.apellido || ''}`.trim();
+    }
+    return 'Cliente Mostrador';
+};
+
 // Automatización segura para abrir la terminal directo desde el Dashboard o Detalles
 onMounted(() => {
     if (typeof window !== 'undefined') {
@@ -650,10 +681,10 @@ onMounted(() => {
         <template #header>
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Terminal de <span class="text-brand-red italic">Ventas</span>
+                    Terminal de <span class="text-brand-red not-italic">Ventas</span>
                 </h2>
                 <button @click="openPos()" class="btn-primary flex items-center gap-2 group relative overflow-hidden">
-                    <span class="relative z-10 font-black italic">NUEVA OPERACIÓN (POS)</span>
+                    <span class="relative z-10 font-black not-italic">NUEVA OPERACIÓN (POS)</span>
                     <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
                 </button>
             </div>
@@ -663,17 +694,17 @@ onMounted(() => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <!-- Estadísticas Rápidas -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-                    <div class="card bg-brand-red/5 border-brand-red/20 p-6">
-                        <div class="text-[8px] font-black uppercase tracking-[0.3em] text-brand-red mb-1">Ventas Hoy</div>
+                    <div class="card p-6 border-white/5">
+                        <div class="text-[8px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Ventas Hoy</div>
                         <div class="text-2xl font-black">{{ stats.ventas_hoy }}</div>
                     </div>
                     <div class="card p-6 border-white/5">
                         <div class="text-[8px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Recaudación (Hoy)</div>
-                        <div class="text-2xl font-black text-green-500">{{ formatCurrency(stats.recaudacion) }}</div>
+                        <div class="text-2xl font-black text-white">{{ formatCurrency(stats.recaudacion) }}</div>
                     </div>
                     <div class="card p-6 border-white/5">
                         <div class="text-[8px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Ticket Promedio</div>
-                        <div class="text-2xl font-black">{{ formatCurrency(stats.promedio_ticket) }}</div>
+                        <div class="text-2xl font-black text-white">{{ formatCurrency(stats.promedio_ticket) }}</div>
                     </div>
                 </div>
 
@@ -789,14 +820,18 @@ onMounted(() => {
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <template v-for="venta in ventas.data" :key="venta.id">
-                                <tr @click="toggleExpand(venta.id)" class="hover:bg-white/[0.01] transition-colors group cursor-pointer">
+                                <tr class="hover:bg-white/[0.01] transition-colors group">
                                     <td class="p-6">
-                                        <div class="text-xs font-black transition-colors" :class="venta.estado === 'cancelado' ? 'text-white/40 line-through' : 'text-brand-red group-hover:text-red-400'">#TK-{{ String(venta.id).padStart(6, '0') }}</div>
-                                        <div class="text-[9px] text-white/40 mt-1">{{ venta.fecha }}</div>
+                                        <div class="text-xs font-black transition-colors" :class="venta.estado === 'cancelado' ? 'text-white/40 line-through' : 'text-brand-red/85 group-hover:text-brand-red'">#TK-{{ String(venta.id).padStart(6, '0') }}</div>
+                                        <div class="text-[9px] text-white/40 mt-1">{{ formatTicketDate(venta.fecha) }}</div>
                                     </td>
                                     <td class="p-6">
-                                        <Link v-if="venta.cliente_id" :href="route('clientes.show', venta.cliente_id)" @click.stop class="text-xs font-black uppercase hover:text-brand-red transition-colors block">{{ venta.cliente?.user?.name }} {{ venta.cliente?.user?.apellido }}</Link>
-                                        <div v-else class="text-xs font-black uppercase text-white/50">Cliente Mostrador</div>
+                                        <Link v-if="venta.cliente_id" :href="route('clientes.show', venta.cliente_id)" @click.stop class="text-xs font-black uppercase hover:text-brand-red transition-colors block leading-relaxed">
+                                            {{ getClienteNombre(venta) }}
+                                        </Link>
+                                        <div v-else class="text-xs font-black uppercase text-white/50 leading-relaxed">
+                                            {{ getClienteNombre(venta) }}
+                                        </div>
                                         <div class="bg-white/5 text-[8px] font-black px-2 py-0.5 rounded inline-block mt-2 uppercase tracking-widest text-white/20" :class="venta.tipo === 'online' ? 'text-blue-400' : ''">
                                             {{ venta.tipo }}
                                         </div>
@@ -816,29 +851,15 @@ onMounted(() => {
                                     </td>
                                     <td class="p-6 text-center">
                                         <div class="flex items-center justify-center gap-1">
-                                            <a v-if="venta.comprobante_path" :href="route('mi-cuenta.comprobante.ver', venta.id)" @click.stop target="_blank" class="p-2 text-white/20 hover:text-blue-400 transition-colors" title="Ver comprobante del cliente">
+                                            <a v-if="venta.comprobante_path" :href="route('mi-cuenta.comprobante.ver', venta.id)" @click.stop target="_blank" class="p-2 text-white/20 hover:text-white transition-colors" title="Ver comprobante del cliente">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                                             </a>
-                                            <button @click.stop="viewVenta(venta)" class="p-2 text-white/20 hover:text-brand-red transition-colors" title="Ver detalle">
+                                            <button @click.stop="viewVenta(venta)" class="p-2 text-white/20 hover:text-white transition-colors" title="Ver detalle">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
-                                            <Link :href="route('ventas.show', venta.id)" @click.stop class="p-2 text-white/20 hover:text-green-400 transition-colors" title="Comprobante">
+                                            <Link :href="route('ventas.show', venta.id)" @click.stop class="p-2 text-white/20 hover:text-white transition-colors" title="Comprobante">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                                             </Link>
-                                        </div>
-                                    </td>
-                                </tr>
-                                <tr v-if="expandedVentas.includes(venta.id)" class="bg-black/20">
-                                    <td colspan="6" class="p-6 border-b border-white/5">
-                                        <div class="flex flex-col gap-3 pl-4 border-l-2 border-brand-red/50">
-                                            <div class="text-[9px] font-black uppercase tracking-widest text-white/40">Detalle de Compra:</div>
-                                            <div class="flex flex-wrap gap-2">
-                                                <div v-for="detalle in venta.detalles" :key="detalle.id" class="text-xs font-bold bg-white/5 border border-white/10 px-3 py-2 rounded flex items-center gap-2">
-                                                    <span class="text-white/80">{{ detalle.libro?.master?.titulo }}</span>
-                                                    <span class="text-white/40 text-[10px] uppercase font-black tracking-widest">- Tomo {{ detalle.libro?.numero_tomo || 'Único' }}</span>
-                                                    <span class="text-brand-red font-black">x{{ detalle.cantidad }}</span>
-                                                </div>
-                                            </div>
                                         </div>
                                     </td>
                                 </tr>
@@ -1060,33 +1081,37 @@ onMounted(() => {
         <div v-if="showDetailModal && selectedVenta" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
             <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="closeDetailModal"></div>
             <div class="relative w-full max-w-2xl card p-0 border border-brand-red/30 overflow-hidden shadow-2xl">
-                <div class="bg-brand-red p-6 flex justify-between items-center">
+                <div class="bg-brand-red py-3 px-6 flex justify-between items-center">
                     <div class="flex items-center gap-3">
-                        <h3 class="text-xl font-black uppercase tracking-tighter italic">Detalle de <span class="text-white">Ticket</span></h3>
+                        <h3 class="text-lg font-black uppercase tracking-tighter text-white not-italic">Detalle de Ticket #TK-{{ String(selectedVenta.id).padStart(6, '0') }}</h3>
                         <span v-if="selectedVenta.motivo_pendiente === 'Acumulación'" class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-[#25D366]/20 text-white border border-[#25D366]">Acumulado</span>
                     </div>
-                    <div class="text-[10px] font-mono text-white/50 uppercase">#TK-{{ String(selectedVenta.id).padStart(6, '0') }}</div>
+                    <div class="text-right flex items-center gap-3">
+                        <div class="text-xs font-bold text-white/90">{{ formatTicketDate(selectedVenta.fecha) }}</div>
+                        <span class="text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-white/20 bg-white/[0.08] text-white/95 not-italic">
+                            {{ selectedVenta.tipo }}
+                        </span>
+                    </div>
                 </div>
 
                 <div class="p-8">
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8 pb-8 border-b border-white/10">
-                        <div class="space-y-1">
+                    <div class="grid grid-cols-3 gap-6 mb-8 pb-8 border-b border-white/10">
+                        <div class="space-y-1 text-left">
                             <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Cliente</div>
-                            <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs font-black uppercase block hover:text-brand-red transition-colors">{{ selectedVenta.cliente?.user?.name }} {{ selectedVenta.cliente?.user?.apellido }}</Link>
-                            <div v-else class="text-xs font-black uppercase text-white/90">Cliente Mostrador</div>
+                            <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs font-black uppercase block hover:text-brand-red transition-colors">
+                                {{ getClienteNombre(selectedVenta) }}
+                            </Link>
+                            <div v-else class="text-xs font-black uppercase text-white/90">
+                                {{ getClienteNombre(selectedVenta) }}
+                            </div>
                         </div>
-                        <div class="space-y-1 md:text-center">
+                        <div class="space-y-1 text-center">
                             <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Sucursal</div>
                             <div class="text-xs font-black uppercase text-white/90">{{ selectedVenta.sucursal?.nombre || 'N/A' }}</div>
                         </div>
-                        <div class="space-y-1 md:text-center">
+                        <div class="space-y-1 text-right">
                             <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Medio de Pago</div>
                             <div class="text-xs font-black uppercase text-white/90">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
-                        </div>
-                        <div class="space-y-1 md:text-right">
-                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Fecha / Canal</div>
-                            <div class="text-xs font-black text-white/90">{{ selectedVenta.fecha }}</div>
-                            <div class="text-[10px] font-black uppercase text-brand-red italic tracking-widest">{{ selectedVenta.tipo }}</div>
                         </div>
                     </div>
 
@@ -1094,58 +1119,58 @@ onMounted(() => {
                         <thead>
                             <tr class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 border-b border-white/5">
                                 <th class="py-3 px-2">Producto</th>
-                                <th class="py-3 px-2 text-center">Cant.</th>
-                                <th class="py-3 px-2 text-right">P. Unit</th>
-                                <th class="py-3 px-2 text-right text-brand-red">Subtotal</th>
+                                <th class="py-3 px-2 text-center w-20">Cant.</th>
+                                <th class="py-3 px-2 text-right w-24">P. Unit</th>
+                                <th class="py-3 px-2 text-right text-white/30 w-28">Subtotal</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <tr v-for="item in selectedVenta.detalles" :key="item.id" class="group hover:bg-white/[0.02] transition-colors">
-                                <td class="py-4 px-2">
-                                    <div class="text-xs font-black uppercase tracking-wide text-white/90 group-hover:text-white transition-colors">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
+                                <td class="py-2.5 px-2">
+                                    <div class="text-xs font-bold uppercase tracking-wide text-white/90 group-hover:text-white transition-colors">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
                                     <div class="text-[10px] text-white/40 font-mono mt-1">ISBN: {{ item.libro?.isbn }}</div>
                                 </td>
-                                <td class="py-4 px-2 text-center text-xs font-black text-white/90">{{ item.cantidad }}</td>
-                                <td class="py-4 px-2 text-right text-xs font-mono text-white/50">{{ formatCurrency(item.precio_unitario) }}</td>
-                                <td class="py-4 px-2 text-right text-sm font-black text-white/90">{{ formatCurrency(item.subtotal) }}</td>
+                                <td class="py-2.5 px-2 text-center text-xs font-bold text-white/90">{{ item.cantidad }}</td>
+                                <td class="py-2.5 px-2 text-right text-xs font-bold text-white/50">{{ formatCurrency(item.precio_unitario) }}</td>
+                                <td class="py-2.5 px-2 text-right text-sm font-bold text-white/90">{{ formatCurrency(item.subtotal) }}</td>
                             </tr>
                         </tbody>
                         <tfoot>
                             <tr class="border-t border-white/10">
-                                <td colspan="3" class="py-6 text-right text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Total de la Compra</td>
-                                <td class="py-6 text-right text-2xl font-black italic text-white">{{ formatCurrency(selectedVenta.total) }}</td>
+                                <td colspan="3" class="py-3 px-2 text-right text-[10px] font-bold uppercase tracking-[0.3em] text-white/40">Total de la Compra</td>
+                                <td class="py-3 px-2 text-right text-2xl font-bold text-white">{{ formatCurrency(selectedVenta.total) }}</td>
                             </tr>
                         </tfoot>
                     </table>
 
                     <div v-if="selectedVenta.estado === 'pendiente_pago' && (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0) > 0" class="flex justify-between items-center bg-white/[0.02] p-6 border border-white/5 rounded-xl mt-4">
-                        <div class="text-xs font-black uppercase tracking-[0.4em] text-white/20 italic">Abonado (Saldo a favor/Parcial)</div>
-                        <div class="text-2xl font-black italic text-brand-red">
+                        <div class="text-xs font-bold uppercase tracking-normal text-white/20">Abonado (Saldo a favor/Parcial)</div>
+                        <div class="text-2xl font-bold text-brand-red">
                             {{ formatCurrency(selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0) }}
                         </div>
                     </div>
 
-                    <div v-if="selectedVenta.estado === 'pendiente_pago'" class="flex justify-between items-center bg-white/[0.02] p-6 border border-brand-red/20 rounded-xl mt-4">
-                        <div class="text-xs font-black uppercase tracking-[0.4em] text-brand-red italic">Resta a pagar</div>
-                        <div class="text-3xl font-black italic text-brand-red">
-                            {{ formatCurrency(selectedVenta.total - (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0)) }}
-                        </div>
-                    </div>
-
-                    <!-- Botón rápido para Confirmar Pago de Online/Transferencia -->
-                    <div v-if="selectedVenta.estado === 'pendiente_pago' && selectedVenta.tipo === 'online'" class="mt-4 p-4 bg-brand-red/10 border border-brand-red/20 rounded-xl flex flex-col gap-3">
+                    <div v-if="selectedVenta.estado === 'pendiente_pago'" class="bg-brand-red/10 border border-brand-red/20 p-6 rounded-xl mt-4 space-y-4">
+                        <!-- Resta a pagar -->
                         <div class="flex justify-between items-center">
-                            <div>
-                                <div class="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Acción Rápida</div>
-                                <div class="text-sm font-black text-white">¿El pago ya impactó?</div>
+                            <div class="text-xs font-bold uppercase tracking-normal text-white">Resta a pagar</div>
+                            <div class="text-3xl font-bold text-white">
+                                {{ formatCurrency(selectedVenta.total - (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0)) }}
                             </div>
-                            <button @click="confirmarPago" :disabled="estadoForm.processing" class="btn-primary text-xs px-6 py-2">
-                                CONFIRMAR PAGO
-                            </button>
                         </div>
-                        <div v-if="selectedVenta.comprobante_path" class="pt-2 border-t border-brand-red/10 flex justify-between items-center">
-                            <span class="text-xs text-white/70">✅ El cliente subió un comprobante.</span>
-                            <a :href="route('mi-cuenta.comprobante.ver', selectedVenta.id)" target="_blank" class="text-xs font-bold text-brand-red uppercase tracking-widest hover:underline">Ver adjunto</a>
+
+                        <!-- Confirmación de Pago si es Online -->
+                        <div v-if="selectedVenta.tipo === 'online'" class="pt-4 border-t border-brand-red/20 flex flex-col gap-3">
+                            <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+                                <div class="text-sm font-black text-white">¿El pago ya impactó?</div>
+                                <button @click="confirmarPago" :disabled="estadoForm.processing" class="btn-primary text-xs px-6 py-2 w-full sm:w-auto">
+                                    CONFIRMAR PAGO
+                                </button>
+                            </div>
+                            <div v-if="selectedVenta.comprobante_path" class="pt-2 border-t border-brand-red/10 flex justify-between items-center">
+                                <span class="text-xs text-white/70">✅ El cliente subió un comprobante.</span>
+                                <a :href="route('mi-cuenta.comprobante.ver', selectedVenta.id)" target="_blank" class="text-xs font-bold text-brand-red uppercase tracking-widest hover:underline">Ver adjunto</a>
+                            </div>
                         </div>
                     </div>
 
@@ -1162,7 +1187,7 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <div v-if="puedeEditarEstado" class="mt-6 flex flex-col sm:flex-row items-end gap-3 border-t border-white/5 pt-6 flex-wrap">
+                    <div v-if="puedeEditarEstado" class="mt-6 flex flex-col sm:flex-row items-end gap-3 border-t border-white/5 pt-6 flex-wrap pb-2">
                         <div class="flex-1 w-full min-w-[200px]">
                             <label class="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1 block">Estado de la Venta</label>
                             <select v-model="estadoForm.estado" class="input-field w-full text-xs font-black uppercase bg-black/40" title="Estado de la Venta">
@@ -1177,14 +1202,25 @@ onMounted(() => {
                             <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Código de Seguimiento</label>
                             <input type="text" v-model="estadoForm.tracking_code" placeholder="Ej: SD321876451AR" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" />
                         </div>
-                        <button @click="cambiarEstado" :disabled="estadoForm.processing || (estadoForm.estado === selectedVenta.estado && estadoForm.direccion_envio === (selectedVenta.direccion_envio || '') && estadoForm.tracking_code === (selectedVenta.tracking_code || ''))" class="btn-primary h-[38px] px-6 text-xs font-black disabled:opacity-40 w-full sm:w-auto">
-                            GUARDAR
-                        </button>
                     </div>
 
-                    <div class="mt-4 flex justify-end gap-3">
-                        <button type="button" @click="closeDetailModal" class="btn-primary px-10 relative group">
-                            <span class="relative z-10 font-black italic tracking-widest">CERRAR DETALLE</span>
+                    <div class="mt-8 flex justify-end gap-3">
+                        <button 
+                            v-if="isFormModified" 
+                            type="button" 
+                            @click="cambiarEstado" 
+                            :disabled="estadoForm.processing"
+                            class="px-10 py-3 rounded-full bg-brand-red text-white font-bold hover:bg-red-600 transition-all text-xs tracking-widest cursor-pointer shadow-[0_0_15px_rgba(230,25,25,0.4)] hover:shadow-[0_0_25px_rgba(230,25,25,0.6)] disabled:opacity-50"
+                        >
+                            {{ estadoForm.processing ? 'GUARDANDO...' : 'GUARDAR CAMBIOS' }}
+                        </button>
+                        <button 
+                            v-else 
+                            type="button" 
+                            @click="closeDetailModal" 
+                            class="px-10 py-3 rounded-full border border-white/20 hover:border-white text-white/70 hover:text-white transition-all text-xs font-bold tracking-widest bg-transparent cursor-pointer"
+                        >
+                            CERRAR DETALLE
                         </button>
                     </div>
                 </div>

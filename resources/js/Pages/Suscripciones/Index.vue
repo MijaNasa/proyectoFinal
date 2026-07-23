@@ -45,7 +45,7 @@ const formatDate = (dateString) => {
         <template #header>
             <div class="flex justify-between items-end">
                 <div>
-                    <h2 class="text-3xl font-black uppercase tracking-tighter text-white leading-none">Gestión de <span class="text-brand-red italic">Suscripciones</span></h2>
+                    <h2 class="text-3xl font-black uppercase tracking-tighter text-white leading-none">Gestión de <span class="text-brand-red not-italic">Suscripciones</span></h2>
                     <p class="text-xs font-bold uppercase tracking-widest text-white/30 mt-2">Métricas y listado de fidelización</p>
                 </div>
             </div>

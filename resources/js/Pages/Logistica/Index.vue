@@ -255,7 +255,7 @@ const editarCosto = async (detalle) => {
     <AuthenticatedLayout>
         <template #header>
             <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                Logística de <span class="text-brand-red italic">Stock</span>
+                Logística de <span class="text-brand-red not-italic">Stock</span>
             </h2>
         </template>
 

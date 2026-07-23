@@ -99,7 +99,7 @@ const colorCargo = (nombre) => {
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Gestión de <span class="text-brand-red italic">Cargos y Accesos</span>
+                    Gestión de <span class="text-brand-red not-italic">Cargos y Accesos</span>
                 </h2>
                 <button v-if="esAdmin" @click="openModal()" class="btn-primary flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

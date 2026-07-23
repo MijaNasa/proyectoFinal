@@ -141,7 +141,7 @@ const setEstado = (estado) => {
         <template #header>
             <div class="flex justify-between items-center">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Gestión de <span class="text-brand-red italic">Proveedores</span>
+                    Gestión de <span class="text-brand-red not-italic">Proveedores</span>
                 </h2>
                 <button @click="openModal()" class="btn-primary flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">

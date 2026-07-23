@@ -199,7 +199,7 @@ const confirmDelete = (item) => {
             <!-- Header Section -->
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-5">
                 <div>
-                    <h2 class="text-3xl font-black uppercase tracking-tighter text-white">Ajustes <span class="text-brand-red italic">Catálogo</span></h2>
+                    <h2 class="text-3xl font-black uppercase tracking-tighter text-white">Ajustes <span class="text-brand-red not-italic">Catálogo</span></h2>
                     <p class="text-xs text-white/40 uppercase tracking-widest mt-1">Administración centralizada de metadatos del catálogo</p>
                 </div>
             </div>

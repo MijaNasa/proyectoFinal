@@ -296,7 +296,7 @@ const estadoConfig = {
                 </Link>
                 <div>
                     <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                        Seguimiento de <span class="text-brand-red italic">Cliente</span>
+                        Seguimiento de <span class="text-brand-red not-italic">Cliente</span>
                     </h2>
                     <p class="text-white/30 text-xs uppercase tracking-widest font-bold mt-0.5">
                         {{ cliente.user.name }} {{ cliente.user.apellido }}

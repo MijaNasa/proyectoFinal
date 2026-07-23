@@ -153,7 +153,7 @@ const eliminar = (gasto) => {
             <div class="flex items-center justify-between">
                 <div>
                     <h2 class="text-4xl font-black uppercase tracking-tighter">
-                        Registro de <span class="text-brand-red italic">Gastos</span>
+                        Registro de <span class="text-brand-red not-italic">Gastos</span>
                     </h2>
                     <p class="text-white/30 text-xs font-bold uppercase tracking-widest mt-1">
                         Egresos · Categorías · Impacto en caja

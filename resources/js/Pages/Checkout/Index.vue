@@ -266,7 +266,7 @@ const confirmar = () => {
     <PublicLayout>
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
             <h1 class="text-5xl font-black uppercase tracking-tighter mb-12">
-                Finalizar <span class="text-brand-red italic">Compra</span>
+                Finalizar <span class="text-brand-red not-italic">Compra</span>
             </h1>
 
             <div class="grid grid-cols-1 lg:grid-cols-5 gap-12">

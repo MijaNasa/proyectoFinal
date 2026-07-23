@@ -244,7 +244,7 @@ const getTomoStockColor = (qty) => {
         <template #header>
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Control de <span class="text-brand-red italic">Stock</span>
+                    Control de <span class="text-brand-red not-italic">Stock</span>
                 </h2>
 
             </div>

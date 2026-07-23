@@ -95,7 +95,7 @@ const contarEstados = (paradas) =>
             <div class="flex items-center justify-between">
                 <div>
                     <h2 class="text-4xl font-black uppercase tracking-tighter">
-                        Gestión de <span class="text-brand-red italic">Repartos</span>
+                        Gestión de <span class="text-brand-red not-italic">Repartos</span>
                     </h2>
                     <p class="text-white/30 text-xs font-bold uppercase tracking-widest mt-1">
                         Planificación y seguimiento de entregas
