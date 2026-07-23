@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, Link, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -15,6 +15,18 @@ const props = defineProps({
 
 const isModalOpen = ref(false);
 const expandedRow = ref(null);
+
+onMounted(() => {
+    if (typeof window !== 'undefined') {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('view')) {
+            const viewId = parseInt(urlParams.get('view'));
+            if (!isNaN(viewId)) {
+                expandedRow.value = viewId;
+            }
+        }
+    }
+});
 
 const form = useForm({
     tipo: 'ingreso_proveedor',
@@ -176,31 +188,7 @@ const submit = () => {
     });
 };
 
-const deshacerMovimiento = (id) => {
-    Swal.fire({
-        title: '¿Deshacer este movimiento?',
-        text: 'Se revertirá el stock de las sucursales involucradas y se eliminará este registro.',
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
-        confirmButtonText: 'Sí, deshacer',
-        cancelButtonText: 'Cancelar',
-        background: '#1A1A1A', color: '#FFF'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            router.delete(route('logistica.destroy', id), {
-                preserveScroll: true,
-                onSuccess: () => {
-                    Swal.fire({ title: 'Deshecho', text: 'El movimiento fue revertido exitosamente.', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919', timer: 3000, showConfirmButton: false });
-                },
-                onError: (err) => {
-                    Swal.fire({ title: 'Error', text: err.error || 'No se pudo deshacer.', icon: 'error', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
-                }
-            });
-        }
-    });
-};
+
 
 const editarCosto = async (detalle) => {
     const { value: nuevoCosto } = await Swal.fire({
@@ -399,13 +387,8 @@ const editarCosto = async (detalle) => {
                                 <tr v-if="expandedRow === mov.id" class="bg-black/40">
                                     <td colspan="4" class="p-0 border-l-2 border-brand-red">
                                         <div class="p-4 lg:p-6 overflow-x-auto">
-                                            <div class="flex justify-between items-start mb-4">
-                                                <div v-if="mov.motivo" class="text-[10px] text-white/50 italic"><strong class="text-white/30 uppercase mr-2">Observaciones:</strong> {{ mov.motivo }}</div>
-                                                <div v-else></div>
-                                                
-                                                <button @click="deshacerMovimiento(mov.id)" class="text-[10px] uppercase font-black tracking-widest text-brand-red hover:text-white transition-colors flex items-center gap-1 border border-brand-red/30 hover:bg-brand-red px-3 py-1.5 rounded">
-                                                    Deshacer Acción
-                                                </button>
+                                            <div v-if="mov.motivo" class="text-[10px] text-white/50 italic mb-4">
+                                                <strong class="text-white/30 uppercase mr-2">Observaciones:</strong> {{ mov.motivo }}
                                             </div>
                                             <table class="w-full text-left whitespace-nowrap min-w-max bg-brand-surface rounded overflow-hidden">
                                                 <thead class="bg-white/5">

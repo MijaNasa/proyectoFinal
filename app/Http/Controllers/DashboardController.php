@@ -19,11 +19,13 @@ class DashboardController extends Controller
 
         $hoy = now();
 
-        $ventasHoy = Venta::whereBetween('fecha', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])
+        $ventasHoy = Venta::where('estado', '!=', 'cancelado')
+            ->whereBetween('fecha', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])
             ->selectRaw('COUNT(*) as cantidad, COALESCE(SUM(total),0) as recaudacion')
             ->first();
 
-        $ventasMes = Venta::whereBetween('fecha', [$hoy->copy()->startOfMonth(), $hoy->copy()->endOfMonth()])
+        $ventasMes = Venta::where('estado', '!=', 'cancelado')
+            ->whereBetween('fecha', [$hoy->copy()->startOfMonth(), $hoy->copy()->endOfMonth()])
             ->selectRaw('COALESCE(SUM(total),0) as recaudacion')
             ->value('recaudacion');
 
@@ -36,6 +38,7 @@ class DashboardController extends Controller
                 ->whereIn('estado', ['pendiente_pago', 'en_preparacion'])
                 ->count(),
             'ultimas_ventas' => Venta::with(['cliente.user:id,name,apellido', 'user:id,name,apellido', 'sucursal:id,nombre'])
+                ->where('estado', '!=', 'cancelado')
                 ->latest()
                 ->take(6)
                 ->get(['id', 'fecha', 'total', 'estado', 'tipo', 'cliente_id', 'user_id', 'sucursal_id']),

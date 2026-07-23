@@ -59,7 +59,6 @@ const estadoColores = {
 const estadoForm = useForm({ estado: '', direccion_envio: null, tracking_code: null });
 
 const search = ref(props.filters.search || '');
-const abonadasPendientes = ref(props.filters.abonadas_pendientes === '1' || props.filters.abonadas_pendientes === true);
 const showPosModal = ref(false);
 
 const showEstadoDropdown = ref(false);
@@ -517,7 +516,6 @@ onMounted(() => {
 const handleSearch = () => {
     router.get(route('ventas.index'), {
         search: search.value,
-        abonadas_pendientes: abonadasPendientes.value ? 1 : null,
         tab: currentTab.value,
         estados: selectedEstados.value.length > 0 ? selectedEstados.value : null
     }, { preserveState: true, preserveScroll: true, replace: true });
@@ -689,12 +687,6 @@ onMounted(() => {
                             placeholder="Buscar por cliente o #TK..." 
                             class="input-field flex-1 md:w-80"
                         >
-                        <button @click="abonadasPendientes = !abonadasPendientes; handleSearch()" 
-                                :class="abonadasPendientes ? 'bg-brand-red text-white' : 'bg-white/5 text-white/50'"
-                                class="py-2 px-4 rounded border border-white/10 font-black uppercase text-[10px] transition-colors"
-                                title="Filtrar por órdenes abonadas que aún no han sido despachadas">
-                            Abonadas Pendientes
-                        </button>
                     </div>
                 </div>
 

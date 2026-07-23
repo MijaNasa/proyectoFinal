@@ -30,9 +30,7 @@ class VentaController extends Controller
             });
         }
 
-        if ($request->boolean('abonadas_pendientes')) {
-            $query->where('estado', 'en_preparacion');
-        }
+
 
         if ($request->filled('estados')) {
             $estados = is_array($request->estados) ? $request->estados : [$request->estados];
@@ -69,7 +67,7 @@ class VentaController extends Controller
             'ventas'     => $ventas,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
             'stats'      => $stats,
-            'filters'    => $request->only(['search', 'abonadas_pendientes', 'tab', 'estados']),
+            'filters'    => $request->only(['search', 'tab', 'estados']),
         ]);
     }
 
