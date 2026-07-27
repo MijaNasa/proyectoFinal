@@ -345,7 +345,7 @@ class CheckoutController extends Controller
                     'costo_envio'     => $costo_envio,
                     'motivo_pendiente'=> $motivo_pendiente,
                     'metodo_pago'     => $request->medio_pago,
-                    'pago_expira_at'  => ($estado === 'pendiente_pago' && in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) ? now()->addHours(48) : ($estado === 'pendiente_pago' ? now()->addHours(24) : null),
+                    'pago_expira_at'  => ($estado === 'pendiente_pago' && in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) ? now()->addHours(12) : ($estado === 'pendiente_pago' ? now()->addHours(6) : null),
                 ]);
 
                 foreach ($processedItems as $item) {

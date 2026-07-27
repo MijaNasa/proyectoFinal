@@ -601,14 +601,14 @@ const confirmar = () => {
                             </label>
                         </div>
 
-                        <!-- Advertencia 48h Efectivo -->
+                        <!-- Advertencia 12h Efectivo -->
                         <transition name="fade">
                             <div v-if="medioPago === 'Efectivo'" class="mt-6 bg-brand-red/10 border border-brand-red/20 p-4 rounded-xl flex items-start gap-3">
                                 <span class="text-xl">⏳</span>
                                 <div>
-                                    <h4 class="text-brand-red font-black text-xs uppercase tracking-widest mb-1">Tu reserva expira en 48hs</h4>
+                                    <h4 class="text-brand-red font-black text-xs uppercase tracking-widest mb-1">Tu reserva expira en 12hs</h4>
                                     <p class="text-white/70 text-[10px] font-medium leading-relaxed">
-                                        El stock quedará reservado inmediatamente para tu pedido. Tenés un límite estricto de 48 horas hábiles para acercarte a la sucursal a abonar en efectivo. <strong class="text-white">Si el plazo expira, tu pedido será cancelado automáticamente.</strong>
+                                        El stock quedará reservado inmediatamente para tu pedido. Tenés un límite estricto de 12 horas para acercarte a la sucursal a abonar en efectivo. <strong class="text-white">Si el plazo expira, tu pedido será cancelado automáticamente.</strong>
                                     </p>
                                 </div>
                             </div>
