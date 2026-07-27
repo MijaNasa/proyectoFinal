@@ -64,6 +64,16 @@ const obraForm = useForm({
 
 const formatosLocal = ref(['Tankobon', 'B6', 'A5', 'Kanzenban', 'Omnibus', 'Pocket', 'Novela Ligera', 'Otro']);
 
+const autoresLocal = ref([...props.autores]);
+const categoriasLocal = ref([...props.categorias]);
+const proveedoresLocal = ref([...props.proveedores]);
+const idiomasLocal = ref([...props.idiomas]);
+
+watch(() => props.autores, (newVal) => { autoresLocal.value = [...newVal]; }, { deep: true });
+watch(() => props.categorias, (newVal) => { categoriasLocal.value = [...newVal]; }, { deep: true });
+watch(() => props.proveedores, (newVal) => { proveedoresLocal.value = [...newVal]; }, { deep: true });
+watch(() => props.idiomas, (newVal) => { idiomasLocal.value = [...newVal]; }, { deep: true });
+
 const openObraModal = (obra = null) => {
     if (obra) {
         isEditingObra.value = true;
@@ -133,15 +143,14 @@ const agregarAutor = () => {
     }).then((result) => {
         if (result.isConfirmed) {
             window.axios.post(route('catalogo.ajustes.store', { type: 'autores' }), result.value)
-                .then(() => {
-                    router.reload({ 
-                        only: ['autores'],
-                        onSuccess: () => {
-                            Swal.fire({ title: 'Autor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                            const newObj = props.autores.find(x => x.nombre === result.value.nombre && x.apellido === result.value.apellido);
-                            if (newObj) obraForm.autor_id = newObj.id;
-                        }
-                    });
+                .then((res) => {
+                    const createdItem = res.data.data;
+                    if (createdItem) {
+                        autoresLocal.value.push(createdItem);
+                        obraForm.autor_id = createdItem.id;
+                    }
+                    Swal.fire({ title: 'Autor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                    router.reload({ only: ['autores'] });
                 })
                 .catch(err => {
                     Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
@@ -180,15 +189,14 @@ const agregarCategoria = () => {
     }).then((result) => {
         if (result.isConfirmed) {
             window.axios.post(route('catalogo.ajustes.store', { type: 'categorias' }), result.value)
-                .then(() => {
-                    router.reload({ 
-                        only: ['categorias'],
-                        onSuccess: () => {
-                            Swal.fire({ title: 'Categoría Creada', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                            const newObj = props.categorias.find(x => x.nombre === result.value.nombre);
-                            if (newObj) obraForm.categoria_id = newObj.id;
-                        }
-                    });
+                .then((res) => {
+                    const createdItem = res.data.data;
+                    if (createdItem) {
+                        categoriasLocal.value.push(createdItem);
+                        obraForm.categoria_id = createdItem.id;
+                    }
+                    Swal.fire({ title: 'Categoría Creada', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                    router.reload({ only: ['categorias'] });
                 })
                 .catch(err => {
                     Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
@@ -245,15 +253,14 @@ const agregarProveedor = () => {
     }).then((result) => {
         if (result.isConfirmed) {
             window.axios.post(route('catalogo.ajustes.store', { type: 'proveedores' }), result.value)
-                .then(() => {
-                    router.reload({ 
-                        only: ['proveedores'],
-                        onSuccess: () => {
-                            Swal.fire({ title: 'Proveedor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                            const newObj = props.proveedores.find(x => x.nombre_empresa === result.value.nombre_empresa);
-                            if (newObj) obraForm.proveedor_id = newObj.id;
-                        }
-                    });
+                .then((res) => {
+                    const createdItem = res.data.data;
+                    if (createdItem) {
+                        proveedoresLocal.value.push(createdItem);
+                        obraForm.proveedor_id = createdItem.id;
+                    }
+                    Swal.fire({ title: 'Proveedor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                    router.reload({ only: ['proveedores'] });
                 })
                 .catch(err => {
                     Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
@@ -294,15 +301,14 @@ const agregarIdioma = () => {
     }).then((result) => {
         if (result.isConfirmed) {
             window.axios.post(route('catalogo.ajustes.store', { type: 'idiomas' }), result.value)
-                .then(() => {
-                    router.reload({ 
-                        only: ['idiomas'],
-                        onSuccess: () => {
-                            Swal.fire({ title: 'Idioma Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                            const newObj = props.idiomas.find(x => x.nombre === result.value.nombre);
-                            if (newObj) obraForm.idioma_id = newObj.id;
-                        }
-                    });
+                .then((res) => {
+                    const createdItem = res.data.data;
+                    if (createdItem) {
+                        idiomasLocal.value.push(createdItem);
+                        obraForm.idioma_id = createdItem.id;
+                    }
+                    Swal.fire({ title: 'Idioma Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                    router.reload({ only: ['idiomas'] });
                 })
                 .catch(err => {
                     Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
@@ -421,6 +427,18 @@ const tomoForm = useForm({
     precio_venta: 0,
 });
 
+watch(() => tomoForm.precio_venta, (val) => {
+    if (val !== null && val !== undefined) {
+        const str = val.toString();
+        if (str.includes('.')) {
+            const dec = str.split('.')[1];
+            if (dec && dec.length > 2) {
+                tomoForm.precio_venta = parseFloat(parseFloat(val).toFixed(2));
+            }
+        }
+    }
+});
+
 const openTomoModal = (tomo = null, masterId = null) => {
     if (tomo) {
         isEditingTomo.value = true;
@@ -496,16 +514,8 @@ const formatCurrency = (value) => {
 };
 
 const quickEditPrice = async (libro) => {
-    // 1. Mostrar spinner de carga de datos inicial
-    Swal.fire({
-        title: 'Cargando datos...',
-        background: '#1A1A1A',
-        color: '#FFF',
-        didOpen: () => {
-            Swal.showLoading();
-        }
-    });
-
+    // Cambiamos temporalmente el cursor a cargando en el body
+    document.body.style.cursor = 'wait';
     let historialHtml = '';
     try {
         const res = await fetch(route('precios.historial', libro.id));
@@ -528,6 +538,8 @@ const quickEditPrice = async (libro) => {
     } catch (e) {
         console.error("Error al cargar historial", e);
         historialHtml = '<p class="text-red-400 text-xs italic text-center py-2">Error al cargar historial</p>';
+    } finally {
+        document.body.style.cursor = 'default';
     }
 
     const currentPrice = libro.precios?.find(p => p.activo);
@@ -1000,28 +1012,28 @@ const submitBulk = () => {
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Autor</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.autor_id" :options="autores" :labelKey="(a) => a.nombre + (a.apellido ? ' ' + a.apellido : '')" placeholder="-- Seleccionar Autor --" :required="true" />
+                                <SearchableSelect v-model="obraForm.autor_id" :options="autoresLocal" :labelKey="(a) => a.nombre + (a.apellido ? ' ' + a.apellido : '')" placeholder="-- Seleccionar Autor --" :required="true" />
                                 <button type="button" @click="agregarAutor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Autor">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Categoría</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.categoria_id" :options="categorias" placeholder="-- Seleccionar Categoría --" :required="true" />
+                                <SearchableSelect v-model="obraForm.categoria_id" :options="categoriasLocal" placeholder="-- Seleccionar Categoría --" :required="true" />
                                 <button type="button" @click="agregarCategoria" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Categoría">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Proveedor</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.proveedor_id" :options="proveedores.map(p => ({id: p.id, nombre: p.nombre_empresa}))" placeholder="-- Seleccionar Proveedor --" :required="true" />
+                                <SearchableSelect v-model="obraForm.proveedor_id" :options="proveedoresLocal.map(p => ({id: p.id, nombre: p.nombre_empresa}))" placeholder="-- Seleccionar Proveedor --" :required="true" />
                                 <button type="button" @click="agregarProveedor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Proveedor">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Idioma</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.idioma_id" :options="idiomas" placeholder="-- Seleccionar Idioma --" :required="true" />
+                                <SearchableSelect v-model="obraForm.idioma_id" :options="idiomasLocal" placeholder="-- Seleccionar Idioma --" :required="true" />
                                 <button type="button" @click="agregarIdioma" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Idioma">+</button>
                             </div>
                         </div>
@@ -1106,8 +1118,11 @@ const submitBulk = () => {
 
                         <div v-if="!isEditingTomo" class="md:col-span-2 grid grid-cols-1 p-4 bg-brand-red/5 border border-brand-red/20 rounded-lg">
                             <div>
-                                <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2">Precio Venta ($)</label>
-                                <input v-model="tomoForm.precio_venta" type="number" step="0.01" class="input-field w-full text-right font-black text-xl" placeholder="0.00" required>
+                                <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2">Precio Venta *</label>
+                                <div class="relative mt-1">
+                                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/50 text-base font-bold">$</span>
+                                    <input v-model="tomoForm.precio_venta" type="number" step="0.01" min="0" class="w-full bg-black/40 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-base text-white text-right font-black focus:outline-none focus:border-brand-red" placeholder="0.00" required />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1165,7 +1180,10 @@ const submitBulk = () => {
                             <div v-if="bulkForm.criterio === 'proveedor_formato'" class="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-lg border border-white/5">
                                 <div class="relative">
                                     <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">1. Proveedor *</label>
-                                    <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                    <div class="relative">
+                                        <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar..." class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
                                     
                                     <div v-if="showProveedorDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
                                         <div v-for="e in proveedoresFiltrados" :key="e" @mousedown.prevent="bulkForm.proveedor = e; searchProveedorQuery = e; showProveedorDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.proveedor === e ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
@@ -1186,7 +1204,10 @@ const submitBulk = () => {
 
                             <div v-if="bulkForm.criterio === 'serie'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Serie *</label>
-                                <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar serie..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                <div class="relative">
+                                    <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar serie..." class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                </div>
                                 
                                 <div v-if="showSerieDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
                                     <div v-for="s in seriesFiltradas" :key="s" @mousedown.prevent="bulkForm.serie = s; searchSerieQuery = s; showSerieDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.serie === s ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
@@ -1199,7 +1220,10 @@ const submitBulk = () => {
 
                             <div v-if="bulkForm.criterio === 'libro_individual'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Libro *</label>
-                                <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar libro por título o ISBN..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                <div class="relative">
+                                    <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar libro por título o ISBN..." class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                </div>
                                 
                                 <div v-if="showLibroDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
                                     <div v-for="l in librosFiltrados" :key="l.id" @mousedown.prevent="bulkForm.libro_id = l.id; searchLibroQuery = l.titulo; showLibroDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.libro_id === l.id ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
@@ -1211,7 +1235,7 @@ const submitBulk = () => {
                             </div>
                             
                             <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Nuevo Precio Único de Venta *</label>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Nuevo Precio *</label>
                                 <div class="relative mt-1">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/50 text-sm font-bold">$</span>
                                     <input v-model="bulkForm.nuevo_precio" type="number" step="0.01" min="0" class="w-full bg-black/40 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" placeholder="0.00" required />
