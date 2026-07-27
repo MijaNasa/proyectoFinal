@@ -75,6 +75,14 @@ class PrecioController extends Controller
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
             'series' => \App\Models\LibroMaster::orderBy('titulo')->pluck('titulo'),
             'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->pluck('nombre_empresa'),
+            'proveedoresFormatos' => \App\Models\Proveedor::where('activo', true)
+                ->with(['libroMasters' => fn($q) => $q->whereNotNull('formato')->where('formato', '!=', '')])
+                ->get()
+                ->mapWithKeys(function ($prov) {
+                    return [
+                        $prov->nombre_empresa => $prov->libroMasters->pluck('formato')->unique()->values()->all()
+                    ];
+                }),
             'libros' => Libro::whereHas('master')->with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
                 return [
                     'id' => $l->id,

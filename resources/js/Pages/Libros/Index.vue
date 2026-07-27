@@ -516,7 +516,7 @@ const quickEditPrice = async (libro) => {
                 <div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0 text-xs">
                     <div>
                         <span class="font-black text-white">${formatCurrency(h.precio_venta)}</span>
-                        ${h.activo ? '<span class="ml-2 text-[9px] font-black uppercase tracking-wider text-brand-red bg-brand-red/10 px-1.5 py-0.5 rounded-full border border-brand-red/20">Actual</span>' : ''}
+                        ${h.activo ? '<span class="ml-2 text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">Actual</span>' : ''}
                         ${h.motivo ? `<p class="text-[10px] text-white/30 mt-0.5 mt-1">${h.motivo}</p>` : ''}
                     </div>
                     <span class="text-[10px] text-white/40 font-bold">${new Date(h.fecha_desde).toLocaleDateString('es-AR')}</span>
@@ -683,6 +683,9 @@ const proveedoresDisponibles = computed(() => {
 });
 
 const formatosDisponibles = computed(() => {
+    if (bulkForm.proveedor && opcionesMasivasLocal.value?.proveedoresFormatos) {
+        return opcionesMasivasLocal.value.proveedoresFormatos[bulkForm.proveedor] || [];
+    }
     return opcionesMasivasLocal.value?.formatos || [];
 });
 
@@ -721,6 +724,11 @@ watch(() => bulkForm.criterio, () => {
     searchSerieQuery.value = '';
     searchProveedorQuery.value = '';
     searchLibroQuery.value = '';
+});
+
+// Limpiamos formato al cambiar de proveedor
+watch(() => bulkForm.proveedor, () => {
+    bulkForm.formato = '';
 });
 
 const submitBulk = () => {
@@ -835,10 +843,9 @@ const submitBulk = () => {
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <template v-for="obra in filteredObras" :key="obra.id">
-                                <!-- Master Row -->
                                 <tr @click="toggleMaster(obra.id)" 
                                     class="hover:bg-white/[0.05] transition-colors cursor-pointer group-row"
-                                    :class="expandedMasters.includes(obra.id) ? 'bg-brand-red/[0.1]' : ''">
+                                    :class="expandedMasters.includes(obra.id) ? 'bg-black/20' : ''">
                                     <td class="p-4">
                                         <div class="font-black text-xl leading-tight uppercase text-white">{{ obra.titulo }}</div>
                                         <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1 flex items-center gap-2">
@@ -883,7 +890,7 @@ const submitBulk = () => {
                                             
                                             <div class="flex justify-between items-end mb-4">
                                                 <h4 class="text-xs font-black text-white/40 uppercase tracking-widest">Tomos Registrados</h4>
-                                                <button @click.stop="openTomoModal(null, obra.id)" class="text-xs bg-white/5 hover:bg-brand-red/20 text-white hover:text-brand-red transition-colors px-3 py-1 rounded font-bold flex items-center gap-1 border border-white/10 hover:border-brand-red/50">
+                                                <button @click.stop="openTomoModal(null, obra.id)" class="text-xs bg-white/10 hover:bg-brand-red/20 text-white hover:text-brand-red transition-colors px-3 py-1 rounded font-bold flex items-center gap-1 border border-white/20 hover:border-brand-red/50">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
                                                     Añadir Tomo
                                                 </button>
@@ -1157,7 +1164,7 @@ const submitBulk = () => {
 
                             <div v-if="bulkForm.criterio === 'proveedor_formato'" class="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-lg border border-white/5">
                                 <div class="relative">
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">1. Proveedor *</label>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">1. Proveedor *</label>
                                     <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
                                     
                                     <div v-if="showProveedorDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
@@ -1169,8 +1176,8 @@ const submitBulk = () => {
                                     <div v-if="showProveedorDropdown" class="fixed inset-0 z-40" @click="showProveedorDropdown = false"></div>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">2. Formato *</label>
-                                    <select v-model="bulkForm.formato" class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold uppercase">
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">2. Formato *</label>
+                                    <select v-model="bulkForm.formato" :disabled="!bulkForm.proveedor" class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold uppercase transition-opacity" :class="!bulkForm.proveedor ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''">
                                         <option value="" disabled>Elegir formato...</option>
                                         <option v-for="f in formatosDisponibles" :key="f" :value="f">{{ f }}</option>
                                     </select>
@@ -1178,7 +1185,7 @@ const submitBulk = () => {
                             </div>
 
                             <div v-if="bulkForm.criterio === 'serie'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">Seleccionar Serie *</label>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Serie *</label>
                                 <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar serie..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
                                 
                                 <div v-if="showSerieDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
@@ -1191,7 +1198,7 @@ const submitBulk = () => {
                             </div>
 
                             <div v-if="bulkForm.criterio === 'libro_individual'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">Seleccionar Libro *</label>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Libro *</label>
                                 <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar libro por título o ISBN..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
                                 
                                 <div v-if="showLibroDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
@@ -1204,7 +1211,7 @@ const submitBulk = () => {
                             </div>
                             
                             <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">Nuevo Precio Único de Venta *</label>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Nuevo Precio Único de Venta *</label>
                                 <div class="relative mt-1">
                                     <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/50 text-sm font-bold">$</span>
                                     <input v-model="bulkForm.nuevo_precio" type="number" step="0.01" min="0" class="w-full bg-black/40 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" placeholder="0.00" required />
