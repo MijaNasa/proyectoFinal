@@ -70,7 +70,6 @@ class PrecioController extends Controller
             'master:id,titulo,autor_id,proveedor_id,formato',
             'master.autor:id,nombre,apellido',
             'master.proveedor:id,nombre_empresa',
-            'serie:id,nombre',
             'precios' => fn($q) => $q->orderByDesc('fecha_desde')->limit(5),
         ])
         ->select(
