@@ -78,6 +78,16 @@ class User extends Authenticatable
             ->exists();
     }
 
+    /**
+     * ID de sucursal al que este usuario esta restringido, o null si ve todas (ADMIN).
+     */
+    public function sucursalRestringidaId(): ?int
+    {
+        if ($this->esAdmin()) return null;
+
+        return $this->empleado?->sucursal_id;
+    }
+
     public function hasPermiso(string $codigo): bool
     {
         if ($this->esAdmin()) return true;

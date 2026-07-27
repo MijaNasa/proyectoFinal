@@ -12,15 +12,19 @@ class StockController extends Controller
 {
     public function index(Request $request)
     {
+        $sucursalId = $request->user()->sucursalRestringidaId();
+        // Si el empleado esta restringido a una sucursal, ignoramos el filtro que venga por query string.
+        $sucursalFiltro = $sucursalId ?: $request->input('sucursal_id');
+
         $query = \App\Models\LibroMaster::query()
             ->with([
                 'autor:id,nombre,apellido',
                 'libros' => function($q) {
                     $q->orderBy('numero_tomo', 'asc');
                 },
-                'libros.stocks' => function($q) use ($request) {
-                    if ($request->filled('sucursal_id')) {
-                        $q->where('sucursal_id', $request->sucursal_id);
+                'libros.stocks' => function($q) use ($sucursalFiltro) {
+                    if ($sucursalFiltro) {
+                        $q->where('sucursal_id', $sucursalFiltro);
                     }
                 },
                 'libros.stocks.sucursal:id,nombre'
@@ -46,7 +50,7 @@ class StockController extends Controller
 
         return inertia('Stocks/Index', [
             'obras' => $obras,
-            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
             'libros' => \App\Models\Libro::with([
                     'master:id,titulo,autor_id',
                     'master.autor:id,apellido',
@@ -59,13 +63,18 @@ class StockController extends Controller
                     'autor'  => $l->master->autor?->apellido ?? '',
                 ];
             }),
-            'stocksExistentes' => \App\Models\Stock::select(['id', 'libro_id', 'sucursal_id', 'cantidad_disponible'])->get(),
+            'stocksExistentes' => \App\Models\Stock::select(['id', 'libro_id', 'sucursal_id', 'cantidad_disponible'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->get(),
             'filters' => $request->only(['search', 'sucursal_id']),
         ]);
     }
 
     public function store(StoreStockRequest $request)
     {
+        $user = $request->user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== (int) $request->sucursal_id) {
+            abort(403);
+        }
+
         $stock = Stock::create($request->safe()->except(['motivo']));
 
         $movimiento = MovimientoStock::create([

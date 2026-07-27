@@ -13,7 +13,10 @@ class VentaController extends Controller
     use GeocodeHelper;
     public function index(Request $request)
     {
-        $query = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones']);
+        $sucursalId = $request->user()->sucursalRestringidaId();
+
+        $query = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones'])
+            ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId));
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -51,6 +54,7 @@ class VentaController extends Controller
         $hoy      = now();
         $statsHoy = Venta::whereBetween('fecha', [$hoy->copy()->startOfDay(), $hoy->copy()->endOfDay()])
             ->where('estado', '!=', 'cancelado')
+            ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
             ->selectRaw('COUNT(*) as cantidad, COALESCE(SUM(total),0) as recaudacion, COALESCE(AVG(total),0) as promedio')
             ->first();
 
@@ -58,14 +62,14 @@ class VentaController extends Controller
             'ventas_hoy'       => (int)   $statsHoy->cantidad,
             'recaudacion'      => (float) $statsHoy->recaudacion,
             'promedio_ticket'  => (float) $statsHoy->promedio,
-            'total_activas'    => Venta::whereNotIn('estado', ['cancelado', 'finalizado'])->count(),
-            'total_finalizadas'=> Venta::where('estado', 'finalizado')->count(),
-            'total_canceladas' => Venta::where('estado', 'cancelado')->count(),
+            'total_activas'    => Venta::whereNotIn('estado', ['cancelado', 'finalizado'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'total_finalizadas'=> Venta::where('estado', 'finalizado')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'total_canceladas' => Venta::where('estado', 'cancelado')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
         ];
 
         return inertia('Ventas/Index', [
             'ventas'     => $ventas,
-            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
             'stats'      => $stats,
             'filters'    => $request->only(['search', 'tab', 'estados']),
         ]);
@@ -502,6 +506,9 @@ class VentaController extends Controller
         if (!$user->esAdmin() && !$user->esGerente()) {
             abort(403);
         }
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
+            abort(403);
+        }
 
         $request->validate([
             'estado' => 'sometimes|required|in:pendiente_pago,esperando_traslado,en_preparacion,listo_para_retiro,acumulado,enviado,finalizado,cancelado',
@@ -584,6 +591,9 @@ class VentaController extends Controller
         if (!$user->esAdmin() && !$user->esGerente()) {
             abort(403);
         }
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
+            abort(403);
+        }
 
         if ($venta->estado !== 'pendiente_pago') {
             return back()->with('error', 'La venta no está pendiente de pago.');
@@ -651,7 +661,9 @@ class VentaController extends Controller
             abort(403);
         }
 
-        \App\Models\Venta::where('estado', 'cancelado')->delete();
+        \App\Models\Venta::where('estado', 'cancelado')
+            ->when($user->sucursalRestringidaId(), fn($q, $sid) => $q->where('sucursal_id', $sid))
+            ->delete();
 
         return redirect()->back()->with('message', 'Historial de ventas canceladas limpiado exitosamente.');
     }

@@ -20,7 +20,7 @@ class GastoController extends Controller
 
         $desde      = $request->get('desde', now()->startOfMonth()->toDateString());
         $hasta      = $request->get('hasta', now()->toDateString());
-        $sucursalId = $request->get('sucursal_id');
+        $sucursalId = $request->user()->sucursalRestringidaId() ?: $request->get('sucursal_id');
         $categoria  = $request->get('categoria');
 
         $query = Gasto::with(['sucursal:id,nombre', 'user:id,name,apellido'])
@@ -53,7 +53,7 @@ class GastoController extends Controller
                 'cantidad' => (int)   ($stats->cantidad ?? 0),
             ],
             'porCategoria' => $porCategoria,
-            'sucursales'   => Sucursal::orderBy('nombre')->get(['id', 'nombre']),
+            'sucursales'   => Sucursal::orderBy('nombre')->when($request->user()->sucursalRestringidaId(), fn($q, $sid) => $q->where('id', $sid))->get(['id', 'nombre']),
             'filters'      => compact('desde', 'hasta', 'sucursalId', 'categoria'),
         ]);
     }
@@ -159,7 +159,7 @@ class GastoController extends Controller
 
         $desde      = $request->get('desde', now()->startOfMonth()->toDateString());
         $hasta      = $request->get('hasta', now()->toDateString());
-        $sucursalId = $request->get('sucursal_id');
+        $sucursalId = $request->user()->sucursalRestringidaId() ?: $request->get('sucursal_id');
         $categoria  = $request->get('categoria');
 
         $query = Gasto::with(['sucursal:id,nombre', 'user:id,name,apellido'])

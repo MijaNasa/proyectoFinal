@@ -14,13 +14,16 @@ class CierreCajaController extends Controller
      */
     public function index(Request $request)
     {
-        $query = CierreCaja::with(['sucursal', 'user']);
+        $sucursalId = $request->user()->sucursalRestringidaId();
+
+        $query = CierreCaja::with(['sucursal', 'user'])
+            ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId));
 
         $cierres = $query->latest()->paginate(10)->withQueryString();
 
         return inertia('Caja/Index', [
             'cierres' => $cierres,
-            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(),
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(),
         ]);
     }
 
@@ -100,6 +103,9 @@ class CierreCajaController extends Controller
         $user = \Auth::user();
         if (!$user->esAdmin() && !$user->esGerente()) {
             abort(403, 'Sólo los administradores pueden reabrir una caja.');
+        }
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $cierreCaja->sucursal_id) {
+            abort(403, 'No podés reabrir la caja de otra sucursal.');
         }
 
         $cierreCaja->delete();

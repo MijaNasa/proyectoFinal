@@ -10,10 +10,14 @@ class OrdenCompraController extends Controller
 {
     public function index(Request $request)
     {
+        $sucursalId = $request->user()->sucursalRestringidaId();
+
         $query = OrdenCompra::with([
             'proveedor', 'sucursal', 'user:id,name,apellido',
             'items.libro.master:id,titulo', 'items.libro:id,master_id,isbn,numero_tomo'
-        ])->latest();
+        ])
+            ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
+            ->latest();
 
         if ($request->filled('search')) {
             $search = $request->search;
@@ -30,16 +34,16 @@ class OrdenCompraController extends Controller
         $ordenes = $query->paginate(15)->withQueryString();
 
         $stats = [
-            'total'      => OrdenCompra::count(),
-            'borradores' => OrdenCompra::where('estado', 'borrador')->count(),
-            'confirmadas'=> OrdenCompra::where('estado', 'confirmada')->count(),
-            'recibidas'  => OrdenCompra::where('estado', 'recibida')->count(),
+            'total'      => OrdenCompra::when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'borradores' => OrdenCompra::where('estado', 'borrador')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'confirmadas'=> OrdenCompra::where('estado', 'confirmada')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'recibidas'  => OrdenCompra::where('estado', 'recibida')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
         ];
 
         return inertia('OrdenesCompra/Index', [
             'ordenes'     => $ordenes,
             'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa as nombre']),
-            'sucursales'  => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
+            'sucursales'  => \App\Models\Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
             'stats'       => $stats,
             'filters'     => $request->only(['search', 'estado']),
         ]);
@@ -56,6 +60,11 @@ class OrdenCompraController extends Controller
             'items.*.cantidad'       => 'required|integer|min:1',
             'items.*.precio_unitario'=> 'required|numeric|min:0',
         ]);
+
+        $sucursalRestringida = $request->user()->sucursalRestringidaId();
+        if ($sucursalRestringida && (int) $request->sucursal_id !== $sucursalRestringida) {
+            abort(403);
+        }
 
         $total = collect($request->items)->sum(fn($i) => $i['cantidad'] * $i['precio_unitario']);
 
@@ -92,6 +101,11 @@ class OrdenCompraController extends Controller
 
     public function update(Request $request, OrdenCompra $ordenesCompra)
     {
+        $sucursalRestringida = $request->user()->sucursalRestringidaId();
+        if ($sucursalRestringida && $ordenesCompra->sucursal_id !== $sucursalRestringida) {
+            abort(403);
+        }
+
         if (!in_array($ordenesCompra->estado, ['borrador', 'confirmada'])) {
             return back()->withErrors(['estado' => 'Solo se puede editar una orden en borrador o confirmada.']);
         }
@@ -105,6 +119,10 @@ class OrdenCompraController extends Controller
             'items.*.cantidad'       => 'required|integer|min:1',
             'items.*.precio_unitario'=> 'required|numeric|min:0',
         ]);
+
+        if ($sucursalRestringida && (int) $request->sucursal_id !== $sucursalRestringida) {
+            abort(403);
+        }
 
         $total = collect($request->items)->sum(fn($i) => $i['cantidad'] * $i['precio_unitario']);
 
@@ -132,8 +150,13 @@ class OrdenCompraController extends Controller
             ->with('message', "Orden {$ordenesCompra->numero_orden} actualizada.");
     }
 
-    public function show(OrdenCompra $ordenesCompra)
+    public function show(Request $request, OrdenCompra $ordenesCompra)
     {
+        $sucursalRestringida = $request->user()->sucursalRestringidaId();
+        if ($sucursalRestringida && $ordenesCompra->sucursal_id !== $sucursalRestringida) {
+            abort(403);
+        }
+
         $ordenesCompra->load([
             'proveedor',
             'sucursal',
@@ -353,8 +376,13 @@ class OrdenCompraController extends Controller
         return response()->json($libros);
     }
 
-    public function destroy(OrdenCompra $ordenesCompra)
+    public function destroy(Request $request, OrdenCompra $ordenesCompra)
     {
+        $sucursalRestringida = $request->user()->sucursalRestringidaId();
+        if ($sucursalRestringida && $ordenesCompra->sucursal_id !== $sucursalRestringida) {
+            abort(403);
+        }
+
         if (!in_array($ordenesCompra->estado, ['borrador', 'confirmada'])) {
             return back()->withErrors(['estado' => 'No se puede cancelar una orden ya recibida.']);
         }

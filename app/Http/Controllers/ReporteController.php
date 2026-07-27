@@ -25,12 +25,12 @@ class ReporteController extends Controller
         $tab       = $request->get('tab', 'ventas');
         $desde     = $request->get('desde', now()->startOfMonth()->toDateString());
         $hasta     = $request->get('hasta', now()->toDateString());
-        $sucursalId = $request->get('sucursal_id');
+        $sucursalId = $request->user()->sucursalRestringidaId() ?: $request->get('sucursal_id');
 
         return Inertia::render('Reportes/Index', [
             'tab'       => $tab,
             'filters'   => compact('desde', 'hasta', 'sucursalId'),
-            'sucursales' => Sucursal::orderBy('nombre')->get(['id', 'nombre']),
+            'sucursales' => Sucursal::orderBy('nombre')->when($request->user()->sucursalRestringidaId(), fn($q, $sid) => $q->where('id', $sid))->get(['id', 'nombre']),
             'reporteVentas' => $tab === 'ventas'   ? $this->reporteVentas($desde, $hasta, $sucursalId) : null,
             'reporteStock'  => $tab === 'stock'    ? $this->reporteStock($sucursalId) : null,
             'reporteBalance'=> $tab === 'balance'  ? $this->reporteBalance($desde, $hasta, $sucursalId) : null,

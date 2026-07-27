@@ -14,12 +14,19 @@ class LogisticaController extends Controller
 {
     public function index(Request $request)
     {
+        $sucursalId = $request->user()->sucursalRestringidaId();
+
         $movimientos = MovimientoStock::with([
-            'detalles.libro.master', 
-            'origen', 
-            'destino', 
+            'detalles.libro.master',
+            'origen',
+            'destino',
             'user'
-        ])->latest()->paginate(15);
+        ])
+            ->when($sucursalId, fn($q) => $q->where(function ($sq) use ($sucursalId) {
+                $sq->where('sucursal_origen_id', $sucursalId)
+                   ->orWhere('sucursal_destino_id', $sucursalId);
+            }))
+            ->latest()->paginate(15);
 
         // Pre-cargar libros para el buscador del modal
         $libros = Libro::with(['master', 'master.autor', 'stocks:id,libro_id,sucursal_id,cantidad_disponible'])
@@ -40,11 +47,7 @@ class LogisticaController extends Controller
                 ];
             });
 
-        // Obtener la sucursal del empleado activo
-        $empleado = auth()->user()->empleado;
-        $sucursalId = $empleado ? $empleado->sucursal_id : Sucursal::first()->id;
-
-        $esAdmin = auth()->user()->esAdmin() || auth()->user()->esGerente();
+        $esAdmin = is_null($sucursalId);
 
         // Traslados por Ventas Pendientes (Solo los que tienen venta_id)
         $trasladosAEnviar = TransferenciaStock::with(['libro.master', 'sucursalDestino', 'venta'])
@@ -71,7 +74,7 @@ class LogisticaController extends Controller
 
         return inertia('Logistica/Index', [
             'movimientos' => $movimientos,
-            'sucursales' => Sucursal::where('activo', true)->get(['id', 'nombre']),
+            'sucursales' => Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
             'libros' => $libros,
             'trasladosAEnviar' => $trasladosAEnviar,
             'trasladosARecibir' => $trasladosARecibir,
@@ -89,6 +92,11 @@ class LogisticaController extends Controller
             'items.*.cantidad' => 'required|integer',
             'items.*.costo_unitario' => 'required_if:tipo,ingreso_proveedor|nullable|numeric|min:0',
         ]);
+
+        $sucursalRestringida = $request->user()->sucursalRestringidaId();
+        if ($sucursalRestringida && (int) $request->sucursal_destino_id !== $sucursalRestringida) {
+            abort(403);
+        }
 
         try {
             DB::beginTransaction();
@@ -180,14 +188,18 @@ class LogisticaController extends Controller
         }
     }
 
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
+        $movimiento = MovimientoStock::with('detalles')->findOrFail($id);
+        $sucursalRestringida = $request->user()->sucursalRestringidaId();
+        if ($sucursalRestringida && $sucursalRestringida !== $movimiento->sucursal_origen_id && $sucursalRestringida !== $movimiento->sucursal_destino_id) {
+            abort(403);
+        }
+
         try {
             DB::beginTransaction();
 
-            $movimiento = MovimientoStock::with('detalles')->findOrFail($id);
-
-            // Cannot undo a transferencia sale directly from here if it has complex logic, 
+            // Cannot undo a transferencia sale directly from here if it has complex logic,
             // but we can undo manual ingress/egress.
             if ($movimiento->tipo === 'TRANSFERENCIA_SALIDA' || $movimiento->tipo === 'TRANSFERENCIA_ENTRADA') {
                 throw new \Exception('No se puede deshacer un movimiento de logística automático por ventas desde aquí.');
