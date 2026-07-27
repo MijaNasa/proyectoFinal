@@ -128,6 +128,14 @@ const print = () => window.print();
                 </button>
             </div>
 
+            <a :href="route('ventas.comprobante-pdf', venta.id)"
+                class="no-print flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Descargar PDF
+            </a>
+
             <button @click="print"
                 class="flex items-center gap-2 bg-[#e61919] hover:bg-red-700 text-white text-xs font-black uppercase tracking-widest px-5 py-2.5 rounded-xl transition-colors">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">

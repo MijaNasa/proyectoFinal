@@ -145,6 +145,11 @@ class ProveedorController extends Controller
                 ->with('error', 'No se puede eliminar el proveedor porque tiene obras asociadas.');
         }
 
+        if ($proveedor->deuda_actual > 0) {
+            return redirect()->route('proveedores.index')
+                ->with('error', 'No se puede eliminar el proveedor porque tiene deuda pendiente.');
+        }
+
         $proveedor->delete();
 
         return redirect()->route('proveedores.index')

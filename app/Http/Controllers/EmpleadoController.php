@@ -113,6 +113,15 @@ class EmpleadoController extends Controller
      */
     public function destroy(Empleado $empleado)
     {
+        $tieneRutasActivas = \App\Models\RutaReparto::where('repartidor_id', $empleado->id)
+            ->where('estado', '!=', 'finalizada')
+            ->exists();
+
+        if ($tieneRutasActivas) {
+            return redirect()->route('empleados.index')
+                ->with('error', 'No se puede eliminar el empleado porque tiene rutas de reparto asignadas.');
+        }
+
         \DB::transaction(function() use ($empleado) {
             $user = $empleado->user;
             $empleado->delete();

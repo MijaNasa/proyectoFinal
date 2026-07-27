@@ -464,6 +464,29 @@ class VentaController extends Controller
         return inertia('Ventas/Show', ['venta' => $venta]);
     }
 
+    public function generarComprobantePdf(Venta $venta)
+    {
+        $user = \Auth::user();
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
+            abort(403);
+        }
+
+        $venta->load([
+            'cliente.user:id,name,apellido,email',
+            'user:id,name,apellido',
+            'sucursal:id,nombre,calle,numero,telefono',
+            'detalles.libro.master:id,titulo',
+            'detalles.libro:id,master_id,isbn,numero_tomo',
+            'transacciones',
+        ]);
+
+        $metodoPago = $venta->transacciones->first()->metodo_pago ?? '—';
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.comprobante_venta', compact('venta', 'metodoPago'));
+
+        return $pdf->download('Comprobante_Venta_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf');
+    }
+
     public function destroy(Venta $venta)
     {
         $user = \Auth::user();

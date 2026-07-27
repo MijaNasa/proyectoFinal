@@ -293,6 +293,11 @@ class ClienteController extends Controller
      */
     public function destroy(Cliente $cliente)
     {
+        if ($cliente->saldo_actual < 0) {
+            return redirect()->route('clientes.index')
+                ->with('error', 'No se puede eliminar el cliente porque tiene deuda pendiente.');
+        }
+
         \DB::transaction(function() use ($cliente) {
             $user = $cliente->user;
             $cliente->delete();
