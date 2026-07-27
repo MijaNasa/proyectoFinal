@@ -12,6 +12,10 @@ class PrecioController extends Controller
 {
     public function bulkUpdate(Request $request)
     {
+        if (!$request->user() || !$request->user()->esAdmin()) {
+            abort(403, 'Acción no autorizada');
+        }
+
         // 1. Validamos que lleguen los datos obligatorios
         $request->validate([
             'criterio'     => 'required|in:serie,proveedor_formato,libro_individual',
@@ -61,74 +65,28 @@ class PrecioController extends Controller
         return redirect()->back();
     }
 
-    public function index(Request $request): \Inertia\Response
+    public function getOpcionesMasivas(Request $request): \Illuminate\Http\JsonResponse
     {
-        $filtro = $request->get('filtro', 'todos');
-        $search = $request->get('search', '');
-
-        $query = Libro::with([
-            'master:id,titulo,autor_id,proveedor_id,formato',
-            'master.autor:id,nombre,apellido',
-            'master.proveedor:id,nombre_empresa',
-            'precios' => fn($q) => $q->orderByDesc('fecha_desde')->limit(5),
-        ])
-        ->select(
-            'libros.id', 
-            'libros.isbn', 
-            'libros.master_id', 
-            'libros.serie_id', 
-            'libros.numero_tomo',
-            'libros.año_edicion', 
-            'libros.activo'
-        );
-
-        if ($search) {
-            $query->whereHas('master', fn($q) => $q
-                ->where('titulo', 'like', "%{$search}%")
-                ->orWhereHas('autor', fn($sq) => $sq
-                    ->where('nombre', 'like', "%{$search}%")
-                    ->orWhere('apellido', 'like', "%{$search}%")
-                )
-            )->orWhere('libros.isbn', 'like', "%{$search}%");
+        if (!$request->user() || !$request->user()->esAdmin()) {
+            abort(403, 'Acción no autorizada');
         }
-
-        if ($filtro === 'sin_precio') {
-            $query->whereDoesntHave('precios', fn($q) => $q->where('activo', true));
-        }
-
-        $libros = $query->orderBy('libros.id', 'desc')->paginate(30)->withQueryString();
-
-        // Agregar precio actual calculado
-        $libros->getCollection()->transform(function ($libro) {
-            $libro->precio_actual = $libro->precios->firstWhere('activo', true);
-            return $libro;
-        });
-
-        $stats = [
-            'total'      => Libro::count(),
-            'con_precio' => Libro::whereHas('precios', fn($q) => $q->where('activo', true))->count(),
-            'sin_precio' => Libro::whereDoesntHave('precios', fn($q) => $q->where('activo', true))->count(),
-        ];
 
         $opcionesMasivas = [
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
             'series' => \App\Models\LibroMaster::orderBy('titulo')->pluck('titulo'),
             'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->pluck('nombre_empresa'),
-            'libros' => Libro::with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
+            'libros' => Libro::whereHas('master')->with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
                 return [
                     'id' => $l->id,
-                    'titulo' => $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : '')
+                    'titulo' => ($l->master ? $l->master->titulo : 'Sin Obra') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : '')
                 ];
             })->sortBy('titulo')->values()
         ];
 
-        return inertia('Precios/Index', [
-            'libros'  => $libros,
-            'stats'   => $stats,
-            'opcionesMasivas' => $opcionesMasivas,
-            'filters' => compact('filtro', 'search'),
-        ]);
+        return response()->json($opcionesMasivas);
     }
+
+
 
     public function store(Request $request, Libro $libro): \Illuminate\Http\RedirectResponse
     {

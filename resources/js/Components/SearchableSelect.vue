@@ -135,7 +135,7 @@ onBeforeUnmount(() => {
             @focus="isOpen = true"
             @click="isOpen = true; search = ''" 
             :placeholder="placeholder"
-            class="input-field w-full text-xs font-bold bg-brand-black cursor-pointer pr-10"
+            class="input-field w-full text-sm font-bold bg-brand-black cursor-pointer pr-10"
         />
         <!-- Arrow Icon -->
         <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
@@ -144,7 +144,7 @@ onBeforeUnmount(() => {
         
         <!-- Dropdown Menu -->
         <div v-show="isOpen" class="absolute z-50 w-full mt-1 bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden">
-            <div v-if="filteredOptions.length === 0" class="p-3 text-xs text-white/50 text-center italic">
+            <div v-if="filteredOptions.length === 0" class="p-3 text-sm text-white/50 text-center italic">
                 No se encontraron coincidencias
             </div>
             <ul v-else class="py-1">
@@ -152,7 +152,7 @@ onBeforeUnmount(() => {
                     v-for="opt in filteredOptions" 
                     :key="getOptValue(opt)"
                     @click="selectOption(opt)"
-                    class="px-4 py-2 text-xs font-bold hover:bg-brand-red hover:text-white cursor-pointer transition-colors"
+                    class="px-4 py-2 text-sm font-bold hover:bg-brand-red hover:text-white cursor-pointer transition-colors"
                     :class="getOptValue(opt) === modelValue ? 'bg-white/10 text-brand-red' : 'text-white/80'"
                 >
                     {{ getLabel(opt) }}

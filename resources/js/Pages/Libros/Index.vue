@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 
@@ -98,7 +98,7 @@ const openObraModal = (obra = null) => {
 
 const agregarAutor = () => {
     Swal.fire({
-        title: 'Agregar Nuevo Autor',
+        title: 'Agregar nuevo autor',
         html: `
             <div class="space-y-4 text-left">
                 <div>
@@ -112,10 +112,14 @@ const agregarAutor = () => {
             </div>
         `,
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        customClass: {
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
+        },
+        buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const nombre = document.getElementById('swal-autor-nombre').value.trim();
@@ -148,7 +152,7 @@ const agregarAutor = () => {
 
 const agregarCategoria = () => {
     Swal.fire({
-        title: 'Agregar Nueva Categoría',
+        title: 'Agregar nueva categoría',
         html: `
             <div class="text-left">
                 <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
@@ -156,10 +160,14 @@ const agregarCategoria = () => {
             </div>
         `,
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        customClass: {
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
+        },
+        buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const nombre = document.getElementById('swal-cat-nombre').value.trim();
@@ -191,7 +199,7 @@ const agregarCategoria = () => {
 
 const agregarProveedor = () => {
     Swal.fire({
-        title: 'Agregar Nuevo Proveedor',
+        title: 'Agregar nuevo proveedor',
         html: `
             <div class="space-y-4 text-left">
                 <div>
@@ -213,10 +221,14 @@ const agregarProveedor = () => {
             </div>
         `,
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        customClass: {
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
+        },
+        buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const nombre_empresa = document.getElementById('swal-prov-nombre_empresa').value.trim();
@@ -252,7 +264,7 @@ const agregarProveedor = () => {
 
 const agregarIdioma = () => {
     Swal.fire({
-        title: 'Agregar Nuevo Idioma',
+        title: 'Agregar nuevo idioma',
         html: `
             <div class="space-y-4 text-left">
                 <div>
@@ -262,10 +274,14 @@ const agregarIdioma = () => {
             </div>
         `,
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        customClass: {
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
+        },
+        buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const nombre = document.getElementById('swal-id-nombre').value.trim();
@@ -297,7 +313,7 @@ const agregarIdioma = () => {
 
 const agregarFormato = () => {
     Swal.fire({
-        title: 'Agregar Nuevo Formato',
+        title: 'Agregar nuevo formato',
         html: `
             <div class="text-left">
                 <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre del Formato *</label>
@@ -305,10 +321,14 @@ const agregarFormato = () => {
             </div>
         `,
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
-        confirmButtonText: 'Agregar',
+        confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        customClass: {
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
+        },
+        buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const nombre = document.getElementById('swal-formato-nombre').value.trim();
@@ -365,13 +385,15 @@ const submitObra = () => {
 
 const deleteObra = (id) => {
     Swal.fire({
-        title: '¿Estás seguro?',
-        text: "Esto eliminará la obra y TODOS sus tomos asociados. Es irreversible.",
+        title: '¿Eliminar serie?',
+        text: "Esto eliminará la serie y todos sus tomos asociados.",
         icon: 'warning',
+        iconColor: '#E61919',
         showCancelButton: true,
         confirmButtonColor: '#E61919',
         cancelButtonColor: '#333',
         confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
         background: '#1A1A1A', color: '#FFF'
     }).then((result) => {
         if (result.isConfirmed) {
@@ -452,13 +474,15 @@ const submitTomo = () => {
 
 const deleteTomo = (id) => {
     Swal.fire({
-        title: '¿Estás seguro?',
-        text: "Esto eliminará este tomo específico. La obra maestra se mantendrá.",
+        title: '¿Eliminar tomo?',
+        text: "Esto eliminará únicamente el tomo específico, la serie se mantendrá",
         icon: 'warning',
+        iconColor: '#E61919',
         showCancelButton: true,
         confirmButtonColor: '#E61919',
         cancelButtonColor: '#333',
         confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
         background: '#1A1A1A', color: '#FFF'
     }).then((result) => {
         if (result.isConfirmed) {
@@ -471,25 +495,74 @@ const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
 };
 
-const quickEditPrice = (libro) => {
+const quickEditPrice = async (libro) => {
+    // 1. Mostrar spinner de carga de datos inicial
+    Swal.fire({
+        title: 'Cargando datos...',
+        background: '#1A1A1A',
+        color: '#FFF',
+        didOpen: () => {
+            Swal.showLoading();
+        }
+    });
+
+    let historialHtml = '';
+    try {
+        const res = await fetch(route('precios.historial', libro.id));
+        const historial = await res.json();
+        
+        if (historial && historial.length > 0) {
+            historialHtml = historial.map(h => `
+                <div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0 text-xs">
+                    <div>
+                        <span class="font-black text-white">${formatCurrency(h.precio_venta)}</span>
+                        ${h.activo ? '<span class="ml-2 text-[9px] font-black uppercase tracking-wider text-brand-red bg-brand-red/10 px-1.5 py-0.5 rounded-full border border-brand-red/20">Actual</span>' : ''}
+                        ${h.motivo ? `<p class="text-[10px] text-white/30 mt-0.5 mt-1">${h.motivo}</p>` : ''}
+                    </div>
+                    <span class="text-[10px] text-white/40 font-bold">${new Date(h.fecha_desde).toLocaleDateString('es-AR')}</span>
+                </div>
+            `).join('');
+        } else {
+            historialHtml = '<p class="text-white/20 text-xs italic text-center py-2">Sin historial registrado</p>';
+        }
+    } catch (e) {
+        console.error("Error al cargar historial", e);
+        historialHtml = '<p class="text-red-400 text-xs italic text-center py-2">Error al cargar historial</p>';
+    }
+
     const currentPrice = libro.precios?.find(p => p.activo);
-    const precioVenta = currentPrice ? currentPrice.precio_venta : '';
-    
+    const precioVenta = currentPrice ? parseFloat(currentPrice.precio_venta).toFixed(2) : '';
+
     Swal.fire({
         title: 'Actualizar Precio',
         html: `
             <div class="space-y-4 text-left">
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nuevo Precio de Venta ($) *</label>
-                    <input id="swal-quick-precio" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1 font-black text-center text-xl" type="number" step="0.01" min="0" value="${precioVenta}" placeholder="0.00">
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nuevo Precio de Venta *</label>
+                    <div class="relative mt-1">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/50 text-base font-bold">$</span>
+                        <input id="swal-quick-precio" class="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-base text-white font-bold focus:outline-none focus:border-brand-red/50" type="number" step="0.01" min="0" value="${precioVenta}" placeholder="0.00">
+                    </div>
+                </div>
+
+                <div class="border-t border-white/10 pt-4">
+                    <label class="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-2">Historial de Precios</label>
+                    <div class="max-h-40 overflow-y-auto space-y-1 bg-black/30 p-3 rounded-lg border border-white/5 pr-2">
+                        ${historialHtml}
+                    </div>
                 </div>
             </div>
         `,
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        customClass: {
+            title: 'text-lg font-black uppercase tracking-tight text-white pt-6',
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
+        },
+        buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const val = document.getElementById('swal-quick-precio').value;
@@ -497,7 +570,7 @@ const quickEditPrice = (libro) => {
                 Swal.showValidationMessage('El precio debe ser mayor a 0');
                 return false;
             }
-            return val;
+            return parseFloat(val).toFixed(2);
         }
     }).then((result) => {
         if (result.isConfirmed) {
@@ -519,10 +592,12 @@ const deshabilitarPreventasMassive = () => {
         title: '¿Deshabilitar Preventas?',
         text: "Esto desactivará la preventa de todos los tomos activos inmediatamente.",
         icon: 'warning',
+        iconColor: '#E61919',
         showCancelButton: true,
         confirmButtonColor: '#E61919',
         cancelButtonColor: '#333',
         confirmButtonText: 'Sí, deshabilitar',
+        cancelButtonText: 'Cancelar',
         background: '#1A1A1A', color: '#FFF'
     }).then((result) => {
         if (result.isConfirmed) {
@@ -531,6 +606,168 @@ const deshabilitarPreventasMassive = () => {
                 onSuccess: () => {
                     Swal.fire({ title: '¡Éxito!', text: 'Todas las preventas han sido deshabilitadas.', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
                 }
+            });
+        }
+    });
+};
+
+const formatSucursalName = (name) => {
+    if (!name) return '';
+    return name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+};
+
+const toggleTomoActivo = (libro) => {
+    const currentPriceObj = libro.precios?.find(p => p.activo);
+    const precioVenta = currentPriceObj ? currentPriceObj.precio_venta : 0;
+    const precioCompra = currentPriceObj ? currentPriceObj.precio_compra : 0;
+
+    router.put(route('libros.update', libro.id), {
+        master_id: libro.master_id,
+        isbn: libro.isbn,
+        numero_tomo: libro.numero_tomo,
+        año_edicion: libro.año_edicion,
+        cantidad_paginas: libro.cantidad_paginas,
+        activo: !libro.activo,
+        permite_preventa: libro.permite_preventa,
+        precio_venta: precioVenta,
+        precio_compra: precioCompra,
+        only_active_toggle: true,
+    }, {
+        preserveScroll: true
+    });
+};
+
+// Formularios y estados para el Aumento Masivo
+const showBulkModal = ref(false);
+const opcionesMasivasLocal = ref(null);
+const loadingOpciones = ref(false);
+
+const openBulkModal = async () => {
+    showBulkModal.value = true;
+    if (!opcionesMasivasLocal.value) {
+        loadingOpciones.value = true;
+        try {
+            const res = await fetch(route('precios.opciones-masivas'));
+            opcionesMasivasLocal.value = await res.json();
+        } catch (e) {
+            console.error("Error al cargar opciones masivas", e);
+            Swal.fire({
+                title: 'Error',
+                text: 'No se pudieron obtener las opciones del catálogo.',
+                icon: 'error',
+                background: '#1A1A1A', color: '#FFF'
+            });
+        } finally {
+            loadingOpciones.value = false;
+        }
+    }
+};
+
+const bulkForm = useForm({
+    criterio: 'proveedor_formato', // 'serie' o 'proveedor_formato'
+    serie: '',
+    proveedor: '',
+    formato: '',
+    libro_id: '',
+    nuevo_precio: '',
+    motivo: 'Aumento proveedor'
+});
+
+// Extraemos datos únicos desde las opciones pasadas por el backend (Lazy Loaded)
+const seriesDisponibles = computed(() => {
+    return opcionesMasivasLocal.value?.series || [];
+});
+
+const proveedoresDisponibles = computed(() => {
+    return opcionesMasivasLocal.value?.proveedores || [];
+});
+
+const formatosDisponibles = computed(() => {
+    return opcionesMasivasLocal.value?.formatos || [];
+});
+
+const librosDisponibles = computed(() => {
+    return opcionesMasivasLocal.value?.libros || [];
+});
+
+// Buscadores independientes
+const searchSerieQuery = ref('');
+const showSerieDropdown = ref(false);
+const seriesFiltradas = computed(() => {
+    if (!searchSerieQuery.value) return seriesDisponibles.value;
+    return seriesDisponibles.value.filter(s => s.toLowerCase().includes(searchSerieQuery.value.toLowerCase()));
+});
+
+const searchProveedorQuery = ref('');
+const showProveedorDropdown = ref(false);
+const proveedoresFiltrados = computed(() => {
+    if (!searchProveedorQuery.value) return proveedoresDisponibles.value;
+    return proveedoresDisponibles.value.filter(e => e.toLowerCase().includes(searchProveedorQuery.value.toLowerCase()));
+});
+
+const searchLibroQuery = ref('');
+const showLibroDropdown = ref(false);
+const librosFiltrados = computed(() => {
+    if (!searchLibroQuery.value) return librosDisponibles.value;
+    return librosDisponibles.value.filter(l => l.titulo.toLowerCase().includes(searchLibroQuery.value.toLowerCase()));
+});
+
+// Limpiamos al cambiar de criterio
+watch(() => bulkForm.criterio, () => {
+    bulkForm.serie = '';
+    bulkForm.proveedor = '';
+    bulkForm.formato = '';
+    bulkForm.libro_id = '';
+    searchSerieQuery.value = '';
+    searchProveedorQuery.value = '';
+    searchLibroQuery.value = '';
+});
+
+const submitBulk = () => {
+    // 1. Forzar la captura del texto si el usuario olvidó hacer clic en el menú desplegable
+    if (bulkForm.criterio === 'proveedor_formato') {
+        bulkForm.proveedor = bulkForm.proveedor || searchProveedorQuery.value;
+    } else if (bulkForm.criterio === 'serie') {
+        bulkForm.serie = bulkForm.serie || searchSerieQuery.value;
+    }
+
+    // 2. Validación manual amigable
+    if (bulkForm.criterio === 'proveedor_formato' && (!bulkForm.proveedor || !bulkForm.formato)) {
+        Swal.fire({ title: 'Atención', text: 'Seleccioná el proveedor y el formato', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        return;
+    }
+    if (bulkForm.criterio === 'serie' && !bulkForm.serie) {
+        Swal.fire({ title: 'Atención', text: 'Seleccioná una serie', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        return;
+    }
+    if (bulkForm.criterio === 'libro_individual' && !bulkForm.libro_id) {
+        Swal.fire({ title: 'Atención', text: 'Seleccioná un libro', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        return;
+    }
+    if (!bulkForm.nuevo_precio || bulkForm.nuevo_precio <= 0) {
+        Swal.fire({ title: 'Atención', text: 'Ingresá un precio válido mayor a 0', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        return;
+    }
+
+    // 3. Envío al servidor
+    bulkForm.post(route('precios.bulk'), {
+        onSuccess: () => {
+            showBulkModal.value = false;
+            bulkForm.reset();
+            Swal.fire({
+                title: '¡Actualización Exitosa!',
+                text: 'Precios masivos aplicados en el catálogo',
+                icon: 'success',
+                background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
+            });
+        },
+        onError: (errores) => {
+            console.error(errores);
+            Swal.fire({
+                title: 'Error de servidor',
+                text: 'Revisá los datos ingresados',
+                icon: 'error',
+                background: '#1A1A1A', color: '#FFF'
             });
         }
     });
@@ -547,9 +784,13 @@ const deshabilitarPreventasMassive = () => {
                     Catálogo <span class="text-brand-red not-italic">Principal</span>
                 </h2>
                 <div class="flex gap-3">
-                    <button @click="deshabilitarPreventasMassive" class="px-4 py-2 bg-brand-red/10 text-brand-red border border-brand-red/50 hover:bg-brand-red hover:text-white transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                    <button @click="deshabilitarPreventasMassive" class="px-4 py-2 bg-transparent text-white border border-white/20 hover:bg-white/[0.05] hover:border-white/40 transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                         Deshabilitar Preventas
+                    </button>
+                    <button v-if="$page.props.auth.esAdmin" @click="openBulkModal" class="px-4 py-2 bg-transparent text-brand-red border border-brand-red/30 hover:bg-brand-red hover:text-white transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        Aumento Masivo
                     </button>
                     <button @click="openObraModal()" class="btn-primary flex items-center gap-2">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -565,30 +806,39 @@ const deshabilitarPreventasMassive = () => {
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                 <div class="card mb-8">
                     <div class="flex items-center gap-4">
-                        <input 
-                            v-model="search" 
-                            type="text" 
-                            placeholder="Buscar por título de obra, autor o ISBN..." 
-                            class="input-field flex-1"
-                        >
+                        <div class="relative flex-grow">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </span>
+                            <input 
+                                v-model="search" 
+                                type="text" 
+                                placeholder="Buscar por título de obra, autor o ISBN..." 
+                                class="input-field w-full pl-10 py-1.5 text-sm border-white/10"
+                            >
+                        </div>
                     </div>
                 </div>
 
                 <div class="card p-0 overflow-hidden">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-brand-red/10 border-b border-brand-red/20">
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Obra (Franquicia)</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Autor</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-center">Cantidad de Tomos</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-center">Proveedor</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Acciones Obra</th>
+                            <tr class="bg-white/[0.03] border-b border-white/10">
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50">Obra</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50">Autor</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50 text-center">Cantidad de Tomos</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50 text-center">Proveedor</th>
+                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50 text-center w-36">Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <template v-for="obra in filteredObras" :key="obra.id">
                                 <!-- Master Row -->
-                                <tr @click="toggleMaster(obra.id)" class="hover:bg-white/[0.05] transition-colors cursor-pointer group-row">
+                                <tr @click="toggleMaster(obra.id)" 
+                                    class="hover:bg-white/[0.05] transition-colors cursor-pointer group-row"
+                                    :class="expandedMasters.includes(obra.id) ? 'bg-brand-red/[0.1]' : ''">
                                     <td class="p-4">
                                         <div class="font-black text-xl leading-tight uppercase text-white">{{ obra.titulo }}</div>
                                         <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1 flex items-center gap-2">
@@ -600,20 +850,20 @@ const deshabilitarPreventasMassive = () => {
                                         </div>
                                     </td>
                                     <td class="p-4">
-                                        <div class="text-sm text-white/60 italic font-medium">{{ obra.autor ? obra.autor.nombre + ' ' + obra.autor.apellido : 'S/A' }}</div>
+                                        <div class="text-sm text-white/60 font-medium">{{ obra.autor ? obra.autor.nombre + ' ' + obra.autor.apellido : 'S/A' }}</div>
                                     </td>
                                     <td class="p-4 text-center">
-                                        <span class="bg-brand-red/20 text-brand-red px-3 py-1 rounded-full text-xs font-black">{{ obra.libros ? obra.libros.length : 0 }}</span>
+                                        <span class="bg-white/10 text-white/70 px-2.5 py-0.5 rounded text-xs font-bold">{{ obra.libros ? obra.libros.length : 0 }}</span>
                                     </td>
                                     <td class="p-4 text-center">
-                                        <span class="text-sm font-bold text-white/80 uppercase">{{ obra.proveedor ? (obra.proveedor.nombre_empresa.length > 15 ? obra.proveedor.nombre_empresa.substring(0, 15) + '...' : obra.proveedor.nombre_empresa) : 'S/P' }}</span>
+                                        <span class="text-sm font-bold text-white/80 uppercase">{{ obra.proveedor ? obra.proveedor.nombre_empresa : 'S/P' }}</span>
                                     </td>
-                                    <td class="p-4 text-right">
-                                        <div class="flex justify-end gap-2 items-center">
+                                    <td class="p-4 text-center w-36">
+                                        <div class="flex justify-center gap-2 items-center">
                                             <button @click.stop="openObraModal(obra)" class="p-2 text-white/40 hover:text-white transition-colors" title="Editar Obra">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                             </button>
-                                            <button @click.stop="deleteObra(obra.id)" class="p-2 text-brand-red/40 hover:text-brand-red transition-colors" title="Eliminar Obra">
+                                            <button @click.stop="deleteObra(obra.id)" class="p-2 text-white/40 hover:text-brand-red transition-colors" title="Eliminar Obra">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                                             </button>
                                             <svg xmlns="http://www.w3.org/2000/svg" 
@@ -629,7 +879,7 @@ const deshabilitarPreventasMassive = () => {
                                 <!-- Detail Row -->
                                 <tr v-show="expandedMasters.includes(obra.id)" class="bg-black/40">
                                     <td colspan="5" class="p-0 border-b border-brand-red/10">
-                                        <div class="p-4 pl-12 border-l-2 border-brand-red/50 relative">
+                                        <div class="p-4 pl-12 border-l-4 border-brand-red/50 relative">
                                             
                                             <div class="flex justify-between items-end mb-4">
                                                 <h4 class="text-xs font-black text-white/40 uppercase tracking-widest">Tomos Registrados</h4>
@@ -645,17 +895,16 @@ const deshabilitarPreventasMassive = () => {
                                                         <th class="pb-2">Tomo N°</th>
                                                         <th class="pb-2">ISBN</th>
                                                         <th class="pb-2 text-center">Precio</th>
-                                                        <th class="pb-2 text-right">Acciones</th>
+                                                        <th class="pb-2 text-center w-36">Acciones</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
-                                                    <tr v-for="libro in obra.libros" :key="libro.id" class="hover:bg-white/[0.02] border-b border-white/5 last:border-0">
+                                                    <tr v-for="libro in obra.libros" :key="libro.id" class="hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-opacity" :class="[!libro.activo ? 'opacity-40' : '']">
                                                         <td class="py-3 pr-4">
-                                                            <div class="text-[12px] font-black text-brand-red uppercase tracking-widest">{{ libro.numero_tomo ? 'Tomo ' + libro.numero_tomo : 'Único' }}</div>
+                                                            <div class="text-[12px] font-black uppercase tracking-widest" :class="libro.numero_tomo ? 'text-white/90' : 'text-white/60'">{{ libro.numero_tomo ? 'Tomo ' + libro.numero_tomo : 'Único' }}</div>
                                                         </td>
                                                         <td class="py-3 pr-4">
-                                                            <span class="font-mono text-xs bg-white/5 px-2 py-1 rounded border border-white/10 text-white/70">{{ libro.isbn || 'SIN ISBN' }}</span>
-                                                            <div class="text-[9px] text-white/30 mt-1 uppercase">Año: {{ libro.año_edicion || 'N/A' }}</div>
+                                                            <span class="font-mono text-xs text-white/70">{{ libro.isbn || 'SIN ISBN' }}</span>
                                                         </td>
                                                         <td class="py-3 px-4 text-center">
                                                             <div v-if="libro.precios && libro.precios.find(p => p.activo)" class="text-base font-black text-white">
@@ -663,15 +912,41 @@ const deshabilitarPreventasMassive = () => {
                                                             </div>
                                                             <div v-else class="text-[10px] font-black uppercase text-brand-red opacity-50 italic">Sin Precio</div>
                                                         </td>
-                                                        <td class="py-3 text-right">
-                                                            <div class="flex justify-end gap-1">
-                                                                <button @click.stop="quickEditPrice(libro)" class="p-1.5 text-green-400/40 hover:text-green-400 hover:bg-green-400/10 rounded transition-colors" title="Actualizar Precio">
+                                                        <td class="py-3 text-center w-36">
+                                                            <div class="flex justify-center items-center gap-1">
+                                                                <!-- Visibility Switch -->
+                                                                <button 
+                                                                    @click.stop="toggleTomoActivo(libro)" 
+                                                                    class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none align-middle mr-4"
+                                                                    :class="libro.activo ? 'bg-brand-red' : 'bg-white/10'"
+                                                                    :title="libro.activo ? 'Tomo visible (Click para ocultar)' : 'Tomo oculto (Click para mostrar)'"
+                                                                >
+                                                                    <span 
+                                                                        class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                                                        :class="libro.activo ? 'translate-x-3' : 'translate-x-0'"
+                                                                    />
+                                                                </button>
+                                                                <button @click.stop="quickEditPrice(libro)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Actualizar Precio">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                                 </button>
                                                                 <button @click.stop="openTomoModal(libro, obra.id)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Editar Tomo">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                                                 </button>
-                                                                <button @click.stop="deleteTomo(libro.id)" class="p-1.5 text-brand-red/40 hover:text-brand-red hover:bg-brand-red/10 rounded transition-colors" title="Eliminar Tomo">
+                                                                <!-- Conditional Trash Button -->
+                                                                <button 
+                                                                    v-if="libro.tiene_historial"
+                                                                    class="p-1.5 text-white/15 cursor-not-allowed" 
+                                                                    title="No se puede eliminar porque tiene historial de movimientos"
+                                                                    @click.stop
+                                                                >
+                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                                </button>
+                                                                <button 
+                                                                    v-else
+                                                                    @click.stop="deleteTomo(libro.id)" 
+                                                                    class="p-1.5 text-white/40 hover:text-brand-red hover:bg-brand-red/10 rounded transition-colors" 
+                                                                    title="Eliminar Tomo"
+                                                                >
                                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                                                                 </button>
                                                             </div>
@@ -703,7 +978,7 @@ const deshabilitarPreventasMassive = () => {
             <div class="flex min-h-full items-start justify-center p-4">
             <div class="relative w-full max-w-xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
                 <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
-                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingObra ? 'Editar' : 'Nueva' }} <span class="italic text-white">Obra</span></h3>
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingObra ? 'Editar' : 'Nueva' }} <span class="text-white">Obra</span></h3>
                     <button @click="showObraModal = false" class="text-white/80 hover:text-white transition-colors relative">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
@@ -712,47 +987,47 @@ const deshabilitarPreventasMassive = () => {
                 <form @submit.prevent="submitObra" class="p-6">
                     <div class="grid grid-cols-1 gap-6">
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-brand-red mb-1">Título de la Obra</label>
-                            <input v-model="obraForm.titulo" type="text" class="input-field w-full font-bold text-lg" placeholder="Ej: Dragon Ball" required>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Título de la Obra</label>
+                            <input v-model="obraForm.titulo" type="text" class="input-field w-full text-sm font-bold" placeholder="Ej: Dragon Ball" required>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Autor</label>
                             <div class="flex gap-2">
                                 <SearchableSelect v-model="obraForm.autor_id" :options="autores" :labelKey="(a) => a.nombre + (a.apellido ? ' ' + a.apellido : '')" placeholder="-- Seleccionar Autor --" :required="true" />
-                                <button type="button" @click="agregarAutor" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Autor">+</button>
+                                <button type="button" @click="agregarAutor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Autor">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Categoría</label>
                             <div class="flex gap-2">
                                 <SearchableSelect v-model="obraForm.categoria_id" :options="categorias" placeholder="-- Seleccionar Categoría --" :required="true" />
-                                <button type="button" @click="agregarCategoria" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Categoría">+</button>
+                                <button type="button" @click="agregarCategoria" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Categoría">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Proveedor</label>
                             <div class="flex gap-2">
                                 <SearchableSelect v-model="obraForm.proveedor_id" :options="proveedores.map(p => ({id: p.id, nombre: p.nombre_empresa}))" placeholder="-- Seleccionar Proveedor --" :required="true" />
-                                <button type="button" @click="agregarProveedor" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Proveedor">+</button>
+                                <button type="button" @click="agregarProveedor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Proveedor">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Idioma</label>
                             <div class="flex gap-2">
                                 <SearchableSelect v-model="obraForm.idioma_id" :options="idiomas" placeholder="-- Seleccionar Idioma --" :required="true" />
-                                <button type="button" @click="agregarIdioma" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Idioma">+</button>
+                                <button type="button" @click="agregarIdioma" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Idioma">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Formato</label>
                             <div class="flex gap-2">
                                 <SearchableSelect v-model="obraForm.formato" :options="formatosLocal" placeholder="-- Selecciona Formato --" :required="true" />
-                                <button type="button" @click="agregarFormato" class="px-4 bg-white/5 hover:bg-brand-red text-white hover:text-white border border-white/10 hover:border-transparent transition-all rounded-xl font-black text-sm" title="Crear Formato">+</button>
+                                <button type="button" @click="agregarFormato" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Formato">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Sinopsis</label>
-                            <textarea v-model="obraForm.synopsis" class="input-field w-full h-24 resize-none" placeholder="Breve descripción..."></textarea>
+                            <textarea v-model="obraForm.synopsis" class="input-field w-full text-sm font-bold h-24 resize-none" placeholder="Breve descripción..."></textarea>
                         </div>
                         <div class="flex items-center gap-2 bg-white/5 p-3 rounded border border-white/5 mt-2">
                             <input type="checkbox" v-model="obraForm.activo" id="obra_activa" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
@@ -761,7 +1036,7 @@ const deshabilitarPreventasMassive = () => {
                     </div>
 
                     <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
-                        <button type="button" @click="showObraModal = false" class="px-6 py-2 rounded-lg font-bold text-white/50 hover:bg-white/5 transition-colors uppercase text-xs">Cancelar</button>
+                        <button type="button" @click="showObraModal = false" class="px-6 py-2 bg-transparent text-white/60 hover:text-white border border-white/10 hover:bg-white/5 transition-colors rounded-lg font-bold uppercase text-xs">Cancelar</button>
                         <button type="submit" :disabled="obraForm.processing" class="btn-primary px-10 relative overflow-hidden group">
                            <span class="relative z-10">{{ obraForm.processing ? 'PROCESANDO...' : (isEditingObra ? 'ACTUALIZAR' : 'GUARDAR OBRA') }}</span>
                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
@@ -781,7 +1056,7 @@ const deshabilitarPreventasMassive = () => {
             <div class="flex min-h-full items-start justify-center p-4">
             <div class="relative w-full max-w-2xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
                 <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
-                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingTomo ? 'Editar' : 'Añadir' }} <span class="italic text-white">Tomo</span></h3>
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingTomo ? 'Editar' : 'Añadir' }} <span class="text-white">Tomo</span></h3>
                     <button @click="showTomoModal = false" class="text-white/80 hover:text-white transition-colors relative">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
@@ -834,14 +1109,14 @@ const deshabilitarPreventasMassive = () => {
                         <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-3">Stock Actual</label>
                         <div class="space-y-2">
                             <div v-for="sucursal in sucursales" :key="sucursal.id" class="flex items-center justify-between gap-4 p-2 bg-black/20 rounded">
-                                <span class="text-sm text-white/60 font-bold">{{ sucursal.nombre }}</span>
-                                <span class="text-brand-red font-black text-lg">{{ currentStocks[sucursal.id] || 0 }} <span class="text-[10px] text-white/30 uppercase">uds</span></span>
+                                <span class="text-sm text-white/60 font-bold">{{ formatSucursalName(sucursal.nombre) }}</span>
+                                <span class="text-white font-black text-lg">{{ currentStocks[sucursal.id] || 0 }} <span class="text-[10px] text-white/40 uppercase">uds</span></span>
                             </div>
                         </div>
                     </div>
 
                     <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
-                        <button type="button" @click="showTomoModal = false" class="px-6 py-2 rounded-lg font-bold text-white/50 hover:bg-white/5 transition-colors uppercase text-xs">Cancelar</button>
+                        <button type="button" @click="showTomoModal = false" class="px-6 py-2 bg-transparent text-white/60 hover:text-white border border-white/10 hover:bg-white/5 transition-colors rounded-lg font-bold uppercase text-xs">Cancelar</button>
                         <button type="submit" :disabled="tomoForm.processing" class="btn-primary px-10 relative overflow-hidden group">
                            <span class="relative z-10">{{ tomoForm.processing ? 'PROCESANDO...' : (isEditingTomo ? 'ACTUALIZAR' : 'REGISTRAR TOMO') }}</span>
                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
@@ -851,6 +1126,102 @@ const deshabilitarPreventasMassive = () => {
             </div>
             </div>
         </div>
+        </template>
+
+        <!-- Modal Aumento Masivo -->
+        <template v-if="showBulkModal">
+            <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showBulkModal = false"></div>
+            <div class="fixed inset-0 z-[101] overflow-y-auto">
+                <div class="flex min-h-full items-start justify-center p-4">
+                    <div class="relative w-full max-w-lg card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8 bg-[#111]">
+                        <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
+                            <h3 class="text-xl font-black uppercase tracking-tighter relative text-white">Aumento <span class="text-brand-red">Masivo</span></h3>
+                            <button @click="showBulkModal = false" class="text-white/80 hover:text-white transition-colors relative">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        
+                        <div v-if="loadingOpciones" class="p-12 text-center flex flex-col items-center justify-center gap-3">
+                            <div class="w-8 h-8 border-2 border-brand-red border-t-transparent rounded-full animate-spin"></div>
+                            <p class="text-xs font-bold uppercase tracking-widest text-white/40">Cargando opciones del catálogo...</p>
+                        </div>
+                        <form v-else @submit.prevent="submitBulk" class="p-6 space-y-4">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Criterio de Aumento</label>
+                                <select v-model="bulkForm.criterio" class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-bold uppercase focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red">
+                                    <option value="proveedor_formato">Por Proveedor y Formato</option>
+                                    <option value="serie">Por Serie individual</option>
+                                    <option value="libro_individual">Por Libro Individual</option>
+                                </select>
+                            </div>
+
+                            <div v-if="bulkForm.criterio === 'proveedor_formato'" class="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-lg border border-white/5">
+                                <div class="relative">
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">1. Proveedor *</label>
+                                    <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                    
+                                    <div v-if="showProveedorDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
+                                        <div v-for="e in proveedoresFiltrados" :key="e" @mousedown.prevent="bulkForm.proveedor = e; searchProveedorQuery = e; showProveedorDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.proveedor === e ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
+                                            {{ e }}
+                                        </div>
+                                        <div v-if="proveedoresFiltrados.length === 0" class="px-4 py-3 text-xs text-white/30 italic text-center">No hay resultados</div>
+                                    </div>
+                                    <div v-if="showProveedorDropdown" class="fixed inset-0 z-40" @click="showProveedorDropdown = false"></div>
+                                </div>
+                                <div>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">2. Formato *</label>
+                                    <select v-model="bulkForm.formato" class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold uppercase">
+                                        <option value="" disabled>Elegir formato...</option>
+                                        <option v-for="f in formatosDisponibles" :key="f" :value="f">{{ f }}</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div v-if="bulkForm.criterio === 'serie'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">Seleccionar Serie *</label>
+                                <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar serie..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                
+                                <div v-if="showSerieDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
+                                    <div v-for="s in seriesFiltradas" :key="s" @mousedown.prevent="bulkForm.serie = s; searchSerieQuery = s; showSerieDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.serie === s ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
+                                        {{ s }}
+                                    </div>
+                                    <div v-if="seriesFiltradas.length === 0" class="px-4 py-3 text-xs text-white/30 italic text-center">No hay resultados</div>
+                                </div>
+                                <div v-if="showSerieDropdown" class="fixed inset-0 z-40" @click="showSerieDropdown = false"></div>
+                            </div>
+
+                            <div v-if="bulkForm.criterio === 'libro_individual'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">Seleccionar Libro *</label>
+                                <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar libro por título o ISBN..." class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                
+                                <div v-if="showLibroDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
+                                    <div v-for="l in librosFiltrados" :key="l.id" @mousedown.prevent="bulkForm.libro_id = l.id; searchLibroQuery = l.titulo; showLibroDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.libro_id === l.id ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
+                                        {{ l.titulo }}
+                                    </div>
+                                    <div v-if="librosFiltrados.length === 0" class="px-4 py-3 text-xs text-white/30 italic text-center">No hay resultados</div>
+                                </div>
+                                <div v-if="showLibroDropdown" class="fixed inset-0 z-40" @click="showLibroDropdown = false"></div>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-brand-red mb-1">Nuevo Precio Único de Venta *</label>
+                                <div class="relative mt-1">
+                                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/50 text-sm font-bold">$</span>
+                                    <input v-model="bulkForm.nuevo_precio" type="number" step="0.01" min="0" class="w-full bg-black/40 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" placeholder="0.00" required />
+                                </div>
+                            </div>
+                            
+                            <div class="flex justify-end gap-3 border-t border-white/10 pt-4 mt-6">
+                                <button type="button" @click="showBulkModal = false" class="px-6 py-2 bg-transparent text-white/60 hover:text-white border border-white/10 hover:bg-white/5 transition-colors rounded-lg font-bold uppercase text-xs">Cancelar</button>
+                                <button type="submit" :disabled="bulkForm.processing" class="btn-primary px-8 relative overflow-hidden group">
+                                    <span class="relative z-10">{{ bulkForm.processing ? 'APLICANDO...' : 'APLICAR A TODOS' }}</span>
+                                    <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
         </template>
 
     </AuthenticatedLayout>

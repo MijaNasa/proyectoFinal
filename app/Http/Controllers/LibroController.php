@@ -106,8 +106,15 @@ class LibroController extends Controller
             }
         });
 
+        $message = 'Edición de libro actualizada con éxito';
+        if ($request->input('only_active_toggle')) {
+            $message = $libro->activo 
+                ? 'El tomo ahora está visible en la tienda.' 
+                : 'El tomo ahora está oculto y fuera de la venta.';
+        }
+
         return redirect()->route('libros.index')
-            ->with('message', 'Edición de libro actualizada con éxito');
+            ->with('message', $message);
     }
     
 
@@ -120,13 +127,8 @@ class LibroController extends Controller
 
     public function destroy(Libro $libro)
     {
-        // Verificar si hay stock activo de este libro en cualquier sucursal
-        $tieneStock = \App\Models\Stock::where('libro_id', $libro->id)
-            ->where('cantidad_disponible', '>', 0)
-            ->exists();
-
-        if ($tieneStock) {
-            return redirect()->back()->with('error', 'No se puede eliminar este libro porque todavía hay unidades registradas en el inventario.');
+        if ($libro->tiene_historial) {
+            return redirect()->back()->with('error', 'No se puede eliminar este libro porque tiene historial de movimientos.');
         }
 
         $libro->delete();

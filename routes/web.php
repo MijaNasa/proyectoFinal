@@ -85,8 +85,8 @@ Route::middleware('auth')->group(function () {
         Route::resource('libro-masters', LibroMasterController::class)->except(['index', 'show', 'create', 'edit']);
         Route::post('libros/deshabilitar-preventas', [LibroController::class, 'deshabilitarPreventas'])->name('libros.deshabilitar-preventas');
         Route::resource('libros', LibroController::class)->except(['show', 'create', 'edit']);
-        Route::get('precios', [PrecioController::class, 'index'])->name('precios.index');
         Route::post('precios/bulk', [PrecioController::class, 'bulkUpdate'])->name('precios.bulk');
+        Route::get('precios/opciones-masivas', [PrecioController::class, 'getOpcionesMasivas'])->name('precios.opciones-masivas');
         Route::post('libros/{libro}/precios', [PrecioController::class, 'store'])->name('precios.store');
         Route::get('libros/{libro}/precios/historial', [PrecioController::class, 'historial'])->name('precios.historial');
         

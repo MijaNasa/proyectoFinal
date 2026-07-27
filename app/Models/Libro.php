@@ -18,6 +18,8 @@ class Libro extends Model
         'año_edicion', 'cantidad_paginas', 'activo', 'permite_preventa',
     ];
 
+    protected $appends = ['tiene_historial'];
+
     protected $casts = [
         'permite_preventa' => 'boolean',
         'activo' => 'boolean',
@@ -46,6 +48,29 @@ class Libro extends Model
     public function ventaDetalles(): HasMany
     {
         return $this->hasMany(VentaDetalle::class);
+    }
+
+    public function ordenCompraItems(): HasMany
+    {
+        return $this->hasMany(OrdenCompraItem::class);
+    }
+
+    public function transferencias(): HasMany
+    {
+        return $this->hasMany(TransferenciaStock::class);
+    }
+
+    public function movimientos(): HasMany
+    {
+        return $this->hasMany(MovimientoStockDetalle::class, 'libro_id');
+    }
+
+    public function getTieneHistorialAttribute(): bool
+    {
+        return $this->ventaDetalles()->exists() ||
+               $this->ordenCompraItems()->exists() ||
+               $this->transferencias()->exists() ||
+               $this->movimientos()->exists();
     }
 
     public function precioActual()

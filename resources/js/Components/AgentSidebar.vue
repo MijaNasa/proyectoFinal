@@ -47,13 +47,12 @@ const toggleGroup = (group) => {
 
             <!-- Group: Libros -->
             <div v-if="$page.props.auth.esAdmin || hasPermiso('colecciones.acceder')" class="space-y-1">
-                <button @click="toggleGroup('books')" class="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-white/5 transition-all group" :class="(route().current('libros.*') || route().current('precios.*') || route().current('catalogo.ajustes.*')) ? 'text-brand-red bg-white/[0.02]' : 'text-white/40 hover:text-white'">
+                <button @click="toggleGroup('books')" class="w-full flex items-center justify-between px-4 py-3 rounded-lg hover:bg-white/5 transition-all group" :class="(route().current('libros.*') || route().current('catalogo.ajustes.*')) ? 'text-brand-red bg-white/[0.02]' : 'text-white/40 hover:text-white'">
                     <span class="text-[10px] font-black uppercase tracking-[0.2em]">Catálogo</span>
                     <svg :class="{'rotate-180': expandedGroups.books}" class="h-4 w-4 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                 </button>
                 <div v-show="expandedGroups.books" class="pl-4 space-y-1">
                     <DropdownLink :href="route('libros.index')" :active="route().current('libros.*')" class="block py-2 text-[10px] font-bold uppercase transition-colors" :class="route().current('libros.*') ? 'text-brand-red' : 'text-white/50 hover:text-white'">Catálogo Principal</DropdownLink>
-                    <DropdownLink :href="route('precios.index')" :active="route().current('precios.*')" class="block py-2 text-[10px] font-bold uppercase transition-colors" :class="route().current('precios.*') ? 'text-brand-red' : 'text-white/50 hover:text-white'">Precios</DropdownLink>
                     <DropdownLink v-if="$page.props.auth.esAdmin" :href="route('catalogo.ajustes.index')" :active="route().current('catalogo.ajustes.*')" class="block py-2 text-[10px] font-bold uppercase transition-colors" :class="route().current('catalogo.ajustes.*') ? 'text-brand-red' : 'text-white/50 hover:text-white'">Ajustes de Catálogo</DropdownLink>
                 </div>
             </div>
