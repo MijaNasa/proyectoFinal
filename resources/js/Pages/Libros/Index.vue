@@ -64,15 +64,19 @@ const obraForm = useForm({
 
 const formatosLocal = ref(['Tankobon', 'B6', 'A5', 'Kanzenban', 'Omnibus', 'Pocket', 'Novela Ligera', 'Otro']);
 
-const autoresLocal = ref([...props.autores]);
-const categoriasLocal = ref([...props.categorias]);
-const proveedoresLocal = ref([...props.proveedores]);
-const idiomasLocal = ref([...props.idiomas]);
+const autoresLocal = ref(props.autores ? [...props.autores] : []);
+const categoriasLocal = ref(props.categorias ? [...props.categorias] : []);
+const proveedoresLocal = ref(props.proveedores ? [...props.proveedores] : []);
+const idiomasLocal = ref(props.idiomas ? [...props.idiomas] : []);
 
-watch(() => props.autores, (newVal) => { autoresLocal.value = [...newVal]; }, { deep: true });
-watch(() => props.categorias, (newVal) => { categoriasLocal.value = [...newVal]; }, { deep: true });
-watch(() => props.proveedores, (newVal) => { proveedoresLocal.value = [...newVal]; }, { deep: true });
-watch(() => props.idiomas, (newVal) => { idiomasLocal.value = [...newVal]; }, { deep: true });
+watch(() => props.autores, (newVal) => { autoresLocal.value = newVal ? [...newVal] : []; }, { deep: true });
+watch(() => props.categorias, (newVal) => { categoriasLocal.value = newVal ? [...newVal] : []; }, { deep: true });
+watch(() => props.proveedores, (newVal) => { proveedoresLocal.value = newVal ? [...newVal] : []; }, { deep: true });
+watch(() => props.idiomas, (newVal) => { idiomasLocal.value = newVal ? [...newVal] : []; }, { deep: true });
+
+const mappedProveedores = computed(() => {
+    return proveedoresLocal.value.map(p => ({ id: p.id, nombre: p.nombre_empresa }));
+});
 
 const openObraModal = (obra = null) => {
     if (obra) {
@@ -1026,7 +1030,7 @@ const submitBulk = () => {
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Proveedor</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.proveedor_id" :options="proveedoresLocal.map(p => ({id: p.id, nombre: p.nombre_empresa}))" placeholder="-- Seleccionar Proveedor --" :required="true" />
+                                <SearchableSelect v-model="obraForm.proveedor_id" :options="mappedProveedores" placeholder="-- Seleccionar Proveedor --" :required="true" />
                                 <button type="button" @click="agregarProveedor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Proveedor">+</button>
                             </div>
                         </div>
