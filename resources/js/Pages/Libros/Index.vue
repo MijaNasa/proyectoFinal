@@ -597,6 +597,10 @@ const quickEditPrice = async (libro) => {
                 preserveScroll: true,
                 onSuccess: () => {
                     Swal.fire({ title: '¡Éxito!', text: 'Precio actualizado correctamente.', icon: 'success', timer: 1200, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                },
+                onError: (errors) => {
+                    console.error("Error al actualizar precio:", errors);
+                    Swal.fire({ title: 'Error', text: Object.values(errors).join('\n') || 'Error al guardar el precio', icon: 'error', background: '#1A1A1A', color: '#FFF' });
                 }
             });
         }

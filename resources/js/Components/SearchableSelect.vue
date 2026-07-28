@@ -45,26 +45,32 @@ const getLabel = (option) => {
 
 // Find the currently selected option to show its label when closed
 const selectedOption = computed(() => {
+    if (!props.options) return null;
     return props.options.find(opt => {
         if (typeof opt === 'string' || typeof opt === 'number') return opt === props.modelValue;
-        return opt[props.valueKey] === props.modelValue;
+        return opt && opt[props.valueKey] === props.modelValue;
     });
 });
 
-// Update the search box when the modelValue changes externally
-watch(() => props.modelValue, (newVal) => {
-    if (newVal) {
+const updateSearchLabel = () => {
+    if (props.modelValue && props.options) {
         const opt = props.options.find(o => {
-            if (typeof o === 'string' || typeof o === 'number') return o === newVal;
-            return o[props.valueKey] === newVal;
+            if (typeof o === 'string' || typeof o === 'number') return o === props.modelValue;
+            return o && o[props.valueKey] === props.modelValue;
         });
-        if (opt) search.value = getLabel(opt);
-    } else {
-        search.value = '';
+        if (opt) {
+            search.value = getLabel(opt);
+            return;
+        }
     }
-}, { immediate: true });
+    search.value = '';
+};
+
+// Update the search box when the modelValue or options changes
+watch(() => [props.modelValue, props.options], updateSearchLabel, { immediate: true, deep: true });
 
 const filteredOptions = computed(() => {
+    if (!props.options) return [];
     if (!search.value) return props.options;
     
     // If the search exactly matches the selected item, show all options 
@@ -76,12 +82,13 @@ const filteredOptions = computed(() => {
     const term = search.value.toLowerCase();
     return props.options.filter(opt => {
         const label = getLabel(opt) || '';
-        return label.toLowerCase().includes(term);
+        return label && label.toLowerCase().includes(term);
     });
 });
 
 // Get the value for an option
 const getOptValue = (opt) => {
+    if (!opt) return '';
     return (typeof opt === 'string' || typeof opt === 'number') ? opt : opt[props.valueKey];
 };
 
