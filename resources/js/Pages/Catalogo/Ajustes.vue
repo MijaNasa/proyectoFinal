@@ -155,8 +155,9 @@ const confirmDelete = (item) => {
 
     Swal.fire({
         title: '¿Estás seguro?',
-        text: 'Esta acción es irreversible y eliminará el registro huérfano.',
+        text: 'Esta acción es irreversible.',
         icon: 'warning',
+        iconColor: '#E61919',
         showCancelButton: true,
         confirmButtonColor: '#E61919',
         cancelButtonColor: '#333',
@@ -191,7 +192,7 @@ const confirmDelete = (item) => {
 </script>
 
 <template>
-    <Head title="Ajustes de Catálogo" />
+    <Head title="Características del Catálogo" />
 
     <AuthenticatedLayout>
         <div class="p-6 max-w-7xl mx-auto space-y-6">
@@ -199,8 +200,7 @@ const confirmDelete = (item) => {
             <!-- Header Section -->
             <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-5">
                 <div>
-                    <h2 class="text-3xl font-black uppercase tracking-tighter text-white">Ajustes <span class="text-brand-red not-italic">Catálogo</span></h2>
-                    <p class="text-xs text-white/40 uppercase tracking-widest mt-1">Administración centralizada de metadatos del catálogo</p>
+                    <h2 class="text-3xl font-black uppercase tracking-tighter text-white">Características <span class="text-brand-red not-italic">Catálogo</span></h2>
                 </div>
             </div>
 
@@ -222,18 +222,23 @@ const confirmDelete = (item) => {
             <!-- Search Filter Bar -->
             <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
                     <input 
                         v-model="searchQuery" 
                         type="text" 
                         placeholder="Buscar..."
-                        class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
+                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
                     />
                 </div>
                 <div class="flex items-center gap-4">
-                    <div class="text-[10px] uppercase font-black tracking-widest text-white/40 bg-white/5 px-4 py-2 rounded-xl border border-white/5 text-right">
-                        Total: {{ filteredItems.length }} registros
-                    </div>
-                    <button @click="openCreateModal" class="btn-primary px-6 py-2 text-xs font-black uppercase tracking-wider relative overflow-hidden group rounded-xl">
+                    <button @click="openCreateModal" class="btn-primary flex items-center gap-2 px-6 py-2.5 text-xs font-black uppercase tracking-wider relative overflow-hidden group rounded-xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                        </svg>
                         Nuevo
                     </button>
                 </div>
@@ -254,7 +259,7 @@ const confirmDelete = (item) => {
                                 <th class="p-4" v-if="currentTab === 'proveedores'">Teléfono</th>
 
                                 <th class="p-4 text-center">Obras Asociadas</th>
-                                <th class="p-4 text-right">Acciones</th>
+                                <th class="p-4 text-center w-36">Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5 text-sm">
@@ -284,29 +289,26 @@ const confirmDelete = (item) => {
                                 </td>
 
                                 <td class="p-4 text-center">
-                                    <span 
-                                        class="px-3 py-1.5 rounded-full text-xs font-black"
-                                        :class="item.libro_masters_count > 0 
-                                            ? 'bg-brand-red/10 text-brand-red' 
-                                            : 'bg-white/5 text-white/40'"
-                                    >
-                                        {{ item.libro_masters_count }}
+                                    <span class="bg-white/10 text-white/70 px-2.5 py-0.5 rounded text-xs font-bold">
+                                        {{ item.libro_masters_count || 0 }}
                                     </span>
                                 </td>
 
-                                <td class="p-4 text-right">
-                                    <div class="flex justify-end gap-2">
+                                <td class="p-4 text-center w-36">
+                                    <div class="flex justify-center gap-2 items-center">
                                         <button 
                                             @click="openEditModal(item)"
-                                            class="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/80 rounded-lg text-xs font-black uppercase tracking-wider transition-colors border border-white/10"
+                                            class="p-2 text-white/40 hover:text-white transition-colors"
+                                            title="Editar"
                                         >
-                                            Editar
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                         </button>
                                         <button 
                                             @click="confirmDelete(item)"
-                                            class="px-3 py-1.5 bg-brand-red/10 hover:bg-brand-red text-brand-red hover:text-white rounded-lg text-xs font-black uppercase tracking-wider transition-colors border border-brand-red/20 hover:border-transparent"
+                                            class="p-2 text-white/40 hover:text-brand-red transition-colors"
+                                            title="Eliminar"
                                         >
-                                            Eliminar
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                                         </button>
                                     </div>
                                 </td>
@@ -322,7 +324,7 @@ const confirmDelete = (item) => {
                     
                     <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center">
                         <h3 class="text-lg font-black uppercase tracking-tighter text-white">
-                            {{ isCreating ? 'Crear' : 'Editar' }} <span class="italic text-white">{{ itemName }}</span>
+                            {{ isCreating ? 'Crear' : 'Editar' }} <span class="text-white">{{ itemName }}</span>
                         </h3>
                         <button @click="showEditModal = false" class="text-white/80 hover:text-white transition-colors">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
@@ -380,11 +382,6 @@ const confirmDelete = (item) => {
                                 <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Nombre Idioma *</label>
                                 <input v-model="editForm.nombre" type="text" class="input-field w-full" required />
                                 <span v-if="editForm.errors.nombre" class="text-brand-red text-xs mt-1">{{ editForm.errors.nombre }}</span>
-                            </div>
-                            <div v-if="!isCreating">
-                                <label class="block text-[10px] uppercase font-black tracking-widest text-white/50 mb-1">Código *</label>
-                                <input v-model="editForm.codigo" type="text" class="input-field w-full uppercase" required />
-                                <span v-if="editForm.errors.codigo" class="text-brand-red text-xs mt-1">{{ editForm.errors.codigo }}</span>
                             </div>
                         </div>
 

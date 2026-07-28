@@ -871,45 +871,45 @@ const submitBulk = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         Aumento Masivo
                     </button>
-                    <button @click="openObraModal()" class="btn-primary flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                        </svg>
-                        Nueva Obra
-                    </button>
                 </div>
             </div>
         </template>
 
         <div class="py-12">
             <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="card mb-8">
+                <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div class="relative flex-1">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </span>
+                        <input 
+                            v-model="search" 
+                            type="text" 
+                            placeholder="Buscar por título de obra, autor o ISBN..." 
+                            class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
+                        >
+                    </div>
                     <div class="flex items-center gap-4">
-                        <div class="relative flex-grow">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                            </span>
-                            <input 
-                                v-model="search" 
-                                type="text" 
-                                placeholder="Buscar por título de obra, autor o ISBN..." 
-                                class="input-field w-full pl-10 py-1.5 text-sm border-white/10"
-                            >
-                        </div>
+                        <button @click="openObraModal()" class="btn-primary flex items-center gap-2 px-6 py-2.5 text-xs font-black uppercase tracking-wider relative overflow-hidden group rounded-xl">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                            </svg>
+                            Nueva Obra
+                        </button>
                     </div>
                 </div>
 
-                <div class="card p-0 overflow-hidden">
+                <div class="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-white/[0.03] border-b border-white/10">
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50">Obra</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50">Autor</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50 text-center">Cantidad de Tomos</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50 text-center">Proveedor</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-white/50 text-center w-36">Acciones</th>
+                            <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-brand-red">
+                                <th class="p-4">Obra</th>
+                                <th class="p-4">Autor</th>
+                                <th class="p-4 text-center">Cantidad de Tomos</th>
+                                <th class="p-4 text-center">Proveedor</th>
+                                <th class="p-4 text-center w-36">Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
@@ -1132,75 +1132,81 @@ const submitBulk = () => {
         <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showTomoModal = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-start justify-center p-4">
-            <div class="relative w-full max-w-2xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
-                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
-                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingTomo ? 'Editar' : 'Añadir' }} <span class="text-white">Tomo</span></h3>
-                    <button @click="showTomoModal = false" class="text-white/80 hover:text-white transition-colors relative">
+            <div class="relative w-full max-w-xl card p-0 border-white/10 bg-[#121212] shadow-2xl overflow-hidden transform transition-all group my-8 rounded-2xl">
+                <div class="bg-gradient-to-r from-brand-red via-brand-red/90 to-black p-5 flex justify-between items-center relative overflow-hidden">
+                    <div>
+                        <h3 class="text-xl font-black uppercase tracking-tighter text-white">
+                            {{ isEditingTomo ? 'Editar' : 'Añadir' }} <span class="text-white">Tomo</span>
+                        </h3>
+                    </div>
+                    <button @click="showTomoModal = false" class="text-white/70 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
                 
-                <form @submit.prevent="submitTomo" class="p-6">
-                    <!-- Master Id oculto o bloqueado ya que se asigna automáticamente -->
+                <form @submit.prevent="submitTomo" class="p-5 space-y-4">
                     <input type="hidden" v-model="tomoForm.master_id">
 
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Grid de Campos Principales -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Volumen / Tomo N°</label>
-                            <input v-model="tomoForm.numero_tomo" type="number" min="0" class="input-field w-full" placeholder="Ej: 1, 2, 3...">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">ISBN</label>
-                            <input v-model="tomoForm.isbn" type="text" class="input-field w-full font-mono" placeholder="Ej: 978-...">
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Año</label>
-                                <input v-model="tomoForm.año_edicion" type="number" class="input-field w-full" placeholder="2024">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Páginas</label>
-                                <input v-model="tomoForm.cantidad_paginas" type="number" class="input-field w-full">
-                            </div>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Volumen / Tomo N°</label>
+                            <input v-model="tomoForm.numero_tomo" type="number" min="0" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Ej: 1, 2, 3...">
                         </div>
 
-                        <div class="flex flex-col gap-2 bg-white/5 p-3 rounded border border-white/5">
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" v-model="tomoForm.activo" id="tomo_activo" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
-                                <label for="tomo_activo" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer">Tomo Activo</label>
-                            </div>
-                            <div class="flex items-center gap-2">
-                                <input type="checkbox" v-model="tomoForm.permite_preventa" id="tomo_preventa" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
-                                <label for="tomo_preventa" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer">Habilitar Preventa</label>
-                            </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">ISBN</label>
+                            <input v-model="tomoForm.isbn" type="text" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-brand-red transition-all" placeholder="Ej: 978-...">
                         </div>
 
-                        <div v-if="!isEditingTomo" class="md:col-span-2 grid grid-cols-1 p-4 bg-brand-red/5 border border-brand-red/20 rounded-lg">
-                            <div>
-                                <label class="block text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-2">Precio Venta *</label>
-                                <div class="relative mt-1">
-                                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/50 text-base font-bold">$</span>
-                                    <input v-model="tomoForm.precio_venta" type="number" step="0.01" min="0" class="w-full bg-black/40 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-base text-white text-right font-black focus:outline-none focus:border-brand-red" placeholder="0.00" required />
-                                </div>
+                        <div>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Año Edición</label>
+                            <input v-model="tomoForm.año_edicion" type="number" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="2024">
+                        </div>
+
+                        <div>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">N° Páginas</label>
+                            <input v-model="tomoForm.cantidad_paginas" type="number" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Ej: 200">
+                        </div>
+                    </div>
+
+                    <!-- Toggles de Estado -->
+                    <div class="grid grid-cols-2 gap-3 bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                        <label class="flex items-center gap-3 cursor-pointer select-none">
+                            <input type="checkbox" v-model="tomoForm.activo" class="rounded border-white/20 bg-black/60 text-brand-red focus:ring-brand-red h-4 w-4">
+                            <span class="text-xs font-bold uppercase tracking-wider text-white/80">Tomo Activo</span>
+                        </label>
+                        <label class="flex items-center gap-3 cursor-pointer select-none">
+                            <input type="checkbox" v-model="tomoForm.permite_preventa" class="rounded border-white/20 bg-black/60 text-brand-red focus:ring-brand-red h-4 w-4">
+                            <span class="text-xs font-bold uppercase tracking-wider text-white/80">Habilitar Preventa</span>
+                        </label>
+                    </div>
+
+                    <!-- Precio de Venta Inicial (Sin fondo degradado rojo) -->
+                    <div v-if="!isEditingTomo" class="bg-black/40 border border-white/10 p-4 rounded-xl">
+                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/60 mb-1.5">Precio de Venta Inicial *</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/40 font-bold">$</span>
+                            <input v-model="tomoForm.precio_venta" type="number" step="0.01" min="0" class="w-full bg-black/60 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-lg text-white font-black text-right focus:outline-none focus:border-brand-red transition-all" placeholder="0.00" required />
+                        </div>
+                    </div>
+
+                    <!-- Stock por Sucursal (Al editar) -->
+                    <div v-if="isEditingTomo" class="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2">
+                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Stock Disponible por Sucursal</label>
+                        <div class="grid grid-cols-1 gap-2">
+                            <div v-for="sucursal in sucursales" :key="sucursal.id" class="flex items-center justify-between px-3 py-2 bg-black/40 border border-white/5 rounded-lg">
+                                <span class="text-xs font-bold text-white/70">{{ formatSucursalName(sucursal.nombre) }}</span>
+                                <span class="text-white font-black text-sm bg-white/5 px-2.5 py-0.5 rounded border border-white/5">{{ currentStocks[sucursal.id] || 0 }} <span class="text-[9px] text-white/40 uppercase font-normal">uds</span></span>
                             </div>
                         </div>
                     </div>
 
-                    <div v-if="isEditingTomo" class="mt-6 p-4 bg-white/[0.03] border border-white/10 rounded-lg">
-                        <label class="block text-xs font-black uppercase tracking-[0.2em] text-white/40 mb-3">Stock Actual</label>
-                        <div class="space-y-2">
-                            <div v-for="sucursal in sucursales" :key="sucursal.id" class="flex items-center justify-between gap-4 p-2 bg-black/20 rounded">
-                                <span class="text-sm text-white/60 font-bold">{{ formatSucursalName(sucursal.nombre) }}</span>
-                                <span class="text-white font-black text-lg">{{ currentStocks[sucursal.id] || 0 }} <span class="text-[10px] text-white/40 uppercase">uds</span></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
-                        <button type="button" @click="showTomoModal = false" class="px-6 py-2 bg-transparent text-white/60 hover:text-white border border-white/10 hover:bg-white/5 transition-colors rounded-lg font-bold uppercase text-xs">Cancelar</button>
-                        <button type="submit" :disabled="tomoForm.processing" class="btn-primary px-10 relative overflow-hidden group">
-                           <span class="relative z-10">{{ tomoForm.processing ? 'PROCESANDO...' : (isEditingTomo ? 'ACTUALIZAR' : 'REGISTRAR TOMO') }}</span>
-                           <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+                    <!-- Footer / Acciones -->
+                    <div class="flex justify-end gap-3 border-t border-white/10 pt-4">
+                        <button type="button" @click="showTomoModal = false" class="px-6 py-2.5 rounded-xl font-black text-white/50 hover:bg-white/5 transition-colors uppercase text-xs tracking-wider">Cancelar</button>
+                        <button type="submit" :disabled="tomoForm.processing" class="btn-primary px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider relative overflow-hidden group">
+                           <span class="relative z-10">{{ tomoForm.processing ? 'PROCESANDO...' : (isEditingTomo ? 'ACTUALIZAR TOMO' : 'REGISTRAR TOMO') }}</span>
                         </button>
                     </div>
                 </form>

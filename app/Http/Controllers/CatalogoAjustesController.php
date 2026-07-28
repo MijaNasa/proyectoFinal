@@ -144,12 +144,12 @@ class CatalogoAjustesController extends Controller
                 abort(400, 'Tipo de ajuste no válido.');
         }
 
-        if ($request->wantsJson() || $request->isXmlHttpRequest() || $request->acceptsJson()) {
-            return response()->json(['success' => true, 'model' => $model]);
-        }
-
         if ($request->header('X-Inertia')) {
             return redirect()->back()->with('message', 'Registro creado con éxito.');
+        }
+
+        if ($request->wantsJson() || $request->acceptsJson()) {
+            return response()->json(['success' => true, 'model' => $model]);
         }
 
         return redirect()->back()->with('message', 'Registro creado con éxito.');
@@ -211,12 +211,12 @@ class CatalogoAjustesController extends Controller
                         Rule::unique('idiomas')->ignore($id)->whereNull('deleted_at')
                     ],
                     'codigo' => [
-                        'required', 'string', 'max:10',
+                        'nullable', 'string', 'max:10',
                         Rule::unique('idiomas')->ignore($id)->whereNull('deleted_at')
                     ],
                 ], $messages);
                 $model = Idioma::findOrFail($id);
-                $model->update($validated);
+                $model->update(array_filter($validated, fn($val) => !is_null($val)));
                 break;
 
             default:

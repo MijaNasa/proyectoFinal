@@ -53,7 +53,7 @@ const toggleGroup = (group) => {
                 </button>
                 <div v-show="expandedGroups.books" class="pl-4 space-y-1">
                     <DropdownLink :href="route('libros.index')" :active="route().current('libros.*')" class="block py-2 text-[10px] font-bold uppercase transition-colors" :class="route().current('libros.*') ? 'text-brand-red' : 'text-white/50 hover:text-white'">Catálogo Principal</DropdownLink>
-                    <DropdownLink v-if="$page.props.auth.esAdmin" :href="route('catalogo.ajustes.index')" :active="route().current('catalogo.ajustes.*')" class="block py-2 text-[10px] font-bold uppercase transition-colors" :class="route().current('catalogo.ajustes.*') ? 'text-brand-red' : 'text-white/50 hover:text-white'">Ajustes de Catálogo</DropdownLink>
+                    <DropdownLink v-if="$page.props.auth.esAdmin" :href="route('catalogo.ajustes.index')" :active="route().current('catalogo.ajustes.*')" class="block py-2 text-[10px] font-bold uppercase transition-colors" :class="route().current('catalogo.ajustes.*') ? 'text-brand-red' : 'text-white/50 hover:text-white'">Características Catálogo</DropdownLink>
                 </div>
             </div>
 
