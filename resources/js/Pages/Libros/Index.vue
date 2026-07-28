@@ -111,7 +111,6 @@ const openObraModal = (obra = null) => {
 };
 
 const agregarAutor = () => {
-    console.log("agregarAutor method invoked");
     Swal.fire({
         title: 'Agregar nuevo autor',
         html: `
@@ -131,7 +130,7 @@ const agregarAutor = () => {
         cancelButtonText: 'Cancelar',
         reverseButtons: true,
         customClass: {
-            confirmButton: 'confirm-save-btn px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
             cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
         },
         buttonsStyling: false,
@@ -140,7 +139,6 @@ const agregarAutor = () => {
             const popup = Swal.getPopup();
             const nombre = popup.querySelector('#swal-autor-nombre').value.trim();
             const apellido = popup.querySelector('#swal-autor-apellido').value.trim();
-            console.log("agregarAutor preConfirm:", { nombre, apellido });
             if (!nombre || !apellido) {
                 Swal.showValidationMessage('Nombre y Apellido son obligatorios');
                 return false;
@@ -148,14 +146,10 @@ const agregarAutor = () => {
             return { nombre, apellido };
         }
     }).then((result) => {
-        console.log("agregarAutor resolved:", result);
         if (result.isConfirmed) {
-            console.log("Sending Axios POST for new autor...");
             window.axios.post(route('catalogo.ajustes.store', { type: 'autores' }), result.value)
                 .then((res) => {
-                    console.log("Axios POST success response:", res.data);
                     const createdItem = res.data.model || res.data.data;
-                    console.log("Resolved new autor:", createdItem);
                     if (createdItem) {
                         autoresLocal.value.push(createdItem);
                         obraForm.autor_id = createdItem.id;
@@ -164,7 +158,6 @@ const agregarAutor = () => {
                     router.reload({ only: ['autores'] });
                 })
                 .catch(err => {
-                    console.error("Axios POST error:", err);
                     Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
                 });
         }
@@ -172,7 +165,6 @@ const agregarAutor = () => {
 };
 
 const agregarCategoria = () => {
-    console.log("agregarCategoria method invoked");
     Swal.fire({
         title: 'Agregar nueva categoría',
         html: `
@@ -186,14 +178,13 @@ const agregarCategoria = () => {
         cancelButtonText: 'Cancelar',
         reverseButtons: true,
         customClass: {
-            confirmButton: 'confirm-save-btn px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
             cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
         },
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const nombre = Swal.getPopup().querySelector('#swal-cat-nombre').value.trim();
-            console.log("agregarCategoria preConfirm:", { nombre });
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
@@ -201,14 +192,10 @@ const agregarCategoria = () => {
             return { nombre };
         }
     }).then((result) => {
-        console.log("agregarCategoria resolved:", result);
         if (result.isConfirmed) {
-            console.log("Sending Axios POST for new categoria...");
             window.axios.post(route('catalogo.ajustes.store', { type: 'categorias' }), result.value)
                 .then((res) => {
-                    console.log("Axios POST success response:", res.data);
                     const createdItem = res.data.model || res.data.data;
-                    console.log("Resolved new categoria:", createdItem);
                     if (createdItem) {
                         categoriasLocal.value.push(createdItem);
                         obraForm.categoria_id = createdItem.id;
@@ -217,7 +204,6 @@ const agregarCategoria = () => {
                     router.reload({ only: ['categorias'] });
                 })
                 .catch(err => {
-                    console.error("Axios POST error:", err);
                     Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
                 });
         }
@@ -225,7 +211,6 @@ const agregarCategoria = () => {
 };
 
 const agregarProveedor = () => {
-    console.log("agregarProveedor method invoked");
     Swal.fire({
         title: 'Agregar nuevo proveedor',
         html: `
@@ -253,7 +238,7 @@ const agregarProveedor = () => {
         cancelButtonText: 'Cancelar',
         reverseButtons: true,
         customClass: {
-            confirmButton: 'confirm-save-btn px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
             cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
         },
         buttonsStyling: false,
@@ -264,7 +249,6 @@ const agregarProveedor = () => {
             const email = popup.querySelector('#swal-prov-email').value.trim();
             const telefono = popup.querySelector('#swal-prov-telefono').value.trim();
             const direccion = popup.querySelector('#swal-prov-direccion').value.trim();
-            console.log("agregarProveedor preConfirm:", { nombre_empresa, email, telefono, direccion });
             
             if (!nombre_empresa || !email) {
                 Swal.showValidationMessage('Nombre de empresa y Email son obligatorios');
@@ -273,14 +257,10 @@ const agregarProveedor = () => {
             return { nombre_empresa, email, telefono, direccion };
         }
     }).then((result) => {
-        console.log("agregarProveedor resolved:", result);
         if (result.isConfirmed) {
-            console.log("Sending Axios POST for new proveedor...");
             window.axios.post(route('catalogo.ajustes.store', { type: 'proveedores' }), result.value)
                 .then((res) => {
-                    console.log("Axios POST success response:", res.data);
                     const createdItem = res.data.model || res.data.data;
-                    console.log("Resolved new proveedor:", createdItem);
                     if (createdItem) {
                         proveedoresLocal.value.push(createdItem);
                         obraForm.proveedor_id = createdItem.id;
@@ -289,7 +269,6 @@ const agregarProveedor = () => {
                     router.reload({ only: ['proveedores'] });
                 })
                 .catch(err => {
-                    console.error("Axios POST error:", err);
                     Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
                 });
         }
@@ -297,7 +276,6 @@ const agregarProveedor = () => {
 };
 
 const agregarIdioma = () => {
-    console.log("agregarIdioma method invoked");
     Swal.fire({
         title: 'Agregar nuevo idioma',
         html: `
@@ -313,14 +291,13 @@ const agregarIdioma = () => {
         cancelButtonText: 'Cancelar',
         reverseButtons: true,
         customClass: {
-            confirmButton: 'confirm-save-btn px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
             cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
         },
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const nombre = Swal.getPopup().querySelector('#swal-id-nombre').value.trim();
-            console.log("agregarIdioma preConfirm:", { nombre });
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
@@ -328,14 +305,10 @@ const agregarIdioma = () => {
             return { nombre };
         }
     }).then((result) => {
-        console.log("agregarIdioma resolved:", result);
         if (result.isConfirmed) {
-            console.log("Sending Axios POST for new idioma...");
             window.axios.post(route('catalogo.ajustes.store', { type: 'idiomas' }), result.value)
                 .then((res) => {
-                    console.log("Axios POST success response:", res.data);
                     const createdItem = res.data.model || res.data.data;
-                    console.log("Resolved new idioma:", createdItem);
                     if (createdItem) {
                         idiomasLocal.value.push(createdItem);
                         obraForm.idioma_id = createdItem.id;
@@ -344,7 +317,6 @@ const agregarIdioma = () => {
                     router.reload({ only: ['idiomas'] });
                 })
                 .catch(err => {
-                    console.error("Axios POST error:", err);
                     Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
                 });
         }
@@ -605,14 +577,13 @@ const quickEditPrice = async (libro) => {
         reverseButtons: true,
         customClass: {
             title: 'text-lg font-black uppercase tracking-tight text-white pt-6',
-            confirmButton: 'confirm-save-btn px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
+            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
             cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
         },
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const val = Swal.getPopup().querySelector('#swal-quick-precio').value;
-            console.log("quickEditPrice preConfirm val:", val);
             if (!val || val <= 0) {
                 Swal.showValidationMessage('El precio debe ser mayor a 0');
                 return false;
@@ -620,20 +591,16 @@ const quickEditPrice = async (libro) => {
             return parseFloat(val).toFixed(2);
         }
     }).then((result) => {
-        console.log("quickEditPrice resolved:", result);
         if (result.isConfirmed) {
-            console.log("Sending Inertia post for new price...");
             router.post(route('precios.store', libro.id), {
                 precio_venta: result.value,
                 motivo: 'Actualización rápida desde catálogo'
             }, {
                 preserveScroll: true,
                 onSuccess: () => {
-                    console.log("Inertia price update success!");
                     Swal.fire({ title: '¡Éxito!', text: 'Precio actualizado correctamente.', icon: 'success', timer: 1200, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
                 },
                 onError: (errors) => {
-                    console.error("Inertia price update error:", errors);
                     Swal.fire({ title: 'Error', text: Object.values(errors).join('\n') || 'Error al guardar el precio', icon: 'error', background: '#1A1A1A', color: '#FFF' });
                 }
             });

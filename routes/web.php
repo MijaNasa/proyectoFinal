@@ -196,8 +196,3 @@ Route::middleware('auth')->group(function () {
 });
 
 require __DIR__.'/auth.php';
-
-Route::post('/log-error', function (\Illuminate\Http\Request $request) {
-    \Illuminate\Support\Facades\Log::error('Frontend JS Error: ' . json_encode($request->all(), JSON_PRETTY_PRINT));
-    return response()->json(['status' => 'logged']);
-});
