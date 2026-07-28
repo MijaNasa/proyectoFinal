@@ -1,6 +1,33 @@
 import '../css/app.css';
 import './bootstrap';
 
+window.addEventListener('error', (event) => {
+    fetch('/log-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            url: window.location.href,
+            message: event.message,
+            source: event.filename,
+            lineno: event.lineno,
+            colno: event.colno,
+            stack: event.error ? event.error.stack : null
+        })
+    }).catch(e => console.error("Error logger failed:", e));
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+    fetch('/log-error', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            url: window.location.href,
+            message: event.reason ? event.reason.message || String(event.reason) : 'Unhandled Rejection',
+            stack: event.reason ? event.reason.stack : null
+        })
+    }).catch(e => console.error("Error logger failed:", e));
+});
+
 import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createApp, h } from 'vue';
