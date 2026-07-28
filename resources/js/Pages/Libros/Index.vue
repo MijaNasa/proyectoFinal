@@ -136,8 +136,9 @@ const agregarAutor = () => {
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
-            const nombre = document.getElementById('swal-autor-nombre').value.trim();
-            const apellido = document.getElementById('swal-autor-apellido').value.trim();
+            const popup = Swal.getPopup();
+            const nombre = popup.querySelector('#swal-autor-nombre').value.trim();
+            const apellido = popup.querySelector('#swal-autor-apellido').value.trim();
             if (!nombre || !apellido) {
                 Swal.showValidationMessage('Nombre y Apellido son obligatorios');
                 return false;
@@ -183,7 +184,7 @@ const agregarCategoria = () => {
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
-            const nombre = document.getElementById('swal-cat-nombre').value.trim();
+            const nombre = Swal.getPopup().querySelector('#swal-cat-nombre').value.trim();
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
@@ -243,10 +244,11 @@ const agregarProveedor = () => {
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
-            const nombre_empresa = document.getElementById('swal-prov-nombre_empresa').value.trim();
-            const email = document.getElementById('swal-prov-email').value.trim();
-            const telefono = document.getElementById('swal-prov-telefono').value.trim();
-            const direccion = document.getElementById('swal-prov-direccion').value.trim();
+            const popup = Swal.getPopup();
+            const nombre_empresa = popup.querySelector('#swal-prov-nombre_empresa').value.trim();
+            const email = popup.querySelector('#swal-prov-email').value.trim();
+            const telefono = popup.querySelector('#swal-prov-telefono').value.trim();
+            const direccion = popup.querySelector('#swal-prov-direccion').value.trim();
             
             if (!nombre_empresa || !email) {
                 Swal.showValidationMessage('Nombre de empresa y Email son obligatorios');
@@ -295,7 +297,7 @@ const agregarIdioma = () => {
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
-            const nombre = document.getElementById('swal-id-nombre').value.trim();
+            const nombre = Swal.getPopup().querySelector('#swal-id-nombre').value.trim();
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
@@ -341,7 +343,7 @@ const agregarFormato = () => {
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
-            const nombre = document.getElementById('swal-formato-nombre').value.trim();
+            const nombre = Swal.getPopup().querySelector('#swal-formato-nombre').value.trim();
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
@@ -581,7 +583,7 @@ const quickEditPrice = async (libro) => {
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
-            const val = document.getElementById('swal-quick-precio').value;
+            const val = Swal.getPopup().querySelector('#swal-quick-precio').value;
             if (!val || val <= 0) {
                 Swal.showValidationMessage('El precio debe ser mayor a 0');
                 return false;
