@@ -250,7 +250,7 @@ const colorCargo = (nombre) => {
                 <div class="card p-0 overflow-hidden">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-brand-red/10 border-b border-white/10 uppercase text-[10px] font-black tracking-widest text-brand-red">
+                            <tr class="border-b border-white/10 bg-white/[0.01] uppercase text-[10px] font-black tracking-widest text-white/50">
                                 <th class="p-4">Legajo / Datos</th>
                                 <th class="p-4">Sucursal Asignada</th>
                                 <th class="p-4">Cargos / Accesos</th>

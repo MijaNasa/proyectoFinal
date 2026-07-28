@@ -270,7 +270,7 @@ const getTomoStockColor = (qty) => {
                 <div class="card p-0 overflow-hidden">
                     <table class="w-full text-left border-collapse table-fixed">
                         <thead>
-                            <tr class="bg-brand-red text-white border-b border-white/10 uppercase text-[10px] font-black tracking-widest">
+                            <tr class="border-b border-white/10 bg-white/[0.01] uppercase text-[10px] font-black tracking-widest text-white/50">
                                 <th class="p-4 w-12 text-center"></th>
                                 <th class="p-4 w-1/2">Obra</th>
                                 <th class="p-4 w-1/4">Autor</th>

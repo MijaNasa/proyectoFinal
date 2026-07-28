@@ -175,8 +175,8 @@ const setEstado = (estado) => {
                         @click="setEstado('activos')"
                         class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
                         :class="estadoFiltro === 'activos'
-                            ? 'border-brand-red text-brand-red bg-brand-red/5' 
-                            : 'border-transparent text-white/50 hover:text-white hover:bg-white/5'"
+                            ? 'border-brand-red text-white bg-white/5 font-black' 
+                            : 'border-transparent text-white/50 hover:text-white hover:bg-white/5 font-medium'"
                     >
                         Activos
                     </button>
@@ -184,8 +184,8 @@ const setEstado = (estado) => {
                         @click="setEstado('inactivos')"
                         class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
                         :class="estadoFiltro === 'inactivos'
-                            ? 'border-brand-red text-brand-red bg-brand-red/5' 
-                            : 'border-transparent text-white/50 hover:text-white hover:bg-white/5'"
+                            ? 'border-brand-red text-white bg-white/5 font-black' 
+                            : 'border-transparent text-white/50 hover:text-white hover:bg-white/5 font-medium'"
                     >
                         Inactivos
                     </button>
@@ -194,11 +194,11 @@ const setEstado = (estado) => {
                 <div class="card p-0 overflow-hidden">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="bg-brand-red/10 border-b border-brand-red/20">
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Empresa</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red">Teléfono / Email</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Deuda</th>
-                                <th class="p-4 font-bold uppercase text-xs tracking-wider text-brand-red text-right">Acciones</th>
+                            <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-white/50">
+                                <th class="p-4">Empresa</th>
+                                <th class="p-4">Teléfono / Email</th>
+                                <th class="p-4 text-right">Deuda</th>
+                                <th class="p-4 text-right">Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">

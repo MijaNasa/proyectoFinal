@@ -488,8 +488,8 @@ const submitVenta = () => {
 };
 
 const formatCurrency = (value) => {
-    const formatted = new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
-    return formatted.replace(/\$\s*/, '$');
+    const formatted = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value || 0);
+    return '$' + formatted;
 };
 
 const openPos = () => {
@@ -655,6 +655,11 @@ const getClienteNombre = (venta) => {
         return `${venta.user.name} ${venta.user.apellido || ''}`.trim();
     }
     return 'Cliente Mostrador';
+};
+
+const formatSucursalName = (name) => {
+    if (!name) return 'N/A';
+    return name.charAt(0).toUpperCase() + name.slice(1).toLowerCase();
 };
 
 // Automatización segura para abrir la terminal directo desde el Dashboard o Detalles
@@ -1079,12 +1084,14 @@ onMounted(() => {
         </div>
         <!-- Sales Detail Modal -->
         <div v-if="showDetailModal && selectedVenta" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="closeDetailModal"></div>
-            <div class="relative w-full max-w-2xl card p-0 border border-brand-red/30 overflow-hidden shadow-2xl">
-                <div class="bg-brand-red py-3 px-6 flex justify-between items-center">
+            <div class="absolute inset-0 bg-black/60 backdrop-blur-md" @click="closeDetailModal"></div>
+            <div class="relative w-full max-w-2xl card p-0 border border-white/10 overflow-hidden shadow-2xl">
+                <div class="bg-black/90 py-4 px-6 flex justify-between items-center border-b border-white/10">
                     <div class="flex items-center gap-3">
-                        <h3 class="text-lg font-black uppercase tracking-tighter text-white not-italic">Detalle de Ticket #TK-{{ String(selectedVenta.id).padStart(6, '0') }}</h3>
-                        <span v-if="selectedVenta.motivo_pendiente === 'Acumulación'" class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded bg-[#25D366]/20 text-white border border-[#25D366]">Acumulado</span>
+                        <h3 class="text-base font-black uppercase tracking-tight text-white not-italic">
+                            Detalle de Ticket <span class="text-brand-red font-mono font-black text-xl ml-1">#TK-{{ String(selectedVenta.id).padStart(6, '0') }}</span>
+                        </h3>
+                        <span v-if="selectedVenta.motivo_pendiente === 'Acumulación'" class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-[#25D366]/20 text-white border border-[#25D366]">Acumulado</span>
                     </div>
                     <div class="text-right flex items-center gap-3">
                         <div class="text-xs font-bold text-white/90">{{ formatTicketDate(selectedVenta.fecha) }}</div>
@@ -1097,48 +1104,48 @@ onMounted(() => {
                 <div class="p-8">
                     <div class="grid grid-cols-3 gap-6 mb-8 pb-8 border-b border-white/10">
                         <div class="space-y-1 text-left">
-                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Cliente</div>
-                            <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs font-black uppercase block hover:text-brand-red transition-colors">
+                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">CLIENTE</div>
+                            <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs text-white/90 block hover:text-brand-red transition-colors capitalize font-medium">
                                 {{ getClienteNombre(selectedVenta) }}
                             </Link>
-                            <div v-else class="text-xs font-black uppercase text-white/90">
+                            <div v-else class="text-xs text-white/90 capitalize font-medium">
                                 {{ getClienteNombre(selectedVenta) }}
                             </div>
                         </div>
                         <div class="space-y-1 text-center">
-                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Sucursal</div>
-                            <div class="text-xs font-black uppercase text-white/90">{{ selectedVenta.sucursal?.nombre || 'N/A' }}</div>
+                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">SUCURSAL</div>
+                            <div class="text-xs text-white/90 font-medium">{{ formatSucursalName(selectedVenta.sucursal?.nombre) }}</div>
                         </div>
                         <div class="space-y-1 text-right">
-                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">Medio de Pago</div>
-                            <div class="text-xs font-black uppercase text-white/90">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
+                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">MEDIO DE PAGO</div>
+                            <div class="text-xs text-white/90 capitalize font-medium">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
                         </div>
                     </div>
 
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 border-b border-white/5">
-                                <th class="py-3 px-2">Producto</th>
-                                <th class="py-3 px-2 text-center w-20">Cant.</th>
-                                <th class="py-3 px-2 text-right w-24">P. Unit</th>
-                                <th class="py-3 px-2 text-right text-white/30 w-28">Subtotal</th>
+                                <th class="py-3 px-2">PRODUCTO</th>
+                                <th class="py-3 px-2 text-center w-20">CANT.</th>
+                                <th class="py-3 px-2 text-right w-24">P. UNIT</th>
+                                <th class="py-3 px-2 text-right text-white/30 w-28">SUBTOTAL</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <tr v-for="item in selectedVenta.detalles" :key="item.id" class="group hover:bg-white/[0.02] transition-colors">
                                 <td class="py-2.5 px-2">
-                                    <div class="text-xs font-bold uppercase tracking-wide text-white/90 group-hover:text-white transition-colors">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
+                                    <div class="text-xs text-white/90 font-medium group-hover:text-white transition-colors">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
                                     <div class="text-[10px] text-white/40 font-mono mt-1">ISBN: {{ item.libro?.isbn }}</div>
                                 </td>
-                                <td class="py-2.5 px-2 text-center text-xs font-bold text-white/90">{{ item.cantidad }}</td>
-                                <td class="py-2.5 px-2 text-right text-xs font-bold text-white/50">{{ formatCurrency(item.precio_unitario) }}</td>
-                                <td class="py-2.5 px-2 text-right text-sm font-bold text-white/90">{{ formatCurrency(item.subtotal) }}</td>
+                                <td class="py-2.5 px-2 text-center text-xs text-white/90 font-medium">{{ item.cantidad }}</td>
+                                <td class="py-2.5 px-2 text-right text-xs text-white/50 font-medium">{{ formatCurrency(item.precio_unitario) }}</td>
+                                <td class="py-2.5 px-2 text-right text-xs text-white/90 font-medium">{{ formatCurrency(item.subtotal) }}</td>
                             </tr>
                         </tbody>
                         <tfoot>
                             <tr class="border-t border-white/10">
-                                <td colspan="3" class="py-3 px-2 text-right text-[10px] font-bold uppercase tracking-[0.3em] text-white/40">Total de la Compra</td>
-                                <td class="py-3 px-2 text-right text-2xl font-bold text-white">{{ formatCurrency(selectedVenta.total) }}</td>
+                                <td colspan="3" class="py-3 px-2 text-right text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Total de la Compra</td>
+                                <td class="py-3 px-2 text-right text-base font-black text-white">{{ formatCurrency(selectedVenta.total) }}</td>
                             </tr>
                         </tfoot>
                     </table>
@@ -1220,7 +1227,7 @@ onMounted(() => {
                             @click="closeDetailModal" 
                             class="px-10 py-3 rounded-full border border-white/20 hover:border-white text-white/70 hover:text-white transition-all text-xs font-bold tracking-widest bg-transparent cursor-pointer"
                         >
-                            CERRAR DETALLE
+                            Cerrar Detalle
                         </button>
                     </div>
                 </div>

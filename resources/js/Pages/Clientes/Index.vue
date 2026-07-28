@@ -265,7 +265,7 @@ const formatCurrency = (value) => {
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-brand-red">
+                                <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-white/50">
                                     <th class="p-4 cursor-pointer hover:text-white transition-colors" @click="handleSort('cliente')">
                                         Cliente
                                         <span v-if="sortField === 'cliente'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>

@@ -875,67 +875,67 @@ const submitBulk = () => {
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div class="relative flex-1">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
-                        </span>
-                        <input 
-                            v-model="search" 
-                            type="text" 
-                            placeholder="Buscar por título de obra, autor o ISBN..." 
-                            class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
-                        >
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <button @click="openObraModal()" class="btn-primary flex items-center gap-2 px-6 py-2.5 text-xs font-black uppercase tracking-wider relative overflow-hidden group rounded-xl">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                            </svg>
-                            Nueva Obra
-                        </button>
-                    </div>
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+            <div class="bg-brand-surface border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input 
+                        v-model="search" 
+                        type="text" 
+                        placeholder="Buscar por título de obra, autor o ISBN..." 
+                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
+                    >
                 </div>
+                <div class="flex items-center gap-4">
+                    <button @click="openObraModal()" class="btn-primary flex items-center gap-2 px-6 py-2.5 text-xs font-black uppercase tracking-wider relative overflow-hidden group rounded-xl">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                        </svg>
+                        Nueva Obra
+                    </button>
+                </div>
+            </div>
 
-                <div class="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-brand-red">
-                                <th class="p-4">Obra</th>
-                                <th class="p-4">Autor</th>
-                                <th class="p-4 text-center">Cantidad de Tomos</th>
-                                <th class="p-4 text-center">Proveedor</th>
-                                <th class="p-4 text-center w-36">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-white/5">
-                            <template v-for="obra in filteredObras" :key="obra.id">
-                                <tr @click="toggleMaster(obra.id)" 
-                                    class="hover:bg-white/[0.05] transition-colors cursor-pointer group-row"
-                                    :class="expandedMasters.includes(obra.id) ? 'bg-black/20' : ''">
-                                    <td class="p-4">
-                                        <div class="font-black text-xl leading-tight uppercase text-white">{{ obra.titulo }}</div>
-                                        <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1 flex items-center gap-2">
-                                            <span>{{ obra.categoria ? obra.categoria.nombre : 'S/C' }}</span>
-                                            <span class="w-1 h-1 rounded-full bg-white/20"></span>
-                                            <span>{{ obra.formato || 'S/F' }}</span>
-                                            <span class="w-1 h-1 rounded-full bg-white/20"></span>
-                                            <span>{{ obra.idioma ? obra.idioma.nombre : 'S/I' }}</span>
-                                        </div>
-                                    </td>
-                                    <td class="p-4">
-                                        <div class="text-sm text-white/60 font-medium">{{ obra.autor ? obra.autor.nombre + ' ' + obra.autor.apellido : 'S/A' }}</div>
-                                    </td>
-                                    <td class="p-4 text-center">
-                                        <span class="bg-white/10 text-white/70 px-2.5 py-0.5 rounded text-xs font-bold">{{ obra.libros ? obra.libros.length : 0 }}</span>
-                                    </td>
-                                    <td class="p-4 text-center">
-                                        <span class="text-sm font-bold text-white/80 uppercase">{{ obra.proveedor ? obra.proveedor.nombre_empresa : 'S/P' }}</span>
-                                    </td>
+            <div class="bg-brand-surface border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-white/50">
+                                    <th class="p-4">Obra</th>
+                                    <th class="p-4">Autor</th>
+                                    <th class="p-4 text-center">Cantidad de Tomos</th>
+                                    <th class="p-4 text-center">Proveedor</th>
+                                    <th class="p-4 text-center w-36">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5 text-sm">
+                                <template v-for="obra in filteredObras" :key="obra.id">
+                                    <tr @click="toggleMaster(obra.id)" 
+                                        class="hover:bg-white/[0.01] transition-colors cursor-pointer group-row"
+                                        :class="expandedMasters.includes(obra.id) ? 'bg-black/20' : ''">
+                                        <td class="p-4">
+                                            <div class="font-black text-base leading-tight uppercase text-white">{{ obra.titulo }}</div>
+                                            <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1 flex items-center gap-2">
+                                                <span>{{ obra.categoria ? obra.categoria.nombre : 'S/C' }}</span>
+                                                <span class="w-1 h-1 rounded-full bg-white/20"></span>
+                                                <span>{{ obra.formato || 'S/F' }}</span>
+                                                <span class="w-1 h-1 rounded-full bg-white/20"></span>
+                                                <span>{{ obra.idioma ? obra.idioma.nombre : 'S/I' }}</span>
+                                            </div>
+                                        </td>
+                                        <td class="p-4">
+                                            <div class="text-sm text-white/70 font-medium">{{ obra.autor ? obra.autor.nombre + ' ' + obra.autor.apellido : 'S/A' }}</div>
+                                        </td>
+                                        <td class="p-4 text-center">
+                                            <span class="bg-white/10 text-white/70 px-2.5 py-0.5 rounded text-xs font-bold">{{ obra.libros ? obra.libros.length : 0 }}</span>
+                                        </td>
+                                        <td class="p-4 text-center">
+                                            <span class="text-sm font-bold text-white/80 uppercase">{{ obra.proveedor ? obra.proveedor.nombre_empresa : 'S/P' }}</span>
+                                        </td>
                                     <td class="p-4 text-center w-36">
                                         <div class="flex justify-center gap-2 items-center">
                                             <button @click.stop="openObraModal(obra)" class="p-2 text-white/40 hover:text-white transition-colors" title="Editar Obra">
@@ -1045,7 +1045,6 @@ const submitBulk = () => {
                         </tbody>
                     </table>
                 </div>
-
             </div>
         </div>
 

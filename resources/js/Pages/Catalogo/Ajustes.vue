@@ -212,15 +212,15 @@ const confirmDelete = (item) => {
                     @click="selectTab(tab.id)"
                     class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
                     :class="currentTab === tab.id 
-                        ? 'border-brand-red text-brand-red bg-brand-red/5' 
-                        : 'border-transparent text-white/50 hover:text-white hover:bg-white/5'"
+                        ? 'border-brand-red text-white bg-white/5 font-black' 
+                        : 'border-transparent text-white/50 hover:text-white hover:bg-white/5 font-medium'"
                 >
                     {{ tab.name }}
                 </button>
             </div>
 
             <!-- Search Filter Bar -->
-            <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div class="bg-brand-surface border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div class="relative flex-1 max-w-md">
                     <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -245,11 +245,11 @@ const confirmDelete = (item) => {
             </div>
 
             <!-- Table Section -->
-            <div class="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+            <div class="bg-brand-surface border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-brand-red">
+                            <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-white/50">
                                 <th class="p-4" v-if="currentTab === 'autores'">Autor</th>
                                 <th class="p-4" v-else-if="currentTab === 'categorias'">Categoría</th>
                                 <th class="p-4" v-else-if="currentTab === 'proveedores'">Proveedor</th>

@@ -7,6 +7,8 @@ use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -34,6 +36,30 @@ class User extends Authenticatable
         'fecha_nacimiento',
         'activo',
     ];
+
+    protected function name(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => $value ? Str::title(mb_strtolower($value, 'UTF-8')) : null,
+            set: fn ($value) => $value ? Str::title(mb_strtolower($value, 'UTF-8')) : null,
+        );
+    }
+
+    protected function apellido(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => $value ? Str::title(mb_strtolower($value, 'UTF-8')) : null,
+            set: fn ($value) => $value ? Str::title(mb_strtolower($value, 'UTF-8')) : null,
+        );
+    }
+
+    protected function calle(): Attribute
+    {
+        return Attribute::make(
+            get: fn ($value) => $value ? Str::title(mb_strtolower($value, 'UTF-8')) : null,
+            set: fn ($value) => $value ? Str::title(mb_strtolower($value, 'UTF-8')) : null,
+        );
+    }
 
     public function ciudad()
     {

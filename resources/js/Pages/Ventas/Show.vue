@@ -63,9 +63,10 @@ const guardarEstado = async () => {
     });
 };
 
-const fmt = (n) => new Intl.NumberFormat('es-AR', {
-    style: 'currency', currency: 'ARS', maximumFractionDigits: 2
-}).format(n || 0);
+const fmt = (n) => {
+    const formatted = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+    return '$' + formatted;
+};
 
 const fmtDate = (d) => {
     if (!d) return '—';
@@ -167,10 +168,7 @@ const print = () => window.print();
                         <p class="text-xs font-black uppercase tracking-widest text-gray-400">Comprobante de Venta</p>
                         <p class="text-2xl font-black text-black mt-1">#{{ String(venta.id).padStart(6, '0') }}</p>
                         <p class="text-xs text-gray-500 mt-1">{{ fmtDate(venta.fecha) }}</p>
-                        <span class="inline-block mt-2 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border"
-                            :class="venta.tipo === 'online'
-                                ? 'border-blue-300 text-blue-600 bg-blue-50'
-                                : 'border-gray-300 text-gray-600 bg-gray-50'">
+                        <span class="inline-block mt-2 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border border-gray-400 text-gray-800 bg-gray-100">
                             {{ venta.tipo === 'online' ? 'Venta Online' : 'Venta Presencial' }}
                         </span>
                     </div>
