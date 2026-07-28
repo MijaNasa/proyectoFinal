@@ -58,18 +58,19 @@
 }
 
 /* SweetAlert2 validation message override */
-.swal2-validation-message {
+.swal2-popup .swal2-validation-message {
     background: transparent !important;
-    color: #E61919 !important;
-    font-size: 0.75rem !important;
+    color: #EF4444 !important;
+    font-size: 0.8125rem !important;
     font-weight: 700 !important;
-    padding: 0 !important;
-    margin-top: 0.5rem !important;
-    display: flex !important;
+    padding: 0.5rem 0 0 0 !important;
+    margin-top: 0.75rem !important;
     align-items: center !important;
-    justify-content: flex-start !important;
+    justify-content: center !important;
+    text-align: center !important;
     border: none !important;
     box-shadow: none !important;
+    width: 100% !important;
 }
 
 .swal2-validation-message::before {

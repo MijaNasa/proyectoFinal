@@ -135,31 +135,42 @@ const agregarAutor = () => {
         },
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
-        preConfirm: () => {
+        focusConfirm: false,
+        preConfirm: async () => {
             const popup = Swal.getPopup();
-            const nombre = popup.querySelector('#swal-autor-nombre').value.trim();
-            const apellido = popup.querySelector('#swal-autor-apellido').value.trim();
+            const nombreInput = popup ? popup.querySelector('#swal-autor-nombre') : null;
+            const apellidoInput = popup ? popup.querySelector('#swal-autor-apellido') : null;
+            const nombre = nombreInput ? nombreInput.value.trim() : '';
+            const apellido = apellidoInput ? apellidoInput.value.trim() : '';
             if (!nombre || !apellido) {
                 Swal.showValidationMessage('Nombre y Apellido son obligatorios');
                 return false;
             }
-            return { nombre, apellido };
+            try {
+                const res = await window.axios.post('/catalogo/ajustes/autores', { nombre, apellido }, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const createdItem = res.data.model || res.data.data;
+                if (!createdItem) throw new Error('No se pudo guardar el autor.');
+                return createdItem;
+            } catch (err) {
+                const msg = err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join('\n') : (err.response?.data?.message || err.message || 'Error al guardar');
+                Swal.showValidationMessage(msg);
+                return false;
+            }
         }
     }).then((result) => {
-        if (result.isConfirmed) {
-            window.axios.post(route('catalogo.ajustes.store', { type: 'autores' }), result.value)
-                .then((res) => {
-                    const createdItem = res.data.model || res.data.data;
-                    if (createdItem) {
-                        autoresLocal.value.push(createdItem);
-                        obraForm.autor_id = createdItem.id;
-                    }
-                    Swal.fire({ title: 'Autor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                    router.reload({ only: ['autores'] });
-                })
-                .catch(err => {
-                    Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
-                });
+        if (result.isConfirmed && result.value) {
+            const createdItem = result.value;
+            autoresLocal.value.push(createdItem);
+            obraForm.autor_id = createdItem.id;
+            Swal.fire({ title: 'Autor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            router.reload({
+                only: ['autores'],
+                onSuccess: () => {
+                    obraForm.autor_id = createdItem.id;
+                }
+            });
         }
     });
 };
@@ -183,29 +194,40 @@ const agregarCategoria = () => {
         },
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
-        preConfirm: () => {
-            const nombre = Swal.getPopup().querySelector('#swal-cat-nombre').value.trim();
+        focusConfirm: false,
+        preConfirm: async () => {
+            const popup = Swal.getPopup();
+            const nombreInput = popup ? popup.querySelector('#swal-cat-nombre') : null;
+            const nombre = nombreInput ? nombreInput.value.trim() : '';
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
             }
-            return { nombre };
+            try {
+                const res = await window.axios.post('/catalogo/ajustes/categorias', { nombre }, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const createdItem = res.data.model || res.data.data;
+                if (!createdItem) throw new Error('No se pudo guardar la categoría.');
+                return createdItem;
+            } catch (err) {
+                const msg = err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join('\n') : (err.response?.data?.message || err.message || 'Error al guardar');
+                Swal.showValidationMessage(msg);
+                return false;
+            }
         }
     }).then((result) => {
-        if (result.isConfirmed) {
-            window.axios.post(route('catalogo.ajustes.store', { type: 'categorias' }), result.value)
-                .then((res) => {
-                    const createdItem = res.data.model || res.data.data;
-                    if (createdItem) {
-                        categoriasLocal.value.push(createdItem);
-                        obraForm.categoria_id = createdItem.id;
-                    }
-                    Swal.fire({ title: 'Categoría Creada', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                    router.reload({ only: ['categorias'] });
-                })
-                .catch(err => {
-                    Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
-                });
+        if (result.isConfirmed && result.value) {
+            const createdItem = result.value;
+            categoriasLocal.value.push(createdItem);
+            obraForm.categoria_id = createdItem.id;
+            Swal.fire({ title: 'Categoría Creada', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            router.reload({
+                only: ['categorias'],
+                onSuccess: () => {
+                    obraForm.categoria_id = createdItem.id;
+                }
+            });
         }
     });
 };
@@ -224,12 +246,12 @@ const agregarProveedor = () => {
                     <input id="swal-prov-email" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="email" placeholder="Ej: contacto@proveedor.com">
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Teléfono</label>
-                    <input id="swal-prov-telefono" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Opcional">
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Teléfono *</label>
+                    <input id="swal-prov-telefono" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: 1122334455">
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Dirección</label>
-                    <input id="swal-prov-direccion" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Opcional">
+                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Dirección *</label>
+                    <input id="swal-prov-direccion" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Av. Siempreviva 123">
                 </div>
             </div>
         `,
@@ -243,34 +265,48 @@ const agregarProveedor = () => {
         },
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
-        preConfirm: () => {
+        focusConfirm: false,
+        preConfirm: async () => {
             const popup = Swal.getPopup();
-            const nombre_empresa = popup.querySelector('#swal-prov-nombre_empresa').value.trim();
-            const email = popup.querySelector('#swal-prov-email').value.trim();
-            const telefono = popup.querySelector('#swal-prov-telefono').value.trim();
-            const direccion = popup.querySelector('#swal-prov-direccion').value.trim();
+            const nombreEmpresaInput = popup ? popup.querySelector('#swal-prov-nombre_empresa') : null;
+            const emailInput = popup ? popup.querySelector('#swal-prov-email') : null;
+            const telefonoInput = popup ? popup.querySelector('#swal-prov-telefono') : null;
+            const direccionInput = popup ? popup.querySelector('#swal-prov-direccion') : null;
+
+            const nombre_empresa = nombreEmpresaInput ? nombreEmpresaInput.value.trim() : '';
+            const email = emailInput ? emailInput.value.trim() : '';
+            const telefono = telefonoInput ? telefonoInput.value.trim() : '';
+            const direccion = direccionInput ? direccionInput.value.trim() : '';
             
-            if (!nombre_empresa || !email) {
-                Swal.showValidationMessage('Nombre de empresa y Email son obligatorios');
+            if (!nombre_empresa || !email || !telefono || !direccion) {
+                Swal.showValidationMessage('Todos los campos son obligatorios');
                 return false;
             }
-            return { nombre_empresa, email, telefono, direccion };
+            try {
+                const res = await window.axios.post('/catalogo/ajustes/proveedores', { nombre_empresa, email, telefono, direccion }, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const createdItem = res.data.model || res.data.data;
+                if (!createdItem) throw new Error('No se pudo guardar el proveedor.');
+                return createdItem;
+            } catch (err) {
+                const msg = err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join('\n') : (err.response?.data?.message || err.message || 'Error al guardar');
+                Swal.showValidationMessage(msg);
+                return false;
+            }
         }
     }).then((result) => {
-        if (result.isConfirmed) {
-            window.axios.post(route('catalogo.ajustes.store', { type: 'proveedores' }), result.value)
-                .then((res) => {
-                    const createdItem = res.data.model || res.data.data;
-                    if (createdItem) {
-                        proveedoresLocal.value.push(createdItem);
-                        obraForm.proveedor_id = createdItem.id;
-                    }
-                    Swal.fire({ title: 'Proveedor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                    router.reload({ only: ['proveedores'] });
-                })
-                .catch(err => {
-                    Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
-                });
+        if (result.isConfirmed && result.value) {
+            const createdItem = result.value;
+            proveedoresLocal.value.push(createdItem);
+            obraForm.proveedor_id = createdItem.id;
+            Swal.fire({ title: 'Proveedor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            router.reload({
+                only: ['proveedores'],
+                onSuccess: () => {
+                    obraForm.proveedor_id = createdItem.id;
+                }
+            });
         }
     });
 };
@@ -296,29 +332,40 @@ const agregarIdioma = () => {
         },
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
-        preConfirm: () => {
-            const nombre = Swal.getPopup().querySelector('#swal-id-nombre').value.trim();
+        focusConfirm: false,
+        preConfirm: async () => {
+            const popup = Swal.getPopup();
+            const nombreInput = popup ? popup.querySelector('#swal-id-nombre') : null;
+            const nombre = nombreInput ? nombreInput.value.trim() : '';
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
             }
-            return { nombre };
+            try {
+                const res = await window.axios.post('/catalogo/ajustes/idiomas', { nombre }, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const createdItem = res.data.model || res.data.data;
+                if (!createdItem) throw new Error('No se pudo guardar el idioma.');
+                return createdItem;
+            } catch (err) {
+                const msg = err.response?.data?.errors ? Object.values(err.response.data.errors).flat().join('\n') : (err.response?.data?.message || err.message || 'Error al guardar');
+                Swal.showValidationMessage(msg);
+                return false;
+            }
         }
     }).then((result) => {
-        if (result.isConfirmed) {
-            window.axios.post(route('catalogo.ajustes.store', { type: 'idiomas' }), result.value)
-                .then((res) => {
-                    const createdItem = res.data.model || res.data.data;
-                    if (createdItem) {
-                        idiomasLocal.value.push(createdItem);
-                        obraForm.idioma_id = createdItem.id;
-                    }
-                    Swal.fire({ title: 'Idioma Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
-                    router.reload({ only: ['idiomas'] });
-                })
-                .catch(err => {
-                    Swal.fire({ title: 'Error', text: err.response?.data?.message || 'Error al guardar', icon: 'error', background: '#1A1A1A', color: '#FFF' });
-                });
+        if (result.isConfirmed && result.value) {
+            const createdItem = result.value;
+            idiomasLocal.value.push(createdItem);
+            obraForm.idioma_id = createdItem.id;
+            Swal.fire({ title: 'Idioma Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            router.reload({
+                only: ['idiomas'],
+                onSuccess: () => {
+                    obraForm.idioma_id = createdItem.id;
+                }
+            });
         }
     });
 };
@@ -342,8 +389,11 @@ const agregarFormato = () => {
         },
         buttonsStyling: false,
         background: '#1A1A1A', color: '#FFF',
+        focusConfirm: false,
         preConfirm: () => {
-            const nombre = Swal.getPopup().querySelector('#swal-formato-nombre').value.trim();
+            const popup = Swal.getPopup();
+            const nombreInput = popup ? popup.querySelector('#swal-formato-nombre') : null;
+            const nombre = nombreInput ? nombreInput.value.trim() : '';
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
@@ -351,7 +401,7 @@ const agregarFormato = () => {
             return nombre;
         }
     }).then((result) => {
-        if (result.isConfirmed) {
+        if (result.isConfirmed && result.value) {
             const nuevo = result.value;
             if (!formatosLocal.value.includes(nuevo)) {
                 formatosLocal.value.unshift(nuevo);

@@ -45,18 +45,18 @@ const getLabel = (option) => {
 
 // Find the currently selected option to show its label when closed
 const selectedOption = computed(() => {
-    if (!props.options) return null;
+    if (!props.options || props.modelValue === '' || props.modelValue === null || props.modelValue === undefined) return null;
     return props.options.find(opt => {
-        if (typeof opt === 'string' || typeof opt === 'number') return opt === props.modelValue;
-        return opt && opt[props.valueKey] === props.modelValue;
+        if (typeof opt === 'string' || typeof opt === 'number') return String(opt) === String(props.modelValue);
+        return opt && String(opt[props.valueKey]) === String(props.modelValue);
     });
 });
 
 const updateSearchLabel = () => {
-    if (props.modelValue && props.options) {
+    if (props.modelValue !== '' && props.modelValue !== null && props.modelValue !== undefined && props.options) {
         const opt = props.options.find(o => {
-            if (typeof o === 'string' || typeof o === 'number') return o === props.modelValue;
-            return o && o[props.valueKey] === props.modelValue;
+            if (typeof o === 'string' || typeof o === 'number') return String(o) === String(props.modelValue);
+            return o && String(o[props.valueKey]) === String(props.modelValue);
         });
         if (opt) {
             search.value = getLabel(opt);

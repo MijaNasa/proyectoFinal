@@ -47,9 +47,13 @@ class CatalogoAjustesController extends Controller
             'nombre.required' => 'El nombre es obligatorio.',
             'nombre.unique' => 'Este nombre ya se encuentra registrado.',
             'apellido.required' => 'El apellido es obligatorio.',
+            'nombre_empresa.required' => 'El nombre de empresa es obligatorio.',
+            'nombre_empresa.unique' => 'Este nombre de empresa ya se encuentra registrado.',
             'email.required' => 'El email es obligatorio.',
             'email.email' => 'El formato del correo no es válido.',
             'email.unique' => 'Este email ya está en uso.',
+            'telefono.required' => 'El teléfono es obligatorio.',
+            'direccion.required' => 'La dirección es obligatoria.',
             'codigo.required' => 'El código es obligatorio.',
             'codigo.unique' => 'Este código ya está en uso.',
         ];
@@ -58,7 +62,7 @@ class CatalogoAjustesController extends Controller
             case 'autores':
                 $validated = $request->validate([
                     'nombre' => 'required|string|max:100',
-                    'apellido' => 'nullable|string|max:100',
+                    'apellido' => 'required|string|max:100',
                 ], $messages);
                 $model = Autor::withTrashed()
                     ->where('nombre', $validated['nombre'])
@@ -94,9 +98,9 @@ class CatalogoAjustesController extends Controller
                         'required', 'string', 'max:150',
                         Rule::unique('proveedores')->whereNull('deleted_at')
                     ],
-                    'telefono' => 'nullable|string|max:50',
+                    'telefono' => 'required|string|max:50',
                     'email' => 'required|email|max:150',
-                    'direccion' => 'nullable|string|max:255',
+                    'direccion' => 'required|string|max:255',
                 ], $messages);
                 $model = \App\Models\Proveedor::withTrashed()->where('nombre_empresa', $validated['nombre_empresa'])->first();
                 
@@ -140,12 +144,12 @@ class CatalogoAjustesController extends Controller
                 abort(400, 'Tipo de ajuste no válido.');
         }
 
-        if ($request->header('X-Inertia')) {
-            return redirect()->back()->with('message', 'Registro creado con éxito.');
+        if ($request->wantsJson() || $request->isXmlHttpRequest() || $request->acceptsJson()) {
+            return response()->json(['success' => true, 'model' => $model]);
         }
 
-        if ($request->wantsJson() || $request->isXmlHttpRequest()) {
-            return response()->json(['success' => true, 'model' => $model]);
+        if ($request->header('X-Inertia')) {
+            return redirect()->back()->with('message', 'Registro creado con éxito.');
         }
 
         return redirect()->back()->with('message', 'Registro creado con éxito.');
@@ -193,7 +197,7 @@ class CatalogoAjustesController extends Controller
                         Rule::unique('proveedores')->ignore($id)->whereNull('deleted_at')
                     ],
                     'telefono' => 'nullable|string|max:50',
-                    'email' => 'required|email|max:150',
+                    'email' => 'nullable|email|max:150',
                     'direccion' => 'nullable|string|max:255',
                 ], $messages);
                 $model = \App\Models\Proveedor::findOrFail($id);
