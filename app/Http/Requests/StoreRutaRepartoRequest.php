@@ -14,7 +14,7 @@ class StoreRutaRepartoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'repartidor_id' => 'required|exists:empleados,id',
+            'repartidor_id' => 'nullable|exists:empleados,id',
         ];
     }
 

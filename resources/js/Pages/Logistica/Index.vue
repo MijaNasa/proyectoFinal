@@ -11,10 +11,48 @@ const props = defineProps({
     libros: Array,
     trasladosAEnviar: Array,
     trasladosARecibir: Array,
+    filters: Object,
 });
 
 const isModalOpen = ref(false);
 const expandedRow = ref(null);
+
+// ── Filtros ───────────────────────────────────────────────
+const desde      = ref(props.filters?.desde || '');
+const hasta      = ref(props.filters?.hasta || '');
+const sucursalId = ref(props.filters?.sucursal_id || '');
+const tipoFiltro = ref(props.filters?.tipo || '');
+const showSucursalDrop = ref(false);
+const showTipoDrop     = ref(false);
+
+const tiposMovimiento = [
+    { value: 'ingreso_proveedor', label: 'Ingreso por Proveedor' },
+    { value: 'ingreso_manual',    label: 'Ingreso Manual' },
+    { value: 'egreso_manual',     label: 'Egreso Manual' },
+    { value: 'ajuste',            label: 'Ajuste de Inventario' },
+    { value: 'TRANSFERENCIA_SALIDA', label: 'Envío por Venta' },
+    { value: 'TRANSFERENCIA_ENTRADA', label: 'Recepción por Venta' },
+];
+
+const sucursalLabel = computed(() => {
+    if (!sucursalId.value) return 'Todas las sucursales';
+    return props.sucursales.find(s => s.id == sucursalId.value)?.nombre ?? 'Todas';
+});
+
+const tipoLabel = computed(() => {
+    if (!tipoFiltro.value) return 'Todos los tipos';
+    return tiposMovimiento.find(t => t.value === tipoFiltro.value)?.label ?? 'Todos';
+});
+
+const selectSucursalFiltro = (id) => { sucursalId.value = id; showSucursalDrop.value = false; aplicarFiltros(); };
+const selectTipoFiltro = (val) => { tipoFiltro.value = val; showTipoDrop.value = false; aplicarFiltros(); };
+
+const aplicarFiltros = () => router.get(route('logistica.index'), {
+    desde: desde.value,
+    hasta: hasta.value,
+    sucursal_id: sucursalId.value,
+    tipo: tipoFiltro.value,
+}, { preserveState: false, preserveScroll: true });
 
 onMounted(() => {
     if (typeof window !== 'undefined') {
@@ -58,7 +96,7 @@ const selectLibro = (libro) => {
     if (!form.items.find(i => i.libro_id === libro.id)) {
         form.items.push({
             libro_id: libro.id,
-            label: libro.titulo + (libro.numero_tomo ? ' - Tomo ' + libro.numero_tomo : ''),
+            label: libro.titulo,
             isbn: libro.isbn,
             cantidad: 1,
             costo_unitario: '',
@@ -74,23 +112,21 @@ const removeItem = (index) => {
 };
 
 const formatFecha = (f) => {
-    const d = new Date(f);
-    const day = String(d.getDate()).padStart(2, '0');
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    return `${day}/${month}/${d.getFullYear()}`;
+    if (!f) return '—';
+    const iso = String(f).slice(0, 10) + 'T00:00:00';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return String(f).slice(0, 10);
+    const str = d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+    return str.replace('.', '');
 };
 const formatHora = (f) => new Date(f).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 const formatCurrency = (value) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
-
-const movimientoColor = (tipo) => {
-    return 'text-white/70';
-};
 
 const formatTipoMovimiento = (tipo) => {
     if (tipo === 'ingreso_proveedor') return 'Ingreso por Proveedor';
     if (tipo === 'ingreso_manual') return 'Ingreso Manual';
     if (tipo === 'egreso_manual') return 'Egreso Manual';
-    if (tipo === 'ajuste') return 'Ajuste Manual';
+    if (tipo === 'ajuste') return 'Ajuste de Inventario';
     if (tipo === 'TRANSFERENCIA_SALIDA') return 'Envío por Venta';
     if (tipo === 'TRANSFERENCIA_ENTRADA') return 'Recepción por Venta';
     return tipo;
@@ -190,6 +226,17 @@ const submit = () => {
 
 
 
+const formatSucursalHeader = (nombre) => {
+    if (!nombre) return '';
+    let text = nombre.trim();
+    if (/^sucursal\s+/i.test(text)) {
+        text = text.replace(/^sucursal\s+/i, 'Suc. ');
+    } else if (!/^suc\./i.test(text)) {
+        text = 'Suc. ' + text;
+    }
+    return text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+};
+
 const editarCosto = async (detalle) => {
     const { value: nuevoCosto } = await Swal.fire({
         title: 'Editar Costo',
@@ -254,27 +301,24 @@ const editarCosto = async (detalle) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                Logística de <span class="text-brand-red not-italic">Stock</span>
-            </h2>
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
+                    Logística de <span class="text-brand-red not-italic">Stock</span>
+                </h2>
+                <button @click="isModalOpen = true" class="btn-primary flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-red-900/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Nuevo Movimiento
+                </button>
+            </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-8">
-
-                <!-- Botón de Acción Principal -->
-                <div @click="isModalOpen = true" class="card relative overflow-hidden border border-brand-red/30 bg-brand-red/10 shadow-[0_0_20px_rgba(230,25,25,0.1)] cursor-pointer group hover:bg-brand-red transition-colors flex items-center justify-center py-8">
-                    <h3 class="text-xl font-black uppercase tracking-widest text-brand-red group-hover:text-white transition-colors flex items-center gap-3">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                        </svg>
-                        REGISTRAR MOVIMIENTO MANUAL
-                    </h3>
-                </div>
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
 
                 <!-- Traslados por Ventas Pendientes -->
                 <div v-if="trasladosAEnviar.length > 0 || trasladosARecibir.length > 0" class="space-y-6">
-                    <h3 class="text-xl font-black uppercase tracking-widest text-white/90 mb-4 border-b border-white/10 pb-2">
+                    <h3 class="text-lg font-black uppercase tracking-tight text-white/90 border-b border-white/10 pb-2">
                         Traslados Pendientes por <span class="text-brand-red">Ventas</span>
                     </h3>
                     
@@ -282,21 +326,21 @@ const editarCosto = async (detalle) => {
                         <!-- A Enviar -->
                         <div v-if="trasladosAEnviar.length > 0" class="card p-0 overflow-hidden border-yellow-500/30">
                             <div class="bg-yellow-500/10 p-4 border-b border-yellow-500/20 flex items-center justify-between">
-                                <h4 class="text-sm font-black uppercase tracking-widest text-yellow-500">A Enviar (Egresos)</h4>
-                                <span class="bg-yellow-500 text-black text-[10px] font-black px-2 py-1 rounded">{{ trasladosAEnviar.length }} pendientes</span>
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-yellow-500">A Enviar (Egresos)</h4>
+                                <span class="bg-yellow-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">{{ trasladosAEnviar.length }} pendientes</span>
                             </div>
                             <div class="divide-y divide-white/5">
                                 <div v-for="t in trasladosAEnviar" :key="t.id" class="p-4 flex items-center justify-between bg-black/40 hover:bg-white/5 transition-colors">
                                     <div>
                                         <div class="text-xs font-bold text-white">{{ t.libro?.master?.titulo }} - Tomo {{ t.libro?.numero_tomo || 'Único' }}</div>
-                                        <div class="text-[10px] text-white/40 mt-1">Hacia: <strong class="text-white/80">{{ t.sucursal_destino?.nombre }}</strong> | Venta #{{ t.venta_id }}</div>
+                                        <div class="text-[10px] text-white/40 mt-1">Hacia: <strong class="text-white/80">{{ formatSucursalHeader(t.sucursal_destino?.nombre) }}</strong> | Venta #{{ t.venta_id }}</div>
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <div class="text-center px-3 border-r border-white/10">
                                             <span class="block text-[8px] uppercase tracking-widest text-white/30">Cant</span>
                                             <span class="text-sm font-black text-yellow-500">{{ t.cantidad }}</span>
                                         </div>
-                                        <Link :href="route('logistica.enviar', t.id)" method="post" as="button" preserve-scroll class="bg-yellow-500 hover:bg-yellow-400 text-black font-black text-[10px] px-4 py-2 rounded uppercase tracking-widest transition-colors">
+                                        <Link :href="route('logistica.enviar', t.id)" method="post" as="button" preserve-scroll class="bg-yellow-500 hover:bg-yellow-400 text-black font-bold text-[10px] px-3.5 py-1.5 rounded-lg uppercase tracking-wider transition-colors">
                                             Confirmar Envío
                                         </Link>
                                     </div>
@@ -307,21 +351,21 @@ const editarCosto = async (detalle) => {
                         <!-- A Recibir -->
                         <div v-if="trasladosARecibir.length > 0" class="card p-0 overflow-hidden border-green-500/30">
                             <div class="bg-green-500/10 p-4 border-b border-green-500/20 flex items-center justify-between">
-                                <h4 class="text-sm font-black uppercase tracking-widest text-green-500">A Recibir (Ingresos)</h4>
-                                <span class="bg-green-500 text-black text-[10px] font-black px-2 py-1 rounded">{{ trasladosARecibir.length }} en camino</span>
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-green-500">A Recibir (Ingresos)</h4>
+                                <span class="bg-green-500 text-black text-[10px] font-bold px-2 py-0.5 rounded">{{ trasladosARecibir.length }} en camino</span>
                             </div>
                             <div class="divide-y divide-white/5">
                                 <div v-for="t in trasladosARecibir" :key="t.id" class="p-4 flex items-center justify-between bg-black/40 hover:bg-white/5 transition-colors">
                                     <div>
                                         <div class="text-xs font-bold text-white">{{ t.libro?.master?.titulo }} - Tomo {{ t.libro?.numero_tomo || 'Único' }}</div>
-                                        <div class="text-[10px] text-white/40 mt-1">Desde: <strong class="text-white/80">{{ t.sucursal_origen?.nombre }}</strong> | Venta #{{ t.venta_id }}</div>
+                                        <div class="text-[10px] text-white/40 mt-1">Desde: <strong class="text-white/80">{{ formatSucursalHeader(t.sucursal_origen?.nombre) }}</strong> | Venta #{{ t.venta_id }}</div>
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <div class="text-center px-3 border-r border-white/10">
                                             <span class="block text-[8px] uppercase tracking-widest text-white/30">Cant</span>
                                             <span class="text-sm font-black text-green-500">{{ t.cantidad }}</span>
                                         </div>
-                                        <Link :href="route('logistica.recibir', t.id)" method="post" as="button" preserve-scroll class="bg-green-500 hover:bg-green-400 text-black font-black text-[10px] px-4 py-2 rounded uppercase tracking-widest transition-colors">
+                                        <Link :href="route('logistica.recibir', t.id)" method="post" as="button" preserve-scroll class="bg-green-500 hover:bg-green-400 text-black font-bold text-[10px] px-3.5 py-1.5 rounded-lg uppercase tracking-wider transition-colors">
                                             Confirmar Recepción
                                         </Link>
                                     </div>
@@ -331,53 +375,91 @@ const editarCosto = async (detalle) => {
                     </div>
                 </div>
 
+                <!-- Barra de Filtros -->
+                <div class="card p-4 border-white/5 space-y-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                        <!-- Desde -->
+                        <div class="w-full">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Desde</label>
+                            <input v-model="desde" @change="aplicarFiltros" @click="$event.target.showPicker && $event.target.showPicker()" type="date"
+                                class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer" />
+                        </div>
+                        <!-- Hasta -->
+                        <div class="w-full">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Hasta</label>
+                            <input v-model="hasta" @change="aplicarFiltros" @click="$event.target.showPicker && $event.target.showPicker()" type="date"
+                                class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer" />
+                        </div>
+
+                        <!-- Sucursal -->
+                        <div class="w-full">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Sucursal</label>
+                            <select v-model="sucursalId" @change="aplicarFiltros" class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50 cursor-pointer">
+                                <option value="" class="bg-[#1a1a1a] text-white/60">Todas las sucursales</option>
+                                <option v-for="s in sucursales" :key="s.id" :value="s.id" class="bg-[#1a1a1a] text-white">{{ formatSucursalHeader(s.nombre) }}</option>
+                            </select>
+                        </div>
+
+                        <!-- Tipo de Movimiento -->
+                        <div class="w-full">
+                            <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Tipo de Movimiento</label>
+                            <select v-model="tipoFiltro" @change="aplicarFiltros" class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50 cursor-pointer">
+                                <option value="" class="bg-[#1a1a1a] text-white/60">Todos los tipos</option>
+                                <option v-for="t in tiposMovimiento" :key="t.value" :value="t.value" class="bg-[#1a1a1a] text-white">{{ t.label }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div v-if="sucursalId || tipoFiltro || desde || hasta" class="flex justify-end pt-1">
+                        <button @click="sucursalId = ''; tipoFiltro = ''; desde = ''; hasta = ''; aplicarFiltros();"
+                            class="text-[10px] font-black uppercase tracking-wider text-brand-red hover:underline cursor-pointer">
+                            Limpiar Filtros
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Historial -->
                 <div class="card p-0 overflow-hidden">
-                    <div class="p-6 border-b border-white/5 flex items-center justify-between bg-black/20">
-                        <h3 class="text-xs font-black uppercase tracking-[0.3em] text-white/40">Historial de Movimientos</h3>
-                    </div>
-                    
                     <table class="w-full text-left table-fixed">
                         <thead>
-                            <tr class="bg-brand-red text-white uppercase text-[9px] font-black tracking-widest">
-                                <th class="p-4 w-[16rem]">Tipo de Operación</th>
-                                <th class="p-4 w-32">Fecha</th>
-                                <th class="p-4">Sucursal</th>
-                                <th class="p-4 w-32 text-center">Cant. Total</th>
+                            <tr class="border-b border-white/10 bg-white/[0.01] uppercase text-xs font-bold tracking-wider text-white/50">
+                                <th class="p-4 w-[30%]">Tipo de Operación</th>
+                                <th class="p-4 w-[22%]">Fecha</th>
+                                <th class="p-4 w-[30%]">Sucursal</th>
+                                <th class="p-4 w-[18%] text-center">Cant. Total</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <template v-for="mov in movimientos.data" :key="mov.id">
-                                <tr @click="toggleRow(mov.id)" class="hover:bg-white/[0.05] transition-colors cursor-pointer group" :class="{'bg-white/[0.02]': expandedRow === mov.id}">
-                                    <td class="p-4 flex items-center gap-2">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-white/30 transition-transform flex-shrink-0" :class="{'rotate-90 text-brand-red': expandedRow === mov.id}" viewBox="0 0 20 20" fill="currentColor">
+                                <tr @click="toggleRow(mov.id)" class="hover:bg-white/[0.02] transition-colors cursor-pointer group" :class="{'bg-white/[0.02]': expandedRow === mov.id}">
+                                    <td class="p-4 flex items-center gap-2.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white/50 transition-transform flex-shrink-0" :class="{'rotate-90 text-brand-red': expandedRow === mov.id}" viewBox="0 0 20 20" fill="currentColor">
                                             <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
                                         </svg>
-                                        <span class="text-[11px] font-black uppercase tracking-widest text-white whitespace-nowrap">
+                                        <span class="text-sm font-bold text-white whitespace-nowrap group-hover:text-brand-red transition-colors">
                                             {{ formatTipoMovimiento(mov.tipo) }}
                                         </span>
                                     </td>
                                     <td class="p-4">
-                                        <div class="text-[10px] font-mono text-white/50">{{ formatFecha(mov.created_at) }}</div>
-                                        <div class="text-[9px] font-mono text-white/30">{{ formatHora(mov.created_at) }}</div>
+                                        <div class="text-sm font-bold text-white">{{ formatFecha(mov.created_at) }}</div>
+                                        <div class="text-xs font-medium text-white/80">{{ formatHora(mov.created_at) }}</div>
                                     </td>
-                                    <td class="p-4 text-[10px] uppercase font-bold text-white/60">
+                                    <td class="p-4 text-sm font-bold text-white">
                                         <template v-if="mov.tipo === 'transferencia'">
-                                            <div class="flex flex-col gap-1">
-                                                <div class="text-white/40">
-                                                    Desde: <span class="text-white/70">{{ mov.origen?.nombre || 'N/A' }}</span>
+                                            <div class="flex flex-col gap-0.5 text-sm font-bold">
+                                                <div class="text-white">
+                                                    Desde: <span class="text-white">{{ formatSucursalHeader(mov.origen?.nombre) || 'N/A' }}</span>
                                                 </div>
-                                                <div class="text-white/60">
-                                                    Hacia: <span class="text-white">{{ mov.destino?.nombre || 'N/A' }}</span>
+                                                <div class="text-white">
+                                                    Hacia: <span class="text-white">{{ formatSucursalHeader(mov.destino?.nombre) || 'N/A' }}</span>
                                                 </div>
                                             </div>
                                         </template>
                                         <template v-else>
-                                            <span class="text-white">{{ mov.tipo === 'egreso_manual' || mov.tipo === 'TRANSFERENCIA_SALIDA' ? mov.origen?.nombre : mov.destino?.nombre || 'General' }}</span>
+                                            <span class="text-sm font-bold text-white">{{ formatSucursalHeader(mov.tipo === 'egreso_manual' || mov.tipo === 'TRANSFERENCIA_SALIDA' ? mov.origen?.nombre : mov.destino?.nombre) || 'General' }}</span>
                                         </template>
                                     </td>
                                     <td class="p-4 text-center">
-                                        <span class="text-xs font-black" :class="mov.tipo === 'ajuste' ? (mov.detalles?.reduce((acc, d) => acc + d.cantidad, 0) > 0 ? 'text-green-400' : 'text-brand-red') : 'text-white/70'">
+                                        <span class="text-sm font-bold text-white">
                                             {{ mov.tipo === 'ajuste' && mov.detalles?.reduce((acc, d) => acc + d.cantidad, 0) > 0 ? '+' : '' }}{{ mov.detalles?.reduce((acc, d) => acc + d.cantidad, 0) || 0 }}
                                         </span>
                                     </td>
@@ -385,40 +467,40 @@ const editarCosto = async (detalle) => {
                                 
                                 <!-- Detalles del Movimiento -->
                                 <tr v-if="expandedRow === mov.id" class="bg-black/40">
-                                    <td colspan="4" class="p-0 border-l-2 border-brand-red">
+                                    <td colspan="4" class="p-0 border-l-4 border-brand-red">
                                         <div class="p-4 lg:p-6 overflow-x-auto">
-                                            <div v-if="mov.motivo" class="text-[10px] text-white/50 italic mb-4">
-                                                <strong class="text-white/30 uppercase mr-2">Observaciones:</strong> {{ mov.motivo }}
+                                            <div v-if="mov.motivo" class="text-xs text-white/70 mb-4">
+                                                <strong class="font-bold text-white mr-2">Observaciones:</strong> {{ mov.motivo }}
                                             </div>
-                                            <table class="w-full text-left whitespace-nowrap min-w-max bg-brand-surface rounded overflow-hidden">
+                                            <table class="w-full text-left whitespace-nowrap min-w-max bg-brand-surface rounded-xl overflow-hidden border border-white/5">
                                                 <thead class="bg-white/5">
-                                                    <tr class="text-[8px] uppercase tracking-widest text-white/40 border-b border-white/5">
-                                                        <th class="py-2 px-4 font-black w-[60%]">Libro / Tomo</th>
-                                                        <th class="py-2 px-4 text-center font-black w-[20%]">Cantidad</th>
-                                                        <th class="py-2 px-4 text-right font-black w-[20%]">Costo Unit.</th>
+                                                    <tr class="text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
+                                                        <th class="py-2.5 px-4 font-bold w-[60%]">Libro / Tomo</th>
+                                                        <th class="py-2.5 px-4 text-center font-bold w-[20%]">Cantidad</th>
+                                                        <th class="py-2.5 px-4 text-center font-bold w-[20%]">Costo Unit.</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody class="divide-y divide-white/5">
                                                     <tr v-for="det in mov.detalles" :key="det.id">
-                                                        <td class="py-2 px-4 text-xs font-bold uppercase text-white/80">
+                                                        <td class="py-3 px-4 text-xs font-bold uppercase text-white/90">
                                                             {{ det.libro?.master?.titulo }} - Tomo {{ det.libro?.numero_tomo || 'Único' }}
-                                                            <span class="text-[9px] text-white/30 font-mono block normal-case mt-1">ISBN: {{ det.libro?.isbn || 'S/I' }}</span>
+                                                            <span class="text-[10px] text-white/40 font-mono block normal-case mt-0.5">ISBN: {{ det.libro?.isbn || 'S/I' }}</span>
                                                         </td>
-                                                        <td class="py-2 px-4 text-center text-sm font-black" :class="mov.tipo === 'ajuste' ? (det.cantidad > 0 ? 'text-green-400' : 'text-brand-red') : 'text-white/90'">
+                                                        <td class="py-3 px-4 text-center text-sm font-bold text-white">
                                                             {{ mov.tipo === 'ajuste' && det.cantidad > 0 ? '+' : '' }}{{ det.cantidad }}
                                                         </td>
-                                                        <td class="py-2 px-4 text-right flex items-center justify-end gap-2 text-xs font-mono text-white/50">
-                                                            <template v-if="mov.tipo === 'ingreso_proveedor'">
+                                                        <td class="py-3 px-4 text-center text-xs font-mono text-white/60">
+                                                            <div v-if="mov.tipo === 'ingreso_proveedor'" class="flex items-center justify-center gap-2">
                                                                 <span>{{ formatCurrency(det.costo_unitario) }}</span>
-                                                                <button @click.stop="editarCosto(det)" class="text-white/30 hover:text-brand-red transition-colors" title="Editar costo">
+                                                                <button @click.stop="editarCosto(det)" class="text-white/40 hover:text-brand-red transition-colors" title="Editar costo">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
                                                                         <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
                                                                     </svg>
                                                                 </button>
-                                                            </template>
-                                                            <template v-else>
+                                                            </div>
+                                                            <div v-else class="text-center text-white/40">
                                                                 -
-                                                            </template>
+                                                            </div>
                                                         </td>
                                                     </tr>
                                                 </tbody>
@@ -435,141 +517,165 @@ const editarCosto = async (detalle) => {
                 </div>
 
                 <!-- Paginación -->
-                <div class="flex justify-center gap-2 pb-8">
+                <div v-if="movimientos.links && movimientos.links.length > 3" class="flex justify-center gap-2 pt-2 pb-6">
                     <Link v-for="link in movimientos.links" :key="link.label" :href="link.url || '#'" 
-                          class="px-3 py-1 rounded border border-white/5 transition-all text-[10px] font-black uppercase" 
-                          :class="{'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20': !link.url}">
+                          class="px-3 py-1 rounded border border-white/5 transition-all text-xs font-bold uppercase" 
+                          :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/20': !link.url}">
                         {{ decodeLabel(link.label) }}
                     </Link>
                 </div>
-            </div>
         </div>
 
         <!-- MODAL DE REGISTRO -->
-        <div v-if="isModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="isModalOpen = false"></div>
-            
-            <div class="card relative z-10 w-full max-w-4xl max-h-[90vh] overflow-y-auto border border-brand-red/20 shadow-[0_0_50px_rgba(230,25,25,0.1)] p-0">
-                <div class="sticky top-0 bg-brand-surface z-20 border-b border-white/10 p-6 flex justify-between items-center">
-                    <h3 class="text-lg font-black uppercase tracking-tighter text-white flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-brand-red" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                        </svg>
-                        Registrar Movimiento
+        <template v-if="isModalOpen">
+        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="isModalOpen = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative w-full max-w-4xl card p-0 border border-brand-red/50 shadow-2xl overflow-hidden transform transition-all my-8">
+                <!-- Header Modal -->
+                <div class="bg-gradient-to-r from-brand-red to-black p-5 flex justify-between items-center relative overflow-hidden">
+                    <h3 class="text-2xl font-black uppercase tracking-tighter relative">
+                        Registrar <span class="text-white">Movimiento</span>
                     </h3>
-                    <button @click="isModalOpen = false" class="text-white/30 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
+                    <button @click="isModalOpen = false" class="text-white/80 hover:text-white transition-colors relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 
-                <form @submit.prevent="submit" class="p-6 grid grid-cols-1 md:grid-cols-12 gap-6">
+                <form @submit.prevent="submit" class="p-6 md:p-8 space-y-6">
                     
-                    <!-- Tipo de Movimiento -->
-                    <div class="md:col-span-4">
-                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-red mb-2">Tipo de Operación</label>
-                        <select v-model="form.tipo" @change="form.clearErrors()" class="input-field w-full bg-black/40 uppercase font-bold text-xs cursor-pointer">
-                            <option value="ingreso_proveedor">Ingreso por Proveedor</option>
-                            <option value="ingreso_manual">Ingreso Manual</option>
-                            <option value="egreso_manual">Egreso Manual</option>
-                            <option value="ajuste">Ajuste de Inventario</option>
-                        </select>
-                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Tipo de Movimiento -->
+                        <div>
+                            <label class="block text-sm font-bold text-white/70 mb-2 leading-none">Tipo de Operación *</label>
+                            <select v-model="form.tipo" @change="form.clearErrors()" class="input-field w-full bg-brand-black text-sm font-bold cursor-pointer py-3">
+                                <option value="ingreso_proveedor">Ingreso por Proveedor</option>
+                                <option value="ingreso_manual">Ingreso Manual</option>
+                                <option value="egreso_manual">Egreso Manual</option>
+                                <option value="ajuste">Ajuste de Inventario</option>
+                            </select>
+                        </div>
 
-                    <!-- Destino/Sucursal -->
-                    <div class="md:col-span-8">
-                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-2">Sucursal</label>
-                        <select v-model="form.sucursal_destino_id" class="input-field w-full text-xs" :class="{'border-brand-red': form.errors.sucursal_destino_id}">
-                            <option value="">Seleccionar...</option>
-                            <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
-                        </select>
-                        <div v-if="form.errors.sucursal_destino_id" class="text-brand-red text-[10px] mt-1">{{ form.errors.sucursal_destino_id }}</div>
+                        <!-- Destino/Sucursal -->
+                        <div>
+                            <label class="block text-sm font-bold text-white/70 mb-2 leading-none">Sucursal *</label>
+                            <select
+                                v-model="form.sucursal_destino_id"
+                                class="input-field w-full bg-brand-black text-sm font-bold py-3 transition-colors"
+                                :class="{'border-brand-red': form.errors.sucursal_destino_id, 'text-white/40': !form.sucursal_destino_id, 'text-white': form.sucursal_destino_id}"
+                            >
+                                <option value="" disabled selected class="text-white/40 bg-[#1a1a1a]">Seleccionar sucursal...</option>
+                                <option v-for="s in sucursales" :key="s.id" :value="s.id" class="text-white bg-[#1a1a1a]">{{ s.nombre }}</option>
+                            </select>
+                            <p v-if="form.errors.sucursal_destino_id" class="text-brand-red text-xs mt-1">{{ form.errors.sucursal_destino_id }}</p>
+                        </div>
                     </div>
 
                     <!-- Buscador de Libros -->
-                    <div class="md:col-span-12 relative mt-4 pt-6 border-t border-white/5">
-                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-brand-red mb-2">Agregar Libros al Movimiento</label>
-                        <div class="flex gap-2">
-                            <input
-                                v-model="libroSearch"
-                                @input="showLibroDropdown = true"
-                                @focus="showLibroDropdown = true"
-                                type="text"
-                                :placeholder="(form.tipo === 'egreso_manual' && !form.sucursal_destino_id) ? 'Seleccione sucursal primero...' : 'Buscar LIBRO por título, ISBN o autor...'"
-                                :disabled="form.tipo === 'egreso_manual' && !form.sucursal_destino_id"
-                                autocomplete="off"
-                                class="input-field w-full bg-black/40 text-xs font-bold py-3"
-                                :class="{'opacity-50 cursor-not-allowed': form.tipo === 'egreso_manual' && !form.sucursal_destino_id}"
-                            >
-                            <button type="button" @click="scanIsbn" v-if="form.tipo === 'ingreso_proveedor'" class="bg-brand-red/20 text-brand-red hover:bg-brand-red hover:text-white transition-colors border border-brand-red/30 px-4 rounded font-black text-[10px] uppercase tracking-widest whitespace-nowrap flex items-center gap-2">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div class="relative pt-2">
+                        <label class="block text-sm font-bold text-white/70 mb-2 leading-none">Agregar libros al movimiento</label>
+                        <div class="flex gap-3 items-center">
+                            <div class="relative flex-1">
+                                <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-white/40">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </div>
+                                <input
+                                    v-model="libroSearch"
+                                    @input="showLibroDropdown = true"
+                                    @focus="showLibroDropdown = true"
+                                    type="text"
+                                    :placeholder="(form.tipo === 'egreso_manual' && !form.sucursal_destino_id) ? 'Seleccione sucursal primero...' : 'Buscar libro por título, ISBN o autor...'"
+                                    :disabled="form.tipo === 'egreso_manual' && !form.sucursal_destino_id"
+                                    autocomplete="off"
+                                    class="input-field w-full pl-10 text-sm font-bold bg-black/40 text-white placeholder-white/30 border border-white/10 focus:border-white/20 focus:ring-0 focus:outline-none py-3"
+                                    :class="{'opacity-50 cursor-not-allowed': form.tipo === 'egreso_manual' && !form.sucursal_destino_id}"
+                                />
+                            </div>
+                            <button type="button" @click="scanIsbn" class="px-3.5 py-2 rounded-xl border border-brand-red/30 bg-brand-red/10 text-white font-bold text-xs uppercase tracking-wider hover:bg-brand-red transition-all flex items-center gap-1.5 shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm14 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
                                 </svg>
                                 Escanear ISBN
                             </button>
                         </div>
-                        <div v-if="showLibroDropdown && librosFiltrados.length" class="absolute z-[300] w-full mt-1 bg-brand-surface border border-brand-red/30 rounded-lg overflow-hidden shadow-2xl max-h-60 overflow-y-auto">
+                        <div v-if="showLibroDropdown && librosFiltrados.length" class="absolute z-[300] w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl max-h-60 overflow-y-auto">
                             <div
                                 v-for="l in librosFiltrados"
                                 :key="l.id"
                                 @mousedown.prevent="form.tipo === 'egreso_manual' && (l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0) <= 0 ? null : selectLibro(l)"
-                                class="px-4 py-3 border-b border-white/5 last:border-0 transition-colors"
-                                :class="form.tipo === 'egreso_manual' && (l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0) <= 0 ? 'opacity-30 cursor-not-allowed bg-black/40' : 'cursor-pointer hover:bg-brand-red/10 hover:text-brand-red'"
+                                class="px-4 py-3 border-b border-white/5 last:border-0 transition-colors flex items-center justify-between"
+                                :class="form.tipo === 'egreso_manual' && (l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0) <= 0 ? 'opacity-30 cursor-not-allowed bg-black/40' : 'cursor-pointer hover:bg-white/10 text-white'"
                             >
-                                <div class="text-xs font-black uppercase flex justify-between items-center gap-4">
-                                    <span>{{ l.titulo }}</span>
-                                    <span v-if="form.tipo === 'egreso_manual'" class="italic text-[10px] whitespace-nowrap" :class="(l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0) > 0 ? 'text-brand-red' : 'text-white/40'">
-                                        ({{ l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0 }} disponibles)
+                                <div>
+                                    <div class="text-sm font-bold text-white">{{ l.titulo }}</div>
+                                    <div class="text-xs text-white/40 font-mono mt-0.5">ISBN: {{ l.isbn || 'S/I' }}</div>
+                                </div>
+                                <div v-if="form.tipo === 'egreso_manual'" class="shrink-0">
+                                    <span
+                                        class="px-2.5 py-1 rounded-lg text-xs font-bold"
+                                        :class="(l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0) > 0 ? 'bg-white/10 text-white' : 'bg-white/5 text-white/30'"
+                                    >
+                                        Stock disponible: {{ l.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id)?.disponible || 0 }}
                                     </span>
                                 </div>
-                                <div class="text-[9px] text-white/30 font-mono mt-1 block">ISBN: {{ l.isbn || 'S/I' }} — {{ l.autor }}</div>
                             </div>
                         </div>
                         <div v-if="showLibroDropdown" class="fixed inset-0 z-[299]" @click="showLibroDropdown = false"></div>
                     </div>
 
                     <!-- Lista de Ítems (Detalles) -->
-                    <div class="md:col-span-12">
-                        <div v-if="form.items.length === 0" class="border border-dashed border-white/10 rounded-lg p-8 text-center text-white/30 text-xs uppercase font-bold tracking-widest">
+                    <div>
+                        <div v-if="form.items.length === 0" class="border-2 border-dashed border-white/10 rounded-xl p-10 text-center text-white/40 text-sm font-bold uppercase tracking-wider">
                             No hay libros en este movimiento. Buscá arriba para agregarlos.
                         </div>
                         
-                        <div v-else class="space-y-2">
-                            <div v-for="(item, index) in form.items" :key="index" class="flex flex-col sm:flex-row gap-4 items-center bg-white/[0.02] p-3 rounded-lg border border-white/5 hover:border-brand-red/30 transition-colors">
+                        <div v-else class="space-y-3">
+                            <div v-for="(item, index) in form.items" :key="index" class="flex flex-col sm:flex-row gap-4 items-center bg-white/[0.02] p-4 rounded-xl border border-white/5 hover:border-brand-red/30 transition-colors">
                                 <!-- Título -->
                                 <div class="flex-grow min-w-0 w-full sm:w-auto">
-                                    <div class="text-xs font-black text-white truncate">{{ item.label }}</div>
-                                    <div v-if="item.isbn" class="text-[9px] font-mono text-white/30 mt-0.5">ISBN: {{ item.isbn }}</div>
+                                    <div class="text-sm font-bold text-white truncate">{{ item.label }}</div>
+                                    <div v-if="item.isbn" class="text-xs font-mono text-white/40 mt-0.5">ISBN: {{ item.isbn }}</div>
                                 </div>
                                 
                                 <!-- Cantidad -->
-                                <div class="w-full sm:w-32 flex-shrink-0">
-                                    <label class="block text-[8px] font-black uppercase tracking-widest text-white/30 mb-1">
+                                <div class="w-full sm:w-36 flex-shrink-0">
+                                    <label class="block text-xs font-bold text-white/50 mb-1">
                                         Cantidad
                                     </label>
                                     <div class="flex items-center gap-1">
-                                        <button type="button" @click="item.cantidad > 1 && item.cantidad--" class="bg-white/5 hover:bg-brand-red px-2 py-1 rounded text-white font-black transition-colors">-</button>
+                                        <button type="button" @click="item.cantidad > 1 && item.cantidad--" class="bg-white/10 hover:bg-brand-red px-2 py-0.5 rounded text-xs text-white font-bold transition-colors">-</button>
                                         <input v-model="item.cantidad" type="number" 
                                                :max="getMaxStock(item.libro_id) !== null ? getMaxStock(item.libro_id) : ''"
                                                @input="validateMaxStock(item)"
-                                               class="input-field w-full text-center text-sm font-black py-1" :class="{'border-brand-red': form.errors[`items.${index}.cantidad`]}">
-                                        <button type="button" @click="(getMaxStock(item.libro_id) === null || item.cantidad < getMaxStock(item.libro_id)) && item.cantidad++" class="bg-white/5 hover:bg-green-500 px-2 py-1 rounded text-white font-black transition-colors">+</button>
+                                               class="input-field w-full text-center text-sm font-bold py-1 px-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" :class="{'border-brand-red': form.errors[`items.${index}.cantidad`]}">
+                                        <button type="button" @click="(getMaxStock(item.libro_id) === null || item.cantidad < getMaxStock(item.libro_id)) && item.cantidad++" class="bg-white/10 hover:bg-green-600 px-2 py-0.5 rounded text-xs text-white font-bold transition-colors">+</button>
                                     </div>
-                                    <div v-if="getMaxStock(item.libro_id) !== null" class="text-[9px] text-white/30 font-bold mt-1 text-center italic">
-                                        {{ getMaxStock(item.libro_id) }} u. disponibles
+                                    <div v-if="getMaxStock(item.libro_id) !== null" class="text-xs text-white/40 font-bold mt-1 text-center">
+                                        Stock disponible: {{ getMaxStock(item.libro_id) }}
                                     </div>
                                 </div>
                                 
                                 <!-- Costo (Solo ingreso) -->
-                                <div class="w-full sm:w-32 flex-shrink-0" v-if="form.tipo === 'ingreso_proveedor'">
-                                    <label class="block text-[8px] font-black uppercase tracking-widest text-white/30 mb-1">Costo Unit.</label>
-                                    <input v-model="item.costo_unitario" type="number" step="0.01" class="input-field w-full text-right text-xs font-mono py-1" :class="{'border-brand-red': form.errors[`items.${index}.costo_unitario`]}">
+                                <div class="w-full sm:w-36 flex-shrink-0" v-if="form.tipo === 'ingreso_proveedor'">
+                                    <label class="block text-xs font-bold text-white/50 mb-1">Costo Unit.</label>
+                                    <div class="relative rounded-xl overflow-hidden">
+                                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/40 text-xs font-bold">$</span>
+                                        <input
+                                            v-model="item.costo_unitario"
+                                            type="number"
+                                            step="0.01"
+                                            placeholder="0.00"
+                                            class="input-field w-full pl-7 pr-3 text-right text-sm font-bold font-mono py-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                            :class="{'border-brand-red': form.errors[`items.${index}.costo_unitario`]}"
+                                        />
+                                    </div>
                                 </div>
 
                                 <!-- Eliminar -->
-                                <button type="button" @click="removeItem(index)" class="mt-4 sm:mt-0 p-2 text-white/30 hover:text-brand-red transition-colors flex-shrink-0" title="Quitar">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <button type="button" @click="removeItem(index)" class="mt-4 sm:mt-0 p-1.5 text-white/40 hover:text-brand-red transition-colors flex-shrink-0" title="Quitar">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
                                     </svg>
                                 </button>
@@ -577,30 +683,31 @@ const editarCosto = async (detalle) => {
                         </div>
 
                         <!-- Errores generales de items -->
-                        <div v-if="form.errors.items" class="text-brand-red text-[10px] mt-2 font-bold">{{ form.errors.items }}</div>
+                        <div v-if="form.errors.items" class="text-brand-red text-xs mt-2 font-bold">{{ form.errors.items }}</div>
                         <div v-for="(error, key) in form.errors" :key="key">
-                            <div v-if="key.startsWith('items.')" class="text-brand-red text-[10px] mt-1">{{ error }}</div>
+                            <div v-if="key.startsWith('items.')" class="text-brand-red text-xs mt-1">{{ error }}</div>
                         </div>
                     </div>
 
                     <!-- Motivo / Observaciones -->
-                    <div class="md:col-span-12 mt-4">
-                        <label class="block text-[10px] font-black uppercase tracking-[0.2em] text-white/40 mb-2">Observaciones (Opcional)</label>
-                        <input v-model="form.motivo" type="text" class="input-field w-full text-xs" placeholder="Detalles extra de la operación..." :class="{'border-brand-red': form.errors.motivo}">
+                    <div>
+                        <label class="block text-sm font-bold text-white/70 mb-2 leading-none">Observaciones (Opcional)</label>
+                        <input v-model="form.motivo" type="text" class="input-field w-full text-sm font-bold py-3" placeholder="Detalles extra de la operación..." :class="{'border-brand-red': form.errors.motivo}">
                     </div>
 
                     <!-- Botones footer -->
-                    <div class="md:col-span-12 flex justify-end gap-4 mt-6 pt-6 border-t border-white/5">
-                        <button type="button" @click="isModalOpen = false" class="px-6 py-2 rounded border border-white/10 text-white/50 text-xs font-bold uppercase hover:bg-white/5 transition-colors">
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                        <button type="button" @click="isModalOpen = false" class="px-4 py-2 rounded-lg border border-white/10 text-xs font-bold uppercase tracking-wider text-white/50 hover:text-white hover:bg-white/5 transition-all">
                             Cancelar
                         </button>
-                        <button type="submit" :disabled="form.processing" class="btn-primary px-8 py-2 relative overflow-hidden group">
-                           <span class="relative z-10">{{ form.processing ? 'Procesando...' : 'CONFIRMAR OPERACIÓN' }}</span>
-                           <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-20 transition-opacity"></div>
+                        <button type="submit" :disabled="form.processing" class="btn-primary px-5 py-2 rounded-lg text-xs font-bold uppercase tracking-wider disabled:opacity-50">
+                            {{ form.processing ? 'Procesando...' : 'Confirmar Operación' }}
                         </button>
                     </div>
                 </form>
             </div>
+            </div>
         </div>
+        </template>
     </AuthenticatedLayout>
 </template>

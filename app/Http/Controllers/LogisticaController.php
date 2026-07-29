@@ -16,6 +16,11 @@ class LogisticaController extends Controller
     {
         $sucursalId = $request->user()->sucursalRestringidaId();
 
+        $filterDesde      = $request->input('desde');
+        $filterHasta      = $request->input('hasta');
+        $filterSucursalId = $request->input('sucursal_id');
+        $filterTipo       = $request->input('tipo');
+
         $movimientos = MovimientoStock::with([
             'detalles.libro.master',
             'origen',
@@ -26,7 +31,16 @@ class LogisticaController extends Controller
                 $sq->where('sucursal_origen_id', $sucursalId)
                    ->orWhere('sucursal_destino_id', $sucursalId);
             }))
-            ->latest()->paginate(15);
+            ->when($filterDesde, fn($q) => $q->whereDate('created_at', '>=', $filterDesde))
+            ->when($filterHasta, fn($q) => $q->whereDate('created_at', '<=', $filterHasta))
+            ->when($filterSucursalId, fn($q) => $q->where(function ($sq) use ($filterSucursalId) {
+                $sq->where('sucursal_origen_id', $filterSucursalId)
+                   ->orWhere('sucursal_destino_id', $filterSucursalId);
+            }))
+            ->when($filterTipo, fn($q) => $q->where('tipo', $filterTipo))
+            ->latest()
+            ->paginate(15)
+            ->withQueryString();
 
         // Pre-cargar libros para el buscador del modal
         $libros = Libro::with(['master', 'master.autor', 'stocks:id,libro_id,sucursal_id,cantidad_disponible'])
@@ -80,6 +94,12 @@ class LogisticaController extends Controller
             'libros' => $libros,
             'trasladosAEnviar' => $trasladosAEnviar,
             'trasladosARecibir' => $trasladosARecibir,
+            'filters' => [
+                'desde' => $filterDesde,
+                'hasta' => $filterHasta,
+                'sucursal_id' => $filterSucursalId,
+                'tipo' => $filterTipo,
+            ],
         ]);
     }
 

@@ -180,52 +180,38 @@ const eliminar = (gasto) => {
                     <!-- Desde -->
                     <div class="w-full">
                         <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Desde</label>
-                        <input v-model="desde" @change="aplicar" type="date"
-                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50" />
+                        <input v-model="desde" @change="aplicar" @click="$event.target.showPicker && $event.target.showPicker()" type="date"
+                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer" />
                     </div>
                     <!-- Hasta -->
                     <div class="w-full">
                         <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Hasta</label>
-                        <input v-model="hasta" @change="aplicar" type="date"
-                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50" />
+                        <input v-model="hasta" @change="aplicar" @click="$event.target.showPicker && $event.target.showPicker()" type="date"
+                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer" />
                     </div>
 
                     <!-- Sucursal dropdown -->
-                    <div class="relative w-full">
+                    <div class="w-full">
                         <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Sucursal</label>
-                        <button type="button" @click="showSucursalDrop = !showSucursalDrop"
-                            class="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white hover:border-white/20 transition-colors">
-                            <span>{{ sucursalLabel }}</span>
-                            <svg class="w-3.5 h-3.5 text-white/40 ml-auto" :class="{ 'rotate-180': showSucursalDrop }" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="showSucursalDrop" class="absolute z-20 w-full mt-1 bg-zinc-950 border border-white/10 rounded-lg overflow-hidden shadow-2xl">
-                            <button type="button" @click="selectSucursalFiltro('')" class="w-full text-left px-3.5 py-2 text-xs font-bold text-white/50 hover:bg-white/5 border-b border-white/5">Todas</button>
-                            <button v-for="s in sucursales" :key="s.id" type="button" @click="selectSucursalFiltro(s.id)"
-                                class="w-full text-left px-3.5 py-2 text-xs font-bold text-white hover:bg-white/5 border-b border-white/5 last:border-0"
-                                :class="{ 'text-brand-red': sucursalId == s.id }">{{ s.nombre }}</button>
-                        </div>
-                        <div v-if="showSucursalDrop" class="fixed inset-0 z-10" @click="showSucursalDrop = false" />
+                        <select v-model="sucursalId" @change="aplicar"
+                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50 cursor-pointer">
+                            <option value="" class="bg-[#1a1a1a] text-white/60">Todas las sucursales</option>
+                            <option v-for="s in sucursales" :key="s.id" :value="s.id" class="bg-[#1a1a1a] text-white">{{ s.nombre }}</option>
+                        </select>
                     </div>
 
                     <!-- Categoría dropdown -->
-                    <div class="relative w-full">
+                    <div class="w-full">
                         <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Categoría</label>
-                        <button type="button" @click="showCategoriaFiltro = !showCategoriaFiltro"
-                            class="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white hover:border-white/20 transition-colors">
-                            <span>{{ categoria ? catMap[categoria]?.label : 'Todas' }}</span>
-                            <svg class="w-3.5 h-3.5 text-white/40 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="showCategoriaFiltro" class="absolute z-20 w-full mt-1 bg-zinc-950 border border-white/10 rounded-lg overflow-hidden shadow-2xl">
-                            <button type="button" @click="selectCategoriaFiltro('')" class="w-full text-left px-3.5 py-2 text-xs font-bold text-white/50 hover:bg-white/5 border-b border-white/5">Todas</button>
-                            <button v-for="c in categorias" :key="c.value" type="button" @click="selectCategoriaFiltro(c.value)"
-                                class="w-full text-left px-3.5 py-2 text-xs font-bold text-white hover:bg-white/5 border-b border-white/5 last:border-0"
-                                :class="{ 'text-brand-red': categoria === c.value }">{{ c.label }}</button>
-                        </div>
-                        <div v-if="showCategoriaFiltro" class="fixed inset-0 z-10" @click="showCategoriaFiltro = false" />
+                        <select v-model="categoria" @change="aplicar"
+                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50 cursor-pointer">
+                            <option value="" class="bg-[#1a1a1a] text-white/60">Todas las categorías</option>
+                            <option v-for="c in categorias" :key="c.value" :value="c.value" class="bg-[#1a1a1a] text-white">{{ c.label }}</option>
+                        </select>
                     </div>
                 </div>
-                <div v-if="sucursalId || categoria || desde !== props.filters.desde || hasta !== props.filters.hasta" class="flex justify-end pt-1">
-                    <button @click="sucursalId = ''; categoria = ''; desde = props.filters.desde; hasta = props.filters.hasta; aplicar();"
+                <div v-if="sucursalId || categoria || desde || hasta" class="flex justify-end pt-1">
+                    <button @click="sucursalId = ''; categoria = ''; desde = ''; hasta = ''; aplicar();"
                         class="text-[10px] font-black uppercase tracking-wider text-brand-red hover:underline">
                         Limpiar Filtros
                     </button>

@@ -297,21 +297,24 @@ class ClienteController extends Controller
      */
     public function destroy(Cliente $cliente)
     {
-        if ($cliente->saldo_actual < 0) {
-            return redirect()->route('clientes.index')
-                ->with('error', 'No se puede eliminar el cliente porque tiene deuda pendiente.');
+        $saldo = (float) $cliente->saldo_actual;
+        if (abs($saldo) >= 0.01) {
+            $msg = $saldo < 0 
+                ? 'No se puede eliminar el cliente porque posee una deuda pendiente ($' . number_format(abs($saldo), 2, ',', '.') . '). Debe saldarla antes.'
+                : 'No se puede eliminar el cliente porque posee un saldo a favor ($' . number_format($saldo, 2, ',', '.') . '). Debe consumirse o devolverse antes.';
+            return redirect()->route('clientes.index')->with('error_modal', $msg);
         }
 
         \DB::transaction(function() use ($cliente) {
             $user = $cliente->user;
             $cliente->delete();
-            // We usually don't delete the user if they could be an employee too, 
-            // but here 1-1 structure suggests we might want to deactivate it.
-            $user->update(['activo' => false]);
-            $user->delete();
+            if ($user) {
+                $user->update(['activo' => false]);
+                $user->delete();
+            }
         });
 
         return redirect()->route('clientes.index')
-            ->with('message', 'Cliente eliminado con éxito');
+            ->with('message', 'Cliente eliminado con éxito. Las compras históricas conservan sus datos intactos.');
     }
 }

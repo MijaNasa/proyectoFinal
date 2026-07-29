@@ -18,20 +18,38 @@ class RutaRepartoController extends Controller
         $query = RutaReparto::with(['repartidor.user', 'paradas']);
 
         if ($request->filled('search')) {
-            $query->where('nombre', 'like', '%' . $request->search . '%');
-        }
-        if ($request->filled('fecha')) {
-            $query->where('fecha', $request->fecha);
+            $search = $request->search;
+            $query->where(function($q) use ($search) {
+                $q->where('nombre', 'like', '%' . $search . '%')
+                  ->orWhereHas('repartidor.user', function($u) use ($search) {
+                      $u->where('name', 'like', '%' . $search . '%')
+                        ->orWhere('apellido', 'like', '%' . $search . '%');
+                  });
+            });
         }
 
-        $rutas = $query->latest('fecha')->paginate(10)->withQueryString();
+        if ($request->filled('desde')) {
+            $query->whereDate('fecha', '>=', $request->desde);
+        }
+        if ($request->filled('hasta')) {
+            $query->whereDate('fecha', '<=', $request->hasta);
+        }
+        if ($request->filled('fecha') && !$request->filled('desde') && !$request->filled('hasta')) {
+            $query->whereDate('fecha', $request->fecha);
+        }
+
+        if ($request->filled('estado')) {
+            $query->where('estado', $request->estado);
+        }
+
+        $rutas = $query->latest('fecha')->latest('id')->paginate(15)->withQueryString();
 
         return inertia('Repartos/Index', [
             'rutas'        => $rutas,
             'repartidores' => Empleado::with('user:id,name,apellido')->whereHas('cargos', function($q) {
                 $q->where('nombre', 'REPARTIDOR');
             })->get(['id', 'user_id']),
-            'filters'      => $request->only(['search', 'fecha']),
+            'filters'      => $request->only(['search', 'desde', 'hasta', 'fecha', 'estado']),
         ]);
     }
 
@@ -90,8 +108,8 @@ class RutaRepartoController extends Controller
 
     public function destroy(RutaReparto $rutasReparto)
     {
-        if ($rutasReparto->paradas()->where('estado', 'entregada')->exists()) {
-            return back()->with('error', 'No se puede eliminar una ruta con paradas ya entregadas.');
+        if ($rutasReparto->estado === 'finalizada' || $rutasReparto->paradas()->where('estado', 'entregada')->exists()) {
+            return back()->with('error', 'No se puede eliminar una ruta finalizada.');
         }
 
         \Illuminate\Support\Facades\DB::transaction(function () use ($rutasReparto) {
@@ -110,6 +128,10 @@ class RutaRepartoController extends Controller
 
     public function asignarVenta(Request $request, RutaReparto $rutasReparto)
     {
+        if ($rutasReparto->estado === 'finalizada') {
+            return back()->with('error', 'No se pueden agregar paradas a una ruta finalizada.');
+        }
+
         $request->validate([
             'venta_ids'      => 'required|array|min:1',
             'venta_ids.*'    => 'exists:ventas,id',
@@ -201,6 +223,10 @@ class RutaRepartoController extends Controller
     {
         if ($parada->ruta_reparto_id !== $rutasReparto->id) {
             abort(404);
+        }
+
+        if (!$rutasReparto->activa) {
+            return back()->with('error', 'Debes iniciar la ruta para poder cambiar el estado de las paradas.');
         }
 
         $request->validate([
@@ -304,6 +330,14 @@ class RutaRepartoController extends Controller
 
     public function iniciarRuta(RutaReparto $rutasReparto)
     {
+        if (!$rutasReparto->repartidor_id) {
+            return back()->with('error', 'No se puede iniciar una ruta sin un repartidor asignado.');
+        }
+
+        if ($rutasReparto->paradas()->count() === 0) {
+            return back()->with('error', 'No se puede iniciar una ruta sin paradas asignadas.');
+        }
+
         if ($rutasReparto->activa) {
             return back()->with('error', 'La ruta ya se encuentra activa.');
         }
@@ -339,19 +373,17 @@ class RutaRepartoController extends Controller
 
             foreach ($rutasReparto->paradas as $parada) {
                 if (in_array($parada->estado, ['pendiente', 'en camino'])) {
-                    // Volver la venta a 'en_preparacion'
+                    // Marcar la parada como fallida en esta ruta finalizada
+                    $parada->update(['estado' => 'fallida']);
+                    // Devolver la venta a en_preparacion para que pueda re-asignarse
                     if ($parada->venta) {
                         $parada->venta->update(['estado' => 'en_preparacion']);
-                    }
-                    // Devolver la parada a estado pendiente para que pueda ser recogida por otra ruta
-                    if ($parada->estado === 'en camino') {
-                        $parada->update(['estado' => 'pendiente']);
                     }
                 }
             }
         });
 
-        return back()->with('message', 'Ruta finalizada. Las ventas pendientes volvieron a estar en preparación.');
+        return back()->with('message', 'Ruta finalizada. Las entregas pendientes se marcaron como fallidas y sus ventas volvieron a estar en preparación.');
     }
 
     public function reordenarParadas(Request $request, RutaReparto $rutasReparto)

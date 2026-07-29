@@ -57,6 +57,7 @@ class HandleInertiaRequests extends Middleware
                 'success' => session('success') ?? session('message'),
                 'warning' => session('warning'),
                 'error'   => session('error'),
+                'error_modal' => session('error_modal'),
                 'nuevaPassword' => session('nuevaPassword'),
             ],
         ];

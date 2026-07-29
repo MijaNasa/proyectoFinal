@@ -12,8 +12,10 @@ const props = defineProps({
     filters:      Object,
 });
 
-const search = ref(props.filters.search || '');
-const fecha  = ref(props.filters.fecha  || '');
+const search       = ref(props.filters.search       || '');
+const desde        = ref(props.filters.desde        || '');
+const hasta        = ref(props.filters.hasta        || '');
+const estadoFiltro = ref(props.filters.estado       || '');
 
 const showModal          = ref(false);
 const showRepartidorDrop = ref(false);
@@ -33,28 +35,40 @@ const form = useForm({
     repartidor_id: '',
 });
 
-const submitSearch = () => {
-    router.get(route('rutas-reparto.index'), { search: search.value, fecha: fecha.value }, { 
+const crearNuevaRutaDirecta = () => {
+    form.post(route('rutas-reparto.store'));
+};
+
+const aplicarFiltros = () => {
+    router.get(route('rutas-reparto.index'), {
+        search: search.value || undefined,
+        desde: desde.value || undefined,
+        hasta: hasta.value || undefined,
+        estado: estadoFiltro.value || undefined,
+    }, { 
         preserveState: true,
         replace: true
     });
 };
 
+const limpiarFiltros = () => {
+    search.value = '';
+    desde.value = '';
+    hasta.value = '';
+    estadoFiltro.value = '';
+    aplicarFiltros();
+};
+
 let searchTimeout = null;
-watch([search, fecha], () => {
+watch(search, () => {
     if (searchTimeout) clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => {
-        submitSearch();
+        aplicarFiltros();
     }, 300);
 });
 
-const submitCrear = () => {
-    form.post(route('rutas-reparto.store'), {
-        onSuccess: () => { showModal.value = false; form.reset(); },
-    });
-};
-
 const eliminar = (ruta) => {
+    if (ruta.estado === 'finalizada') return;
     Swal.fire({
         title: '¿Eliminar ruta?',
         text: `"${ruta.nombre}" será eliminada permanentemente.`,
@@ -73,18 +87,26 @@ const eliminar = (ruta) => {
     });
 };
 
-const estadoParada = {
-    pendiente:   { label: 'Pendiente',   color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30' },
-    'en camino': { label: 'En camino',   color: 'text-blue-400 bg-blue-400/10 border-blue-400/30' },
-    entregada:   { label: 'Entregada',   color: 'text-green-400 bg-green-400/10 border-green-400/30' },
-    fallida:     { label: 'Fallida',     color: 'text-red-400 bg-red-400/10 border-red-400/30' },
+const formatNombreRuta = (nombre) => {
+    if (!nombre) return 'Envío #0000';
+    const match = String(nombre).match(/\d+/);
+    if (match) {
+        const num = match[0].padStart(4, '0');
+        return `Envío #${num}`;
+    }
+    return nombre;
 };
 
-const formatFecha = (f) =>
-    new Date(f + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'short', day: '2-digit', month: 'short' });
+const contarEntregadas = (paradas) => (paradas || []).filter(p => p.estado === 'entregada').length;
 
-const contarEstados = (paradas) =>
-    paradas.reduce((acc, p) => { acc[p.estado] = (acc[p.estado] || 0) + 1; return acc; }, {});
+const formatFecha = (f) => {
+    if (!f) return '—';
+    const iso = String(f).slice(0, 10) + 'T00:00:00';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return String(f).slice(0, 10);
+    const str = d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' });
+    return str.replace('.', '');
+};
 </script>
 
 <template>
@@ -101,116 +123,162 @@ const contarEstados = (paradas) =>
                         Planificación y seguimiento de entregas
                     </p>
                 </div>
-                <button @click="showModal = true" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                <button @click="crearNuevaRutaDirecta" :disabled="form.processing" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    Nueva Ruta
+                    {{ form.processing ? 'Creando...' : 'Nueva Ruta' }}
                 </button>
             </div>
         </template>
 
-        <div class="px-8 py-8 space-y-8">
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
 
+            <!-- Barra de Filtros -->
+            <div class="card p-4 border-white/5 space-y-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                    <!-- Buscador -->
+                    <div class="w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Búsqueda</label>
+                        <div class="relative w-full">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </span>
+                            <input
+                                v-model="search"
+                                type="text"
+                                placeholder="Ruta o repartidor..."
+                                class="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 placeholder-white/30"
+                            />
+                        </div>
+                    </div>
 
+                    <!-- Desde -->
+                    <div class="w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Desde</label>
+                        <input
+                            v-model="desde"
+                            @change="aplicarFiltros"
+                            @click="$event.target.showPicker && $event.target.showPicker()"
+                            type="date"
+                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer"
+                        />
+                    </div>
 
-            <!-- Filtros -->
-            <div class="flex flex-col sm:flex-row gap-3">
-                <div class="relative flex-1 max-w-md">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </span>
-                    <input
-                        v-model="search"
-                        type="text"
-                        placeholder="Buscar por nombre..."
-                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
-                    />
+                    <!-- Hasta -->
+                    <div class="w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Hasta</label>
+                        <input
+                            v-model="hasta"
+                            @change="aplicarFiltros"
+                            @click="$event.target.showPicker && $event.target.showPicker()"
+                            type="date"
+                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer"
+                        />
+                    </div>
+
+                    <!-- Estado -->
+                    <div class="w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Estado</label>
+                        <select v-model="estadoFiltro" @change="aplicarFiltros" class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer">
+                            <option value="" class="bg-[#1a1a1a] text-white/60">Todas las rutas</option>
+                            <option value="pendiente" class="bg-[#1a1a1a] text-white">Pendiente</option>
+                            <option value="activa" class="bg-[#1a1a1a] text-white">En Curso</option>
+                            <option value="finalizada" class="bg-[#1a1a1a] text-white">Finalizada</option>
+                        </select>
+                    </div>
                 </div>
-                <input
-                    v-model="fecha"
-                    type="date"
-                    class="bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50"
-                />
+                <div v-if="search || desde || hasta || estadoFiltro" class="flex justify-end pt-1">
+                    <button @click="limpiarFiltros" class="text-[10px] font-black uppercase tracking-wider text-brand-red hover:underline cursor-pointer">
+                        Limpiar Filtros
+                    </button>
+                </div>
             </div>
 
             <!-- Tabla -->
-            <div class="bg-white/[0.02] border border-white/10 rounded-2xl overflow-x-auto">
-                <table class="w-full text-sm">
+            <div class="card p-0 overflow-hidden">
+                <table class="w-full text-left table-fixed">
                     <thead>
-                        <tr class="border-b border-white/5 bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50">
-                            <th class="text-left px-6 py-4">Ruta</th>
-                            <th class="text-left px-6 py-4">Fecha</th>
-                            <th class="text-left px-6 py-4">Repartidor</th>
-                            <th class="text-center px-6 py-4">Paradas</th>
-                            <th class="text-center px-6 py-4">Estado</th>
-                            <th class="text-right px-6 py-4">Acciones</th>
+                        <tr class="border-b border-white/10 bg-white/[0.01] uppercase text-xs font-bold tracking-wider text-white/50">
+                            <th class="p-4 w-[25%]">Ruta</th>
+                            <th class="p-4 w-[20%]">Fecha</th>
+                            <th class="p-4 w-[25%]">Repartidor</th>
+                            <th class="p-4 w-[20%] text-center">Paradas</th>
+                            <th class="p-4 w-[18%] text-center">Estado</th>
+                            <th class="p-4 w-[12%] text-right">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-white/5">
                         <tr v-if="!rutas.data.length">
-                            <td colspan="6" class="text-center py-16 text-white/20 font-bold uppercase tracking-widest text-xs">
+                            <td colspan="6" class="text-center py-12 text-white/20 font-bold uppercase tracking-widest text-xs">
                                 No hay rutas registradas
                             </td>
                         </tr>
                         <tr
                             v-for="ruta in rutas.data"
                             :key="ruta.id"
-                            class="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
+                            class="hover:bg-white/[0.02] transition-colors"
                         >
-                            <td class="px-6 py-4">
-                                <p class="font-black text-white">{{ ruta.nombre }}</p>
-                                <p class="text-[10px] text-white/30 font-bold uppercase">
-                                    {{ ruta.paradas?.length ?? 0 }} paradas
+                            <td class="p-4">
+                                <p class="text-sm font-bold text-white">{{ formatNombreRuta(ruta.nombre) }}</p>
+                                <p class="text-xs text-white/50 font-medium">
+                                    {{ (ruta.paradas?.length ?? 0) === 1 ? '1 parada' : `${ruta.paradas?.length ?? 0} paradas` }}
                                 </p>
                             </td>
-                            <td class="px-6 py-4 text-white/60 font-bold">
+                            <td class="p-4 text-sm font-bold text-white">
                                 {{ formatFecha(ruta.fecha) }}
                             </td>
-                            <td class="px-6 py-4 text-white/60 font-bold">
-                                {{ ruta.repartidor?.user?.name ?? '—' }}
-                                {{ ruta.repartidor?.user?.apellido ?? '' }}
+                            <td class="p-4 text-sm font-bold text-white">
+                                {{ ruta.repartidor?.user ? `${ruta.repartidor.user.name} ${ruta.repartidor.user.apellido ?? ''}` : 'Sin asignar' }}
                             </td>
-                            <td class="px-6 py-4 text-center">
-                                <div class="flex justify-center gap-1 flex-wrap">
-                                    <template v-if="ruta.paradas?.length">
-                                        <span
-                                            v-for="(count, estado) in contarEstados(ruta.paradas)"
-                                            :key="estado"
-                                            class="text-[10px] font-black px-2 py-0.5 rounded-full border"
-                                            :class="estadoParada[estado]?.color"
-                                        >
-                                            {{ count }} {{ estadoParada[estado]?.label }}
-                                        </span>
-                                    </template>
-                                    <span v-else class="text-white/20 text-xs">sin paradas</span>
+                            <td class="p-4 text-center">
+                                <div v-if="ruta.paradas?.length" class="flex flex-col items-center gap-1">
+                                    <span class="text-xs font-bold text-emerald-400/90">
+                                        {{ contarEntregadas(ruta.paradas) }}/{{ ruta.paradas.length }} entregadas
+                                    </span>
+                                    <div class="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                        <div
+                                            class="h-full bg-emerald-400 rounded-full transition-all"
+                                            :style="{ width: (contarEntregadas(ruta.paradas) / ruta.paradas.length * 100) + '%' }"
+                                        ></div>
+                                    </div>
                                 </div>
+                                <span v-else class="text-white/30 text-xs font-medium">Sin paradas</span>
                             </td>
-                            <td class="px-6 py-4 text-center">
-                                <span
-                                    class="text-[10px] font-black px-3 py-1 rounded-full border"
-                                    :class="{
-                                        'text-yellow-400 bg-yellow-400/10 border-yellow-400/30': ruta.estado === 'pendiente',
-                                        'text-green-400 bg-green-400/10 border-green-400/30': ruta.estado === 'activa',
-                                        'text-white/20 bg-white/5 border-white/10': ruta.estado === 'finalizada'
-                                    }"
-                                >
+                            <td class="p-4 text-center">
+                                <span class="bg-[#1a1a1a] border border-white/10 text-white font-bold text-xs rounded-full px-3 py-1 inline-flex items-center gap-1.5 shadow-sm">
+                                    <span
+                                        class="w-2 h-2 rounded-full"
+                                        :class="{
+                                            'bg-amber-400': ruta.estado === 'pendiente',
+                                            'bg-sky-400': ruta.estado === 'activa',
+                                            'bg-emerald-400': ruta.estado === 'finalizada'
+                                        }"
+                                    ></span>
                                     {{ ruta.estado === 'pendiente' ? 'Pendiente' : (ruta.estado === 'activa' ? 'En Curso' : 'Finalizada') }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex items-center justify-end gap-2">
+                            <td class="p-4 text-right">
+                                <div class="flex items-center justify-end gap-1">
                                     <Link
                                         :href="route('rutas-reparto.show', ruta.id)"
-                                        class="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-white/5 hover:bg-brand-red hover:text-white transition-all"
+                                        class="p-1.5 text-white/40 hover:text-white transition-colors hover:bg-white/5 rounded-lg"
+                                        title="Ver detalle de ruta"
                                     >
-                                        Ver
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
                                     </Link>
                                     <button
+                                        v-if="ruta.estado !== 'finalizada'"
                                         @click="eliminar(ruta)"
-                                        class="text-[10px] font-black uppercase tracking-widest px-3 py-2 rounded-lg bg-white/5 hover:bg-red-900/50 hover:text-red-400 transition-all"
+                                        class="p-1.5 text-white/40 hover:text-brand-red transition-colors hover:bg-white/5 rounded-lg"
+                                        title="Eliminar ruta"
                                     >
-                                        Eliminar
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
                                     </button>
                                 </div>
                             </td>
@@ -225,65 +293,11 @@ const contarEstados = (paradas) =>
                     v-for="link in rutas.links"
                     :key="link.label"
                     :href="link.url || '#'"
-                    class="px-4 py-2 rounded-lg border border-white/10 text-xs font-black uppercase tracking-tighter transition-all"
+                    class="px-4 py-2 rounded-lg border border-white/10 text-xs font-bold uppercase transition-all"
                     :class="{ 'bg-brand-red text-white border-brand-red': link.active, 'text-white/30 pointer-events-none': !link.url }"
                 >{{ decodeLabel(link.label) }}</Link>
             </div>
         </div>
-
-        <!-- Modal Crear Ruta -->
-        <Teleport to="body">
-            <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showModal = false" />
-                <div class="relative bg-[#111] border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-                    <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden -mx-8 -mt-8 mb-6 rounded-t-2xl">
-                        <h3 class="text-xl font-black uppercase tracking-tighter relative"> Nueva <span class="text-white">Ruta</span></h3>
-                        <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    </div>
-
-                    <form @submit.prevent="submitCrear" class="space-y-4">
-                        <div class="relative">
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Repartidor</label>
-                            <button
-                                type="button"
-                                @click="showRepartidorDrop = !showRepartidorDrop"
-                                class="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white hover:border-brand-red/50 transition-colors"
-                            >
-                                <span>{{ repartidorLabel }}</span>
-                                <svg class="w-4 h-4 text-white/30" :class="{ 'rotate-180': showRepartidorDrop }" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                            </button>
-                            <div v-if="showRepartidorDrop" class="absolute z-20 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                                <button type="button" @click="selectRepartidor('')" class="w-full text-left px-4 py-3 text-sm text-white/40 hover:bg-white/5 transition-colors border-b border-white/5">
-                                    Sin asignar
-                                </button>
-                                <button
-                                    v-for="r in repartidores" :key="r.id"
-                                    type="button"
-                                    @click="selectRepartidor(r.id)"
-                                    class="w-full text-left px-4 py-3 text-sm text-white hover:bg-white/5 transition-colors border-b border-white/5 last:border-0"
-                                    :class="{ 'text-brand-red': form.repartidor_id == r.id }"
-                                >
-                                    {{ r.user?.name }} {{ r.user?.apellido }}
-                                </button>
-                            </div>
-                            <div v-if="showRepartidorDrop" class="fixed inset-0 z-10" @click="showRepartidorDrop = false" />
-                            <p v-if="form.errors.repartidor_id" class="text-red-400 text-xs mt-1">{{ form.errors.repartidor_id }}</p>
-                        </div>
-
-                        <div class="flex gap-3 pt-2">
-                            <button type="button" @click="showModal = false" class="flex-1 py-3 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/40 hover:bg-white/5 transition-all">
-                                Cancelar
-                            </button>
-                            <button type="submit" :disabled="form.processing" class="flex-1 btn-primary py-3 rounded-xl text-xs font-black uppercase tracking-widest">
-                                {{ form.processing ? 'Creando...' : 'Crear Ruta' }}
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </Teleport>
     </AuthenticatedLayout>
 </template>
 

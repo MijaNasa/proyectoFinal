@@ -54,7 +54,7 @@ watch(ajusteCantidad, (val) => {
 const isEditing = ref(false);
 const showModal = ref(false);
 
-// --- Buscador Automático (Debounce) ---
+// --- Buscador Automático Ultra-Reactivo (Debounce 100ms) ---
 let debounceTimeout = null;
 watch(search, (value) => {
     clearTimeout(debounceTimeout);
@@ -62,10 +62,17 @@ watch(search, (value) => {
         router.get(
             route('stocks.index'),
             { search: value, sucursal_id: sucursal_id.value },
-            { preserveState: true, preserveScroll: true }
+            { preserveState: true, preserveScroll: true, replace: true }
         );
-    }, 300);
+    }, 100);
 });
+
+// Desplegar automáticamente resultados al buscar
+watch(() => props.obras.data, (newObras) => {
+    if (search.value && newObras && newObras.length > 0) {
+        expandedObras.value = newObras.map(o => o.id);
+    }
+}, { immediate: true });
 
 const handleSucursalChange = () => {
     router.get(

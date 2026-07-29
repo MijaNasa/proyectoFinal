@@ -18,29 +18,29 @@ class GastoController extends Controller
             'categoria'  => 'nullable|string',
         ]);
 
-        $desde      = $request->get('desde', now()->startOfMonth()->toDateString());
-        $hasta      = $request->get('hasta', now()->toDateString());
-        $sucursalId = $request->user()->sucursalRestringidaId() ?: $request->get('sucursal_id');
-        $categoria  = $request->get('categoria');
+        $desde      = $request->input('desde');
+        $hasta      = $request->input('hasta');
+        $sucursalId = $request->user()->sucursalRestringidaId() ?: $request->input('sucursal_id');
+        $categoria  = $request->input('categoria');
 
         $query = Gasto::with(['sucursal:id,nombre', 'user:id,name,apellido'])
-            ->where('fecha', '>=', $desde)
-            ->where('fecha', '<=', $hasta . ' 23:59:59')
+            ->when($desde, fn($q) => $q->where('fecha', '>=', $desde))
+            ->when($hasta, fn($q) => $q->where('fecha', '<=', $hasta . ' 23:59:59'))
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
             ->when($categoria,  fn($q) => $q->where('categoria', $categoria))
             ->orderByDesc('fecha')->orderByDesc('id');
 
         $gastos = $query->paginate(25)->withQueryString();
 
-        $stats = Gasto::where('fecha', '>=', $desde)
-            ->where('fecha', '<=', $hasta . ' 23:59:59')
+        $stats = Gasto::when($desde, fn($q) => $q->where('fecha', '>=', $desde))
+            ->when($hasta, fn($q) => $q->where('fecha', '<=', $hasta . ' 23:59:59'))
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
             ->when($categoria,  fn($q) => $q->where('categoria', $categoria))
             ->selectRaw('COUNT(*) as cantidad, SUM(monto) as total')
             ->first();
 
-        $porCategoria = Gasto::where('fecha', '>=', $desde)
-            ->where('fecha', '<=', $hasta . ' 23:59:59')
+        $porCategoria = Gasto::when($desde, fn($q) => $q->where('fecha', '>=', $desde))
+            ->when($hasta, fn($q) => $q->where('fecha', '<=', $hasta . ' 23:59:59'))
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
             ->when($categoria,  fn($q) => $q->where('categoria', $categoria))
             ->select('categoria', DB::raw('SUM(monto) as total'), DB::raw('COUNT(*) as cantidad'))
