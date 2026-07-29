@@ -192,6 +192,14 @@ const counts = computed(() => {
 const formatFecha = (f) =>
     new Date(f + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
+// Separa la direccion (calle, numero, piso, etc.) de las observaciones (timbre, referencias)
+// que Checkout arma como "..., CP 2000, Localidad, Provincia | Obs: tocar timbre fuerte"
+const splitDireccion = (direccion) => {
+    if (!direccion) return { principal: '', obs: '' };
+    const [principal, obs] = direccion.split('|').map(s => s.trim());
+    return { principal, obs: obs ? obs.replace(/^Obs:\s*/i, '') : '' };
+};
+
 // ──────────────────────────────────────────
 // Mapa Leaflet
 // ──────────────────────────────────────────
@@ -285,7 +293,8 @@ const updateMap = () => {
         });
 
         const marker = L.marker([p.latitud, p.longitud], { icon }).addTo(map);
-        marker.bindPopup(`<b class="text-black uppercase text-[10px]">Parada ${p.orden}</b><br><span class="text-black text-xs">${p.venta?.direccion_envio}</span>`);
+        const { principal, obs } = splitDireccion(p.venta?.direccion_envio);
+        marker.bindPopup(`<b class="text-black uppercase text-[10px]">Parada ${p.orden}</b><br><span class="text-black text-xs">${principal}</span>${obs ? `<br><span class="text-yellow-600 text-xs font-bold">🔔 ${obs}</span>` : ''}`);
         markers.push(marker);
     });
 
@@ -492,10 +501,15 @@ watch(localParadas, () => {
                                         {{ estadoConfig[parada.estado]?.label }}
                                     </span>
                                 </div>
-                                <p class="text-sm text-white/90 mb-3 whitespace-normal font-bold capitalize">
-                                    📍 {{ parada.venta?.direccion_envio }}
-                                </p>
-                                
+                                <div class="mb-3">
+                                    <p class="text-sm text-white/90 whitespace-normal font-bold capitalize">
+                                        📍 {{ splitDireccion(parada.venta?.direccion_envio).principal }}
+                                    </p>
+                                    <p v-if="splitDireccion(parada.venta?.direccion_envio).obs" class="text-xs text-yellow-400/80 mt-1 whitespace-normal font-bold">
+                                        🔔 {{ splitDireccion(parada.venta?.direccion_envio).obs }}
+                                    </p>
+                                </div>
+
                                 <div class="flex items-center gap-3 text-xs text-white/50 font-black uppercase mb-4">
                                     <span>Venta #{{ parada.venta?.id }}</span>
                                     <span>·</span>
