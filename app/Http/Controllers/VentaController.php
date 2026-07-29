@@ -79,7 +79,7 @@ class VentaController extends Controller
     {
         $q = trim($request->get('q', ''));
 
-        if (strlen($q) < 2) {
+        if (strlen($q) < 1) {
             return response()->json([]);
         }
 
@@ -111,7 +111,7 @@ class VentaController extends Controller
         $q          = trim($request->get('q', ''));
         $sucursalId = filter_var($request->get('sucursal_id'), FILTER_VALIDATE_INT) ?: null;
 
-        if (strlen($q) < 2) {
+        if (strlen($q) < 1) {
             return response()->json([]);
         }
 

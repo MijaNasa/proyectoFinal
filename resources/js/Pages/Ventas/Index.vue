@@ -42,16 +42,16 @@ const estadoOpcionesFiltradas = computed(() => {
     });
 });
 
-const estadoColores = {
-    en_preventa:        'bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20',
-    pendiente_pago:     'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20',
-    esperando_traslado: 'bg-purple-500/10 text-purple-400 border border-purple-500/20',
-    en_preparacion:     'bg-blue-500/10 text-blue-400 border border-blue-500/20',
-    listo_para_retiro:  'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
-    acumulado:          'bg-orange-500/10 text-orange-400 border border-orange-500/20',
-    enviado:            'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20',
-    finalizado:         'bg-green-500/10 text-green-400 border border-green-500/20',
-    cancelado:          'bg-red-500/10 text-red-400 border border-red-500/20',
+const estadoDots = {
+    en_preventa:        'bg-fuchsia-400',
+    pendiente_pago:     'bg-amber-400',
+    esperando_traslado: 'bg-purple-400',
+    en_preparacion:     'bg-blue-400',
+    listo_para_retiro:  'bg-emerald-400',
+    acumulado:          'bg-orange-400',
+    enviado:            'bg-indigo-400',
+    finalizado:         'bg-emerald-400',
+    cancelado:          'bg-red-400',
 };
 
 
@@ -147,7 +147,7 @@ const clienteTimer = ref(null);
 
 const buscarClientes = (q) => {
     clearTimeout(clienteTimer.value);
-    if (q.length < 2) { clientesResults.value = []; return; }
+    if (q.length < 1) { clientesResults.value = []; return; }
     clienteTimer.value = setTimeout(async () => {
         const res = await fetch(route('ventas.search-clientes') + '?q=' + encodeURIComponent(q));
         clientesResults.value = await res.json();
@@ -282,7 +282,7 @@ const libroTimer = ref(null);
 
 const buscarLibros = (q) => {
     clearTimeout(libroTimer.value);
-    if (q.length < 2) { librosResults.value = []; return; }
+    if (q.length < 1) { librosResults.value = []; return; }
     libroTimer.value = setTimeout(async () => {
         const params = new URLSearchParams({ q });
         const sucursalId = page.props.auth.empleado?.sucursal_id;
@@ -695,9 +695,8 @@ onMounted(() => {
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <!-- Estadísticas Rápidas -->
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+            <!-- Estadísticas Rápidas -->
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
                     <div class="card p-6 border-white/5">
                         <div class="text-[8px] font-black uppercase tracking-[0.3em] text-white/30 mb-1">Ventas Hoy</div>
@@ -814,55 +813,53 @@ onMounted(() => {
                 <div class="card p-0 overflow-hidden border-white/5" :class="{'opacity-70': currentTab === 'canceladas' || currentTab === 'finalizadas'}">
                     <table class="w-full text-left border-collapse table-fixed">
                         <thead>
-                            <tr class="bg-white/[0.02] text-[9px] font-black uppercase tracking-widest text-white/50 border-b border-white/5">
-                                <th class="p-6 w-[15%]">Ticket / Fecha</th>
-                                <th class="p-6 w-[25%]">Cliente / Canal</th>
-                                <th class="p-6 w-[15%]">Sucursal</th>
-                                <th class="p-6 w-[15%]">Pago / Envío</th>
-                                <th class="p-6 text-right w-[15%]">Monto Total</th>
-                                <th class="p-6 text-center w-[15%]">Acciones</th>
+                            <tr class="bg-white/[0.02] text-[10px] font-black uppercase tracking-widest text-white/50 border-b border-white/5">
+                                <th class="p-4 text-left w-[18%]">Ticket</th>
+                                <th class="p-4 text-left w-[25%]">Cliente</th>
+                                <th class="p-4 text-left w-[15%]">Sucursal</th>
+                                <th class="p-4 text-left w-[17%]">Estado</th>
+                                <th class="p-4 text-right w-[15%]">Monto Total</th>
+                                <th class="p-4 text-center w-[10%]">Acciones</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
                             <template v-for="venta in ventas.data" :key="venta.id">
                                 <tr class="hover:bg-white/[0.01] transition-colors group">
-                                    <td class="p-6">
-                                        <div class="text-xs font-black transition-colors" :class="venta.estado === 'cancelado' ? 'text-white/40 line-through' : 'text-brand-red/85 group-hover:text-brand-red'">#TK-{{ String(venta.id).padStart(6, '0') }}</div>
-                                        <div class="text-[9px] text-white/40 mt-1">{{ formatTicketDate(venta.fecha) }}</div>
+                                    <td class="p-4 text-left">
+                                        <div class="text-sm font-black transition-colors" :class="venta.estado === 'cancelado' ? 'text-white/40 line-through' : 'text-white group-hover:text-brand-red'">#TK-{{ String(venta.id).padStart(6, '0') }}</div>
+                                        <div class="text-[10px] text-white/30 font-mono mt-1">{{ formatTicketDate(venta.fecha) }}</div>
                                     </td>
-                                    <td class="p-6">
-                                        <Link v-if="venta.cliente_id" :href="route('clientes.show', venta.cliente_id)" @click.stop class="text-xs font-black uppercase hover:text-brand-red transition-colors block leading-relaxed">
+                                    <td class="p-4 text-left">
+                                        <Link v-if="venta.cliente_id" :href="route('clientes.show', venta.cliente_id)" @click.stop class="text-sm font-bold text-white/90 hover:text-brand-red transition-colors block leading-relaxed capitalize">
                                             {{ getClienteNombre(venta) }}
                                         </Link>
-                                        <div v-else class="text-xs font-black uppercase text-white/50 leading-relaxed">
+                                        <div v-else class="text-sm font-bold text-white/90 leading-relaxed capitalize">
                                             {{ getClienteNombre(venta) }}
                                         </div>
-                                        <div class="bg-white/5 text-[8px] font-black px-2 py-0.5 rounded inline-block mt-2 uppercase tracking-widest text-white/20" :class="venta.tipo === 'online' ? 'text-blue-400' : ''">
-                                            {{ venta.tipo }}
-                                        </div>
                                     </td>
-                                    <td class="p-6">
-                                        <span class="text-[10px] font-black uppercase opacity-60">{{ venta.sucursal?.nombre }}</span>
+                                    <td class="p-4 text-left">
+                                        <span class="text-sm font-bold text-white/90">{{ venta.sucursal?.nombre || 'General' }}</span>
                                     </td>
-                                    <td class="p-6">
+                                    <td class="p-4 text-left">
                                         <div class="flex flex-col gap-1 items-start">
-                                            <span class="text-[8px] font-black uppercase tracking-widest px-2 py-1 rounded" :class="estadoColores[venta.estado] || 'bg-white/5 text-white/40'">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white/[0.04] border border-white/10 text-xs font-bold text-white/90">
+                                                <span class="w-1.5 h-1.5 rounded-full shrink-0" :class="estadoDots[venta.estado] || 'bg-gray-400'"></span>
                                                 {{ estadoOpciones.find(e => e.value === venta.estado)?.label || venta.estado }}
                                             </span>
                                         </div>
                                     </td>
-                                    <td class="p-6 text-right">
-                                        <div class="text-sm font-black">{{ formatCurrency(venta.total) }}</div>
+                                    <td class="p-4 text-right">
+                                        <div class="text-base font-black text-white">{{ formatCurrency(venta.total) }}</div>
                                     </td>
-                                    <td class="p-6 text-center">
+                                    <td class="p-4 text-center">
                                         <div class="flex items-center justify-center gap-1">
                                             <a v-if="venta.comprobante_path" :href="route('mi-cuenta.comprobante.ver', venta.id)" @click.stop target="_blank" class="p-2 text-white/20 hover:text-white transition-colors" title="Ver comprobante del cliente">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
                                             </a>
-                                            <button @click.stop="viewVenta(venta)" class="p-2 text-white/20 hover:text-white transition-colors" title="Ver detalle">
+                                            <button @click.stop="viewVenta(venta)" class="p-2 text-white/30 hover:text-white transition-colors" title="Ver detalle">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
-                                            <Link :href="route('ventas.show', venta.id)" @click.stop class="p-2 text-white/20 hover:text-white transition-colors" title="Comprobante">
+                                            <Link :href="route('ventas.show', venta.id)" @click.stop class="p-2 text-white/30 hover:text-white transition-colors" title="Comprobante">
                                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                                             </Link>
                                         </div>
@@ -878,164 +875,171 @@ onMounted(() => {
                     <Link v-for="link in ventas.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded text-[10px] font-black uppercase transition-all" :class="link.active ? 'bg-brand-red text-white' : 'text-white/20 hover:text-white'">{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
-        </div>
 
         <!-- POS Terminal Modal -->
-        <div v-if="showPosModal" class="fixed inset-0 z-[100] flex items-center justify-center">
-            <div class="absolute inset-0 bg-black/98 backdrop-blur-xl" @click="showPosModal = false"></div>
+        <div v-if="showPosModal" class="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
+            <div class="absolute inset-0 bg-black/80 backdrop-blur-md" @click="showPosModal = false"></div>
             
-            <div class="relative w-full h-full md:h-[90vh] md:w-[95vw] lg:w-[85vw] bg-brand-surface border-y border-brand-red/50 shadow-2xl flex flex-col md:flex-row overflow-hidden transform transition-all duration-500">
+            <div class="relative w-full h-full md:h-[90vh] md:w-[95vw] lg:w-[85vw] bg-[#141414] border border-white/10 rounded-2xl shadow-2xl flex flex-col md:flex-row overflow-hidden transform transition-all duration-300">
                 
-                <!-- Left Section: Item Selection (Bakery Style) -->
-<div class="flex-1 p-8 flex flex-col overflow-y-auto border-r border-white/5">
-                        <div class="flex justify-between items-center mb-10">
-                            <h3 class="text-3xl font-black tracking-tighter uppercase italic text-brand-red">Terminal <span class="text-white">POS</span></h3>
-                            <div class="flex flex-col items-end gap-1">
-                                <div class="text-[10px] font-mono text-white/30 uppercase tracking-[0.5em] animate-pulse">Sincronizado Online</div>
-                                <div v-if="$page.props.auth.empleado?.sucursal" class="text-[10px] font-bold text-white bg-white/10 px-2 py-1 rounded border border-white/20 uppercase tracking-widest">
-                                    📍 SUCURSAL: {{ $page.props.auth.empleado.sucursal.nombre }}
-                                </div>
+                <!-- Left Section: Item Selection & Cart Panel -->
+                <div class="flex-1 p-6 md:p-8 flex flex-col overflow-y-auto space-y-6">
+                    <!-- Top Header -->
+                    <div class="flex justify-between items-center border-b border-white/5 pb-4">
+                        <h3 class="text-2xl font-black tracking-tight uppercase text-white">Terminal <span class="text-brand-red">POS</span></h3>
+                        <div class="flex items-center gap-3">
+                            <div v-if="$page.props.auth.empleado?.sucursal" class="text-xs font-bold text-white/80 bg-white/5 px-3 py-1.5 rounded-md border border-white/10 uppercase tracking-wider">
+                                📍 {{ $page.props.auth.empleado.sucursal.nombre }}
                             </div>
-                        </div>
-
-                        <div class="space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-<div class="mb-6">
-    <label class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 block mb-2">Cliente</label>
-    <div class="relative">
-        <div class="flex gap-2">
-            <input v-model="clienteSearch" @input="buscarClientes(clienteSearch)" @focus="showClienteDropdown = true" type="text" placeholder="Buscar por nombre o DNI..." class="input-field w-full bg-black/40 text-xs font-bold" :class="clienteSeleccionado ? 'border-green-500/40 text-green-400' : ''">
-            <button v-if="clienteSeleccionado" @click="limpiarCliente" class="px-3 text-white/30 hover:text-brand-red transition-colors bg-white/5 rounded text-xs font-black" title="Limpiar">X</button>
-            <button v-else @click="crearClienteRapido" type="button" class="px-3 bg-brand-red/10 text-brand-red hover:bg-brand-red hover:text-white transition-colors rounded text-[10px] font-black whitespace-nowrap border border-brand-red/30" title="Crear Cliente Rápido">+ NUEVO</button>
-        </div>
-        <p v-if="!clienteSeleccionado" class="text-[9px] text-white/20 mt-1 italic">Sin selección = Consumidor Final</p>
-        <p v-else class="text-[9px] text-green-400/60 mt-1 italic">Saldo: {{ formatCurrency(clienteSeleccionado.saldo_actual) }}</p>
-        
-        <div v-if="showClienteDropdown && clienteSearch.length >= 2 && clientesResults.length === 0" class="absolute z-50 w-full mt-1 bg-brand-surface border border-brand-red/30 rounded-lg overflow-hidden shadow-xl p-4 text-center">
-            <p class="text-[10px] text-white/50 uppercase font-black mb-3">No se encontraron clientes</p>
-            <button @click="crearClienteRapido" type="button" class="bg-brand-red text-white py-2 px-4 rounded text-[10px] font-black uppercase tracking-widest hover:bg-red-600 transition-colors shadow-[0_0_15px_rgba(230,25,25,0.3)]">CREAR NUEVO CLIENTE</button>
-        </div>
-
-        <div v-if="showClienteDropdown && clientesResults.length" class="absolute z-50 w-full mt-1 bg-brand-surface border border-white/10 rounded-lg overflow-hidden shadow-xl">
-            <div v-for="c in clientesResults" :key="c.id" @mousedown.prevent="seleccionarCliente(c)" class="px-4 py-3 cursor-pointer hover:bg-brand-red/10 hover:text-brand-red transition-colors border-b border-white/5 last:border-0">
-                <div class="text-xs font-black uppercase">{{ c.user?.name }} {{ c.user?.apellido }}</div>
-                <div class="text-[9px] text-white/30 font-mono">DNI: {{ c.user?.dni }} | Saldo: {{ formatCurrency(c.saldo_actual) }}</div>
-            </div>
-        </div>
-        <div v-if="showClienteDropdown" class="fixed inset-0 z-40" @click="showClienteDropdown = false"></div>
-    </div>
-</div>
-                                <!-- Sucursal ya no se elige, se asigna automáticamente -->
-                            </div>
-
-                            <div class="bg-white/[0.03] p-6 rounded-xl border border-white/5 mb-6">
-                                <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3 mb-4">
-                                    <label class="text-[9px] font-black uppercase tracking-[0.3em] text-brand-red block">Agregar productos al carrito</label>
-                                    <div class="flex gap-2">
-                                        <button type="button" @click="simularEscaneo" class="px-3 py-1.5 bg-white/5 hover:bg-brand-red text-white text-[9px] font-black uppercase tracking-widest rounded border border-white/5 transition-colors flex items-center gap-1" title="Escanear código">
-                                            📷 ESCANEAR
-                                        </button>
-                                    </div>
-                                </div>
-                                
-                                <div class="flex gap-4 relative">
-                                    <input v-model="libroSearch" @input="buscarLibros(libroSearch)" @focus="showLibroDropdown = true" type="text" placeholder="Buscar por título o ISBN..." class="input-field w-full bg-black/80 text-xs font-bold" :disabled="!$page.props.auth.empleado?.sucursal_id" :title="!$page.props.auth.empleado?.sucursal_id ? 'No tienes una sucursal asignada' : ''" :class="{'opacity-50 cursor-not-allowed': !$page.props.auth.empleado?.sucursal_id}">
-                                    
-                                    <div v-if="showLibroDropdown && librosResults.length" class="absolute top-full left-0 z-[60] w-full mt-1 bg-[#1a1a1a] border border-white/20 rounded-lg overflow-hidden shadow-2xl">
-                                        <div v-for="l in librosResults" :key="l.id" 
-                                             @mousedown.prevent="(l.stock_disponible > 0 || l.permite_preventa) && seleccionarLibroParaAgregar(l)" 
-                                             :class="(l.stock_disponible <= 0 && !l.permite_preventa) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-brand-red/20 hover:text-brand-red'" 
-                                             class="px-4 py-3 transition-colors border-b border-white/5 last:border-0 flex justify-between items-center">
-                                            <div>
-                                                <div class="text-xs font-black uppercase">
-                                                    {{ l.master?.titulo }} 
-                                                    <span v-if="l.numero_tomo" class="text-brand-red ml-1">- Tomo {{ l.numero_tomo }}</span>
-                                                </div>
-                                                <div class="text-[9px] text-white/40 font-mono mt-0.5">
-                                                    ISBN: {{ l.isbn }} | {{ l.precio_actual ? formatCurrency(l.precio_actual.precio_venta) : 'Sin precio' }} - 
-                                                    <span :class="l.stock_disponible <= 0 ? 'text-red-400' : 'text-green-400/70'">
-                                                        Stock: {{ l.stock_disponible ?? '?' }}
-                                                        <span v-if="l.stock_disponible <= 0 && l.permite_preventa" class="ml-1 text-[8px] uppercase tracking-wider text-orange-400 bg-orange-400/10 px-1 py-0.5 rounded border border-orange-400/20">(Preventa)</span>
-                                                        <span v-if="l.stock_disponible <= 0 && !l.permite_preventa" class="ml-1 text-[8px] uppercase tracking-wider text-red-400 bg-red-400/10 px-1 py-0.5 rounded border border-red-400/20">(Agotado)</span>
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div v-if="showLibroDropdown" class="fixed inset-0 z-50" @click="showLibroDropdown = false"></div>
-                                </div>
-
-                                <div v-if="libroSeleccionado" class="mt-4 p-4 bg-brand-red/10 border border-brand-red/30 rounded-lg flex flex-col sm:flex-row justify-between items-center gap-4 animate-pulse hover:animate-none transition-all">
-                                    <div>
-                                        <div class="text-[10px] font-black text-brand-red uppercase tracking-widest">PRODUCTO LISTO PARA AGREGAR</div>
-                                        <div class="text-sm font-bold text-white mt-1">
-                                            {{ libroSeleccionado.master?.titulo }}
-                                            <span v-if="libroSeleccionado.numero_tomo" class="text-brand-red ml-1">- Tomo {{ libroSeleccionado.numero_tomo }}</span>
-                                        </div>
-                                        <div class="text-[10px] text-white/50 font-mono mt-1">Precio Unitario: {{ formatCurrency(libroSeleccionado.precio_actual?.precio_venta) }}</div>
-                                    </div>
-                                    <div class="flex items-center gap-3">
-                                        <div class="flex flex-col items-center gap-1">
-                                            <div class="flex items-center bg-black/40 rounded border border-white/10 overflow-hidden h-10">
-                                                <button type="button" @click="cantidadSeleccionada > 1 ? cantidadSeleccionada-- : null" class="px-3 py-1 text-white/40 hover:text-brand-red hover:bg-white/5 transition-colors font-black text-lg">-</button>
-                                                <input type="number" v-model="cantidadSeleccionada" @change="validarCantidadParaAgregar" min="1" class="w-12 bg-transparent text-center text-xs font-black p-0 border-0 focus:ring-0 text-white">
-                                                <button type="button" @click="incrementarSeleccion" class="px-3 py-1 text-white/40 hover:text-green-400 hover:bg-white/5 transition-colors font-black text-lg">+</button>
-                                            </div>
-                                            <div class="text-[8px] text-white/40 font-mono uppercase tracking-widest">
-                                                Stock: {{ libroSeleccionado.stock_disponible ?? '?' }}
-                                            </div>
-                                        </div>
-                                        <button type="button" @click="confirmarAgregarAlCarrito" class="btn-primary py-2 px-6 bg-brand-red text-white font-black uppercase text-xs h-10 shadow-[0_0_15px_rgba(230,25,25,0.3)]">
-                                            AGREGAR AL CARRITO
-                                        </button>
-                                        <button type="button" @click="libroSeleccionado = null" class="p-2 text-white/30 hover:text-white transition-colors h-10 border border-white/5 rounded bg-white/5" title="Cancelar">
-                                            X
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="mt-8 flex-1">
-                            <h4 class="text-[8px] font-black uppercase tracking-[0.5em] text-white/20 mb-4">Detalle de Operación</h4>
-                            <div class="space-y-2">
-                                <div v-for="(item, idx) in posForm.items" :key="idx" class="flex justify-between items-center p-4 bg-white/[0.02] border border-white/5 rounded-lg hover:border-brand-red/40 transition-all group">
-                                    <div class="flex-1">
-                                        <div class="text-xs font-black uppercase group-hover:text-brand-red transition-colors">{{ item.titulo }}</div>
-                                        
-                                        <div class="flex items-center gap-3 mt-1.5">
-                                            <div class="flex items-center bg-black/40 rounded border border-white/10 overflow-hidden">
-                                                <button type="button" @click="item.cantidad > 1 ? item.cantidad-- : removeItem(idx)" class="px-2 py-0.5 text-white/40 hover:text-brand-red hover:bg-white/5 transition-colors font-black">-</button>
-                                                <input type="number" v-model="item.cantidad" @change="validarItemCarrito(item)" min="1" class="w-10 bg-transparent text-center text-[10px] font-black p-0 border-0 focus:ring-0 text-white/80 h-5">
-                                                <button type="button" @click="incrementarItemCarrito(item)" class="px-2 py-0.5 text-white/40 hover:text-green-400 hover:bg-white/5 transition-colors font-black">+</button>
-                                            </div>
-                                            <div class="text-[9px] text-white/30 font-mono italic">x {{ formatCurrency(item.precio) }}</div>
-                                        </div>
-                                    </div>
-                                    <div class="text-sm font-black text-white/80 mr-6">
-                                        {{ formatCurrency(item.cantidad * item.precio) }}
-                                    </div>
-                                    <button @click="removeItem(idx)" class="text-white/20 hover:text-brand-red transition-colors">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                    </button>
-                                </div>
-
-                                <div v-if="posForm.items.length === 0" class="h-40 flex items-center justify-center border-2 border-dashed border-white/5 rounded-2xl text-white/10 italic text-sm font-black tracking-widest uppercase">
-                                    El carrito está vacío
-                                </div>
-                            </div>
+                            <button @click="showPosModal = false" class="text-white/40 hover:text-white transition-colors p-1.5 rounded-lg hover:bg-white/5" title="Cerrar modal">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
                         </div>
                     </div>
 
-                <!-- Right Section: Summary & Checkout -->
-                <div class="w-full md:w-[350px] bg-black p-8 flex flex-col justify-between overflow-y-auto border-l border-brand-red/20 shadow-[-20px_0_50px_rgba(0,0,0,0.5)]">
+                    <!-- Client Selection Field -->
                     <div>
-                        <h4 class="text-[10px] font-black uppercase tracking-[0.4em] text-brand-red mb-6 text-center italic">Checkout</h4>
+                        <label class="text-xs font-bold uppercase tracking-wider text-white/50 block mb-2">Cliente</label>
+                        <div class="relative">
+                            <div class="flex gap-2">
+                                <div class="relative flex-1">
+                                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                    </span>
+                                    <input v-model="clienteSearch" @input="buscarClientes(clienteSearch)" @focus="showClienteDropdown = true" type="text" placeholder="Buscar por nombre o DNI..." class="input-field w-full bg-black/40 text-sm font-bold text-white placeholder-white/30 border-white/10 focus:border-brand-red/50 py-2.5 pl-10 pr-3.5">
+                                </div>
+                                <button v-if="clienteSeleccionado" @click="limpiarCliente" class="px-3.5 text-white/40 hover:text-brand-red transition-colors bg-white/5 rounded-lg text-sm font-bold" title="Limpiar">X</button>
+                                <button v-else @click="crearClienteRapido" type="button" class="px-4 bg-brand-red/10 text-brand-red hover:bg-brand-red hover:text-white transition-colors rounded-lg text-xs font-bold tracking-wider whitespace-nowrap border border-brand-red/30 py-2" title="Crear Cliente Rápido">+ NUEVO</button>
+                            </div>
+                            <p v-if="!clienteSeleccionado" class="text-xs text-white/30 mt-1.5 font-medium">Sin selección = Consumidor Final</p>
+                            <p v-else class="text-xs text-emerald-400/90 mt-1.5 font-medium">Saldo actual en cuenta: {{ formatCurrency(clienteSeleccionado.saldo_actual) }}</p>
+                            
+                            <div v-if="showClienteDropdown && clienteSearch.length >= 1 && clientesResults.length === 0" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg overflow-hidden shadow-xl p-4 text-center">
+                                <p class="text-xs text-white/50 uppercase font-bold mb-3">No se encontraron clientes</p>
+                                <button @click="crearClienteRapido" type="button" class="bg-brand-red text-white py-2 px-4 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-red-600 transition-colors">CREAR NUEVO CLIENTE</button>
+                            </div>
+
+                            <div v-if="showClienteDropdown && clientesResults.length" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg overflow-hidden shadow-xl">
+                                <div v-for="c in clientesResults" :key="c.id" @mousedown.prevent="seleccionarCliente(c)" class="px-4 py-3 cursor-pointer hover:bg-white/5 hover:text-brand-red transition-colors border-b border-white/5 last:border-0">
+                                    <div class="text-sm font-bold text-white capitalize">{{ c.user?.name }} {{ c.user?.apellido }}</div>
+                                    <div class="text-xs text-white/50 font-mono mt-0.5">DNI: {{ c.user?.dni }} | Saldo: {{ formatCurrency(c.saldo_actual) }}</div>
+                                </div>
+                            </div>
+                            <div v-if="showClienteDropdown" class="fixed inset-0 z-40" @click="showClienteDropdown = false"></div>
+                        </div>
+                    </div>
+
+                    <!-- FUSED Product Search & Cart Container (Single Panel) -->
+                    <div class="bg-black/40 border border-white/10 rounded-xl p-6 flex flex-col flex-1 gap-4">
+                        <!-- Product Search Header -->
+                        <div class="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
+                            <label class="text-xs font-bold uppercase tracking-wider text-white/70">Agregar Productos</label>
+                            <button type="button" @click="simularEscaneo" class="px-3.5 py-2 bg-white/5 hover:bg-white/10 text-white text-xs font-bold uppercase tracking-wider rounded-lg border border-white/10 transition-colors flex items-center gap-2">
+                                📷 ESCANEAR
+                            </button>
+                        </div>
+                        
+                        <!-- Search Input -->
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                            </span>
+                            <input v-model="libroSearch" @input="buscarLibros(libroSearch)" @focus="showLibroDropdown = true" type="text" placeholder="Buscar por título o ISBN..." class="input-field w-full bg-black/60 text-sm font-bold text-white border-white/10 focus:border-brand-red/50 py-2.5 pl-10 pr-3.5" :disabled="!$page.props.auth.empleado?.sucursal_id" :title="!$page.props.auth.empleado?.sucursal_id ? 'No tienes una sucursal asignada' : ''" :class="{'opacity-50 cursor-not-allowed': !$page.props.auth.empleado?.sucursal_id}">
+                            
+                            <div v-if="showLibroDropdown && librosResults.length" class="absolute top-full left-0 z-[60] w-full mt-1 bg-[#1c1c1c] border border-white/15 rounded-lg overflow-hidden shadow-2xl">
+                                <div v-for="l in librosResults" :key="l.id" 
+                                     @mousedown.prevent="(l.stock_disponible > 0 || l.permite_preventa) && seleccionarLibroParaAgregar(l)" 
+                                     :class="(l.stock_disponible <= 0 && !l.permite_preventa) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5 hover:text-brand-red'" 
+                                     class="px-4 py-3 transition-colors border-b border-white/5 last:border-0 flex justify-between items-center">
+                                    <div>
+                                        <div class="text-sm font-bold text-white">
+                                            {{ l.master?.titulo }} 
+                                            <span v-if="l.numero_tomo" class="text-brand-red ml-1">- Tomo {{ l.numero_tomo }}</span>
+                                        </div>
+                                        <div class="text-xs text-white/50 font-mono mt-1">
+                                            ISBN: {{ l.isbn }} | {{ l.precio_actual ? formatCurrency(l.precio_actual.precio_venta) : 'Sin precio' }} - 
+                                            <span :class="l.stock_disponible <= 0 ? 'text-red-400' : 'text-emerald-400/80'">
+                                                Stock: {{ l.stock_disponible ?? '?' }}
+                                                <span v-if="l.stock_disponible <= 0 && l.permite_preventa" class="ml-1 text-[9px] uppercase tracking-wider text-amber-400 bg-amber-400/10 px-1 py-0.5 rounded border border-amber-400/20">(Preventa)</span>
+                                                <span v-if="l.stock_disponible <= 0 && !l.permite_preventa" class="ml-1 text-[9px] uppercase tracking-wider text-red-400 bg-red-400/10 px-1 py-0.5 rounded border border-red-400/20">(Agotado)</span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="showLibroDropdown" class="fixed inset-0 z-50" @click="showLibroDropdown = false"></div>
+                        </div>
+
+                        <!-- Product Ready to Add Bar (Neutral grey background, subtle text, 4px left red accent line, attached to search) -->
+                        <div v-if="libroSeleccionado" class="mt-1 p-3.5 bg-white/[0.04] border-y border-r border-white/10 border-l-4 border-l-brand-red rounded-r-xl flex flex-col sm:flex-row justify-between items-center gap-4 transition-all">
+                            <div>
+                                <div class="text-xs text-white/50 font-normal">Producto seleccionado:</div>
+                                <div class="text-sm font-bold text-white mt-0.5">
+                                    {{ libroSeleccionado.master?.titulo }}
+                                    <span v-if="libroSeleccionado.numero_tomo" class="text-brand-red ml-1">- Tomo {{ libroSeleccionado.numero_tomo }}</span>
+                                </div>
+                                <div class="text-xs text-white/60 font-mono mt-0.5">Precio Unitario: {{ formatCurrency(libroSeleccionado.precio_actual?.precio_venta) }}</div>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center bg-black/40 rounded-lg border border-white/10 overflow-hidden h-10">
+                                    <button type="button" @click="cantidadSeleccionada > 1 ? cantidadSeleccionada-- : null" class="px-3.5 text-white/40 hover:text-white hover:bg-white/5 transition-colors font-bold text-base">-</button>
+                                    <input type="number" v-model="cantidadSeleccionada" @change="validarCantidadParaAgregar" min="1" class="w-12 bg-transparent text-center text-sm font-bold p-0 border-0 focus:ring-0 text-white">
+                                    <button type="button" @click="incrementarSeleccion" class="px-3.5 text-white/40 hover:text-white hover:bg-white/5 transition-colors font-bold text-base">+</button>
+                                </div>
+                                <button type="button" @click="confirmarAgregarAlCarrito" class="py-2.5 px-5 bg-brand-red hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-lg transition-colors">
+                                    AGREGAR
+                                </button>
+                                <button type="button" @click="libroSeleccionado = null" class="p-2 text-white/40 hover:text-white transition-colors" title="Cancelar">
+                                    ✕
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Divider -->
+                        <div class="h-px bg-white/5 my-1"></div>
+
+                        <!-- Cart Items List (Internal Scroll max-h-[38vh] overflow-y-auto) -->
+                        <div class="flex-1 space-y-2.5 overflow-y-auto max-h-[38vh] pr-1">
+                            <div v-for="(item, idx) in posForm.items" :key="idx" class="flex justify-between items-center p-3.5 bg-white/[0.02] border border-white/5 rounded-xl hover:border-white/20 transition-all group">
+                                <div class="flex-1">
+                                    <div class="text-sm font-bold text-white group-hover:text-brand-red transition-colors">{{ item.titulo }}</div>
+                                    <div class="flex items-center gap-3 mt-1.5">
+                                        <div class="flex items-center bg-black/40 rounded-md border border-white/10 overflow-hidden h-7">
+                                            <button type="button" @click="item.cantidad > 1 ? item.cantidad-- : removeItem(idx)" class="px-2.5 text-white/40 hover:text-white transition-colors font-bold text-xs">-</button>
+                                            <input type="number" v-model="item.cantidad" @change="validarItemCarrito(item)" min="1" class="w-10 bg-transparent text-center text-xs font-bold p-0 border-0 focus:ring-0 text-white h-full">
+                                            <button type="button" @click="incrementarItemCarrito(item)" class="px-2.5 text-white/40 hover:text-white transition-colors font-bold text-xs">+</button>
+                                        </div>
+                                        <div class="text-xs text-white/50 font-mono">x {{ formatCurrency(item.precio) }}</div>
+                                    </div>
+                                </div>
+                                <div class="text-base font-bold text-white mr-5">
+                                    {{ formatCurrency(item.cantidad * item.precio) }}
+                                </div>
+                                <button @click="removeItem(idx)" class="text-white/30 hover:text-brand-red transition-colors p-1.5" title="Eliminar ítem">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                </button>
+                            </div>
+
+                            <div v-if="posForm.items.length === 0" class="h-36 flex items-center justify-center text-white/20 text-sm font-bold tracking-wider uppercase">
+                                El carrito está vacío
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Section: Summary & Checkout -->
+                <div class="w-full md:w-[380px] bg-black/90 p-6 md:p-8 flex flex-col justify-between overflow-y-auto border-l border-white/10">
+                    <div>
+                        <h4 class="text-sm font-bold uppercase tracking-widest text-white/80 mb-6 text-center">CHECKOUT</h4>
                         
                         <div class="space-y-6">
                             <div>
-                                <label class="text-[9px] font-black uppercase tracking-widest text-white/40 block mb-3">Método de Cobro</label>
-                                <select v-model="posForm.medio_pago" class="input-field w-full bg-brand-black text-[10px] font-black uppercase tracking-widest">
+                                <label class="text-xs font-bold uppercase tracking-wider text-white/50 block mb-2">Método de Cobro</label>
+                                <select v-model="posForm.medio_pago" class="input-field w-full bg-[#181818] text-sm font-bold uppercase tracking-wider border-white/10 text-white focus:border-brand-red/50 py-2.5 px-3">
                                     <option value="Efectivo">💵 Efectivo Cash</option>
                                     <option value="Tarjeta">💳 Tarjeta / Posnet</option>
                                     <option value="Transferencia">📱 Transferencia</option>
@@ -1045,25 +1049,25 @@ onMounted(() => {
                         </div>
                     </div>
 
-                    <div class="mt-12 space-y-6 pt-10 border-t border-brand-red/20">
-                        <div class="space-y-2">
-                            <div class="flex justify-between items-end">
-                                <span class="text-[10px] font-black text-white/30 uppercase tracking-[0.3em]">Total:</span>
-                                <span class="text-3xl font-black text-white tracking-tighter italic">{{ formatCurrency(subtotalPos) }}</span>
+                    <div class="mt-8 space-y-5 pt-6 border-t border-white/10">
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-sm font-bold text-white/60 uppercase tracking-wider">Total:</span>
+                                <span class="text-3xl font-black text-white tracking-tight">{{ formatCurrency(subtotalPos) }}</span>
                             </div>
 
-                            <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado" class="flex justify-between items-end border-t border-white/10 pt-2 text-brand-red">
-                                <span class="text-[12px] font-black uppercase tracking-[0.3em]">Saldo en cuenta luego de la operación:</span>
-                                <span class="text-4xl font-black tracking-tighter italic" :class="(clienteSeleccionado.saldo_actual - subtotalPos) < 0 ? 'text-brand-red' : 'text-green-400'">
+                            <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado" class="flex justify-between items-center border-t border-white/10 pt-3">
+                                <span class="text-sm text-white/60 font-medium">Saldo restante en cuenta:</span>
+                                <span class="text-xl font-bold tracking-tight" :class="(clienteSeleccionado.saldo_actual - subtotalPos) < 0 ? 'text-brand-red' : 'text-emerald-400/90'">
                                     {{ formatCurrency(clienteSeleccionado.saldo_actual - subtotalPos) }}
                                 </span>
                             </div>
 
-                            <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado && (clienteSeleccionado.saldo_actual - subtotalPos) < 0" class="mt-4 bg-brand-red/10 border border-brand-red/20 p-4 rounded-lg space-y-3">
-                                <label class="text-[8px] font-black uppercase tracking-widest text-brand-red block mb-1">
+                            <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado && (clienteSeleccionado.saldo_actual - subtotalPos) < 0" class="mt-3 bg-white/5 border border-white/10 p-4 rounded-xl space-y-2.5">
+                                <label class="text-xs font-medium text-white/80 block">
                                     El saldo restante ({{ formatCurrency(Math.abs(clienteSeleccionado.saldo_actual - subtotalPos)) }}) dejará la cuenta en negativo. ¿Desea abonar el excedente ahora?
                                 </label>
-                                <select v-model="posForm.metodo_pago_excedente" class="input-field w-full text-xs font-black uppercase bg-black/40 text-white border border-white/20 focus:border-brand-red/50 focus:ring-brand-red/20">
+                                <select v-model="posForm.metodo_pago_excedente" class="input-field w-full text-xs font-bold uppercase bg-black/60 text-white border border-white/15 focus:border-brand-red/50">
                                     <option :value="null">Dejar como deuda en Cuenta Corriente</option>
                                     <option value="Efectivo">💵 Pagar excedente en Efectivo</option>
                                     <option value="Tarjeta">💳 Pagar excedente con Tarjeta / Posnet</option>
@@ -1072,11 +1076,11 @@ onMounted(() => {
                             </div>
                         </div>
 
-                        <div class="flex flex-col gap-3 mt-4">
-                            <button @click="submitVenta" :disabled="posForm.processing || posForm.items.length === 0" class="btn-primary w-full py-4 text-sm mt-2 disabled:opacity-40 shadow-[0_0_30px_rgba(230,25,25,0.4)] hover:shadow-[0_0_50px_rgba(230,25,25,0.6)] animate-pulse hover:animate-none">
-                               {{ posForm.processing ? 'SINCRONIZANDO...' : 'CONFIRMAR PAGO' }}
+                        <div class="flex flex-col gap-2.5 mt-4">
+                            <button @click="submitVenta" :disabled="posForm.processing || posForm.items.length === 0" class="w-full py-3.5 bg-brand-red hover:bg-red-700 text-white font-bold text-sm uppercase tracking-wider rounded-xl transition-all shadow-none disabled:opacity-40">
+                               {{ posForm.processing ? 'Sincronizando...' : 'Confirmar Pago' }}
                             </button>
-                            <button @click="showPosModal = false" class="text-[10px] font-black uppercase text-white/20 hover:text-white transition-colors tracking-widest py-2">CANCELAR OPERACIÓN</button>
+                            <button @click="showPosModal = false" class="text-xs font-bold uppercase text-white/40 hover:text-white transition-colors tracking-wider py-2 text-center">Cancelar Operación</button>
                         </div>
                     </div>
                 </div>

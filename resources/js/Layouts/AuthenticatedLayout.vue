@@ -75,7 +75,7 @@ const toggleGroup = (group) => {
             <main class="flex-1 overflow-y-auto relative scroll-smooth bg-brand-black">
                 <!-- Page Heading -->
                 <header class="bg-brand-black border-b border-white/5" v-if="$slots.header">
-                    <div class="mx-auto max-w-7xl px-8 py-10">
+                    <div class="mx-auto max-w-7xl px-6 py-6">
                         <slot name="header" />
                     </div>
                 </header>
