@@ -248,24 +248,28 @@ const formatCurrency = (value) => {
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="card mb-8">
-                    <div class="flex items-center gap-4">
-                        <input 
-                            v-model="search" 
-                            type="text" 
-                            placeholder="Buscar por nombre, DNI, email..." 
-                            class="input-field flex-1"
-                        >
-                    </div>
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+            <div class="card p-4 border-white/5">
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input 
+                        v-model="search" 
+                        type="text" 
+                        placeholder="Buscar por nombre, DNI o email..." 
+                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
+                    >
                 </div>
+            </div>
 
                 <div class="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-white/50">
+                                <tr class="border-b border-white/10 bg-white/[0.01] text-xs font-bold uppercase tracking-wider text-white/50">
                                     <th class="p-4 cursor-pointer hover:text-white transition-colors" @click="handleSort('cliente')">
                                         Cliente
                                         <span v-if="sortField === 'cliente'">{{ sortDirection === 'asc' ? '↑' : '↓' }}</span>
@@ -344,12 +348,10 @@ const formatCurrency = (value) => {
                         </table>
                     </div>
                 </div>
-
-                <div class="mt-8 flex justify-center gap-2">
+                <div class="flex justify-center gap-2 pt-2">
                     <Link v-for="link in clientes.links" :key="link.label" :href="link.url || '#'" class="px-4 py-2 rounded-lg border border-white/5 transition-all text-sm font-black uppercase tracking-tighter" :class="{'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20': !link.url}">{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
-        </div>
 
         <!-- Modal -->
         <template v-if="showModal">
@@ -357,12 +359,10 @@ const formatCurrency = (value) => {
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-start justify-center p-4">
             <div class="relative w-full max-w-4xl card p-0 border border-brand-red/50 shadow-[0_0_80px_rgba(230,25,25,0.1)] overflow-hidden transform transition-all my-8">
-                <div class="bg-gradient-to-r from-brand-red to-black p-6 flex justify-between items-center relative shadow-xl">
-                    <h3 class="text-2xl font-black uppercase tracking-tighter italic"> 
-                        Gestionar <span class="text-white">Cliente</span>
-                    </h3>
-                    <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative z-10">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="text-white">Cliente</span></h3>
+                    <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
                 

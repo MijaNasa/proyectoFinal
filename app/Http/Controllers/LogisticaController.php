@@ -30,14 +30,16 @@ class LogisticaController extends Controller
 
         // Pre-cargar libros para el buscador del modal
         $libros = Libro::with(['master', 'master.autor', 'stocks:id,libro_id,sucursal_id,cantidad_disponible'])
+            ->has('master')
             ->get()
             ->map(function ($l) {
+                $titulo = ($l->master?->titulo ?? 'Sin título') . ' - Tomo ' . ($l->numero_tomo ?: 'Único');
                 return [
                     'id' => $l->id,
-                    'label' => $l->master->titulo . ' - Tomo ' . ($l->numero_tomo ?: 'Único') . ' - ' . ($l->isbn ?: 'S/I'),
-                    'titulo' => $l->master->titulo . ' - Tomo ' . ($l->numero_tomo ?: 'Único'),
+                    'label' => $titulo . ' - ' . ($l->isbn ?: 'S/I'),
+                    'titulo' => $titulo,
                     'isbn' => $l->isbn,
-                    'autor' => $l->master->autor?->apellido ?? '',
+                    'autor' => $l->master?->autor?->apellido ?? '',
                     'stocks' => $l->stocks->map(function($s) {
                         return [
                             'sucursal_id' => $s->sucursal_id,

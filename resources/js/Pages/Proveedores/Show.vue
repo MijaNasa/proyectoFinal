@@ -125,11 +125,11 @@ const submitPago = () => {
                     <div v-else class="card p-0 overflow-hidden">
                         <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="bg-white/[0.03] border-b border-white/5">
-                                    <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/30">Fecha</th>
-                                    <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/30">Método</th>
-                                    <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/30">Descripción</th>
-                                    <th class="p-4 text-[10px] font-black uppercase tracking-widest text-white/30 text-right">Monto</th>
+                                <tr class="bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
+                                    <th class="p-4">Fecha</th>
+                                    <th class="p-4">Método</th>
+                                    <th class="p-4">Descripción</th>
+                                    <th class="p-4 text-right">Monto</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5">

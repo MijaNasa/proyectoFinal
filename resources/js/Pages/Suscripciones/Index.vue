@@ -73,11 +73,13 @@ const formatDate = (dateString) => {
             <!-- Controles y Filtros -->
             <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-6 mb-6">
                 <div class="flex flex-col md:flex-row gap-4 items-end w-full">
-                    <div class="w-full md:flex-1">
-                        <label class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-2">Buscar cliente o serie</label>
-                        <div class="relative">
-                            <input v-model="search" type="text" placeholder="Ej. Batman, Perez..." class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white placeholder-white/20 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all">
-                        </div>
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </span>
+                        <input v-model="search" type="text" placeholder="Buscar por cliente o serie..." class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold">
                     </div>
                     <div class="w-full md:w-64">
                         <label class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-2">Estado</label>
@@ -95,12 +97,12 @@ const formatDate = (dateString) => {
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="border-b border-white/5 bg-white/[0.02]">
-                                <th class="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Cliente</th>
-                                <th class="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Obra Suscripta</th>
-                                <th class="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Sucursal</th>
-                                <th class="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Alta</th>
-                                <th class="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Estado</th>
+                            <tr class="border-b border-white/5 bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50">
+                                <th class="p-4">Cliente</th>
+                                <th class="p-4">Obra Suscripta</th>
+                                <th class="p-4">Sucursal</th>
+                                <th class="p-4">Alta</th>
+                                <th class="p-4">Estado</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">

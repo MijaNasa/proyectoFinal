@@ -152,22 +152,23 @@ const setEstado = (estado) => {
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="card mb-6">
-                    <div class="flex items-center gap-4">
-                        <input
-                            v-model="search"
-                            @keyup.enter="handleSearch"
-                            type="text"
-                            placeholder="Buscar por empresa o email..."
-                            class="input-field flex-1"
-                        >
-                        <button @click="handleSearch" class="btn-primary py-2 px-4 bg-white/5 hover:bg-white/10 text-white">
-                            Buscar
-                        </button>
-                    </div>
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+            <div class="card p-4 border-white/5">
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input
+                        v-model="search"
+                        @keyup.enter="handleSearch"
+                        type="text"
+                        placeholder="Buscar por empresa o email..."
+                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
+                    >
                 </div>
+            </div>
 
                 <!-- Filtros -->
                 <div class="flex border-b border-white/10 gap-2 mb-4">
@@ -194,7 +195,7 @@ const setEstado = (estado) => {
                 <div class="card p-0 overflow-hidden">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-white/50">
+                            <tr class="border-b border-white/10 bg-white/[0.01] text-xs font-bold uppercase tracking-wider text-white/50">
                                 <th class="p-4">Empresa</th>
                                 <th class="p-4">Teléfono / Email</th>
                                 <th class="p-4 text-right">Deuda</th>
@@ -253,23 +254,20 @@ const setEstado = (estado) => {
                     </table>
                 </div>
 
-                <div class="mt-6 flex justify-center gap-2">
-                    <Link v-for="link in proveedores.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-sm font-black" :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/30': !link.url}">{{ decodeLabel(link.label) }}</Link>
+                <div class="flex justify-center gap-2 pt-2">
+                    <Link v-for="link in proveedores.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-xs font-bold uppercase" :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/30': !link.url}">{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
-        </div>
 
         <!-- Modal -->
         <template v-if="showModal">
         <div class="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm" @click="showModal = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-start justify-center p-4">
-            <div class="relative w-full max-w-2xl card p-0 border-brand-red/20 overflow-hidden transform transition-all shadow-2xl my-8">
-                <div class="bg-brand-red/10 p-4 border-b border-brand-red/20 flex justify-between items-center">
-                    <h3 class="text-xl font-bold uppercase tracking-tight">
-                        {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="text-brand-red italic">Proveedor</span>
-                    </h3>
-                    <button @click="showModal = false" class="text-white/50 hover:text-white">
+            <div class="relative w-full max-w-2xl bg-[#111] border border-white/10 rounded-2xl overflow-hidden transform transition-all shadow-2xl my-8">
+                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="text-white">Proveedor</span></h3>
+                    <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>

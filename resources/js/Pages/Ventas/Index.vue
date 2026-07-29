@@ -722,14 +722,18 @@ onMounted(() => {
                 </div>
 
                 <!-- Lista de Ventas -->
-                <div class="card mb-8 p-6 flex flex-col md:flex-row gap-4 items-center border-white/5">
-                    <div class="flex-1 w-full font-black uppercase tracking-widest text-white/40 text-[10px]">Filtrar Historial Operativo</div>
-                    <div class="flex gap-4 w-full md:w-auto">
+                <div class="card mb-6 p-4 flex items-center border-white/5">
+                    <div class="relative w-full md:w-96">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </span>
                         <input 
                             v-model="search" 
                             type="text" 
                             placeholder="Buscar por cliente o #TK..." 
-                            class="input-field flex-1 md:w-80"
+                            class="input-field w-full pl-10 text-xs font-bold bg-black/40 border-white/10"
                         >
                     </div>
                 </div>
@@ -822,7 +826,7 @@ onMounted(() => {
                 <div class="card p-0 overflow-hidden border-white/5" :class="{'opacity-70': currentTab === 'canceladas' || currentTab === 'finalizadas'}">
                     <table class="w-full text-left border-collapse table-fixed">
                         <thead>
-                            <tr class="bg-white/[0.02] text-[10px] font-black uppercase tracking-widest text-white/50 border-b border-white/5">
+                            <tr class="bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
                                 <th class="p-4 text-left w-[18%]">Ticket</th>
                                 <th class="p-4 text-left w-[25%]">Cliente</th>
                                 <th class="p-4 text-left w-[15%]">Sucursal</th>
@@ -1097,18 +1101,18 @@ onMounted(() => {
         </div>
         <!-- Sales Detail Modal -->
         <div v-if="showDetailModal && selectedVenta" class="fixed inset-0 z-[110] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/60 backdrop-blur-md" @click="closeDetailModal"></div>
-            <div class="relative w-full max-w-2xl card p-0 border border-white/10 overflow-hidden shadow-2xl">
-                <div class="bg-black/90 py-4 px-6 flex justify-between items-center border-b border-white/10">
+            <div class="absolute inset-0 bg-black/70 backdrop-blur-md" @click="closeDetailModal"></div>
+            <div class="relative w-full max-w-3xl card p-0 border border-white/10 overflow-hidden shadow-2xl bg-[#141414]">
+                <div class="bg-black/90 py-5 px-8 flex justify-between items-center border-b border-white/10">
                     <div class="flex items-center gap-3">
-                        <h3 class="text-base font-black uppercase tracking-tight text-white not-italic">
-                            Detalle de Ticket <span class="text-brand-red font-mono font-black text-xl ml-1">#TK-{{ String(selectedVenta.id).padStart(6, '0') }}</span>
+                        <h3 class="text-lg font-black uppercase tracking-tight text-white not-italic">
+                            Detalle de Ticket <span class="text-brand-red font-mono font-black text-2xl ml-1">#TK-{{ String(selectedVenta.id).padStart(6, '0') }}</span>
                         </h3>
-                        <span v-if="selectedVenta.motivo_pendiente === 'Acumulación'" class="text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded bg-[#25D366]/20 text-white border border-[#25D366]">Acumulado</span>
+                        <span v-if="selectedVenta.motivo_pendiente === 'Acumulación'" class="text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded bg-[#25D366]/20 text-white border border-[#25D366]">Acumulado</span>
                     </div>
                     <div class="text-right flex items-center gap-3">
-                        <div class="text-xs font-bold text-white/90">{{ formatTicketDate(selectedVenta.fecha) }}</div>
-                        <span class="text-[8px] font-bold uppercase tracking-widest px-2 py-0.5 rounded border border-white/20 bg-white/[0.08] text-white/95 not-italic">
+                        <div class="text-sm font-bold text-white/90">{{ formatTicketDate(selectedVenta.fecha) }}</div>
+                        <span class="text-xs font-bold uppercase tracking-widest px-2.5 py-1 rounded border border-white/20 bg-white/[0.08] text-white/95 not-italic">
                             {{ selectedVenta.tipo }}
                         </span>
                     </div>
@@ -1116,55 +1120,55 @@ onMounted(() => {
 
                 <div class="p-8">
                     <div class="grid grid-cols-3 gap-6 mb-8 pb-8 border-b border-white/10">
-                        <div class="space-y-1 text-left">
-                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">CLIENTE</div>
-                            <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-xs text-white/90 block hover:text-brand-red transition-colors capitalize font-medium">
+                        <div class="space-y-1.5 text-left">
+                            <div class="text-xs font-bold uppercase tracking-wider text-white/50">CLIENTE</div>
+                            <Link v-if="selectedVenta.cliente_id" :href="route('clientes.show', selectedVenta.cliente_id)" class="text-base text-white font-bold block hover:text-brand-red transition-colors capitalize">
                                 {{ getClienteNombre(selectedVenta) }}
                             </Link>
-                            <div v-else class="text-xs text-white/90 capitalize font-medium">
+                            <div v-else class="text-base text-white font-bold capitalize">
                                 {{ getClienteNombre(selectedVenta) }}
                             </div>
                         </div>
-                        <div class="space-y-1 text-center">
-                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">SUCURSAL</div>
-                            <div class="text-xs text-white/90 font-medium">{{ formatSucursalName(selectedVenta.sucursal?.nombre) }}</div>
+                        <div class="space-y-1.5 text-center">
+                            <div class="text-xs font-bold uppercase tracking-wider text-white/50">SUCURSAL</div>
+                            <div class="text-base text-white font-bold">{{ formatSucursalName(selectedVenta.sucursal?.nombre) }}</div>
                         </div>
-                        <div class="space-y-1 text-right">
-                            <div class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">MEDIO DE PAGO</div>
-                            <div class="text-xs text-white/90 capitalize font-medium">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
+                        <div class="space-y-1.5 text-right">
+                            <div class="text-xs font-bold uppercase tracking-wider text-white/50">MEDIO DE PAGO</div>
+                            <div class="text-base text-white font-bold capitalize">{{ selectedVenta.metodo_pago || 'No especificado' }}</div>
                         </div>
                     </div>
 
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="text-[9px] font-black uppercase tracking-[0.2em] text-white/30 border-b border-white/5">
-                                <th class="py-3 px-2">PRODUCTO</th>
-                                <th class="py-3 px-2 text-center w-20">CANT.</th>
-                                <th class="py-3 px-2 text-right w-24">P. UNIT</th>
-                                <th class="py-3 px-2 text-right text-white/30 w-28">SUBTOTAL</th>
+                            <tr class="text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/10">
+                                <th class="py-3 px-3">PRODUCTO</th>
+                                <th class="py-3 px-3 text-center w-24">CANT.</th>
+                                <th class="py-3 px-3 text-right w-32">P. UNIT</th>
+                                <th class="py-3 px-3 text-right w-36">SUBTOTAL</th>
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-white/5">
-                            <tr v-for="item in selectedVenta.detalles" :key="item.id" class="group hover:bg-white/[0.02] transition-colors">
-                                <td class="py-2.5 px-2">
-                                    <div class="text-xs text-white/90 font-medium group-hover:text-white transition-colors">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
-                                    <div class="text-[10px] text-white/40 font-mono mt-1">ISBN: {{ item.libro?.isbn }}</div>
+                            <tr v-for="item in selectedVenta.detalles" :key="item.id" class="group hover:bg-white/[0.03] transition-colors">
+                                <td class="py-3.5 px-3">
+                                    <div class="text-base text-white font-bold group-hover:text-brand-red transition-colors">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
+                                    <div class="text-xs text-white/50 font-mono mt-0.5">ISBN: {{ item.libro?.isbn }}</div>
                                 </td>
-                                <td class="py-2.5 px-2 text-center text-xs text-white/90 font-medium">{{ item.cantidad }}</td>
-                                <td class="py-2.5 px-2 text-right text-xs text-white/50 font-medium">{{ formatCurrency(item.precio_unitario) }}</td>
-                                <td class="py-2.5 px-2 text-right text-xs text-white/90 font-medium">{{ formatCurrency(item.subtotal) }}</td>
+                                <td class="py-3.5 px-3 text-center text-base text-white font-bold">{{ item.cantidad }}</td>
+                                <td class="py-3.5 px-3 text-right text-base text-white/80 font-bold">{{ formatCurrency(item.precio_unitario) }}</td>
+                                <td class="py-3.5 px-3 text-right text-base text-white font-bold">{{ formatCurrency(item.subtotal) }}</td>
                             </tr>
                         </tbody>
                         <tfoot>
                             <tr class="border-t border-white/10">
-                                <td colspan="3" class="py-3 px-2 text-right text-[10px] font-black uppercase tracking-[0.3em] text-white/40">Total de la Compra</td>
-                                <td class="py-3 px-2 text-right text-base font-black text-white">{{ formatCurrency(selectedVenta.total) }}</td>
+                                <td colspan="3" class="py-4 px-3 text-right text-xs font-bold uppercase tracking-wider text-white/50">Total de la Compra</td>
+                                <td class="py-4 px-3 text-right text-2xl font-black text-white whitespace-nowrap">{{ formatCurrency(selectedVenta.total) }}</td>
                             </tr>
                         </tfoot>
                     </table>
 
                     <div v-if="selectedVenta.estado === 'pendiente_pago' && (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0) > 0" class="flex justify-between items-center bg-white/[0.02] p-6 border border-white/5 rounded-xl mt-4">
-                        <div class="text-xs font-bold uppercase tracking-normal text-white/20">Abonado (Saldo a favor/Parcial)</div>
+                        <div class="text-xs font-bold uppercase tracking-normal text-white/40">Abonado (Saldo a favor/Parcial)</div>
                         <div class="text-2xl font-bold text-brand-red">
                             {{ formatCurrency(selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0) }}
                         </div>
@@ -1198,50 +1202,53 @@ onMounted(() => {
                     <div v-if="selectedVenta.estado === 'esperando_traslado'" class="mt-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl flex flex-col gap-3">
                         <div class="flex justify-between items-center">
                             <div>
-                                <div class="text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Logística y Traslados</div>
-                                <div class="text-sm font-black text-white">Esta venta requiere un traslado de stock.</div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-white/50 mb-1">Logística y Traslados</div>
+                                <div class="text-sm font-bold text-white">Esta venta requiere un traslado de stock.</div>
                             </div>
-                            <Link :href="route('logistica.index')" class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg transition-colors shadow-lg shadow-blue-500/20 whitespace-nowrap">
+                            <Link :href="route('logistica.index')" class="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors shadow-lg shadow-blue-500/20 whitespace-nowrap">
                                 IR A LOGÍSTICA
                             </Link>
                         </div>
                     </div>
 
-                    <div v-if="puedeEditarEstado" class="mt-6 flex flex-col sm:flex-row items-end gap-3 border-t border-white/5 pt-6 flex-wrap pb-2">
-                        <div class="flex-1 w-full min-w-[200px]">
-                            <label class="text-[8px] font-black uppercase tracking-widest text-white/40 mb-1 block">Estado de la Venta</label>
-                            <select v-model="estadoForm.estado" class="input-field w-full text-xs font-black uppercase bg-black/40" title="Estado de la Venta">
-                                <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
-                            </select>
+                    <!-- Barra Inferior Unificada (Footer Actions) -->
+                    <div class="mt-8 pt-6 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div v-if="puedeEditarEstado" class="flex flex-wrap items-center gap-3">
+                            <div class="w-auto min-w-[220px]">
+                                <label class="text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5 block">Estado de la Venta</label>
+                                <select v-model="estadoForm.estado" class="input-field w-full text-xs font-bold uppercase bg-black/60 border-white/15 px-3.5 py-2 rounded-lg text-white" title="Estado de la Venta">
+                                    <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
+                                </select>
+                            </div>
+                            <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="w-auto min-w-[200px]">
+                                <label class="text-xs font-bold uppercase tracking-wider text-brand-red mb-1.5 block">Dirección de Envío</label>
+                                <DireccionAutocomplete v-model="estadoForm.direccion_envio" @select="onSeleccionarDireccionVenta" placeholder="Ej: San Martín 123, Rosario" class="input-field w-full text-xs font-bold uppercase bg-black/60 border-brand-red/30 focus:border-brand-red py-2 px-3" />
+                            </div>
+                            <div v-if="selectedVenta.tipo_envio === 'correo_nacional'" class="w-auto min-w-[200px]">
+                                <label class="text-xs font-bold uppercase tracking-wider text-brand-red mb-1.5 block">Código de Seguimiento</label>
+                                <input type="text" v-model="estadoForm.tracking_code" placeholder="Ej: SD321876451AR" class="input-field w-full text-xs font-bold uppercase bg-black/60 border-brand-red/30 focus:border-brand-red py-2 px-3" />
+                            </div>
                         </div>
-                        <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="flex-1 w-full min-w-[200px]">
-                            <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Dirección de Envío</label>
-                            <DireccionAutocomplete v-model="estadoForm.direccion_envio" @select="onSeleccionarDireccionVenta" placeholder="Ej: San Martín 123, Rosario" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" />
-                        </div>
-                        <div v-if="selectedVenta.tipo_envio === 'correo_nacional'" class="flex-1 w-full min-w-[200px]">
-                            <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Código de Seguimiento</label>
-                            <input type="text" v-model="estadoForm.tracking_code" placeholder="Ej: SD321876451AR" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" />
-                        </div>
-                    </div>
+                        <div v-else></div>
 
-                    <div class="mt-8 flex justify-end gap-3">
-                        <button 
-                            v-if="isFormModified" 
-                            type="button" 
-                            @click="cambiarEstado" 
-                            :disabled="estadoForm.processing"
-                            class="px-10 py-3 rounded-full bg-brand-red text-white font-bold hover:bg-red-600 transition-all text-xs tracking-widest cursor-pointer shadow-[0_0_15px_rgba(230,25,25,0.4)] hover:shadow-[0_0_25px_rgba(230,25,25,0.6)] disabled:opacity-50"
-                        >
-                            {{ estadoForm.processing ? 'GUARDANDO...' : 'GUARDAR CAMBIOS' }}
-                        </button>
-                        <button 
-                            v-else 
-                            type="button" 
-                            @click="closeDetailModal" 
-                            class="px-10 py-3 rounded-full border border-white/20 hover:border-white text-white/70 hover:text-white transition-all text-xs font-bold tracking-widest bg-transparent cursor-pointer"
-                        >
-                            Cerrar Detalle
-                        </button>
+                        <div class="flex items-center gap-3">
+                            <button 
+                                v-if="isFormModified" 
+                                type="button" 
+                                @click="cambiarEstado" 
+                                :disabled="estadoForm.processing"
+                                class="px-8 py-2.5 rounded-xl bg-brand-red text-white font-bold hover:bg-red-600 transition-all text-xs tracking-wider cursor-pointer disabled:opacity-50"
+                            >
+                                {{ estadoForm.processing ? 'GUARDANDO...' : 'GUARDAR CAMBIOS' }}
+                            </button>
+                            <button 
+                                type="button" 
+                                @click="closeDetailModal" 
+                                class="px-8 py-2.5 rounded-xl border border-white/20 hover:border-white text-white/70 hover:text-white transition-all text-xs font-bold tracking-wider bg-transparent cursor-pointer"
+                            >
+                                Cerrar Detalle
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>

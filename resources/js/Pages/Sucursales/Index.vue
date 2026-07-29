@@ -33,6 +33,7 @@ const isEditing = ref(false);
 const showModal = ref(false);
 
 const openModal = (sucursal = null) => {
+    form.clearErrors();
     if (sucursal) {
         isEditing.value = true;
         form.id = sucursal.id;
@@ -50,6 +51,18 @@ const openModal = (sucursal = null) => {
     } else {
         isEditing.value = false;
         form.reset();
+        form.id = null;
+        form.nombre = '';
+        form.ciudad_nombre = '';
+        form.calle = '';
+        form.numero = '';
+        form.piso = '';
+        form.departamento = '';
+        form.codigo_postal = '';
+        form.telefono = '';
+        form.email = '';
+        form.activo = true;
+        form.es_principal = false;
     }
     showModal.value = true;
 };
@@ -129,7 +142,7 @@ watch(search, (value) => {
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
                     Gestión de <span class="text-brand-red not-italic">Sucursales</span>
                 </h2>
-                <button @click="openModal()" class="btn-primary flex items-center gap-2">
+                <button v-if="$page.props.auth.esAdmin" @click="openModal()" class="btn-primary flex items-center gap-2">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                     </svg>
@@ -138,64 +151,82 @@ watch(search, (value) => {
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <div class="card mb-8">
-                    <div class="flex items-center gap-4">
-                        <input 
-                            v-model="search" 
-                            type="text" 
-                            placeholder="Buscar por nombre o email..." 
-                            class="input-field flex-1"
-                        >
-                    </div>
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+            <!-- Buscador estilo catálogo -->
+            <div class="card p-4 border-white/5">
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input 
+                        v-model="search" 
+                        type="text" 
+                        placeholder="Buscar por nombre o email..." 
+                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
+                    >
                 </div>
+            </div>
 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div v-for="sucursal in sucursales.data" :key="sucursal.id" class="card p-0 overflow-hidden group">
-                        <div class="bg-gradient-to-r p-1 from-white/10 to-white/5">
-                            <div class="bg-brand-surface p-6 rounded-sm h-full flex flex-col justify-between">
-                                <div>
-                                    <h3 class="text-xl font-black uppercase tracking-tighter text-white">
-                                        {{ sucursal.nombre }}
-                                        <span v-if="sucursal.es_principal" class="text-yellow-400 ml-2 text-sm" title="Sucursal Principal">⭐ PRINCIPAL</span>
-                                    </h3>
-                                    <div class="space-y-2 text-sm text-white/60">
-                                        <div class="flex items-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                                            {{ sucursal.calle }} {{ sucursal.numero }}, {{ sucursal.ciudad ? sucursal.ciudad.nombre : 'S/D' }}
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" /></svg>
-                                            {{ sucursal.telefono || 'Sin teléfono' }}
-                                        </div>
-                                        <div class="flex items-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                                            {{ sucursal.email || 'Sin email' }}
-                                        </div>
-                                    </div>
+            <!-- Tabla de Sucursales -->
+            <div class="card p-0 overflow-hidden border-white/5">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
+                            <th class="p-4">Sucursal</th>
+                            <th class="p-4">Dirección</th>
+                            <th class="p-4">Teléfono</th>
+                            <th class="p-4">Email</th>
+                            <th class="p-4 text-center">Estado</th>
+                            <th v-if="$page.props.auth.esAdmin" class="p-4 text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/5 text-sm">
+                        <tr v-if="sucursales.data.length === 0">
+                            <td :colspan="$page.props.auth.esAdmin ? 6 : 5" class="p-16 text-center text-white/20 font-bold uppercase tracking-widest text-xs">
+                                No se encontraron sucursales
+                            </td>
+                        </tr>
+                        <tr v-for="sucursal in sucursales.data" :key="sucursal.id" class="hover:bg-white/[0.01] transition-colors group">
+                            <td class="p-4">
+                                <div class="font-bold text-white text-base flex items-center gap-2">
+                                    <span>{{ sucursal.nombre }}</span>
+                                    <span v-if="sucursal.es_principal" class="text-yellow-400 text-xs font-bold px-2 py-0.5 rounded-full bg-yellow-400/10 border border-yellow-400/20" title="Sucursal Principal">⭐ PRINCIPAL</span>
                                 </div>
-                                
-                                <div class="mt-6 pt-6 border-t border-white/5 flex justify-end gap-3">
-                                    <button @click="openModal(sucursal)" class="p-2 bg-white/5 rounded-lg hover:bg-brand-red transition-all group/btn">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white/50 group-hover/btn:text-white" viewBox="0 0 20 20" fill="currentColor">
-                                            <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                                        </svg>
+                            </td>
+                            <td class="p-4 text-sm font-bold text-white/70">
+                                <div>{{ sucursal.calle }} {{ sucursal.numero }}</div>
+                                <div class="text-xs text-white/40 font-normal">{{ sucursal.ciudad ? sucursal.ciudad.nombre : 'S/D' }}</div>
+                            </td>
+                            <td class="p-4 text-sm font-bold text-white/70 font-mono text-xs">
+                                {{ sucursal.telefono || 'Sin teléfono' }}
+                            </td>
+                            <td class="p-4 text-sm text-white/70 text-xs">
+                                {{ sucursal.email || 'Sin email' }}
+                            </td>
+                            <td class="p-4 text-center">
+                                <span class="text-xs font-bold px-2.5 py-1 rounded-lg border border-white/10 bg-white/5 text-white/80">
+                                    {{ sucursal.activo ? 'Operativa' : 'Inactiva' }}
+                                </span>
+                            </td>
+                            <td v-if="$page.props.auth.esAdmin" class="p-4 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button @click="openModal(sucursal)" class="p-1.5 text-white/40 hover:text-white transition-colors hover:bg-white/5 rounded-lg" title="Editar Sucursal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                     </button>
-                                    <button @click="deleteSucursal(sucursal.id)" class="p-2 bg-white/5 rounded-lg hover:bg-brand-red transition-all group/btn">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-white/50 group-hover/btn:text-white" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                        </svg>
+                                    <button @click="deleteSucursal(sucursal.id)" class="p-1.5 text-white/40 hover:text-brand-red transition-colors hover:bg-white/5 rounded-lg" title="Eliminar Sucursal">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     </button>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-                <div class="mt-8 flex justify-center gap-2">
-                    <Link v-for="link in sucursales.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-sm font-black uppercase tracking-tighter" :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/20': !link.url}">{{ decodeLabel(link.label) }}</Link>
-                </div>
+            <div v-if="sucursales.links && sucursales.links.length > 3" class="flex justify-center gap-2 pt-2">
+                <Link v-for="link in sucursales.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-xs font-bold uppercase" :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/20': !link.url}">{{ decodeLabel(link.label) }}</Link>
             </div>
         </div>
 
@@ -204,102 +235,103 @@ watch(search, (value) => {
         <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showModal = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-start justify-center p-4">
-            <div class="relative w-full max-w-4xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all my-8">
-                <div class="bg-brand-red p-4 flex justify-between items-center shadow-lg">
-                    <h3 class="text-xl font-black uppercase tracking-tighter"> {{ isEditing ? 'Editar' : 'Nueva' }} <span class="italic text-white">Sucursal</span></h3>
+            <div class="relative w-full max-w-3xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
+                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditing ? 'Editar' : 'Nueva' }} <span class="text-white">Sucursal</span></h3>
                     <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
                 
-                <form @submit.prevent="submit" class="p-8">
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <!-- Col 1 -->
-                        <div class="space-y-6 md:col-span-2">
-                            <div class="grid grid-cols-1 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Nombre de la Sucursal</label>
-                                    <input v-model="form.nombre" type="text" class="input-field w-full font-black uppercase border-white/10" :class="{'border-brand-red': form.errors.nombre}" placeholder="Ej: Rosario Centro, Funes Express...">
-                                    <p v-if="form.errors.nombre" class="text-brand-red text-[10px] mt-1">{{ form.errors.nombre }}</p>
-                                </div>
-                            </div>
-
-                            <div class="grid grid-cols-4 gap-4">
-                                <div class="col-span-3">
-                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Calle</label>
-                                    <DireccionAutocomplete
-                                        v-model="form.calle"
-                                        :contexto="form.ciudad_nombre ? `${form.ciudad_nombre}, Santa Fe, Argentina` : 'Santa Fe, Argentina'"
-                                        @select="onSeleccionarDireccionSucursal"
-                                        class="input-field w-full"
-                                        :class="{'border-brand-red': form.errors.calle}"
-                                    />
-                                    <p v-if="form.errors.calle" class="text-brand-red text-[10px] mt-1">{{ form.errors.calle }}</p>
-                                </div>
-                                <div class="col-span-1">
-                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Nº</label>
-                                    <input v-model="form.numero" type="text" class="input-field w-full text-center" :class="{'border-brand-red': form.errors.numero}">
-                                    <p v-if="form.errors.numero" class="text-brand-red text-[10px] mt-1">{{ form.errors.numero }}</p>
-                                </div>
-                            </div>
-                            
-                            <div class="grid grid-cols-3 gap-4">
-                                <div>
-                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">CP</label>
-                                    <input v-model="form.codigo_postal" type="text" class="input-field w-full text-center" :class="{'border-brand-red': form.errors.codigo_postal}">
-                                    <p v-if="form.errors.codigo_postal" class="text-brand-red text-[10px] mt-1">{{ form.errors.codigo_postal }}</p>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Piso</label>
-                                    <input v-model="form.piso" type="text" class="input-field w-full text-center" :class="{'border-brand-red': form.errors.piso}">
-                                    <p v-if="form.errors.piso" class="text-brand-red text-[10px] mt-1">{{ form.errors.piso }}</p>
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Depto</label>
-                                    <input v-model="form.departamento" type="text" class="input-field w-full text-center" :class="{'border-brand-red': form.errors.departamento}">
-                                    <p v-if="form.errors.departamento" class="text-brand-red text-[10px] mt-1">{{ form.errors.departamento }}</p>
-                                </div>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Email</label>
-                                <input v-model="form.email" type="email" class="input-field w-full" placeholder="sucursal@purocomic.com" :class="{'border-brand-red': form.errors.email}">
-                                <p v-if="form.errors.email" class="text-brand-red text-[10px] mt-1">{{ form.errors.email }}</p>
-                            </div>
+                <form @submit.prevent="submit" class="p-8 space-y-6">
+                    <!-- Fila 1: Nombre & Ciudad -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Nombre de la Sucursal *</label>
+                            <input v-model="form.nombre" type="text" class="input-field w-full font-bold border-white/10" :class="{'border-brand-red': form.errors.nombre}" placeholder="Ej: Rosario centro, Funes express...">
+                            <p v-if="form.errors.nombre" class="text-brand-red text-xs mt-1">{{ form.errors.nombre }}</p>
                         </div>
-
-                        <!-- Col 2 -->
-                        <div class="space-y-6">
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Teléfono</label>
-                                <input v-model="form.telefono" type="text" class="input-field w-full" placeholder="+54 341 ..." :class="{'border-brand-red': form.errors.telefono}">
-                                <p v-if="form.errors.telefono" class="text-brand-red text-[10px] mt-1">{{ form.errors.telefono }}</p>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1 leading-none">Ciudad / Localidad (Santa Fe)</label>
-                                <select v-model="form.ciudad_nombre" class="input-field w-full bg-brand-black" :class="{'border-brand-red': form.errors.ciudad_nombre}">
-                                    <option value="" disabled>Seleccionar ciudad...</option>
-                                    <option v-for="c in ciudades" :key="c.id" :value="c.nombre">{{ c.nombre }}</option>
-                                </select>
-                                <p v-if="form.errors.ciudad_nombre" class="text-brand-red text-xs mt-1">{{ form.errors.ciudad_nombre }}</p>
-                            </div>
-
-                            <div class="space-y-4 pt-4 border-t border-white/5">
-                                <div class="flex items-center gap-2 p-3 bg-white/5 rounded border border-white/5">
-                                    <input type="checkbox" v-model="form.activo" id="suc_activa" class="rounded-sm border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
-                                    <label for="suc_activa" class="text-xs font-black uppercase tracking-widest text-white/80 cursor-pointer">Sucursal Operativa</label>
-                                </div>
-                                <div class="flex items-center gap-2 p-3 bg-white/5 rounded border border-white/5">
-                                    <input type="checkbox" v-model="form.es_principal" id="suc_principal" class="rounded-sm border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
-                                    <label for="suc_principal" class="text-xs font-black uppercase tracking-widest text-white/80 cursor-pointer">Sucursal Principal ⭐</label>
-                                </div>
-                            </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Ciudad / Localidad (Santa Fe) *</label>
+                            <select v-model="form.ciudad_nombre" class="input-field w-full bg-brand-black font-bold border-white/10" :class="{'border-brand-red': form.errors.ciudad_nombre}">
+                                <option value="" disabled>Seleccionar ciudad...</option>
+                                <option v-for="c in ciudades" :key="c.id" :value="c.nombre">{{ c.nombre }}</option>
+                            </select>
+                            <p v-if="form.errors.ciudad_nombre" class="text-brand-red text-xs mt-1">{{ form.errors.ciudad_nombre }}</p>
                         </div>
                     </div>
 
-                    <div class="mt-10 flex justify-end gap-3 border-t border-white/10 pt-8">
-                        <button type="button" @click="showModal = false" class="px-8 py-3 rounded-md font-black text-white/30 hover:text-white transition-colors uppercase text-xs tracking-widest">Descartar</button>
-                        <button type="submit" :disabled="form.processing" class="btn-primary px-12 relative overflow-hidden group shadow-xl">
+                    <!-- Fila 2: Calle, Nº, Piso, Depto, CP -->
+                    <div class="grid grid-cols-12 gap-3">
+                        <div class="col-span-12 md:col-span-4">
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Calle *</label>
+                            <DireccionAutocomplete
+                                v-model="form.calle"
+                                :contexto="form.ciudad_nombre ? `${form.ciudad_nombre}, Santa Fe, Argentina` : 'Santa Fe, Argentina'"
+                                @select="onSeleccionarDireccionSucursal"
+                                class="input-field w-full"
+                                :class="{'border-brand-red': form.errors.calle}"
+                            />
+                            <p v-if="form.errors.calle" class="text-brand-red text-xs mt-1">{{ form.errors.calle }}</p>
+                        </div>
+                        <div class="col-span-3 md:col-span-2">
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none text-center">Nº</label>
+                            <input v-model="form.numero" type="text" class="input-field w-full text-center font-bold" :class="{'border-brand-red': form.errors.numero}">
+                            <p v-if="form.errors.numero" class="text-brand-red text-xs mt-1">{{ form.errors.numero }}</p>
+                        </div>
+                        <div class="col-span-3 md:col-span-2">
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none text-center">Piso</label>
+                            <input v-model="form.piso" type="text" class="input-field w-full text-center font-bold" :class="{'border-brand-red': form.errors.piso}">
+                        </div>
+                        <div class="col-span-3 md:col-span-2">
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none text-center">Depto</label>
+                            <input v-model="form.departamento" type="text" class="input-field w-full text-center font-bold" :class="{'border-brand-red': form.errors.departamento}">
+                        </div>
+                        <div class="col-span-3 md:col-span-2">
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none text-center">CP</label>
+                            <input v-model="form.codigo_postal" type="text" class="input-field w-full text-center font-bold" :class="{'border-brand-red': form.errors.codigo_postal}">
+                        </div>
+                    </div>
+
+                    <!-- Fila 3: Teléfono & Email -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Teléfono</label>
+                            <input v-model="form.telefono" type="text" class="input-field w-full" placeholder="+54 341 4250000" :class="{'border-brand-red': form.errors.telefono}">
+                            <p v-if="form.errors.telefono" class="text-brand-red text-xs mt-1">{{ form.errors.telefono }}</p>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Email</label>
+                            <input v-model="form.email" type="email" class="input-field w-full" placeholder="sucursal@purocomic.com" :class="{'border-brand-red': form.errors.email}">
+                            <p v-if="form.errors.email" class="text-brand-red text-xs mt-1">{{ form.errors.email }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Fila 4: Opciones de Operatividad & Principal -->
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                        <label class="flex items-center gap-3 p-3.5 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 transition-all cursor-pointer">
+                            <input type="checkbox" v-model="form.activo" class="rounded border-white/20 bg-black text-brand-red focus:ring-brand-red h-4 w-4">
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-white">Sucursal Operativa</div>
+                                <div class="text-[10px] text-white/40">Habilitada para operaciones en el sistema</div>
+                            </div>
+                        </label>
+
+                        <label class="flex items-center gap-3 p-3.5 bg-white/5 rounded-xl border border-white/10 hover:border-white/20 transition-all cursor-pointer">
+                            <input type="checkbox" v-model="form.es_principal" class="rounded border-white/20 bg-black text-brand-red focus:ring-brand-red h-4 w-4">
+                            <div>
+                                <div class="text-xs font-bold uppercase tracking-wider text-white flex items-center gap-1">
+                                    Sucursal Principal <span class="text-yellow-400">⭐</span>
+                                </div>
+                                <div class="text-[10px] text-white/40">Sede central por defecto</div>
+                            </div>
+                        </label>
+                    </div>
+
+                    <!-- Footer Botones -->
+                    <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
+                        <button type="button" @click="showModal = false" class="py-3 px-8 rounded-xl border border-white/20 hover:border-white text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white transition-all bg-transparent">Descartar</button>
+                        <button type="submit" :disabled="form.processing" class="btn-primary px-10 py-3 relative overflow-hidden group shadow-xl text-xs font-bold uppercase tracking-wider rounded-xl">
                            <span class="relative z-10">{{ form.processing ? 'PROCESANDO...' : (isEditing ? 'ACTUALIZAR SUCURSAL' : 'CONFIRMAR ALTA') }}</span>
                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
                         </button>

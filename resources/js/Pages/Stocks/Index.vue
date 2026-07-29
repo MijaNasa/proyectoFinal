@@ -38,6 +38,16 @@ const nuevoTotal = computed(() => {
 watch(() => ajusteTipo.value, (tipo) => {
     if (tipo === '+') {
         form.motivo = '';
+    } else {
+        if (ajusteCantidad.value > cantidadActual.value) {
+            ajusteCantidad.value = cantidadActual.value;
+        }
+    }
+});
+
+watch(ajusteCantidad, (val) => {
+    if (ajusteTipo.value === '-' && val > cantidadActual.value) {
+        ajusteCantidad.value = cantidadActual.value;
     }
 });
 
@@ -231,9 +241,18 @@ const getTomoStock = (tomo, suc_id) => {
 };
 
 const getTomoStockColor = (qty) => {
-    if (qty > 5) return 'text-white';
-    if (qty > 0) return 'text-orange-500';
-    return 'text-white/20';
+    return qty > 0 ? 'text-white font-bold' : 'text-white/30 font-normal';
+};
+
+const formatSucursalHeader = (nombre) => {
+    if (!nombre) return '';
+    let text = nombre.trim();
+    if (/^sucursal\s+/i.test(text)) {
+        text = text.replace(/^sucursal\s+/i, 'Suc. ');
+    } else if (!/^suc\./i.test(text)) {
+        text = 'Suc. ' + text;
+    }
+    return text.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
 };
 </script>
 
@@ -250,40 +269,34 @@ const getTomoStockColor = (qty) => {
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                <!-- Filtros -->
-                <div class="card mb-8">
-                    <div class="flex flex-col md:flex-row items-center gap-4">
-                        <div class="flex-1 w-full">
-                            <label class="block text-[10px] font-black uppercase text-brand-red mb-1 ml-1 tracking-widest">Buscar Título o ISBN</label>
-                            <input 
-                                v-model="search" 
-                                type="text" 
-                                placeholder="Inicie su búsqueda..." 
-                                class="input-field w-full"
-                            >
-                        </div>
-                    </div>
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+            <!-- Buscador estilo catálogo -->
+            <div class="card p-4 border-white/5">
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input 
+                        v-model="search" 
+                        type="text" 
+                        placeholder="Buscar por título de obra, autor o ISBN..." 
+                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
+                    >
                 </div>
+            </div>
 
                 <div class="card p-0 overflow-hidden">
                     <table class="w-full text-left border-collapse table-fixed">
                         <thead>
-                            <tr class="border-b border-white/10 bg-white/[0.01] uppercase text-[10px] font-black tracking-widest text-white/50">
+                            <tr class="border-b border-white/10 bg-white/[0.01] uppercase text-xs font-bold tracking-wider text-white/50">
                                 <th class="p-4 w-12 text-center"></th>
                                 <th class="p-4 w-1/2">Obra</th>
                                 <th class="p-4 w-1/4">Autor</th>
                                 <th class="p-4 w-1/4 text-center">Total Disponible (unidades)</th>
                             </tr>
                         </thead>
-                        <tbody class="bg-white/[0.01]">
-                            <tr>
-                                <td colspan="4" class="px-4 py-2 text-[10px] text-white/40 italic">
-                                    Hacé click en la fila de una obra para desplegar sus tomos, y despué click sobre el número de cada sucursal para cargar o ajustar el stock disponible.
-                                </td>
-                            </tr>
-                        </tbody>
                         <tbody class="divide-y divide-white/5">
                             <template v-for="obra in obras.data" :key="obra.id">
                                 <!-- Obra Row -->
@@ -300,12 +313,12 @@ const getTomoStockColor = (qty) => {
                                         <div class="font-black text-sm uppercase group-hover:text-brand-red transition-colors">{{ obra.titulo }}</div>
                                     </td>
                                     <td class="p-4">
-                                        <div class="text-[10px] uppercase font-black tracking-tighter italic text-white/50">
-                                            {{ obra.autor?.apellido || 'Sin Autor' }}, {{ obra.autor?.nombre || '' }}
+                                        <div class="text-sm font-bold text-white/70">
+                                            {{ obra.autor ? ((obra.autor.nombre ? obra.autor.nombre + ' ' : '') + obra.autor.apellido) : 'Sin Autor' }}
                                         </div>
                                     </td>
                                     <td class="p-4 text-center">
-                                        <span class="text-xl font-black" :class="getObraTotal(obra) > 5 ? 'text-white' : (getObraTotal(obra) > 0 ? 'text-orange-500' : 'text-brand-red')">
+                                        <span class="text-xl font-black" :class="getObraTotal(obra) > 0 ? 'text-white' : 'text-white/30'">
                                             {{ getObraTotal(obra) }}
                                         </span>
                                     </td>
@@ -317,9 +330,9 @@ const getTomoStockColor = (qty) => {
                                         <div class="p-4 pl-12 border-l-4 border-brand-red overflow-x-auto">
                                             <table class="w-full text-left table-fixed min-w-[600px]">
                                                 <thead>
-                                                    <tr class="text-[9px] uppercase tracking-widest text-brand-red border-b border-white/5">
-                                                        <th class="py-2 pr-4 font-black w-[30%]">Tomo / Edición</th>
-                                                        <th class="py-2 px-4 text-center font-black leading-tight" v-for="s in sucursales" :key="s.id">{{ s.nombre }}</th>
+                                                    <tr class="text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
+                                                        <th class="py-2 pr-4 font-bold w-[30%]">Tomo</th>
+                                                        <th class="py-2 px-3 text-center font-bold normal-case text-white/70" v-for="s in sucursales" :key="s.id">{{ formatSucursalHeader(s.nombre) }}</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
@@ -332,9 +345,9 @@ const getTomoStockColor = (qty) => {
                                                             <div
                                                                 @click="openModalFromGrid(tomo, s)"
                                                                 title="Click para cargar/editar stock"
-                                                                class="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded cursor-pointer hover:bg-brand-red/20 hover:ring-1 hover:ring-brand-red/40 transition-colors"
+                                                                class="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded cursor-pointer hover:bg-white/10 transition-colors"
                                                             >
-                                                                <span class="font-black text-sm" :class="getTomoStockColor(getTomoStock(tomo, s.id))">
+                                                                <span :class="getTomoStockColor(getTomoStock(tomo, s.id))">
                                                                     {{ getTomoStock(tomo, s.id) }}
                                                                 </span>
                                                             </div>
@@ -356,142 +369,160 @@ const getTomoStockColor = (qty) => {
                 </div>
 
                 <!-- Paginación -->
-                <div class="mt-8 flex justify-center gap-2">
-                    <Link v-for="link in obras.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-[10px] font-black uppercase" :class="{'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20': !link.url}">{{ decodeLabel(link.label) }}</Link>
+                <div v-if="obras.links && obras.links.length > 3" class="flex justify-center gap-2 pt-2">
+                    <Link v-for="link in obras.links" :key="link.label" :href="link.url || '#'" class="px-3 py-1 rounded border border-white/5 transition-all text-xs font-bold uppercase" :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/20': !link.url}">{{ decodeLabel(link.label) }}</Link>
                 </div>
             </div>
-        </div>
 
         <!-- Modal Cargar / Ajustar Stock -->
-        <div v-if="showModal" class="fixed inset-0 z-[100] flex items-start justify-center p-4 pt-16 overflow-y-auto">
-            <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showModal = false" />
-            <div class="relative bg-[#111] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-visible my-8">
-                <div class="px-8 py-6 border-b border-white/5 flex justify-between items-start">
-                    <div>
-                        <h3 class="text-xl font-black uppercase tracking-tighter">
-                            <span class="text-brand-red italic">{{ isEditing ? 'Ajustar' : 'Cargar' }}</span> Stock
-                        </h3>
-                        <p class="text-[10px] text-white/40 font-bold uppercase mt-1">
-                            Acá cargás cuántas unidades físicas tenés disponibles de esta edición, en esta sucursal.
-                        </p>
-                    </div>
-                    <button @click="showModal = false" class="text-white/40 hover:text-white transition-colors text-xl leading-none">&times;</button>
+        <template v-if="showModal">
+        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showModal = false"></div>
+        <div class="fixed inset-0 z-[101] overflow-y-auto">
+            <div class="flex min-h-full items-center justify-center p-4">
+            <div class="relative w-full max-w-lg card p-0 border border-brand-red/50 shadow-2xl overflow-hidden transform transition-all my-8">
+                <!-- Header -->
+                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative">
+                        {{ isEditing ? 'Ajustar' : 'Cargar' }} <span class="text-white">Stock</span>
+                    </h3>
+                    <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
                 </div>
 
-                <form @submit.prevent="submit" class="px-8 py-6 space-y-5">
-                    <!-- Libro (buscador, solo si no vino preseleccionado desde la grilla) -->
-                    <div class="relative">
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Libro / Edición</label>
-                        <input
-                            v-model="libroSearch"
-                            @focus="showLibroDropdown = true"
-                            type="text"
-                            :disabled="isEditing"
-                            placeholder="Buscar por título, ISBN o autor..."
-                            class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50 disabled:opacity-60 disabled:cursor-not-allowed"
-                            :class="{ 'border-red-500': form.errors.libro_id }"
-                        />
-                        <p v-if="form.errors.libro_id" class="text-red-400 text-xs mt-1">{{ form.errors.libro_id }}</p>
-                        <div v-if="showLibroDropdown && librosFiltrados.length" class="absolute z-10 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
-                            <div
-                                v-for="l in librosFiltrados"
-                                :key="l.id"
-                                @mousedown.prevent="selectLibro(l)"
-                                class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0"
+                <form @submit.prevent="submit" class="p-6 space-y-5">
+                    <!-- Ficha resumida del ítem seleccionado -->
+                    <div v-if="isEditing || form.libro_id" class="bg-white/[0.03] border border-white/10 rounded-xl p-4 flex items-center justify-between">
+                        <div class="pr-4">
+                            <div class="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-0.5">Edición seleccionada</div>
+                            <div class="text-sm font-black text-white uppercase">{{ libroSearch || 'Edición' }}</div>
+                        </div>
+                        <div class="text-right shrink-0">
+                            <div class="text-[10px] font-bold text-white/40 uppercase tracking-widest mb-0.5">Sucursal</div>
+                            <div class="text-xs font-bold text-brand-red uppercase">{{ formatSucursalHeader(sucursales.find(s => s.id == form.sucursal_id)?.nombre) || 'S/D' }}</div>
+                        </div>
+                    </div>
+
+                    <!-- Campos Libro y Sucursal (solo para alta directa no vinculada) -->
+                    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="relative">
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Libro / Edición *</label>
+                            <input
+                                v-model="libroSearch"
+                                @focus="showLibroDropdown = true"
+                                type="text"
+                                placeholder="Buscar libro..."
+                                class="input-field w-full text-sm font-bold"
+                                :class="{ 'border-brand-red': form.errors.libro_id }"
+                            />
+                            <p v-if="form.errors.libro_id" class="text-brand-red text-xs mt-1">{{ form.errors.libro_id }}</p>
+                            <div v-if="showLibroDropdown && librosFiltrados.length" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
+                                <div
+                                    v-for="l in librosFiltrados"
+                                    :key="l.id"
+                                    @mousedown.prevent="selectLibro(l)"
+                                    class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0"
+                                >
+                                    <span class="font-black uppercase">{{ l.titulo }}</span>
+                                    <span class="text-white/40"> — {{ l.autor }} — ISBN {{ l.isbn || 'S/I' }}</span>
+                                </div>
+                            </div>
+                            <div v-if="showLibroDropdown" class="fixed inset-0 z-40" @click="showLibroDropdown = false"></div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Sucursal *</label>
+                            <select
+                                v-model="form.sucursal_id"
+                                class="input-field w-full bg-brand-black text-sm font-bold"
+                                :class="{ 'border-brand-red': form.errors.sucursal_id }"
                             >
-                                <span class="font-black uppercase">{{ l.titulo }}</span>
-                                <span class="text-white/40"> — {{ l.autor }} — ISBN {{ l.isbn || 'S/I' }}</span>
+                                <option value="">Seleccionar sucursal...</option>
+                                <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
+                            </select>
+                            <p v-if="form.errors.sucursal_id" class="text-brand-red text-xs mt-1">{{ form.errors.sucursal_id }}</p>
+                        </div>
+                    </div>
+
+                    <!-- Widget de Modificación de Unidades -->
+                    <div class="bg-black/40 border border-white/10 rounded-2xl p-5 space-y-4">
+                        <div class="flex items-center justify-between">
+                            <label class="text-xs font-bold uppercase tracking-widest text-white/50">Tipo de Ajuste</label>
+                            <div class="inline-flex p-1 bg-white/5 border border-white/10 rounded-xl gap-1">
+                                <button
+                                    type="button"
+                                    @click="ajusteTipo = '+'"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1"
+                                    :class="ajusteTipo === '+' ? 'bg-white/20 text-white shadow' : 'text-white/40 hover:text-white'"
+                                >
+                                    <span>+</span> Agregar
+                                </button>
+                                <button
+                                    type="button"
+                                    @click="ajusteTipo = '-'"
+                                    class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all flex items-center gap-1"
+                                    :class="ajusteTipo === '-' ? 'bg-white/20 text-white shadow' : 'text-white/40 hover:text-white'"
+                                >
+                                    <span>−</span> Quitar
+                                </button>
                             </div>
                         </div>
-                        <div v-if="showLibroDropdown" class="fixed inset-0 z-0" @click="showLibroDropdown = false"></div>
-                    </div>
 
-                    <!-- Sucursal -->
-                    <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Sucursal</label>
-                        <select
-                            v-model="form.sucursal_id"
-                            :disabled="isEditing || !!$page.props.auth.user?.empleado?.sucursal_id"
-                            class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red/50 disabled:opacity-60 disabled:cursor-not-allowed"
-                            :class="{ 'border-red-500': form.errors.sucursal_id }"
-                        >
-                            <option value="">Seleccionar sucursal...</option>
-                            <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
-                        </select>
-                        <p v-if="form.errors.sucursal_id" class="text-red-400 text-xs mt-1">{{ form.errors.sucursal_id }}</p>
-                    </div>
+                        <!-- Indicadores de Cálculo -->
+                        <div class="grid grid-cols-3 gap-3 items-stretch pt-1">
+                            <!-- Actual -->
+                            <div class="bg-white/5 rounded-xl p-3 text-center border border-white/5 flex flex-col justify-center items-center">
+                                <div class="text-[10px] font-bold uppercase tracking-widest text-white/40">Actual</div>
+                                <div class="text-xl font-black text-white/80 mt-0.5">{{ cantidadActual }}</div>
+                            </div>
 
-                    <!-- Tipo de movimiento -->
-                    <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">¿Qué querés hacer?</label>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button
-                                type="button"
-                                @click="ajusteTipo = '+'"
-                                class="py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-colors"
-                                :class="ajusteTipo === '+' ? 'bg-green-600/20 border-green-500 text-green-400' : 'bg-white/5 border-white/10 text-white/40'"
-                            >+ Agregar stock (ingreso)</button>
-                            <button
-                                type="button"
-                                @click="ajusteTipo = '-'"
-                                class="py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-colors"
-                                :class="ajusteTipo === '-' ? 'bg-brand-red/20 border-brand-red text-brand-red' : 'bg-white/5 border-white/10 text-white/40'"
-                            >− Quitar stock (egreso)</button>
+                            <!-- Modificador -->
+                            <div class="bg-white/5 rounded-xl p-3 text-center border border-white/5 flex flex-col justify-center items-center">
+                                <div class="text-[10px] font-bold uppercase tracking-widest text-white/40 mb-1">
+                                    {{ ajusteTipo === '+' ? 'A Sumar' : 'A Restar' }}
+                                </div>
+                                <input
+                                    v-model.number="ajusteCantidad"
+                                    type="number"
+                                    min="0"
+                                    :max="ajusteTipo === '-' ? cantidadActual : null"
+                                    step="1"
+                                    class="w-full bg-black/60 border border-white/20 rounded-xl px-2 py-1 text-center text-xl text-white font-black focus:outline-none focus:border-brand-red transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                />
+                            </div>
+
+                            <!-- Resultado -->
+                            <div class="bg-white/5 rounded-xl p-3 text-center border border-white/5 flex flex-col justify-center items-center">
+                                <div class="text-[10px] font-bold uppercase tracking-widest text-white/40">Resultante</div>
+                                <div class="text-xl font-black text-white mt-0.5">{{ nuevoTotal }}</div>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Cantidades -->
-                    <div class="bg-white/[0.03] border border-white/5 rounded-xl p-4 space-y-3">
-                        <div class="flex justify-between items-center text-xs">
-                            <span class="text-white/50 uppercase font-bold tracking-widest">Stock actual en esta sucursal</span>
-                            <span class="font-black text-white">{{ cantidadActual }} unidades</span>
+                    <!-- Fila Opcionales: Ubicación & Motivo -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Ubicación depósito</label>
+                            <input v-model="form.ubicacion_text" type="text" placeholder="Ej: Estantería 3, fila B" class="input-field w-full text-xs font-bold" />
                         </div>
                         <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">
-                                {{ ajusteTipo === '+' ? 'Cuántas unidades vas a agregar' : 'Cuántas unidades vas a quitar' }}
-                            </label>
-                            <input
-                                v-model.number="ajusteCantidad"
-                                type="number"
-                                min="0"
-                                step="1"
-                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-lg text-white font-black focus:outline-none focus:border-brand-red/50"
-                            />
-                        </div>
-                        <div class="flex justify-between items-center text-xs pt-2 border-t border-white/5">
-                            <span class="text-white/50 uppercase font-bold tracking-widest">Total luego del cambio</span>
-                            <span class="font-black text-lg" :class="getTomoStockColor(nuevoTotal)">{{ nuevoTotal }} unidades</span>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1.5 leading-none">Motivo del ajuste</label>
+                            <input v-model="form.motivo" type="text" placeholder="Ej: Pedido proveedor, ajuste" class="input-field w-full text-xs font-bold" />
                         </div>
                     </div>
 
-                    <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Ubicación en el depósito (opcional)</label>
-                        <input v-model="form.ubicacion_text" type="text" placeholder="Ej: Estantería 3, fila B..." class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50" />
-                    </div>
-
-                    <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Motivo (opcional)</label>
-                        <input v-model="form.motivo" type="text" placeholder="Ej: Llegada de pedido a proveedor, rotura, ajuste de inventario..." class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50" />
-                    </div>
-
-                    <div class="flex items-center justify-between pt-4 border-t border-white/5">
-                        <button
-                            v-if="isEditing"
-                            type="button"
-                            @click="deleteStock"
-                            class="text-[10px] font-black uppercase tracking-widest text-white/30 hover:text-brand-red transition-colors"
-                        >Eliminar registro</button>
-                        <span v-else></span>
-                        <div class="flex gap-3">
-                            <button type="button" @click="showModal = false" class="px-6 py-3 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/40 hover:bg-white/5 transition-all">Cancelar</button>
-                            <button type="submit" :disabled="form.processing" class="btn-primary px-8 py-3 rounded-xl text-xs font-black uppercase tracking-widest disabled:opacity-50">
-                                {{ form.processing ? 'Guardando...' : 'Guardar' }}
-                            </button>
-                        </div>
+                    <!-- Footer Acciones -->
+                    <div class="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
+                        <button type="button" @click="showModal = false" class="px-5 py-2.5 rounded-xl border border-white/10 text-xs font-bold uppercase tracking-wider text-white/60 hover:text-white hover:bg-white/5 transition-all">Cancelar</button>
+                        <button type="submit" :disabled="form.processing" class="btn-primary px-7 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider disabled:opacity-50">
+                            {{ form.processing ? 'Guardando...' : 'Guardar' }}
+                        </button>
                     </div>
                 </form>
             </div>
+            </div>
         </div>
+        </template>
 
     </AuthenticatedLayout>
 </template>

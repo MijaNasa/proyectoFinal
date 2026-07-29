@@ -17,7 +17,7 @@
         .text-center { text-align: center; }
         .font-bold { font-weight: bold; }
         .totals { margin-top: 20px; text-align: right; font-size: 16px; }
-        .totals span { font-weight: bold; color: #E61919; }
+        .totals span { font-weight: bold; color: #000; }
         .footer { position: fixed; bottom: -20px; left: 0px; right: 0px; height: 40px; font-size: 10px; color: #999; text-align: center; border-top: 1px solid #ddd; padding-top: 10px; }
     </style>
 </head>
@@ -29,9 +29,9 @@
 
     <div class="filters">
         <p><strong>Desde:</strong> {{ \Carbon\Carbon::parse($desde)->format('d/m/Y') }} &nbsp;|&nbsp; 
-           <strong>Hasta:</strong> {{ \Carbon\Carbon::parse($hasta)->format('d/m/Y') }}</p>
-        <p><strong>Sucursal:</strong> {{ $sucursal ? $sucursal->nombre : 'Todas las sucursales' }} &nbsp;|&nbsp; 
-           <strong>Categoría:</strong> {{ $categoria ? ucfirst($categoria) : 'Todas las categorías' }}</p>
+           <strong>Hasta:</strong> {{ \Carbon\Carbon::parse($hasta)->format('d/m/Y') }} &nbsp;|&nbsp; 
+           <strong>Sucursal:</strong> {{ $sucursal ? $sucursal->nombre : 'Todas' }} &nbsp;|&nbsp; 
+           <strong>Categoría:</strong> {{ $categoria ? ucfirst($categoria) : 'Todas' }}</p>
     </div>
 
     <table>

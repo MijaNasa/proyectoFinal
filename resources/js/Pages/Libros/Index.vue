@@ -904,7 +904,7 @@ const submitBulk = () => {
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="border-b border-white/10 bg-white/[0.01] text-[10px] font-black uppercase tracking-widest text-white/50">
+                                <tr class="border-b border-white/10 bg-white/[0.01] text-xs font-bold uppercase tracking-wider text-white/50">
                                     <th class="p-4">Obra</th>
                                     <th class="p-4">Autor</th>
                                     <th class="p-4 text-center">Cantidad de Tomos</th>
@@ -969,7 +969,7 @@ const submitBulk = () => {
 
                                             <table class="w-full text-left border-collapse" v-if="obra.libros && obra.libros.length > 0">
                                                 <thead>
-                                                    <tr class="text-[10px] text-white/40 uppercase tracking-widest border-b border-white/5">
+                                                    <tr class="text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
                                                         <th class="pb-2">Tomo N°</th>
                                                         <th class="pb-2">ISBN</th>
                                                         <th class="pb-2 text-center">Precio</th>

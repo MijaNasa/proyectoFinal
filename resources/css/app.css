@@ -37,6 +37,16 @@
         background: #E61919;
     }
 
+    /* Hide number input spinners */
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+    input[type=number] {
+        -moz-appearance: textfield;
+    }
+
     html {
         scrollbar-width: thin;
         scrollbar-color: #27272a #0A0A0A;
@@ -75,4 +85,14 @@
 
 .swal2-validation-message::before {
     display: none !important;
+}
+
+/* SweetAlert2 warning/exclamation icon global red override */
+.swal2-icon.swal2-warning {
+    border-color: #E61919 !important;
+    color: #E61919 !important;
+}
+
+.swal2-icon.swal2-warning .swal2-icon-content {
+    color: #E61919 !important;
 }

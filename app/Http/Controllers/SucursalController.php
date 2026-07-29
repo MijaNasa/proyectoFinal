@@ -40,6 +40,10 @@ class SucursalController extends Controller
      */
     public function store(StoreSucursalRequest $request)
     {
+        if (!$request->user() || !$request->user()->esAdmin()) {
+            abort(403, 'No tenés permisos para crear sucursales.');
+        }
+
         $data = $request->validated();
         
         $provincia = \App\Models\Provincia::first();
@@ -65,6 +69,10 @@ class SucursalController extends Controller
      */
     public function update(UpdateSucursalRequest $request, Sucursal $sucursal)
     {
+        if (!$request->user() || !$request->user()->esAdmin()) {
+            abort(403, 'No tenés permisos para editar sucursales.');
+        }
+
         $data = $request->validated();
         
         $provincia = \App\Models\Provincia::first();
@@ -87,6 +95,9 @@ class SucursalController extends Controller
 
     public function destroy(Sucursal $sucursal)
     {
+        if (!auth()->user() || !auth()->user()->esAdmin()) {
+            abort(403, 'No tenés permisos para eliminar sucursales.');
+        }
         // Verificar si hay stock activo en esta sucursal
         $tieneStock = \App\Models\Stock::where('sucursal_id', $sucursal->id)
             ->where('cantidad_disponible', '>', 0)

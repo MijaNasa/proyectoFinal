@@ -310,9 +310,16 @@ const decodeLabel = (l) => {
 
             <!-- Filtros -->
             <div class="flex gap-3">
-                <input v-model="search" @keyup.enter="applyFilters"
-                    type="text" placeholder="Buscar por número o proveedor…"
-                    class="flex-1 bg-white/5 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-white/30" />
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input v-model="search" @keyup.enter="applyFilters"
+                        type="text" placeholder="Buscar por número o proveedor..."
+                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold" />
+                </div>
 
                 <!-- Filtro estado -->
                 <div class="relative">
@@ -429,12 +436,10 @@ const decodeLabel = (l) => {
         <div v-if="showModal" class="fixed inset-0 z-50 flex items-start justify-center bg-black/70 backdrop-blur-sm py-8 overflow-y-auto">
             <div class="bg-[#111] border border-white/10 rounded-2xl p-6 w-full max-w-4xl shadow-2xl" @click.stop>
 
-                <div class="flex items-center justify-between mb-6">
-                    <h2 class="text-lg font-black uppercase tracking-tighter text-white">{{ isEditing ? 'Editar Orden de Compra' : 'Nueva Orden de Compra' }}</h2>
-                    <button @click="showModal = false" class="text-white/40 hover:text-white transition-colors">
-                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                        </svg>
+                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden -mx-6 -mt-6 mb-6 rounded-t-2xl">
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditing ? 'Editar' : 'Nueva' }} <span class="text-white">Orden de Compra</span></h3>
+                    <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
 

@@ -35,12 +35,14 @@ class GastoController extends Controller
         $stats = Gasto::where('fecha', '>=', $desde)
             ->where('fecha', '<=', $hasta . ' 23:59:59')
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
+            ->when($categoria,  fn($q) => $q->where('categoria', $categoria))
             ->selectRaw('COUNT(*) as cantidad, SUM(monto) as total')
             ->first();
 
         $porCategoria = Gasto::where('fecha', '>=', $desde)
             ->where('fecha', '<=', $hasta . ' 23:59:59')
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
+            ->when($categoria,  fn($q) => $q->where('categoria', $categoria))
             ->select('categoria', DB::raw('SUM(monto) as total'), DB::raw('COUNT(*) as cantidad'))
             ->groupBy('categoria')
             ->orderByDesc('total')

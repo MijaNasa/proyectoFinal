@@ -29,8 +29,8 @@ const sucursalLabel = computed(() => {
     if (!sucursalId.value) return 'Todas las sucursales';
     return props.sucursales.find(s => s.id == sucursalId.value)?.nombre ?? 'Todas';
 });
-const selectSucursalFiltro = (id) => { sucursalId.value = id; showSucursalDrop.value = false; };
-const selectCategoriaFiltro = (val) => { categoria.value = val; showCategoriaFiltro.value = false; };
+const selectSucursalFiltro = (id) => { sucursalId.value = id; showSucursalDrop.value = false; aplicar(); };
+const selectCategoriaFiltro = (val) => { categoria.value = val; showCategoriaFiltro.value = false; aplicar(); };
 
 const aplicar = () => router.get(route('gastos.index'), {
     desde: desde.value, hasta: hasta.value,
@@ -48,13 +48,13 @@ const imprimirPdf = () => {
 
 // ── Categorías ────────────────────────────────────────────
 const categorias = [
-    { value: 'alquiler',      label: 'Alquiler',      color: 'text-purple-400 bg-purple-400/10 border-purple-400/20'  },
-    { value: 'servicios',     label: 'Servicios',     color: 'text-blue-400 bg-blue-400/10 border-blue-400/20'        },
-    { value: 'sueldos',       label: 'Sueldos',       color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20'  },
-    { value: 'insumos',       label: 'Insumos',       color: 'text-green-400 bg-green-400/10 border-green-400/20'     },
-    { value: 'impuestos',     label: 'Impuestos',     color: 'text-orange-400 bg-orange-400/10 border-orange-400/20'  },
-    { value: 'mantenimiento', label: 'Mantenimiento', color: 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20'        },
-    { value: 'otros',         label: 'Otros',         color: 'text-white/40 bg-white/5 border-white/10'               },
+    { value: 'alquiler',      label: 'Alquiler',      color: 'text-white/70 bg-white/5 border-white/10' },
+    { value: 'servicios',     label: 'Servicios',     color: 'text-white/70 bg-white/5 border-white/10' },
+    { value: 'sueldos',       label: 'Sueldos',       color: 'text-white/70 bg-white/5 border-white/10' },
+    { value: 'insumos',       label: 'Insumos',       color: 'text-white/70 bg-white/5 border-white/10' },
+    { value: 'impuestos',     label: 'Impuestos',     color: 'text-white/70 bg-white/5 border-white/10' },
+    { value: 'mantenimiento', label: 'Mantenimiento', color: 'text-white/70 bg-white/5 border-white/10' },
+    { value: 'otros',         label: 'Otros',         color: 'text-white/70 bg-white/5 border-white/10' },
 ];
 const catMap = Object.fromEntries(categorias.map(c => [c.value, c]));
 const metodosPago = ['Efectivo', 'Transferencia', 'Tarjeta de débito', 'Tarjeta de crédito', 'Cheque'];
@@ -90,10 +90,17 @@ const form = useForm({
 const sucursalModalLabel  = computed(() => props.sucursales.find(s => s.id == form.sucursal_id)?.nombre ?? 'Seleccionar');
 const categoriaModalLabel = computed(() => catMap[form.categoria]?.label ?? 'Otros');
 
+const closeModal = () => {
+    showModal.value = false;
+    form.clearErrors();
+    form.reset();
+};
+
 const openCrear = () => {
     isEditing.value = false;
     editingId.value = null;
     form.reset();
+    form.clearErrors();
     form.fecha       = new Date().toISOString().slice(0, 10);
     form.metodo_pago = 'Efectivo';
     form.categoria   = 'otros';
@@ -104,6 +111,7 @@ const openCrear = () => {
 const openEditar = (gasto) => {
     isEditing.value      = true;
     editingId.value      = gasto.id;
+    form.clearErrors();
     form.concepto        = gasto.concepto;
     form.categoria       = gasto.categoria;
     form.monto           = gasto.monto;
@@ -118,11 +126,11 @@ const openEditar = (gasto) => {
 const submit = () => {
     if (isEditing.value) {
         form.put(route('gastos.update', editingId.value), {
-            onSuccess: () => { showModal.value = false; },
+            onSuccess: () => { closeModal(); },
         });
     } else {
         form.post(route('gastos.store'), {
-            onSuccess: () => { showModal.value = false; form.reset(); },
+            onSuccess: () => { closeModal(); },
         });
     }
 };
@@ -132,6 +140,7 @@ const eliminar = (gasto) => {
         title: '¿Eliminar gasto?',
         text: `"${gasto.concepto}" — ${fmt(gasto.monto)}`,
         icon: 'warning',
+        iconColor: '#E61919',
         showCancelButton: true,
         confirmButtonColor: '#e61919',
         cancelButtonColor: '#333',
@@ -155,9 +164,6 @@ const eliminar = (gasto) => {
                     <h2 class="text-4xl font-black uppercase tracking-tighter">
                         Registro de <span class="text-brand-red not-italic">Gastos</span>
                     </h2>
-                    <p class="text-white/30 text-xs font-bold uppercase tracking-widest mt-1">
-                        Egresos · Categorías · Impacto en caja
-                    </p>
                 </div>
                 <button @click="openCrear" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
@@ -166,13 +172,71 @@ const eliminar = (gasto) => {
             </div>
         </template>
 
-        <div class="px-8 py-8 space-y-6">
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+
+            <!-- Barra de Filtros (Grid distribuida a 4 columnas 100% de ancho) -->
+            <div class="card p-4 border-white/5 space-y-2">
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                    <!-- Desde -->
+                    <div class="w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Desde</label>
+                        <input v-model="desde" @change="aplicar" type="date"
+                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50" />
+                    </div>
+                    <!-- Hasta -->
+                    <div class="w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Hasta</label>
+                        <input v-model="hasta" @change="aplicar" type="date"
+                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50" />
+                    </div>
+
+                    <!-- Sucursal dropdown -->
+                    <div class="relative w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Sucursal</label>
+                        <button type="button" @click="showSucursalDrop = !showSucursalDrop"
+                            class="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white hover:border-white/20 transition-colors">
+                            <span>{{ sucursalLabel }}</span>
+                            <svg class="w-3.5 h-3.5 text-white/40 ml-auto" :class="{ 'rotate-180': showSucursalDrop }" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div v-if="showSucursalDrop" class="absolute z-20 w-full mt-1 bg-zinc-950 border border-white/10 rounded-lg overflow-hidden shadow-2xl">
+                            <button type="button" @click="selectSucursalFiltro('')" class="w-full text-left px-3.5 py-2 text-xs font-bold text-white/50 hover:bg-white/5 border-b border-white/5">Todas</button>
+                            <button v-for="s in sucursales" :key="s.id" type="button" @click="selectSucursalFiltro(s.id)"
+                                class="w-full text-left px-3.5 py-2 text-xs font-bold text-white hover:bg-white/5 border-b border-white/5 last:border-0"
+                                :class="{ 'text-brand-red': sucursalId == s.id }">{{ s.nombre }}</button>
+                        </div>
+                        <div v-if="showSucursalDrop" class="fixed inset-0 z-10" @click="showSucursalDrop = false" />
+                    </div>
+
+                    <!-- Categoría dropdown -->
+                    <div class="relative w-full">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Categoría</label>
+                        <button type="button" @click="showCategoriaFiltro = !showCategoriaFiltro"
+                            class="w-full flex items-center justify-between bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-bold text-white hover:border-white/20 transition-colors">
+                            <span>{{ categoria ? catMap[categoria]?.label : 'Todas' }}</span>
+                            <svg class="w-3.5 h-3.5 text-white/40 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                        </button>
+                        <div v-if="showCategoriaFiltro" class="absolute z-20 w-full mt-1 bg-zinc-950 border border-white/10 rounded-lg overflow-hidden shadow-2xl">
+                            <button type="button" @click="selectCategoriaFiltro('')" class="w-full text-left px-3.5 py-2 text-xs font-bold text-white/50 hover:bg-white/5 border-b border-white/5">Todas</button>
+                            <button v-for="c in categorias" :key="c.value" type="button" @click="selectCategoriaFiltro(c.value)"
+                                class="w-full text-left px-3.5 py-2 text-xs font-bold text-white hover:bg-white/5 border-b border-white/5 last:border-0"
+                                :class="{ 'text-brand-red': categoria === c.value }">{{ c.label }}</button>
+                        </div>
+                        <div v-if="showCategoriaFiltro" class="fixed inset-0 z-10" @click="showCategoriaFiltro = false" />
+                    </div>
+                </div>
+                <div v-if="sucursalId || categoria || desde !== props.filters.desde || hasta !== props.filters.hasta" class="flex justify-end pt-1">
+                    <button @click="sucursalId = ''; categoria = ''; desde = props.filters.desde; hasta = props.filters.hasta; aplicar();"
+                        class="text-[10px] font-black uppercase tracking-wider text-brand-red hover:underline">
+                        Limpiar Filtros
+                    </button>
+                </div>
+            </div>
 
             <!-- Stats -->
             <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Total Egresos</p>
-                    <p class="text-2xl font-black text-brand-red">{{ fmt(stats.total) }}</p>
+                    <p class="text-2xl font-black text-white">{{ fmt(stats.total) }}</p>
                 </div>
                 <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Registros</p>
@@ -182,118 +246,61 @@ const eliminar = (gasto) => {
                     <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-2">Por Categoría</p>
                     <div class="flex flex-wrap gap-2">
                         <span v-for="cat in porCategoria" :key="cat.categoria"
-                            class="text-[10px] font-black px-2 py-0.5 rounded-full border"
-                            :class="catMap[cat.categoria]?.color">
-                            {{ catMap[cat.categoria]?.label }}: {{ fmt(cat.total) }}
+                            class="text-xs text-white/80 font-normal px-3 py-1 rounded-lg bg-white/5 border border-white/10 flex items-center gap-1.5">
+                            <span class="text-white/60 font-normal">{{ catMap[cat.categoria]?.label }}:</span>
+                            <span class="text-white font-medium">{{ fmt(cat.total) }}</span>
                         </span>
-                        <span v-if="!porCategoria.length" class="text-white/20 text-xs">Sin datos en el período</span>
+                        <span v-if="!porCategoria.length" class="text-white/20 font-bold uppercase tracking-widest text-xs py-1">Sin datos en el período</span>
                     </div>
-                </div>
-            </div>
-
-            <!-- Filtros -->
-            <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
-                <div class="flex flex-wrap items-end gap-4">
-                    <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Desde</label>
-                        <input v-model="desde" type="date"
-                            class="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red/50" />
-                    </div>
-                    <div>
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Hasta</label>
-                        <input v-model="hasta" type="date"
-                            class="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red/50" />
-                    </div>
-
-                    <!-- Sucursal dropdown -->
-                    <div class="relative">
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Sucursal</label>
-                        <button type="button" @click="showSucursalDrop = !showSucursalDrop"
-                            class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white hover:border-brand-red/50 transition-colors min-w-44">
-                            <span>{{ sucursalLabel }}</span>
-                            <svg class="w-4 h-4 text-white/30 ml-auto" :class="{ 'rotate-180': showSucursalDrop }" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="showSucursalDrop" class="absolute z-20 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                            <button type="button" @click="selectSucursalFiltro('')" class="w-full text-left px-4 py-2.5 text-sm text-white/50 hover:bg-white/5 border-b border-white/5">Todas</button>
-                            <button v-for="s in sucursales" :key="s.id" type="button" @click="selectSucursalFiltro(s.id)"
-                                class="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-white/5 border-b border-white/5 last:border-0"
-                                :class="{ 'text-brand-red': sucursalId == s.id }">{{ s.nombre }}</button>
-                        </div>
-                        <div v-if="showSucursalDrop" class="fixed inset-0 z-10" @click="showSucursalDrop = false" />
-                    </div>
-
-                    <!-- Categoría dropdown -->
-                    <div class="relative">
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Categoría</label>
-                        <button type="button" @click="showCategoriaFiltro = !showCategoriaFiltro"
-                            class="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white hover:border-brand-red/50 transition-colors min-w-36">
-                            <span>{{ categoria ? catMap[categoria]?.label : 'Todas' }}</span>
-                            <svg class="w-4 h-4 text-white/30 ml-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="showCategoriaFiltro" class="absolute z-20 w-48 mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                            <button type="button" @click="selectCategoriaFiltro('')" class="w-full text-left px-4 py-2.5 text-sm text-white/50 hover:bg-white/5 border-b border-white/5">Todas</button>
-                            <button v-for="c in categorias" :key="c.value" type="button" @click="selectCategoriaFiltro(c.value)"
-                                class="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-white/5 border-b border-white/5 last:border-0"
-                                :class="{ 'text-brand-red': categoria === c.value }">{{ c.label }}</button>
-                        </div>
-                        <div v-if="showCategoriaFiltro" class="fixed inset-0 z-10" @click="showCategoriaFiltro = false" />
-                    </div>
-
-                    <button @click="aplicar" class="btn-primary px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest">
-                        Aplicar
-                    </button>
                 </div>
             </div>
 
             <!-- Tabla -->
-            <div class="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
-                <table class="w-full text-sm">
+            <div class="card p-0 overflow-hidden border-white/5">
+                <table class="w-full text-left border-collapse">
                     <thead>
-                        <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-white/30">
-                            <th class="text-left px-6 py-4">Concepto</th>
-                            <th class="text-left px-6 py-4">Categoría</th>
-                            <th class="text-left px-6 py-4">Sucursal</th>
-                            <th class="text-left px-6 py-4">Método</th>
-                            <th class="text-center px-6 py-4">Fecha</th>
-                            <th class="text-right px-6 py-4">Monto</th>
-                            <th class="text-right px-6 py-4">Acciones</th>
+                        <tr class="bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
+                            <th class="p-4 text-left">Concepto</th>
+                            <th class="p-4 text-left">Categoría</th>
+                            <th class="p-4 text-left">Sucursal</th>
+                            <th class="p-4 text-left">Método</th>
+                            <th class="p-4 text-center">Fecha</th>
+                            <th class="p-4 text-right">Monto</th>
+                            <th class="p-4 text-center">Acciones</th>
                         </tr>
                     </thead>
-                    <tbody>
+                    <tbody class="divide-y divide-white/5">
                         <tr v-if="!gastos.data.length">
-                            <td colspan="7" class="text-center py-16 text-white/20 font-bold uppercase tracking-widest text-xs">
+                            <td colspan="7" class="text-center p-16 text-white/20 font-bold uppercase tracking-widest text-xs">
                                 No hay gastos en el período seleccionado
                             </td>
                         </tr>
                         <tr v-for="g in gastos.data" :key="g.id"
-                            class="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
-                            <td class="px-6 py-4">
-                                <p class="font-bold text-white">{{ g.concepto }}</p>
-                                <p v-if="g.comprobante" class="text-[10px] text-white/30 font-mono mt-0.5">Comp: {{ g.comprobante }}</p>
-                                <p v-if="g.observaciones" class="text-[10px] text-white/30 italic mt-0.5">{{ g.observaciones }}</p>
+                            class="hover:bg-white/[0.01] transition-colors group">
+                            <td class="p-4">
+                                <div class="text-base font-bold text-white">{{ g.concepto }}</div>
+                                <div v-if="g.comprobante" class="text-xs text-white/40 font-mono mt-0.5">Comp: {{ g.comprobante }}</div>
+                                <div v-if="g.observaciones" class="text-xs text-white/50 italic mt-0.5">{{ g.observaciones }}</div>
                             </td>
-                            <td class="px-6 py-4">
-                                <span class="text-[10px] font-black px-2 py-0.5 rounded-full border"
-                                    :class="catMap[g.categoria]?.color">
+                            <td class="p-4">
+                                <span class="text-sm font-bold text-white/70 capitalize">
                                     {{ catMap[g.categoria]?.label }}
                                 </span>
                             </td>
-                            <td class="px-6 py-4 text-white/60 font-bold text-xs">{{ g.sucursal?.nombre }}</td>
-                            <td class="px-6 py-4">
-                                <span class="text-[10px] font-bold text-white/40">{{ g.metodo_pago }}</span>
-                            </td>
-                            <td class="px-6 py-4 text-center text-white/50 font-bold text-xs">
+                            <td class="p-4 text-sm font-bold text-white/70 capitalize">{{ g.sucursal?.nombre }}</td>
+                            <td class="p-4 text-sm font-bold text-white/60 capitalize">{{ g.metodo_pago }}</td>
+                            <td class="p-4 text-center text-sm font-bold text-white/70">
                                 {{ fmtDate(g.fecha) }}
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <span class="text-base font-black text-brand-red">{{ fmt(g.monto) }}</span>
+                            <td class="p-4 text-right font-black">
+                                <div class="text-base font-bold text-white">{{ fmt(g.monto) }}</div>
                             </td>
-                            <td class="px-6 py-4 text-right">
-                                <div class="flex items-center justify-end gap-2">
-                                    <button @click="openEditar(g)" class="p-2 text-white/20 hover:text-brand-red transition-colors bg-white/5 rounded" title="Editar Gasto">
+                            <td class="p-4 text-center">
+                                <div class="flex items-center justify-center gap-2">
+                                    <button @click="openEditar(g)" class="p-1.5 text-white/40 hover:text-white transition-colors hover:bg-white/5 rounded-lg" title="Editar Gasto">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                     </button>
-                                    <button @click="eliminar(g)" class="p-2 text-white/20 hover:text-brand-red transition-colors bg-white/5 rounded" title="Eliminar Gasto">
+                                    <button @click="eliminar(g)" class="p-1.5 text-white/40 hover:text-brand-red transition-colors hover:bg-white/5 rounded-lg" title="Eliminar Gasto">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                     </button>
                                 </div>
@@ -304,9 +311,9 @@ const eliminar = (gasto) => {
             </div>
 
             <!-- Paginación -->
-            <div v-if="gastos.links?.length > 3" class="flex justify-center gap-2">
+            <div v-if="gastos.links && gastos.links.length > 3" class="flex justify-center gap-2 mt-6">
                 <Link v-for="link in gastos.links" :key="link.label" :href="link.url || '#'"
-                    class="px-4 py-2 rounded-lg border border-white/10 text-xs font-black uppercase tracking-tighter transition-all"
+                    class="px-3 py-1 rounded-lg text-[10px] font-black uppercase transition-colors"
                     :class="{ 'bg-brand-red text-white border-brand-red': link.active, 'text-white/30 pointer-events-none': !link.url }">
                     {{ decodeLabel(link.label) }}
                 </Link>
@@ -326,13 +333,14 @@ const eliminar = (gasto) => {
         <!-- Modal Crear/Editar -->
         <Teleport to="body">
             <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showModal = false" />
-                <div class="relative bg-[#111] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl">
+                <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="closeModal()" />
+                <div class="relative bg-[#111] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
 
-                    <div class="px-8 py-6 border-b border-white/5">
-                        <h3 class="text-xl font-black uppercase tracking-tighter">
-                            {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="text-brand-red italic">Gasto</span>
-                        </h3>
+                    <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
+                        <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="text-white">Gasto</span></h3>
+                        <button @click="closeModal()" class="text-white/80 hover:text-white transition-colors relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
                     </div>
 
                     <form @submit.prevent="submit" class="px-8 py-6 space-y-4">
@@ -352,15 +360,16 @@ const eliminar = (gasto) => {
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Categoría *</label>
                                 <button type="button" @click="showCategoriaModal = !showCategoriaModal"
                                     class="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white hover:border-brand-red/50 transition-colors">
-                                    <span :class="catMap[form.categoria]?.color.split(' ')[0]">{{ categoriaModalLabel }}</span>
+                                    <span class="text-white font-bold">{{ categoriaModalLabel }}</span>
                                     <svg class="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                                 </button>
                                 <div v-if="showCategoriaModal" class="absolute z-20 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
                                     <button v-for="c in categorias" :key="c.value" type="button"
                                         @click="form.categoria = c.value; showCategoriaModal = false"
-                                        class="w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 border-b border-white/5 last:border-0"
-                                        :class="[c.color.split(' ')[0], form.categoria === c.value ? 'font-black' : 'font-medium text-white']">
-                                        {{ c.label }}
+                                        class="w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 border-b border-white/5 last:border-0 text-white flex items-center justify-between"
+                                        :class="{ 'font-bold bg-white/5': form.categoria === c.value }">
+                                        <span>{{ c.label }}</span>
+                                        <span v-if="form.categoria === c.value" class="text-brand-red font-bold">✓</span>
                                     </button>
                                 </div>
                                 <div v-if="showCategoriaModal" class="fixed inset-0 z-10" @click="showCategoriaModal = false" />
@@ -403,42 +412,43 @@ const eliminar = (gasto) => {
                             </div>
                         </div>
 
-                        <!-- Sucursal -->
-                        <div class="relative">
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Sucursal *</label>
-                            <button type="button" @click="showSucursalModal = !showSucursalModal"
-                                class="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white hover:border-brand-red/50 transition-colors"
-                                :class="{ 'border-red-500': form.errors.sucursal_id }">
-                                <span>{{ sucursalModalLabel }}</span>
-                                <svg class="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                            </button>
-                            <div v-if="showSucursalModal" class="absolute z-20 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                                <button v-for="s in sucursales" :key="s.id" type="button"
-                                    @click="form.sucursal_id = s.id; showSucursalModal = false"
-                                    class="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-white/5 border-b border-white/5 last:border-0"
-                                    :class="{ 'text-brand-red font-black': form.sucursal_id == s.id }">{{ s.nombre }}</button>
-                            </div>
-                            <div v-if="showSucursalModal" class="fixed inset-0 z-10" @click="showSucursalModal = false" />
-                            <p v-if="form.errors.sucursal_id" class="text-red-400 text-xs mt-1">{{ form.errors.sucursal_id }}</p>
-                        </div>
-
-                        <!-- Comprobante + Observaciones -->
+                        <!-- Sucursal + N° Comprobante -->
                         <div class="grid grid-cols-2 gap-4">
+                            <div class="relative">
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Sucursal *</label>
+                                <button type="button" @click="showSucursalModal = !showSucursalModal"
+                                    class="w-full flex items-center justify-between bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white hover:border-brand-red/50 transition-colors"
+                                    :class="{ 'border-red-500': form.errors.sucursal_id }">
+                                    <span>{{ sucursalModalLabel }}</span>
+                                    <svg class="w-4 h-4 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                </button>
+                                <div v-if="showSucursalModal" class="absolute z-20 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                                    <button v-for="s in sucursales" :key="s.id" type="button"
+                                        @click="form.sucursal_id = s.id; showSucursalModal = false"
+                                        class="w-full text-left px-4 py-2.5 text-sm text-white hover:bg-white/5 border-b border-white/5 last:border-0"
+                                        :class="{ 'text-brand-red font-black': form.sucursal_id == s.id }">{{ s.nombre }}</button>
+                                </div>
+                                <div v-if="showSucursalModal" class="fixed inset-0 z-10" @click="showSucursalModal = false" />
+                                <p v-if="form.errors.sucursal_id" class="text-red-400 text-xs mt-1">{{ form.errors.sucursal_id }}</p>
+                            </div>
+
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">N° Comprobante</label>
                                 <input v-model="form.comprobante" type="text" placeholder="Factura, recibo..."
                                     class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-brand-red/50" />
                             </div>
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Observaciones</label>
-                                <input v-model="form.observaciones" type="text"
-                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50" />
-                            </div>
                         </div>
 
-                        <div class="flex gap-3 pt-2">
-                            <button type="button" @click="showModal = false"
-                                class="flex-1 py-3 rounded-xl border border-white/10 text-xs font-black uppercase tracking-widest text-white/40 hover:bg-white/5 transition-all">
+                        <!-- Observaciones estilo textarea libre (más grande pero no excesivo) -->
+                        <div>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Observaciones</label>
+                            <textarea v-model="form.observaciones" rows="3" placeholder="Detalles u observaciones del gasto..."
+                                class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"></textarea>
+                        </div>
+
+                        <div class="flex gap-3 pt-4 border-t border-white/10">
+                            <button type="button" @click="closeModal()"
+                                class="flex-1 py-3 rounded-xl border border-white/20 hover:border-white text-xs font-bold uppercase tracking-widest text-white/70 hover:text-white transition-all bg-transparent">
                                 Cancelar
                             </button>
                             <button type="submit" :disabled="form.processing"

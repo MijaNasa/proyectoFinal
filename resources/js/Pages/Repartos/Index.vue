@@ -114,14 +114,18 @@ const contarEstados = (paradas) =>
 
             <!-- Filtros -->
             <div class="flex flex-col sm:flex-row gap-3">
-                <div class="relative flex-1">
+                <div class="relative flex-1 max-w-md">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
                     <input
                         v-model="search"
                         type="text"
                         placeholder="Buscar por nombre..."
-                        class="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red/50"
+                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
                     />
-                    <svg class="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-white/30" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
                 </div>
                 <input
                     v-model="fecha"
@@ -134,7 +138,7 @@ const contarEstados = (paradas) =>
             <div class="bg-white/[0.02] border border-white/10 rounded-2xl overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
-                        <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-white/30">
+                        <tr class="border-b border-white/5 bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50">
                             <th class="text-left px-6 py-4">Ruta</th>
                             <th class="text-left px-6 py-4">Fecha</th>
                             <th class="text-left px-6 py-4">Repartidor</th>
@@ -232,9 +236,12 @@ const contarEstados = (paradas) =>
             <div v-if="showModal" class="fixed inset-0 z-50 flex items-center justify-center p-4">
                 <div class="absolute inset-0 bg-black/80 backdrop-blur-sm" @click="showModal = false" />
                 <div class="relative bg-[#111] border border-white/10 rounded-2xl p-8 w-full max-w-md shadow-2xl">
-                    <h3 class="text-xl font-black uppercase tracking-tighter mb-6">
-                        Nueva <span class="text-brand-red italic">Ruta</span>
-                    </h3>
+                    <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden -mx-8 -mt-8 mb-6 rounded-t-2xl">
+                        <h3 class="text-xl font-black uppercase tracking-tighter relative"> Nueva <span class="text-white">Ruta</span></h3>
+                        <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors relative">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
 
                     <form @submit.prevent="submitCrear" class="space-y-4">
                         <div class="relative">

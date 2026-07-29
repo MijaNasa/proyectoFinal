@@ -794,12 +794,10 @@ const estadoConfig = {
         <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showEditModal = false"></div>
         <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
             <div class="w-full max-w-lg card p-0 overflow-hidden shadow-2xl pointer-events-auto border border-white/10">
-                <div class="bg-gradient-to-r from-blue-600/20 to-transparent p-6 border-b border-white/5 flex justify-between items-center">
-                    <h3 class="text-xl font-black uppercase tracking-tighter italic">
-                        Editar <span class="text-white">Cliente</span>
-                    </h3>
-                    <button @click="showEditModal = false" class="text-white/30 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> Editar <span class="text-white">Cliente</span></h3>
+                    <button @click="showEditModal = false" class="text-white/80 hover:text-white transition-colors relative">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                 </div>
                 
