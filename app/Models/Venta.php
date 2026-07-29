@@ -32,10 +32,10 @@ class Venta extends Model
     protected static function booted()
     {
         static::saved(function ($venta) {
-            if ($venta->wasChanged('direccion_envio') || ($venta->wasRecentlyCreated && $venta->direccion_envio)) {
-                if ($venta->tipo_envio === 'domicilio') {
-                    \App\Jobs\GeocodeAddressJob::dispatch($venta);
-                }
+            $direccionCambio = $venta->wasChanged('direccion_envio') || ($venta->wasRecentlyCreated && $venta->direccion_envio);
+            // Si ya llegaron coordenadas desde el autocomplete (Photon) no hace falta re-geocodificar.
+            if ($direccionCambio && $venta->tipo_envio === 'domicilio' && !$venta->latitud) {
+                \App\Jobs\GeocodeAddressJob::dispatch($venta);
             }
         });
     }

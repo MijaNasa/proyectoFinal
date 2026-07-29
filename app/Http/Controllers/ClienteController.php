@@ -251,6 +251,8 @@ class ClienteController extends Controller
     {
         $request->validate([
             'direccion_envio' => 'required|string|max:255',
+            'latitud' => 'nullable|numeric|between:-90,90',
+            'longitud' => 'nullable|numeric|between:-180,180',
         ]);
 
         \DB::transaction(function () use ($cliente, $request) {
@@ -263,6 +265,8 @@ class ClienteController extends Controller
                 $venta->update([
                     'estado' => 'en_preparacion',
                     'direccion_envio' => $request->direccion_envio,
+                    'latitud' => $request->latitud,
+                    'longitud' => $request->longitud,
                     'motivo_pendiente' => null, // Ya no está en acumulación
                 ]);
             }

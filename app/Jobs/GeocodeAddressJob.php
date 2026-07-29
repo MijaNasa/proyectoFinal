@@ -36,12 +36,10 @@ class GeocodeAddressJob implements ShouldQueue
             }
         }
         
-        $searchAddress = implode(', ', array_slice($validParts, 0, 2));
+        // Calle+numero, localidad y provincia (en ese orden, ver Checkout/Index.vue::confirmar())
+        $searchAddress = implode(', ', array_slice($validParts, 0, 3));
 
-        $defaultCity = env('DEFAULT_CITY', 'Rosario, Argentina');
-        if (!str_contains(strtolower($searchAddress), 'rosario')) {
-            $searchAddress .= ', ' . $defaultCity;
-        } else if (!str_contains(strtolower($searchAddress), 'argentina')) {
+        if (!str_contains(strtolower($searchAddress), 'argentina')) {
             $searchAddress .= ', Argentina';
         }
 

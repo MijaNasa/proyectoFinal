@@ -23,11 +23,20 @@ const estados = [
     { value: 'cancelado',          label: 'Cancelado' },
 ];
 
-const estadoForm = useForm({ 
+const estadoForm = useForm({
     estado: props.venta.estado,
     direccion_envio: props.venta.direccion_envio || '',
+    latitud: props.venta.latitud || null,
+    longitud: props.venta.longitud || null,
     tracking_code: props.venta.tracking_code || ''
 });
+
+const onSeleccionarDireccion = (f) => {
+    // GeoJSON: coordinates viene como [lon, lat]
+    const [lon, lat] = f.geometry?.coordinates ?? [];
+    estadoForm.latitud  = lat ?? null;
+    estadoForm.longitud = lon ?? null;
+};
 
 const guardarEstado = async () => {
 
@@ -108,6 +117,7 @@ const print = () => window.print();
                 <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="flex-1 min-w-[200px]">
                     <DireccionAutocomplete
                         v-model="estadoForm.direccion_envio"
+                        @select="onSeleccionarDireccion"
                         placeholder="Ej: San Martín 123, Rosario"
                         class="bg-white/5 border border-brand-red/30 rounded-xl px-3 py-2 text-xs font-black uppercase tracking-widest text-white focus:outline-none focus:border-brand-red transition-colors w-full"
                     />

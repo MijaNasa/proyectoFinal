@@ -56,7 +56,14 @@ const estadoDots = {
 
 
 
-const estadoForm = useForm({ estado: '', direccion_envio: null, tracking_code: null });
+const estadoForm = useForm({ estado: '', direccion_envio: null, latitud: null, longitud: null, tracking_code: null });
+
+const onSeleccionarDireccionVenta = (f) => {
+    // GeoJSON: coordinates viene como [lon, lat]
+    const [lon, lat] = f.geometry?.coordinates ?? [];
+    estadoForm.latitud  = lat ?? null;
+    estadoForm.longitud = lon ?? null;
+};
 
 const search = ref(props.filters.search || '');
 const showPosModal = ref(false);
@@ -560,6 +567,8 @@ const viewVenta = (venta) => {
     selectedVenta.value = venta;
     estadoForm.estado = venta.estado;
     estadoForm.direccion_envio = venta.direccion_envio || '';
+    estadoForm.latitud = venta.latitud || null;
+    estadoForm.longitud = venta.longitud || null;
     estadoForm.tracking_code = venta.tracking_code || '';
     showDetailModal.value = true;
 };
@@ -1207,7 +1216,7 @@ onMounted(() => {
                         </div>
                         <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="flex-1 w-full min-w-[200px]">
                             <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Dirección de Envío</label>
-                            <DireccionAutocomplete v-model="estadoForm.direccion_envio" placeholder="Ej: San Martín 123, Rosario" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" />
+                            <DireccionAutocomplete v-model="estadoForm.direccion_envio" @select="onSeleccionarDireccionVenta" placeholder="Ej: San Martín 123, Rosario" class="input-field w-full text-xs font-black uppercase bg-black/40 border-brand-red/30 focus:border-brand-red" />
                         </div>
                         <div v-if="selectedVenta.tipo_envio === 'correo_nacional'" class="flex-1 w-full min-w-[200px]">
                             <label class="text-[8px] font-black uppercase tracking-widest text-brand-red mb-1 block">Código de Seguimiento</label>

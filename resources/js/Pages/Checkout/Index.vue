@@ -21,6 +21,8 @@ const addressSelected     = ref(false);
 const piso                = ref('');
 const depto               = ref('');
 const cp                  = ref('');
+const latitud             = ref(null);
+const longitud            = ref(null);
 const comentario          = ref('');
 const procesando          = ref(false);
 const inputRef            = ref(null);
@@ -140,6 +142,11 @@ const seleccionarSugerencia = (f) => {
     sugerencias.value        = [];
     mostrarSugerencias.value = false;
 
+    // GeoJSON: coordinates viene como [lon, lat]
+    const [lon, lat] = f.geometry?.coordinates ?? [];
+    latitud.value  = lat ?? null;
+    longitud.value = lon ?? null;
+
     // La localidad y el CP quedan definidos por la direccion validada, no hace falta tipearlos
     if (provincia.value !== 'Santa Fe') {
         localidad.value = p.city || p.district || p.county || provincia.value;
@@ -156,6 +163,8 @@ watch(tipoEnvio, (val) => {
     piso.value  = '';
     depto.value = '';
     cp.value    = '';
+    latitud.value  = null;
+    longitud.value = null;
     comentario.value = '';
     provincia.value = 'Santa Fe';
     localidad.value = '';
@@ -181,6 +190,8 @@ watch(provincia, () => {
     direccionFormatted.value  = '';
     addressSelected.value     = false;
     cp.value                  = '';
+    latitud.value             = null;
+    longitud.value            = null;
     sugerencias.value         = [];
     mostrarSugerencias.value  = false;
 });
@@ -192,6 +203,8 @@ watch(localidad, () => {
     direccionInput.value     = '';
     direccionFormatted.value = '';
     addressSelected.value    = false;
+    latitud.value            = null;
+    longitud.value           = null;
     sugerencias.value        = [];
     mostrarSugerencias.value = false;
 });
@@ -200,6 +213,8 @@ watch(direccionInput, (val) => {
     if (addressSelected.value && val !== direccionFormatted.value) {
         addressSelected.value    = false;
         direccionFormatted.value = '';
+        latitud.value             = null;
+        longitud.value            = null;
     }
     clearTimeout(debounceTimer);
     if (!addressSelected.value) {
@@ -248,6 +263,8 @@ const confirmar = () => {
         tipo_envio:            (tipoEnvio.value === 'domicilio' && !esEnvioLocal.value) ? 'correo_nacional' : tipoEnvio.value,
         sucursal_id:           sucursalId.value,
         direccion_envio:       tipoEnvio.value === 'domicilio' ? direccion : null,
+        latitud:               tipoEnvio.value === 'domicilio' ? latitud.value : null,
+        longitud:              tipoEnvio.value === 'domicilio' ? longitud.value : null,
         medio_pago:            medioPago.value,
         guest_nombre:          isAuthenticated.value ? null : guestNombre.value,
         guest_apellido:        isAuthenticated.value ? null : guestApellido.value,

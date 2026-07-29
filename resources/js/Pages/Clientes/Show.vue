@@ -52,8 +52,17 @@ const submitPago = () => {
 
 const showConsolidarModal = ref(false);
 const consolidarForm = useForm({
-    direccion_envio: '' // Se permite cargar o editar en el modal
+    direccion_envio: '', // Se permite cargar o editar en el modal
+    latitud: null,
+    longitud: null,
 });
+
+const onSeleccionarDireccionConsolidar = (f) => {
+    // GeoJSON: coordinates viene como [lon, lat]
+    const [lon, lat] = f.geometry?.coordinates ?? [];
+    consolidarForm.latitud  = lat ?? null;
+    consolidarForm.longitud = lon ?? null;
+};
 
 const submitConsolidar = () => {
     consolidarForm.post(route('clientes.consolidar', props.cliente.id), {
@@ -755,6 +764,7 @@ const estadoConfig = {
                             <label class="block text-[10px] font-black uppercase text-white/30 mb-2">Dirección de Envío Consolidada *</label>
                             <DireccionAutocomplete
                                 v-model="consolidarForm.direccion_envio"
+                                @select="onSeleccionarDireccionConsolidar"
                                 class="input-field w-full bg-black/40 text-sm"
                                 :class="{ 'border-brand-red': consolidarForm.errors.direccion_envio }"
                                 placeholder="Ej: San Martín 123, CABA..."

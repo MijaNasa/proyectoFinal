@@ -536,6 +536,8 @@ class VentaController extends Controller
         $request->validate([
             'estado' => 'sometimes|required|in:pendiente_pago,esperando_traslado,en_preparacion,listo_para_retiro,acumulado,enviado,finalizado,cancelado',
             'direccion_envio' => 'nullable|string|max:500',
+            'latitud' => 'nullable|numeric|between:-90,90',
+            'longitud' => 'nullable|numeric|between:-180,180',
         ]);
 
         if ($request->estado === 'cancelado' && $venta->estado !== 'cancelado') {
@@ -576,21 +578,33 @@ class VentaController extends Controller
         }
         
         if ($request->has('direccion_envio')) {
-            $coords = $this->geocodeAddress($request->direccion_envio);
-            if ($coords) {
+            // Si el autocomplete (Photon) ya mando coordenadas, las usamos directo
+            // en vez de volver a geocodificar el texto contra Nominatim.
+            $lat = $request->latitud;
+            $lon = $request->longitud;
+            if (!$lat || !$lon) {
+                $coords = $this->geocodeAddress($request->direccion_envio);
+                $lat = $coords['lat'] ?? null;
+                $lon = $coords['lon'] ?? null;
+            }
+
+            if ($lat && $lon) {
                 $latSucursal = -32.9493; // San Martin 843, Rosario
                 $lonSucursal = -60.6382;
-                $distancia = $this->calculateDistance($latSucursal, $lonSucursal, $coords['lat'], $coords['lon']);
-                
+                $distancia = $this->calculateDistance($latSucursal, $lonSucursal, $lat, $lon);
+
                 if ($distancia > 20) {
                     $updates['tipo_envio'] = 'correo_nacional';
                     // Optional: si querés sumar costo extra por default al pasarlo manual, acá:
-                    // pero asumo que manualmente no cobraremos de una sino que el admin avisa, 
+                    // pero asumo que manualmente no cobraremos de una sino que el admin avisa,
                     // o lo dejamos por si acaso:
                     if (!$venta->costo_envio && $venta->tipo_envio !== 'correo_nacional') {
                         $updates['costo_envio'] = 50000;
                     }
                 }
+
+                $updates['latitud'] = $lat;
+                $updates['longitud'] = $lon;
             }
             $updates['direccion_envio'] = $request->direccion_envio;
         }
@@ -602,6 +616,11 @@ class VentaController extends Controller
 
         if (!empty($updates)) {
             $venta->update($updates);
+
+            // Si la venta ya estaba asignada a una parada de reparto, propagar las coordenadas nuevas
+            if (isset($updates['latitud'], $updates['longitud'])) {
+                $venta->paradas()->update(['latitud' => $updates['latitud'], 'longitud' => $updates['longitud']]);
+            }
         }
 
         return back()->with('message', 'Estado de venta actualizado.');

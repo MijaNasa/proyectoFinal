@@ -95,6 +95,8 @@ class CheckoutController extends Controller
             'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion,correo_nacional',
             'sucursal_id'           => 'required|exists:sucursales,id',
             'direccion_envio'       => 'required_if:tipo_envio,domicilio,correo_nacional|nullable|string|max:255',
+            'latitud'               => 'nullable|numeric|between:-90,90',
+            'longitud'              => 'nullable|numeric|between:-180,180',
             'medio_pago'            => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
         ];
         
@@ -342,6 +344,8 @@ class CheckoutController extends Controller
                     'estado'          => $estado,
                     'tipo_envio'      => $request->tipo_envio,
                     'direccion_envio' => $request->direccion_envio,
+                    'latitud'         => $request->tipo_envio === 'domicilio' ? $request->latitud : null,
+                    'longitud'        => $request->tipo_envio === 'domicilio' ? $request->longitud : null,
                     'costo_envio'     => $costo_envio,
                     'motivo_pendiente'=> $motivo_pendiente,
                     'metodo_pago'     => $request->medio_pago,
