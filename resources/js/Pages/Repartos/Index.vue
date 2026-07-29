@@ -131,7 +131,7 @@ const contarEstados = (paradas) =>
             </div>
 
             <!-- Tabla -->
-            <div class="bg-white/[0.02] border border-white/10 rounded-2xl overflow-hidden">
+            <div class="bg-white/[0.02] border border-white/10 rounded-2xl overflow-x-auto">
                 <table class="w-full text-sm">
                     <thead>
                         <tr class="border-b border-white/5 text-[10px] font-black uppercase tracking-widest text-white/30">

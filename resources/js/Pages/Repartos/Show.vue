@@ -389,7 +389,7 @@ watch(localParadas, () => {
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 
                 <!-- Columna Izquierda: Mapa -->
-                <div class="lg:col-span-12 xl:col-span-5 h-[600px] bg-[#111] border border-white/5 rounded-2xl overflow-hidden relative shadow-2xl">
+                <div class="order-2 lg:order-none lg:col-span-12 xl:col-span-5 h-[350px] lg:h-[600px] bg-[#111] border border-white/5 rounded-2xl overflow-hidden relative shadow-2xl">
                     <div ref="mapContainer" class="w-full h-full z-0"></div>
                     
                     <!-- Leyenda Flotante -->
@@ -417,7 +417,7 @@ watch(localParadas, () => {
                 </div>
 
                 <!-- Columna Central: Timeline de Paradas -->
-                <div class="lg:col-span-8 xl:col-span-4 bg-[#111] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-[600px]">
+                <div class="order-1 lg:order-none lg:col-span-8 xl:col-span-4 bg-[#111] border border-white/5 rounded-2xl p-6 shadow-2xl flex flex-col h-[600px]">
                     <div class="flex items-center justify-between mb-6 shrink-0">
                         <h4 class="text-[10px] font-black uppercase tracking-widest text-white/40">Paradas</h4>
                         <div class="relative">
@@ -503,7 +503,7 @@ watch(localParadas, () => {
                                 </div>
 
                                 <div class="flex gap-2">
-                                    <button v-if="ruta.estado !== 'finalizada'" @click="abrirEstadoModal(parada)" class="flex-1 py-1.5 rounded-md bg-white/5 border border-white/10 hover:bg-brand-red hover:border-brand-red hover:text-white transition-all text-[9px] font-black uppercase tracking-widest text-white/70">
+                                    <button v-if="ruta.estado !== 'finalizada'" @click="abrirEstadoModal(parada)" class="flex-1 py-3 rounded-md bg-white/5 border border-white/10 hover:bg-brand-red hover:border-brand-red hover:text-white transition-all text-[10px] font-black uppercase tracking-widest text-white/70">
                                         Cambiar Estado
                                     </button>
                                 </div>
@@ -602,7 +602,7 @@ watch(localParadas, () => {
                         <div class="grid grid-cols-2 gap-2">
                             <button v-for="opt in ['en camino', 'entregada', 'fallida']" :key="opt"
                                     type="button" @click="estadoForm.estado = opt"
-                                    class="py-2.5 rounded-lg border text-[9px] font-black uppercase tracking-wider transition-all"
+                                    class="py-3.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-all"
                                     :class="estadoForm.estado === opt ? estadoConfig[opt]?.color + ' border-current scale-95' : 'border-white/10 text-white/30 hover:border-white/30'">
                                 {{ estadoConfig[opt]?.label }}
                             </button>
@@ -614,10 +614,10 @@ watch(localParadas, () => {
                         </div>
 
                         <div class="flex gap-2 pt-2">
-                            <button type="button" @click="cerrarEstadoModal" class="flex-1 py-2.5 rounded-lg border border-white/10 text-[9px] font-black uppercase tracking-widest text-white/40 hover:bg-white/5">
+                            <button type="button" @click="cerrarEstadoModal" class="flex-1 py-3.5 rounded-lg border border-white/10 text-[10px] font-black uppercase tracking-widest text-white/40 hover:bg-white/5">
                                 Cancelar
                             </button>
-                            <button type="submit" :disabled="estadoForm.processing" class="flex-1 btn-primary py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest">
+                            <button type="submit" :disabled="estadoForm.processing" class="flex-1 btn-primary py-3.5 rounded-lg text-[10px] font-black uppercase tracking-widest">
                                 Confirmar
                             </button>
                         </div>
