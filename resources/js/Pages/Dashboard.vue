@@ -49,13 +49,9 @@ const formatTipoMovimiento = (tipo) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Panel de <span class="text-brand-red not-italic">Control</span>
-                </h2>
-                <div class="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 bg-white/5 px-4 py-2 rounded-full border border-white/5">
-                    Sistema Operativo <span class="text-brand-red">v1.2</span>
-                </div>
+            <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Panel de <span class="text-brand-red not-italic">Control</span></h2>
+            <div class="text-[10px] font-black uppercase tracking-[0.3em] text-white/30 bg-white/5 px-4 py-2 rounded-full border border-white/5">
+                Sistema Operativo <span class="text-brand-red">v1.2</span>
             </div>
         </template>
 

@@ -138,14 +138,10 @@ watch(search, (value) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex justify-between items-center">
-                <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Gestión de <span class="text-brand-red not-italic">Sucursales</span>
-                </h2>
-                <button v-if="$page.props.auth.esAdmin" @click="openModal()" class="btn-primary flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                    </svg>
+            <div class="flex items-center justify-between min-h-[42px] w-full">
+                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Gestión de <span class="text-brand-red not-italic">Sucursales</span></h2>
+                <button v-if="$page.props.auth.esAdmin" @click="openModal()" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-lg shadow-red-900/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                     Añadir Sucursal
                 </button>
             </div>

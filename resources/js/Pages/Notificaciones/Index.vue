@@ -88,13 +88,10 @@ const eliminarTodas = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                Panel de <span class="text-brand-red not-italic">Notificaciones</span>
-            </h2>
+            <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Panel de <span class="text-brand-red not-italic">Notificaciones</span></h2>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
                 <div class="card p-0 overflow-hidden mb-6">
                     <div class="p-6 border-b border-white/5 flex justify-between items-center bg-white/[0.02]">
                         <h3 class="text-xl font-black text-white uppercase tracking-tighter">Avisos Pendientes</h3>
@@ -190,58 +187,59 @@ const eliminarTodas = () => {
                     <Link v-for="link in notificaciones.links" :key="link.label" :href="link.url || '#'" class="px-4 py-2 rounded-lg border border-white/5 transition-all text-sm font-black uppercase tracking-tighter" :class="{'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/20': !link.url}" v-html="link.label"></Link>
                 </div>
             </div>
-        </div>
 
         <!-- Modal Detalles Notificación -->
-        <template v-if="showDetalleModal">
-        <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showDetalleModal = false"></div>
-        <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
-            <div class="w-full max-w-lg card p-0 overflow-hidden shadow-2xl pointer-events-auto border border-white/10">
-                <div class="bg-gradient-to-r from-blue-600/20 to-transparent p-6 border-b border-white/5 flex justify-between items-center">
-                    <h3 class="text-lg font-black uppercase tracking-tighter italic">
-                        Clientes <span class="text-white">Notificados</span>
-                    </h3>
-                    <button @click="showDetalleModal = false" class="text-white/30 hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                    </button>
-                </div>
-                
-                <div class="p-8 space-y-6">
-                    <div>
-                        <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Tomo Ingresado:</p>
-                        <p class="text-sm font-black text-white uppercase">{{ selectedTomo }}</p>
-                    </div>
-                    
-                    <div class="space-y-3">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-white/30">Lista de Clientes a Contactar:</p>
-                        <div class="max-h-60 overflow-y-auto pr-2">
-                            <!-- Cabecera de Cuadrícula -->
-                            <div class="grid grid-cols-2 gap-4 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/10 pb-2">
-                                <span>Cliente</span>
-                                <span>Teléfono (Mensaje Automático)</span>
+        <Teleport to="body">
+            <div v-if="showDetalleModal">
+                <div class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md" @click="showDetalleModal = false"></div>
+                <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
+                    <div class="w-full max-w-lg card p-0 overflow-hidden shadow-2xl pointer-events-auto border border-white/10">
+                        <div class="bg-gradient-to-r from-blue-600/20 to-transparent p-6 border-b border-white/5 flex justify-between items-center">
+                            <h3 class="text-lg font-black uppercase tracking-tighter italic">
+                                Clientes <span class="text-white">Notificados</span>
+                            </h3>
+                            <button @click="showDetalleModal = false" class="text-white/30 hover:text-white transition-colors">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+                        
+                        <div class="p-8 space-y-6">
+                            <div>
+                                <p class="text-[10px] font-black uppercase tracking-widest text-white/30 mb-1">Tomo Ingresado:</p>
+                                <p class="text-sm font-black text-white uppercase">{{ selectedTomo }}</p>
                             </div>
                             
-                            <!-- Filas -->
-                            <div v-for="c in selectedClientes" :key="c.id" class="grid grid-cols-2 gap-4 text-xs font-bold border-b border-white/5 py-3 last:border-0 last:pb-0 items-center">
-                                <span class="text-white/80 uppercase truncate" :title="c.nombre">{{ c.nombre }}</span>
-                                <span class="text-green-400 font-mono flex items-center gap-1.5">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-                                    </svg>
-                                    {{ c.telefono }}
-                                </span>
+                            <div class="space-y-3">
+                                <p class="text-[10px] font-black uppercase tracking-widest text-white/30">Lista de Clientes a Contactar:</p>
+                                <div class="max-h-60 overflow-y-auto pr-2">
+                                    <!-- Cabecera de Cuadrícula -->
+                                    <div class="grid grid-cols-2 gap-4 text-[9px] font-black uppercase tracking-widest text-white/40 border-b border-white/10 pb-2">
+                                        <span>Cliente</span>
+                                        <span>Teléfono (Mensaje Automático)</span>
+                                    </div>
+                                    
+                                    <!-- Filas -->
+                                    <div v-for="c in selectedClientes" :key="c.id" class="grid grid-cols-2 gap-4 text-xs font-bold border-b border-white/5 py-3 last:border-0 last:pb-0 items-center">
+                                        <span class="text-white/80 uppercase truncate" :title="c.nombre">{{ c.nombre }}</span>
+                                        <span class="text-green-400 font-mono flex items-center gap-1.5">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                                            </svg>
+                                            {{ c.telefono }}
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
+                        </div>
+                        
+                        <div class="flex items-center justify-end p-6 border-t border-white/5 bg-white/[0.01]">
+                            <button @click="showDetalleModal = false" class="px-8 py-2.5 bg-white/5 hover:bg-white/10 text-white font-black uppercase text-[10px] tracking-widest rounded-lg transition-colors">
+                                Cerrar
+                            </button>
                         </div>
                     </div>
                 </div>
-                
-                <div class="flex items-center justify-end p-6 border-t border-white/5 bg-white/[0.01]">
-                    <button @click="showDetalleModal = false" class="px-8 py-2.5 bg-white/5 hover:bg-white/10 text-white font-black uppercase text-[10px] tracking-widest rounded-lg transition-colors">
-                        Cerrar
-                    </button>
-                </div>
             </div>
-        </div>
-        </template>
+        </Teleport>
     </AuthenticatedLayout>
 </template>

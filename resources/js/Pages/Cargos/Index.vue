@@ -97,21 +97,16 @@ const colorCargo = (nombre) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex justify-between items-center">
-                <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Gestión de <span class="text-brand-red not-italic">Cargos y Accesos</span>
-                </h2>
-                <button v-if="esAdmin" @click="openModal()" class="btn-primary flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
-                    </svg>
+            <div class="flex items-center justify-between min-h-[42px] w-full">
+                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Cargos & <span class="text-brand-red not-italic">Accesos</span></h2>
+                <button v-if="esAdmin" @click="openModal()" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-lg shadow-red-900/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                     Nuevo Cargo
                 </button>
             </div>
         </template>
 
-        <div class="py-12">
-            <div class="mx-auto max-w-7xl sm:px-6 lg:px-8 space-y-6">
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
 
                 <!-- Tarjetas de cargos -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -157,58 +152,59 @@ const colorCargo = (nombre) => {
                 <div v-if="!cargos.length" class="card text-center py-20 text-white/20 text-sm font-black uppercase tracking-widest italic">
                     No hay cargos definidos en el sistema
                 </div>
-            </div>
         </div>
 
         <!-- Modal Cargo -->
-        <div v-if="showModal && esAdmin" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-            <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="showModal = false"></div>
-            <div class="relative w-full max-w-3xl card p-0 border border-brand-red/50 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                <div class="bg-brand-red p-6 flex justify-between items-center">
-                    <h3 class="text-2xl font-black uppercase tracking-tighter">
-                        {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="text-white">Cargo</span>
-                    </h3>
-                    <button @click="showModal = false" class="text-white hover:scale-110 transition-transform">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-
-                <form @submit.prevent="submit" class="p-8 space-y-6 overflow-y-auto flex-1">
-                    <!-- Datos básicos -->
-                    <div class="grid grid-cols-2 gap-6">
-                        <div>
-                            <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nombre del Cargo</label>
-                            <input v-model="form.nombre" type="text" class="input-field w-full font-black uppercase" :class="{'border-brand-red': form.errors.nombre}" placeholder="Ej: VENDEDOR">
-                            <p v-if="form.errors.nombre" class="text-brand-red text-[10px] mt-1">{{ form.errors.nombre }}</p>
-                        </div>
-                        <div>
-                            <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Descripción</label>
-                            <input v-model="form.descripcion" type="text" class="input-field w-full" placeholder="Descripción breve...">
-                        </div>
-                    </div>
-
-                    <!-- Permisos agrupados por módulo -->
-                    <div>
-                        <p class="text-[9px] font-black uppercase tracking-[0.3em] text-brand-red mb-4 border-b border-brand-red/20 pb-1">Permisos del Cargo</p>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div v-for="(permisosGrupo, modulo) in permisosPorModulo" :key="modulo" class="bg-white/[0.03] rounded-lg p-4 border border-white/5">
-                                <p class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 mb-3">{{ modulo }}</p>
-                                <label v-for="p in permisosGrupo" :key="p.id" class="flex items-center gap-2 cursor-pointer group mb-2">
-                                    <input type="checkbox" :value="p.id" v-model="form.permiso_ids" class="w-4 h-4 accent-brand-red">
-                                    <span class="text-xs font-bold text-white/60 group-hover:text-white transition-colors uppercase">{{ p.nombre }}</span>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
-                        <button type="button" @click="showModal = false" class="px-8 py-3 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-[0.3em]">Cancelar</button>
-                        <button type="submit" :disabled="form.processing" class="btn-primary px-16">
-                            <span class="font-black italic tracking-widest">{{ form.processing ? 'Guardando...' : (isEditing ? 'ACTUALIZAR' : 'CREAR CARGO') }}</span>
+        <Teleport to="body">
+            <div v-if="showModal && esAdmin" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="showModal = false"></div>
+                <div class="relative w-full max-w-3xl card p-0 border border-brand-red/50 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div class="bg-brand-red p-6 flex justify-between items-center">
+                        <h3 class="text-2xl font-black uppercase tracking-tighter">
+                            {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="text-white">Cargo</span>
+                        </h3>
+                        <button @click="showModal = false" class="text-white hover:scale-110 transition-transform">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                         </button>
                     </div>
-                </form>
+
+                    <form @submit.prevent="submit" class="p-8 space-y-6 overflow-y-auto flex-1">
+                        <!-- Datos básicos -->
+                        <div class="grid grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nombre del Cargo</label>
+                                <input v-model="form.nombre" type="text" class="input-field w-full font-black uppercase" :class="{'border-brand-red': form.errors.nombre}" placeholder="Ej: VENDEDOR">
+                                <p v-if="form.errors.nombre" class="text-brand-red text-[10px] mt-1">{{ form.errors.nombre }}</p>
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Descripción</label>
+                                <input v-model="form.descripcion" type="text" class="input-field w-full" placeholder="Descripción breve...">
+                            </div>
+                        </div>
+
+                        <!-- Permisos agrupados por módulo -->
+                        <div>
+                            <p class="text-[9px] font-black uppercase tracking-[0.3em] text-brand-red mb-4 border-b border-brand-red/20 pb-1">Permisos del Cargo</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div v-for="(permisosGrupo, modulo) in permisosPorModulo" :key="modulo" class="bg-white/[0.03] rounded-lg p-4 border border-white/5">
+                                    <p class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 mb-3">{{ modulo }}</p>
+                                    <label v-for="p in permisosGrupo" :key="p.id" class="flex items-center gap-2 cursor-pointer group mb-2">
+                                        <input type="checkbox" :value="p.id" v-model="form.permiso_ids" class="w-4 h-4 accent-brand-red">
+                                        <span class="text-xs font-bold text-white/60 group-hover:text-white transition-colors uppercase">{{ p.nombre }}</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
+                            <button type="button" @click="showModal = false" class="px-8 py-3 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-[0.3em]">Cancelar</button>
+                            <button type="submit" :disabled="form.processing" class="btn-primary px-16">
+                                <span class="font-black italic tracking-widest">{{ form.processing ? 'Guardando...' : (isEditing ? 'ACTUALIZAR' : 'CREAR CARGO') }}</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
-        </div>
+        </Teleport>
     </AuthenticatedLayout>
 </template>

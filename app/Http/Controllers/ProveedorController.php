@@ -77,12 +77,16 @@ class ProveedorController extends Controller
             ->latest('fecha')
             ->get(['id', 'numero_orden', 'fecha', 'total'])
             ->map(function ($orden) {
+                $fechaVal = $orden->fecha;
+                if ($fechaVal instanceof \Illuminate\Support\Carbon) {
+                    $fechaVal = $fechaVal->toIso8601String();
+                }
                 return [
                     'id' => 'orden_' . $orden->id,
                     'real_id' => $orden->id,
                     'numero_orden' => $orden->numero_orden,
                     'tipo' => 'deuda',
-                    'fecha' => $orden->fecha . 'T00:00:00', // Format for JS Date parser
+                    'fecha' => $fechaVal,
                     'descripcion' => 'Orden de Compra ' . $orden->numero_orden,
                     'metodo_pago' => 'Cuenta Corriente',
                     'monto' => $orden->total,
@@ -109,7 +113,7 @@ class ProveedorController extends Controller
     {
         $request->validate([
             'monto'       => 'required|numeric|min:0.01',
-            'metodo_pago' => 'required|in:Efectivo,Transferencia,Tarjeta,Débito',
+            'metodo_pago' => 'required|in:Efectivo,Transferencia,Tarjeta,Débito,Mercado Pago',
             'fecha'       => 'required|date',
             'comprobante' => 'nullable|string|max:255',
             'descripcion' => 'nullable|string|max:255',
@@ -142,12 +146,13 @@ class ProveedorController extends Controller
         $tieneLibros = \App\Models\LibroMaster::where('proveedor_id', $proveedor->id)->exists();
         if ($tieneLibros) {
             return redirect()->route('proveedores.index')
-                ->with('error', 'No se puede eliminar el proveedor porque tiene obras asociadas.');
+                ->with('error_modal', 'No se puede eliminar el proveedor porque posee series (obras) asociadas. Debe desvincularlas o eliminarlas antes.');
         }
 
         if ($proveedor->deuda_actual > 0) {
+            $montoFormateado = '$' . number_format($proveedor->deuda_actual, 2, ',', '.');
             return redirect()->route('proveedores.index')
-                ->with('error', 'No se puede eliminar el proveedor porque tiene deuda pendiente.');
+                ->with('error_modal', "No se puede eliminar el proveedor porque posee una deuda pendiente ({$montoFormateado}). Debe saldarse antes.");
         }
 
         $proveedor->delete();

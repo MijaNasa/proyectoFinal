@@ -43,97 +43,105 @@ const formatDate = (dateString) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex justify-between items-end">
-                <div>
-                    <h2 class="text-3xl font-black uppercase tracking-tighter text-white leading-none">Gestión de <span class="text-brand-red not-italic">Suscripciones</span></h2>
-                    <p class="text-xs font-bold uppercase tracking-widest text-white/30 mt-2">Métricas y listado de fidelización</p>
-                </div>
+            <div class="flex items-center justify-between min-h-[42px] w-full">
+                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Gestión de <span class="text-brand-red not-italic">Suscripciones</span></h2>
             </div>
         </template>
 
-        <div class="p-8">
-            <!-- Top Series -->
-            <div class="mb-10" v-if="topSeries && topSeries.length">
-                <h3 class="text-[10px] font-black uppercase tracking-[0.3em] text-brand-red mb-4">Top Series con más suscriptores</h3>
-                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
-                    <div v-for="(top, index) in topSeries" :key="top.libro_master_id" class="bg-white/[0.02] border border-white/5 rounded-2xl p-4 flex flex-col items-center text-center relative group overflow-hidden">
-                        <div class="absolute -right-4 -top-4 w-16 h-16 bg-brand-red/10 rounded-full blur-xl group-hover:bg-brand-red/20 transition-all"></div>
-                        <div class="text-[10px] font-black text-white/40 mb-2">#{{ index + 1 }}</div>
-                        <img v-if="top.serie.portada_url" :src="top.serie.portada_url" class="w-16 h-24 object-cover rounded shadow-lg mb-3" />
-                        <div v-else class="w-16 h-24 bg-white/5 rounded flex items-center justify-center mb-3 text-[8px] uppercase font-black text-white/20">Sin Foto</div>
-                        <div class="font-black text-[11px] uppercase leading-tight line-clamp-2 text-white/80 group-hover:text-brand-red transition-colors min-h-[2.5rem]">{{ top.serie.titulo }}</div>
-                        <div class="mt-2 flex items-baseline justify-center gap-1.5">
-                            <span class="text-3xl font-black text-white italic tracking-tighter leading-none">{{ top.total }}</span>
-                            <span class="text-[9px] uppercase tracking-widest text-white/30 font-bold not-italic">Activos</span>
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
+
+                <!-- Top Series -->
+                <div v-if="topSeries && topSeries.length" class="text-center">
+                    <h3 class="text-xs font-black uppercase tracking-widest text-white mb-4 text-center">Top Series con más suscriptores</h3>
+                    <div class="flex flex-wrap justify-center gap-4">
+                        <div v-for="(top, index) in topSeries" :key="top.libro_master_id"
+                            class="w-48 bg-[#141414] border border-white/10 rounded-2xl p-4 flex flex-col justify-between items-center text-center relative group overflow-hidden shadow-xl">
+                            <div class="absolute -right-4 -top-4 w-16 h-16 bg-brand-red/10 rounded-full blur-xl group-hover:bg-brand-red/20 transition-all"></div>
+                            
+                            <div class="w-full flex flex-col items-center text-center">
+                                <div class="text-[10px] font-black text-white/40 mb-2">#{{ index + 1 }}</div>
+                                <img :src="top.serie.portada_url || '/images/no-cover.png'" class="w-20 h-28 object-cover rounded-lg shadow-lg mb-3 border border-white/10 mx-auto" />
+                                <div class="font-black text-xs uppercase leading-tight line-clamp-2 text-white/90 group-hover:text-brand-red transition-colors min-h-[2.5rem] text-center w-full">{{ top.serie.titulo }}</div>
+                            </div>
+
+                            <div class="mt-3 flex items-baseline justify-center gap-1.5 w-full">
+                                <span class="text-3xl font-black text-white font-mono tracking-tight leading-none">{{ top.total }}</span>
+                                <span class="text-[10px] uppercase tracking-widest text-white/40 font-bold">Activos</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Controles y Filtros -->
-            <div class="bg-white/[0.02] border border-white/5 rounded-2xl p-6 mb-6">
-                <div class="flex flex-col md:flex-row gap-4 items-end w-full">
-                    <div class="relative flex-1 max-w-md">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-white/40">
+                <!-- Controles y Filtros Reactivos -->
+                <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                    <div class="relative w-full flex-1">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-white/40">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </span>
-                        <input v-model="search" type="text" placeholder="Buscar por cliente o serie..." class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold">
+                        <input
+                            v-model="search"
+                            type="text"
+                            placeholder="Buscar por cliente o serie..."
+                            class="w-full bg-[#141414] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-xs font-bold text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all"
+                        />
                     </div>
-                    <div class="w-full md:w-64">
-                        <label class="text-[9px] font-black uppercase tracking-[0.2em] text-white/40 block mb-2">Estado</label>
-                        <select v-model="estadoFiltro" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all appearance-none">
-                            <option value="">Todos</option>
-                            <option value="activa">Activas</option>
-                            <option value="pausada">Pausadas</option>
+
+                    <!-- Filtro Estado -->
+                    <div class="w-full sm:w-64">
+                        <select
+                            v-model="estadoFiltro"
+                            class="w-full bg-[#141414] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50 cursor-pointer uppercase"
+                        >
+                            <option value="" class="bg-[#1A1A1A]">Todos los estados</option>
+                            <option value="activa" class="bg-[#1A1A1A]">Activas</option>
+                            <option value="pausada" class="bg-[#1A1A1A]">Pausadas</option>
                         </select>
                     </div>
                 </div>
-            </div>
 
-            <!-- Tabla de Suscripciones -->
-            <div class="bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
-                <div class="overflow-x-auto">
+                <!-- Tabla de Suscripciones -->
+                <div class="bg-[#141414] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                     <table class="w-full text-left border-collapse">
                         <thead>
-                            <tr class="border-b border-white/5 bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50">
+                            <tr class="bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/10">
                                 <th class="p-4">Cliente</th>
                                 <th class="p-4">Obra Suscripta</th>
                                 <th class="p-4">Sucursal</th>
                                 <th class="p-4">Alta</th>
-                                <th class="p-4">Estado</th>
+                                <th class="p-4 text-center">Estado</th>
                             </tr>
                         </thead>
-                        <tbody class="divide-y divide-white/5">
-                            <tr v-for="sub in suscripciones.data" :key="sub.id" class="hover:bg-white/[0.02] transition-colors group">
+                        <tbody class="divide-y divide-white/5 text-sm">
+                            <tr v-if="!suscripciones.data.length">
+                                <td colspan="5" class="p-12 text-center text-white/30 italic">
+                                    No se encontraron suscripciones.
+                                </td>
+                            </tr>
+                            <tr v-for="sub in suscripciones.data" :key="sub.id" class="hover:bg-white/[0.01] transition-colors group">
                                 <td class="p-4">
                                     <Link :href="route('clientes.index', { search: sub.cliente.user.email })" class="block">
-                                        <div class="font-black text-xs uppercase tracking-tight group-hover:text-brand-red transition-colors">{{ sub.cliente.user.name }} {{ sub.cliente.user.apellido }}</div>
-                                        <div class="text-[9px] font-bold text-white/30 uppercase tracking-widest">{{ sub.cliente.user.email }}</div>
+                                        <div class="font-bold text-sm text-white group-hover:text-brand-red transition-colors">{{ sub.cliente.user.name }} {{ sub.cliente.user.apellido }}</div>
+                                        <div class="text-xs text-white/40 font-medium">{{ sub.cliente.user.email }}</div>
                                     </Link>
                                 </td>
                                 <td class="p-4">
-                                    <div class="font-black text-xs uppercase tracking-tight text-white/80">{{ sub.serie.titulo }}</div>
+                                    <div class="font-bold text-sm text-white/90">{{ sub.serie.titulo }}</div>
                                 </td>
                                 <td class="p-4">
-                                    <div class="text-[10px] font-bold uppercase text-white/50 tracking-widest">{{ sub.sucursal.nombre }}</div>
+                                    <div class="text-sm font-medium text-white/70">{{ sub.sucursal.nombre }}</div>
                                 </td>
                                 <td class="p-4">
-                                    <div class="text-[10px] font-bold text-white/40 tracking-widest">{{ formatDate(sub.created_at) }}</div>
+                                    <div class="text-sm font-medium text-white/70">{{ formatDate(sub.created_at) }}</div>
                                 </td>
-                                <td class="p-4">
-                                    <span :class="[
-                                        'px-2 py-1 text-[9px] font-black uppercase tracking-widest rounded',
-                                        sub.estado === 'activa' ? 'bg-green-500/20 text-green-400' : 'bg-yellow-500/20 text-yellow-400'
-                                    ]">
-                                        {{ sub.estado }}
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr v-if="!suscripciones.data.length">
-                                <td colspan="5" class="p-8 text-center text-white/20 text-xs font-bold uppercase tracking-widest">
-                                    No se encontraron suscripciones
+                                <td class="p-4 text-center">
+                                    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#1E1E1E] border border-white/5 shadow-sm">
+                                        <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="sub.estado === 'activa' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                        <span class="text-xs font-black uppercase tracking-wider text-white">
+                                            {{ sub.estado }}
+                                        </span>
+                                    </div>
                                 </td>
                             </tr>
                         </tbody>
@@ -141,19 +149,17 @@ const formatDate = (dateString) => {
                 </div>
 
                 <!-- Paginación -->
-                <div class="p-4 border-t border-white/5 bg-white/[0.02] flex items-center justify-between" v-if="suscripciones.links?.length > 3">
-                    <span class="text-[10px] font-bold uppercase text-white/30 tracking-widest">
-                        Mostrando {{ suscripciones.from }} a {{ suscripciones.to }} de {{ suscripciones.total }}
-                    </span>
-                    <div class="flex gap-1">
-                        <Link v-for="link in suscripciones.links" :key="link.label" :href="link.url || '#'" 
-                              class="px-3 py-1 rounded border border-white/5 transition-all text-[10px] font-black uppercase tracking-tighter" 
-                              :class="{'bg-brand-red text-white border-brand-red': link.active, 'text-white/20': !link.url, 'text-white/60 hover:bg-white/10': link.url && !link.active}">
-                            {{ decodeLabel(link.label) }}
-                        </Link>
-                    </div>
+                <div v-if="suscripciones.last_page > 1" class="flex justify-center gap-2 pt-2">
+                    <Link v-for="link in suscripciones.links" :key="link.label"
+                        :href="link.url ?? '#'"
+                        class="px-3 py-1.5 rounded-xl border border-white/5 text-xs font-bold uppercase transition-all"
+                        :class="link.active
+                            ? 'bg-brand-red text-white border-brand-red'
+                            : link.url
+                                ? 'text-white/40 hover:text-white hover:bg-white/5'
+                                : 'text-white/20 cursor-default'"
+                        v-html="decodeLabel(link.label)" />
                 </div>
-            </div>
         </div>
     </AuthenticatedLayout>
 </template>

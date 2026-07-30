@@ -693,13 +693,11 @@ onMounted(() => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Terminal de <span class="text-brand-red not-italic">Ventas</span>
-                </h2>
-                <button @click="openPos()" class="btn-primary flex items-center gap-2 group relative overflow-hidden">
-                    <span class="relative z-10 font-black not-italic">NUEVA OPERACIÓN (POS)</span>
-                    <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+            <div class="flex items-center justify-between min-h-[42px] w-full">
+                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Terminal de <span class="text-brand-red not-italic">Ventas</span></h2>
+                <button @click="openPos()" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-lg shadow-red-900/20">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    Nueva Operación (POS)
                 </button>
             </div>
         </template>

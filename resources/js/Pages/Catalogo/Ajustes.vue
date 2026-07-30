@@ -195,14 +195,11 @@ const confirmDelete = (item) => {
     <Head title="Características del Catálogo" />
 
     <AuthenticatedLayout>
+        <template #header>
+            <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Características <span class="text-brand-red not-italic">Catálogo</span></h2>
+        </template>
+
         <div class="p-6 max-w-7xl mx-auto space-y-6">
-            
-            <!-- Header Section -->
-            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-white/5 pb-5">
-                <div>
-                    <h2 class="text-3xl font-black uppercase tracking-tighter text-white">Características <span class="text-brand-red not-italic">Catálogo</span></h2>
-                </div>
-            </div>
 
             <!-- Tab Selection Bar -->
             <div class="flex border-b border-white/10 gap-2">

@@ -858,20 +858,16 @@ const submitBulk = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex justify-between items-center">
-                <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Catálogo <span class="text-brand-red not-italic">Principal</span>
-                </h2>
-                <div class="flex gap-3">
-                    <button @click="deshabilitarPreventasMassive" class="px-4 py-2 bg-transparent text-white border border-white/20 hover:bg-white/[0.05] hover:border-white/40 transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                        Deshabilitar Preventas
-                    </button>
-                    <button v-if="$page.props.auth.esAdmin" @click="openBulkModal" class="px-4 py-2 bg-transparent text-brand-red border border-brand-red/30 hover:bg-brand-red hover:text-white transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                        Aumento Masivo
-                    </button>
-                </div>
+            <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Catálogo <span class="text-brand-red not-italic">Principal</span></h2>
+            <div class="flex gap-3">
+                <button @click="deshabilitarPreventasMassive" class="px-4 py-2 bg-transparent text-white border border-white/20 hover:bg-white/[0.05] hover:border-white/40 transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
+                    Deshabilitar Preventas
+                </button>
+                <button v-if="$page.props.auth.esAdmin" @click="openBulkModal" class="px-4 py-2 bg-transparent text-brand-red border border-brand-red/30 hover:bg-brand-red hover:text-white transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    Aumento Masivo
+                </button>
             </div>
         </template>
 

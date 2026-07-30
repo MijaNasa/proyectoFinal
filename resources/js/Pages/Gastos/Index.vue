@@ -159,13 +159,9 @@ const eliminar = (gasto) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-4xl font-black uppercase tracking-tighter">
-                        Registro de <span class="text-brand-red not-italic">Gastos</span>
-                    </h2>
-                </div>
-                <button @click="openCrear" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2">
+            <div class="flex items-center justify-between min-h-[42px] w-full">
+                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Control de <span class="text-brand-red not-italic">Gastos</span></h2>
+                <button @click="openCrear" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-lg shadow-red-900/20">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
                     Nuevo Gasto
                 </button>

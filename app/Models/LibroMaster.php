@@ -27,7 +27,7 @@ class LibroMaster extends Model
     public function getPortadaUrlAttribute()
     {
         if (!$this->portada) {
-            return 'https://via.placeholder.com/400x600?text=Sin+Portada';
+            return asset('images/no-cover.png');
         }
 
         if (filter_var($this->portada, FILTER_VALIDATE_URL)) {

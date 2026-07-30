@@ -381,7 +381,7 @@ const estadoConfig = {
                             <p class="text-[9px] uppercase tracking-widest text-white/30 font-black mt-1">Compras</p>
                         </div>
                         <div class="p-6 text-center">
-                            <p class="text-3xl font-black italic" :class="cliente.saldo_actual < 0 ? 'text-brand-red' : 'text-green-400'">{{ formatCurrency(cliente.saldo_actual) }}</p>
+                            <p class="text-3xl font-black font-mono" :class="cliente.saldo_actual < 0 ? 'text-brand-red' : 'text-green-400'">{{ formatCurrency(cliente.saldo_actual) }}</p>
                             <p class="text-[9px] uppercase tracking-widest text-white/30 font-black mt-1">Balance de Cuenta</p>
                         </div>
                         <div class="p-6 text-center">
@@ -718,13 +718,16 @@ const estadoConfig = {
                                         <td class="p-4 text-white/80 font-bold uppercase">
                                             {{ susc.sucursal?.nombre || 'Todas' }}
                                         </td>
-                                        <td class="p-4 text-white/60 font-mono font-medium">
+                                        <td class="p-4 text-white/70 font-medium text-xs">
                                             {{ formatFecha(susc.created_at) }}
                                         </td>
                                         <td class="p-4 text-center">
-                                            <span class="text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full border inline-block" :class="susc.estado === 'activa' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'">
-                                                {{ susc.estado }}
-                                            </span>
+                                            <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-[#1E1E1E] border border-white/5 shadow-sm">
+                                                <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="susc.estado === 'activa' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
+                                                <span class="text-xs font-black uppercase tracking-wider text-white">
+                                                    {{ susc.estado }}
+                                                </span>
+                                            </div>
                                         </td>
                                         <td class="p-4 text-right">
                                             <div class="flex justify-end items-center gap-2">

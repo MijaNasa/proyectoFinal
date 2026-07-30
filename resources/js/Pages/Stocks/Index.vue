@@ -268,11 +268,10 @@ const formatSucursalHeader = (nombre) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex items-center justify-between">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
                     Control de <span class="text-brand-red not-italic">Stock</span>
                 </h2>
-
             </div>
         </template>
 

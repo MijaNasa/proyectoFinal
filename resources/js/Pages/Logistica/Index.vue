@@ -301,9 +301,9 @@ const editarCosto = async (detalle) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div class="flex items-center justify-between">
                 <h2 class="text-3xl font-black leading-tight text-white tracking-tighter uppercase">
-                    Logística de <span class="text-brand-red not-italic">Stock</span>
+                    Historial de <span class="text-brand-red not-italic">Logística</span>
                 </h2>
                 <button @click="isModalOpen = true" class="btn-primary flex items-center gap-2 px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest shadow-lg shadow-red-900/20">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">

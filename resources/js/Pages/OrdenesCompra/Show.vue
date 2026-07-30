@@ -59,8 +59,7 @@ const print = () => window.print();
                         <p class="text-xs font-black uppercase tracking-widest text-gray-400">Orden de Compra</p>
                         <p class="text-2xl font-black text-black mt-1">{{ orden.numero_orden }}</p>
                         <p class="text-xs text-gray-500 mt-1">{{ fmtDate(orden.fecha) }}</p>
-                        <span class="inline-block mt-2 text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded border"
-                            :class="estadoColor[orden.estado]">
+                        <span class="inline-block mt-2 text-[10px] font-black uppercase tracking-widest px-2.5 py-0.5 rounded border border-gray-300 text-gray-700 bg-gray-50">
                             {{ orden.estado }}
                         </span>
                     </div>
@@ -111,7 +110,7 @@ const print = () => window.print();
             <!-- Total -->
             <div class="border-t-2 border-black pt-4 flex justify-end">
                 <div class="w-64">
-                    <div class="flex justify-between text-xl font-black text-black border-t border-black pt-2">
+                    <div class="flex justify-between text-xl font-black text-black">
                         <span>TOTAL</span>
                         <span>{{ fmt(orden.total) }}</span>
                     </div>

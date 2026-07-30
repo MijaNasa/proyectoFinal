@@ -185,19 +185,12 @@ const balanceSucursalChart = computed(() => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between">
-                <div>
-                    <h2 class="text-4xl font-black uppercase tracking-tighter">
-                        <span class="text-brand-red not-italic">Reportes</span> & Análisis
-                    </h2>
-                    <p class="text-white/30 text-xs font-bold uppercase tracking-widest mt-1">
-                        Ventas · Stock · Balance financiero
-                    </p>
-                </div>
+            <div class="flex items-center justify-between min-h-[42px] w-full">
+                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Reportes & <span class="text-brand-red not-italic">Análisis</span></h2>
             </div>
         </template>
 
-        <div class="px-8 py-8 space-y-6">
+        <div class="p-6 max-w-7xl mx-auto space-y-6">
 
             <!-- Filtros globales -->
             <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-5">
