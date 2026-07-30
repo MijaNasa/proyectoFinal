@@ -523,12 +523,12 @@ const confirmar = () => {
                                         </div>
                                         <div>
                                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
-                                                Comentarios y Referencias <span class="text-white/20">(opcional)</span>
+                                                Comentarios y Referencias
                                             </label>
                                             <input
                                                 v-model="comentario"
                                                 type="text"
-                                                placeholder="Ej: Tocar timbre fuerte. Dejar en portería."
+                                                placeholder="Ej: Tocar timbre fuerte. Dejar en portería"
                                                 class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
                                             />
                                         </div>

@@ -398,8 +398,8 @@ const estadoConfig = {
                             @click="cambiarTab('compras')"
                             class="px-6 py-3.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0"
                             :class="tabActiva === 'compras' 
-                                ? 'bg-[#1A1A1A] text-white border-brand-red shadow-sm' 
-                                : 'bg-transparent text-white/40 border-transparent hover:text-white/80 hover:bg-white/[0.02]'"
+                                ? 'text-white border-brand-red font-black' 
+                                : 'text-white/40 border-transparent hover:text-white/80 font-medium'"
                         >
                             COMPRAS ({{ stats.cantidad_ventas }})
                         </button>
@@ -407,8 +407,8 @@ const estadoConfig = {
                             @click="cambiarTab('pagos')"
                             class="px-6 py-3.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0"
                             :class="tabActiva === 'pagos' 
-                                ? 'bg-[#1A1A1A] text-white border-brand-red shadow-sm' 
-                                : 'bg-transparent text-white/40 border-transparent hover:text-white/80 hover:bg-white/[0.02]'"
+                                ? 'text-white border-brand-red font-black' 
+                                : 'text-white/40 border-transparent hover:text-white/80 font-medium'"
                         >
                             PAGOS ({{ pagos.length }})
                         </button>
@@ -416,8 +416,8 @@ const estadoConfig = {
                             @click="cambiarTab('acumulados')"
                             class="px-6 py-3.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0"
                             :class="tabActiva === 'acumulados' 
-                                ? 'bg-[#1A1A1A] text-white border-brand-red shadow-sm' 
-                                : 'bg-transparent text-white/40 border-transparent hover:text-white/80 hover:bg-white/[0.02]'"
+                                ? 'text-white border-brand-red font-black' 
+                                : 'text-white/40 border-transparent hover:text-white/80 font-medium'"
                         >
                             ACUMULADOS ({{ acumulados.length }})
                         </button>
@@ -425,8 +425,8 @@ const estadoConfig = {
                             @click="cambiarTab('canceladas')"
                             class="px-6 py-3.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0"
                             :class="tabActiva === 'canceladas' 
-                                ? 'bg-[#1A1A1A] text-white border-brand-red shadow-sm' 
-                                : 'bg-transparent text-white/40 border-transparent hover:text-white/80 hover:bg-white/[0.02]'"
+                                ? 'text-white border-brand-red font-black' 
+                                : 'text-white/40 border-transparent hover:text-white/80 font-medium'"
                         >
                             CANCELADAS ({{ canceladas.total }})
                         </button>
@@ -434,8 +434,8 @@ const estadoConfig = {
                             @click="cambiarTab('suscripciones')"
                             class="px-6 py-3.5 text-xs font-black uppercase tracking-wider transition-all border-b-2 cursor-pointer flex items-center gap-2 shrink-0"
                             :class="tabActiva === 'suscripciones' 
-                                ? 'bg-[#1A1A1A] text-white border-brand-red shadow-sm' 
-                                : 'bg-transparent text-white/40 border-transparent hover:text-white/80 hover:bg-white/[0.02]'"
+                                ? 'text-white border-brand-red font-black' 
+                                : 'text-white/40 border-transparent hover:text-white/80 font-medium'"
                         >
                             SUSCRIPCIONES ({{ cliente.suscripciones?.length || 0 }})
                         </button>

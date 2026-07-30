@@ -70,25 +70,21 @@ const fmtARS = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', curr
 const activeDropdown = ref(null);
 
 const menuMangas = [
-    { nombre: 'Chainsaw Man', search: 'Chainsaw Man' },
-    { nombre: 'Jujutsu Kaisen', search: 'Jujutsu' },
-    { nombre: 'Demon Slayer', search: 'Demon Slayer' },
-    { nombre: 'Berserk', search: 'Berserk' },
-    { nombre: 'Spy x Family', search: 'Spy x Family' },
-];
-
-const menuComics = [
-    { nombre: 'Spider-Man', search: 'Spider-Man' },
-    { nombre: 'Batman', search: 'Batman' },
-    { nombre: 'Watchmen', search: 'Watchmen' },
-];
-
-const menuEditoriales = [
     { nombre: 'Ivrea Argentina', search: 'Ivrea' },
     { nombre: 'Panini Comics', search: 'Panini' },
     { nombre: 'Ovni Press', search: 'Ovni Press' },
     { nombre: 'ECC Ediciones', search: 'ECC' },
     { nombre: 'Planeta Cómic', search: 'Planeta' },
+    { nombre: 'Distrito Manga', search: 'Distrito Manga' },
+    { nombre: 'Milky Way', search: 'Milky Way' },
+];
+
+const menuComics = [
+    { nombre: 'Ovni Press', search: 'Ovni' },
+    { nombre: 'Panini Comics', search: 'Panini' },
+    { nombre: 'ECC Ediciones', search: 'ECC' },
+    { nombre: 'Planeta Cómic', search: 'Planeta' },
+    { nombre: 'Moebius / Indep.', search: 'Moebius' },
 ];
 
 const filterBySearch = (query) => {
@@ -112,16 +108,15 @@ watch(() => page.props.flash, (flash) => {
 </script>
 
 <template>
-    <div class="min-h-screen bg-[#0A0A0A] text-white font-sans selection:bg-brand-red selection:text-white">
-        <!-- Top Announcement Banner Strip -->
-        <div class="bg-white text-slate-900 py-1.5 px-4 text-center text-[11px] font-bold uppercase tracking-wider overflow-hidden truncate border-b border-slate-200">
+    <div class="min-h-screen bg-[#0A0A0A] text-white font-sans selection:bg-brand-red selection:text-white">        <!-- Top Announcement Banner Strip -->
+        <div class="bg-white/5 text-white/90 py-1.5 px-4 text-center text-[11px] font-bold uppercase tracking-wider overflow-hidden truncate border-b border-white/10">
             ENVÍOS GRATIS A PARTIR DE $80.000 A SUCURSAL DE CORREO / ENVÍOS GRATIS A DOMICILIO A PARTIR DE $100.000
         </div>
 
         <!-- Main Top Navigation Area -->
-        <header class="sticky top-0 z-50 bg-[#0F172A] border-b border-slate-800 shadow-2xl">
+        <header class="sticky top-0 z-50 bg-[#1A1A1A] border-b border-white/10 shadow-2xl">
             <!-- Top Utility Bar -->
-            <div class="bg-[#0B132B] border-b border-slate-800/80">
+            <div class="bg-[#0A0A0A] border-b border-white/10">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div class="flex items-center justify-between h-14">
                         <!-- Left: Logo & Terminal toggle -->
@@ -129,9 +124,9 @@ watch(() => page.props.flash, (flash) => {
                             <button
                                 v-if="page.props.auth?.empleado || page.props.auth?.esAdmin"
                                 @click="isTerminalMenuOpen = true"
-                                class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-brand-red bg-brand-red/10 border border-brand-red/30 rounded hover:bg-brand-red hover:text-white transition-colors"
+                                class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white bg-white/10 border border-white/20 rounded hover:bg-white/20 transition-colors"
                             >
-                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
                                 </svg>
                                 <span>Terminal</span>
@@ -148,7 +143,7 @@ watch(() => page.props.flash, (flash) => {
                         </div>
 
                         <!-- Right: Actions (Crear cuenta, Iniciar Sesion, Carrito) -->
-                        <div class="hidden md:flex items-center space-x-6 text-xs font-bold uppercase tracking-wider text-slate-300">
+                        <div class="hidden md:flex items-center space-x-6 text-xs font-bold uppercase tracking-wider text-white/70">
                             <template v-if="user">
                                 <Link :href="route('mi-cuenta.index')" class="flex items-center gap-1.5 hover:text-white transition-colors">
                                     <svg class="w-4 h-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -156,21 +151,21 @@ watch(() => page.props.flash, (flash) => {
                                     </svg>
                                     <span>Mi Cuenta</span>
                                 </Link>
-                                <button @click="logout" class="hover:text-brand-red transition-colors text-slate-400">
+                                <button @click="logout" class="hover:text-brand-red transition-colors text-white/40">
                                     Salir
                                 </button>
                             </template>
 
                             <template v-else>
                                 <Link :href="route('register')" class="flex items-center gap-1.5 hover:text-white transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                    <svg class="w-4 h-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 0112 0v1H3v-1z" />
                                     </svg>
                                     <span>Crear Cuenta</span>
                                 </Link>
 
                                 <Link :href="route('login')" class="flex items-center gap-1.5 hover:text-white transition-colors">
-                                    <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg class="w-4 h-4 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                                     </svg>
                                     <span>Iniciar Sesión</span>
@@ -178,7 +173,7 @@ watch(() => page.props.flash, (flash) => {
                             </template>
 
                             <!-- Carrito (con precio formateado) -->
-                            <Link :href="route('carrito.index')" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 rounded-lg border border-slate-700 text-white transition-all group">
+                            <Link :href="route('carrito.index')" class="flex items-center gap-2 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg border border-white/10 text-white transition-all group">
                                 <svg class="w-4 h-4 text-brand-red group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 0a2 2 0 100 4 2 2 0 000-4z" />
                                 </svg>
@@ -188,7 +183,7 @@ watch(() => page.props.flash, (flash) => {
 
                         <!-- Mobile Hamburger Button -->
                         <div class="md:hidden flex items-center gap-3">
-                            <Link :href="route('carrito.index')" class="relative p-1 text-slate-300">
+                            <Link :href="route('carrito.index')" class="relative p-1 text-white/70">
                                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
                                 </svg>
@@ -196,7 +191,7 @@ watch(() => page.props.flash, (flash) => {
                                     {{ carritoCount }}
                                 </span>
                             </Link>
-                            <button @click="isMenuOpen = !isMenuOpen" class="p-1 text-slate-300 hover:text-white">
+                            <button @click="isMenuOpen = !isMenuOpen" class="p-1 text-white/70 hover:text-white">
                                 <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path v-if="!isMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
                                     <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -211,8 +206,8 @@ watch(() => page.props.flash, (flash) => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hidden md:block">
                 <div class="flex items-center justify-between h-12">
                     <!-- Navigation Links with Dropdowns -->
-                    <nav class="flex items-center space-x-1 text-xs font-bold uppercase tracking-wider text-slate-300">
-                        <Link :href="route('catalogo.index')" class="px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                    <nav class="flex items-center space-x-1 text-xs font-bold uppercase tracking-wider text-white/70">
+                        <Link :href="route('catalogo.index')" class="px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
                             INICIO
                         </Link>
 
@@ -222,20 +217,20 @@ watch(() => page.props.flash, (flash) => {
                             @mouseenter="activeDropdown = 'mangas'"
                             @mouseleave="activeDropdown = null"
                         >
-                            <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                            <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
                                 <span>MANGAS</span>
-                                <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg class="w-3 h-3 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
 
                             <transition name="fade">
-                                <div v-if="activeDropdown === 'mangas'" class="absolute left-0 top-full mt-1 w-48 bg-[#0F172A] border border-slate-700 rounded-lg shadow-xl py-2 z-50">
+                                <div v-if="activeDropdown === 'mangas'" class="absolute left-0 top-full mt-1 w-48 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50">
                                     <button
                                         v-for="item in menuMangas"
                                         :key="item.nombre"
                                         @click="filterBySearch(item.search)"
-                                        class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
+                                        class="w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
                                     >
                                         {{ item.nombre }}
                                     </button>
@@ -249,20 +244,20 @@ watch(() => page.props.flash, (flash) => {
                             @mouseenter="activeDropdown = 'comics'"
                             @mouseleave="activeDropdown = null"
                         >
-                            <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                            <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
                                 <span>COMICS</span>
-                                <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <svg class="w-3 h-3 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
 
                             <transition name="fade">
-                                <div v-if="activeDropdown === 'comics'" class="absolute left-0 top-full mt-1 w-48 bg-[#0F172A] border border-slate-700 rounded-lg shadow-xl py-2 z-50">
+                                <div v-if="activeDropdown === 'comics'" class="absolute left-0 top-full mt-1 w-48 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50">
                                     <button
                                         v-for="item in menuComics"
                                         :key="item.nombre"
                                         @click="filterBySearch(item.search)"
-                                        class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
+                                        class="w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
                                     >
                                         {{ item.nombre }}
                                     </button>
@@ -270,38 +265,11 @@ watch(() => page.props.flash, (flash) => {
                             </transition>
                         </div>
 
-                        <!-- Editoriales Dropdown -->
-                        <div
-                            class="relative"
-                            @mouseenter="activeDropdown = 'editoriales'"
-                            @mouseleave="activeDropdown = null"
-                        >
-                            <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
-                                <span>EDITORIALES</span>
-                                <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                </svg>
-                            </button>
-
-                            <transition name="fade">
-                                <div v-if="activeDropdown === 'editoriales'" class="absolute left-0 top-full mt-1 w-48 bg-[#0F172A] border border-slate-700 rounded-lg shadow-xl py-2 z-50">
-                                    <button
-                                        v-for="item in menuEditoriales"
-                                        :key="item.nombre"
-                                        @click="filterBySearch(item.search)"
-                                        class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
-                                    >
-                                        {{ item.nombre }}
-                                    </button>
-                                </div>
-                            </transition>
-                        </div>
-
-                        <Link :href="route('catalogo.index')" class="px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                        <Link :href="route('catalogo.index')" class="px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
                             PREVENTAS
                         </Link>
 
-                        <Link :href="route('nosotros')" class="px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                        <Link :href="route('nosotros')" class="px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
                             NOSOTROS
                         </Link>
                     </nav>
@@ -315,9 +283,9 @@ watch(() => page.props.flash, (flash) => {
                             @keyup.enter="executeNavSearch"
                             type="text"
                             placeholder="Buscar productos..."
-                            class="w-full bg-slate-800/90 border border-slate-700 rounded-md py-2 pl-3.5 pr-9 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-brand-red transition-all"
+                            class="w-full bg-black/40 border border-white/10 rounded-md py-2 pl-3.5 pr-9 text-xs text-white placeholder-white/40 focus:outline-none focus:border-brand-red transition-all"
                         >
-                        <button @click="executeNavSearch" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                        <button @click="executeNavSearch" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
@@ -327,9 +295,9 @@ watch(() => page.props.flash, (flash) => {
                         <transition name="fade">
                             <div
                                 v-if="showSearchDropdown && (searchResults.length || isSearching)"
-                                class="absolute right-0 left-0 top-full mt-2 w-full bg-[#0F172A] border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 divide-y divide-slate-800 max-h-96 overflow-y-auto"
+                                class="absolute right-0 left-0 top-full mt-2 w-full bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl overflow-hidden z-50 divide-y divide-white/10 max-h-96 overflow-y-auto"
                             >
-                                <div v-if="isSearching" class="p-4 text-center text-xs text-slate-400 font-medium">
+                                <div v-if="isSearching" class="p-4 text-center text-xs text-white/40 font-medium">
                                     Buscando tomos...
                                 </div>
                                 
@@ -339,29 +307,29 @@ watch(() => page.props.flash, (flash) => {
                                         :key="item.id"
                                         :href="route('catalogo.show', item.id)"
                                         @click="showSearchDropdown = false; navSearch = ''"
-                                        class="flex items-center gap-3 p-3 hover:bg-slate-800/90 transition-colors group"
+                                        class="flex items-center gap-3 p-3 hover:bg-white/5 transition-colors group"
                                     >
                                         <img
                                             :src="item.portada_url"
                                             :alt="item.titulo"
                                             @error="$event.target.src = '/images/no-cover.png'"
-                                            class="w-10 h-14 object-cover rounded bg-black/40 border border-slate-700 shrink-0"
+                                            class="w-10 h-14 object-cover rounded bg-black/40 border border-white/10 shrink-0"
                                         >
                                         <div class="flex-1 min-w-0">
-                                            <h4 class="text-xs font-bold text-white group-hover:text-slate-200 transition-colors truncate">
+                                            <h4 class="text-xs font-bold text-white group-hover:text-brand-red transition-colors truncate">
                                                 {{ item.titulo }}
                                             </h4>
                                             <p class="text-xs font-bold text-white mt-0.5">
                                                 {{ item.precio }}
                                             </p>
                                         </div>
-                                        <svg class="w-4 h-4 text-slate-500 group-hover:text-white transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg class="w-4 h-4 text-white/30 group-hover:text-white transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
                                         </svg>
                                     </Link>
                                 </template>
 
-                                <div v-else-if="navSearch.trim().length >= 2" class="p-4 text-center text-xs text-slate-400 font-medium">
+                                <div v-else-if="navSearch.trim().length >= 2" class="p-4 text-center text-xs text-white/40 font-medium">
                                     No se encontraron tomos coincidentes.
                                 </div>
                             </div>
@@ -372,30 +340,30 @@ watch(() => page.props.flash, (flash) => {
 
             <!-- Mobile Dropdown Menu -->
             <transition name="fade">
-                <div v-if="isMenuOpen" class="md:hidden bg-[#0F172A] border-b border-slate-800 p-4 space-y-4 text-xs font-bold uppercase tracking-wider">
-                    <Link :href="route('catalogo.index')" class="block py-1 text-slate-300 hover:text-white">Inicio</Link>
+                <div v-if="isMenuOpen" class="md:hidden bg-[#1A1A1A] border-b border-white/10 p-4 space-y-4 text-xs font-bold uppercase tracking-wider">
+                    <Link :href="route('catalogo.index')" class="block py-1 text-white/70 hover:text-white">Inicio</Link>
 
-                    <div class="space-y-1 pl-2 border-l border-slate-800">
-                        <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Mangas</div>
-                        <button v-for="item in menuMangas" :key="item.nombre" @click="filterBySearch(item.search); isMenuOpen = false" class="block py-1 text-slate-400 hover:text-white">
+                    <div class="space-y-1 pl-2 border-l border-white/10">
+                        <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Editoriales (Mangas)</div>
+                        <button v-for="item in menuMangas" :key="item.nombre" @click="filterBySearch(item.search); isMenuOpen = false" class="block py-1 text-white/40 hover:text-white">
                             {{ item.nombre }}
                         </button>
                     </div>
 
-                    <div class="space-y-1 pl-2 border-l border-slate-800">
-                        <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Editoriales</div>
-                        <button v-for="item in menuEditoriales" :key="item.nombre" @click="filterBySearch(item.search); isMenuOpen = false" class="block py-1 text-slate-400 hover:text-white">
+                    <div class="space-y-1 pl-2 border-l border-white/10">
+                        <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Editoriales (Comics)</div>
+                        <button v-for="item in menuComics" :key="item.nombre" @click="filterBySearch(item.search); isMenuOpen = false" class="block py-1 text-white/40 hover:text-white">
                             {{ item.nombre }}
                         </button>
                     </div>
 
                     <template v-if="user">
-                        <Link :href="route('mi-cuenta.index')" class="block py-1 text-slate-300 hover:text-white">Mi Cuenta</Link>
-                        <button @click="logout" class="block py-1 text-slate-400 hover:text-brand-red">Salir</button>
+                        <Link :href="route('mi-cuenta.index')" class="block py-1 text-white/70 hover:text-white">Mi Cuenta</Link>
+                        <button @click="logout" class="block py-1 text-white/40 hover:text-brand-red">Salir</button>
                     </template>
                     <template v-else>
-                        <Link :href="route('register')" class="block py-1 text-slate-300 hover:text-white">Crear Cuenta</Link>
-                        <Link :href="route('login')" class="block py-1 text-slate-300 hover:text-white">Iniciar Sesión</Link>
+                        <Link :href="route('register')" class="block py-1 text-white/70 hover:text-white">Crear Cuenta</Link>
+                        <Link :href="route('login')" class="block py-1 text-white/70 hover:text-white">Iniciar Sesión</Link>
                     </template>
                 </div>
             </transition>

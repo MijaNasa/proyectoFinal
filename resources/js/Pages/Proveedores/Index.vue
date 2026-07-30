@@ -203,8 +203,8 @@ const setEstado = (estado) => {
                         @click="setEstado('activos')"
                         class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
                         :class="estadoFiltro === 'activos'
-                            ? 'border-brand-red text-white bg-white/5 font-black' 
-                            : 'border-transparent text-white/50 hover:text-white hover:bg-white/5 font-medium'"
+                            ? 'border-brand-red text-white font-black' 
+                            : 'border-transparent text-white/50 hover:text-white font-medium'"
                     >
                         Activos
                     </button>
@@ -212,8 +212,8 @@ const setEstado = (estado) => {
                         @click="setEstado('inactivos')"
                         class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
                         :class="estadoFiltro === 'inactivos'
-                            ? 'border-brand-red text-white bg-white/5 font-black' 
-                            : 'border-transparent text-white/50 hover:text-white hover:bg-white/5 font-medium'"
+                            ? 'border-brand-red text-white font-black' 
+                            : 'border-transparent text-white/50 hover:text-white font-medium'"
                     >
                         Inactivos
                     </button>
@@ -408,7 +408,7 @@ const setEstado = (estado) => {
                                 <input
                                     v-model="pagoForm.comprobante"
                                     type="text"
-                                    placeholder="Nro. operación..."
+                                    placeholder="Nro. operación"
                                     class="input-field w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50"
                                     maxlength="255"
                                 >
@@ -416,11 +416,11 @@ const setEstado = (estado) => {
                         </div>
 
                         <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-2">DESCRIPCIÓN (OPCIONAL)</label>
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-2">DESCRIPCIÓN</label>
                             <input
                                 v-model="pagoForm.descripcion"
                                 type="text"
-                                placeholder="Pago a proveedor..."
+                                placeholder="Pago a proveedor"
                                 class="input-field w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50"
                                 maxlength="255"
                             >

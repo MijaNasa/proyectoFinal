@@ -209,8 +209,8 @@ const confirmDelete = (item) => {
                     @click="selectTab(tab.id)"
                     class="px-5 py-3 text-xs font-black uppercase tracking-widest border-b-2 transition-all"
                     :class="currentTab === tab.id 
-                        ? 'border-brand-red text-white bg-white/5 font-black' 
-                        : 'border-transparent text-white/50 hover:text-white hover:bg-white/5 font-medium'"
+                        ? 'border-brand-red text-white font-black' 
+                        : 'border-transparent text-white/50 hover:text-white font-medium'"
                 >
                     {{ tab.name }}
                 </button>

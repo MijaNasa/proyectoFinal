@@ -691,8 +691,8 @@ const editarCosto = async (detalle) => {
 
                     <!-- Motivo / Observaciones -->
                     <div>
-                        <label class="block text-sm font-bold text-white/70 mb-2 leading-none">Observaciones (Opcional)</label>
-                        <input v-model="form.motivo" type="text" class="input-field w-full text-sm font-bold py-3" placeholder="Detalles extra de la operación..." :class="{'border-brand-red': form.errors.motivo}">
+                        <label class="block text-sm font-bold text-white/70 mb-2 leading-none">Observaciones</label>
+                        <input v-model="form.motivo" type="text" class="input-field w-full text-sm font-bold py-3" placeholder="Detalles extra de la operación" :class="{'border-brand-red': form.errors.motivo}">
                     </div>
 
                     <!-- Botones footer -->

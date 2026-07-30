@@ -11,12 +11,32 @@ const props = defineProps({
 });
 
 const tab = ref('perfil');
+const expandedPedidos = ref([]);
+
+const togglePedidoExpand = (id) => {
+    const idx = expandedPedidos.value.indexOf(id);
+    if (idx > -1) {
+        expandedPedidos.value.splice(idx, 1);
+    } else {
+        expandedPedidos.value.push(id);
+    }
+};
 
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
 
-const formatFecha = (fecha) =>
-    new Date(fecha).toLocaleDateString('es-AR', { day: '2-digit', month: 'long', year: 'numeric' });
+const formatFecha = (fecha) => {
+    if (!fecha) return '';
+    const parts = String(fecha).split('T')[0].split('-');
+    if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    const d = new Date(fecha);
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+};
 
 const showCurrentPassword = ref(false);
 const showNewPassword     = ref(false);
@@ -58,15 +78,19 @@ const cerrarSesion = () => {
 };
 
 const estadoConfig = {
-    pendiente_pago:     { label: 'Pendiente de pago',  color: 'text-yellow-400 bg-yellow-400/10 border-yellow-400/20' },
-    en_preventa:        { label: 'Esperando preventa', color: 'text-fuchsia-400 bg-fuchsia-400/10 border-fuchsia-400/20' },
-    en_preparacion:     { label: 'En preparación',     color: 'text-blue-400 bg-blue-400/10 border-blue-400/20' },
-    esperando_traslado: { label: 'Esperando traslado', color: 'text-purple-400 bg-purple-400/10 border-purple-400/20' },
-    listo_para_retiro:  { label: 'Listo para retirar', color: 'text-emerald-400 bg-emerald-400/10 border-emerald-400/20' },
-    acumulado:          { label: 'Acumulado',          color: 'text-orange-400 bg-orange-400/10 border-orange-400/20' },
-    enviado:            { label: 'Enviado',            color: 'text-indigo-400 bg-indigo-400/10 border-indigo-400/20' },
-    finalizado:         { label: 'Finalizado',         color: 'text-green-400 bg-green-400/10 border-green-400/20' },
-    cancelado:          { label: 'Cancelado',          color: 'text-red-400 bg-red-400/10 border-red-400/20' },
+    pendiente_pago:     { label: 'Pendiente de pago',  bgDot: 'bg-amber-400' },
+    en_preventa:        { label: 'Esperando preventa', bgDot: 'bg-fuchsia-400' },
+    en_preparacion:     { label: 'En preparación',     bgDot: 'bg-sky-400' },
+    esperando_traslado: { label: 'Esperando traslado', bgDot: 'bg-purple-400' },
+    listo_para_retiro:  { label: 'Listo para retiro',  bgDot: 'bg-emerald-400' },
+    listo_para_retirar: { label: 'Listo para retiro',  bgDot: 'bg-emerald-400' },
+    acumulado:          { label: 'Acumulado',          bgDot: 'bg-orange-400' },
+    enviado:            { label: 'Enviado',             bgDot: 'bg-indigo-400' },
+    entregado:          { label: 'Entregado',           bgDot: 'bg-emerald-400' },
+    retirado:           { label: 'Retirado',            bgDot: 'bg-emerald-400' },
+    completada:         { label: 'Completada',          bgDot: 'bg-emerald-400' },
+    finalizado:         { label: 'Finalizado',          bgDot: 'bg-emerald-400' },
+    cancelado:          { label: 'Cancelado',           bgDot: 'bg-rose-500' },
 };
 
 const getTipoEnvioLabel = (tipo) => {
@@ -127,16 +151,6 @@ const solicitarEnvioAcumulados = () => {
                     <span v-if="pedidos.total" class="text-[10px] bg-brand-red/20 text-brand-red px-1.5 py-0.5 rounded-full font-black">
                         {{ pedidos.total }}
                     </span>
-                </button>
-                <div class="flex-1" />
-                <button
-                    @click="cerrarSesion"
-                    class="px-5 py-3 text-xs font-black uppercase tracking-widest text-white/30 hover:text-red-400 transition-colors flex items-center gap-2"
-                >
-                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-                    </svg>
-                    Cerrar sesión
                 </button>
             </div>
 
@@ -261,81 +275,130 @@ const solicitarEnvioAcumulados = () => {
                     <div
                         v-for="pedido in pedidos.data"
                         :key="pedido.id"
-                        class="bg-white/[0.03] border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all"
+                        class="bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-lg transition-all"
+                        :class="{ 'border-brand-red/30 opacity-70 hover:opacity-100': pedido.estado === 'cancelado' }"
                     >
-                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                            <div>
-                                <div class="flex items-center gap-3 mb-1">
-                                    <span class="font-black text-lg"># {{ pedido.id }}</span>
-                                    <span
-                                        class="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full border"
-                                        :class="estadoConfig[pedido.estado]?.color ?? 'text-white/40 bg-white/5 border-white/10'"
-                                    >
-                                        {{ estadoConfig[pedido.estado]?.label ?? pedido.estado }}
-                                    </span>
+                        <!-- Card Header (Clickable to Expand / Collapse) -->
+                        <div
+                            @click="togglePedidoExpand(pedido.id)"
+                            class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 bg-[#1A1A1A] cursor-pointer hover:bg-white/[0.04] transition-colors select-none"
+                        >
+                            <div class="flex items-center gap-4">
+                                <!-- Order Icon -->
+                                <div class="w-10 h-10 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-white/50 shrink-0">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                                    </svg>
                                 </div>
-                                <p class="text-white/40 text-xs font-bold uppercase tracking-widest">
-                                    {{ formatFecha(pedido.fecha) }}
-                                    · {{ getTipoEnvioLabel(pedido.tipo_envio) }}
-                                </p>
-                            </div>
-                            <p class="text-2xl font-black text-brand-red italic">{{ formatPrecio(pedido.total) }}</p>
-                        </div>
 
-                        <div class="space-y-2 border-t border-white/5 pt-4">
-                            <div v-for="(item, i) in pedido.items" :key="i" class="flex justify-between text-sm">
-                                <span class="text-white/60">
-                                    {{ item.titulo }}
-                                    <span class="text-white/30 text-xs">x{{ item.cantidad }}</span>
-                                </span>
-                                <span class="font-black text-white/80">{{ formatPrecio(item.subtotal) }}</span>
-                            </div>
-                        </div>
+                                <div class="space-y-1">
+                                    <div class="flex flex-wrap items-center gap-3">
+                                        <!-- Larger Order ID -->
+                                        <span class="text-white font-mono font-black text-base sm:text-lg tracking-tight">
+                                            #TK-{{ String(pedido.id).padStart(6, '0') }}
+                                        </span>
 
-                        <!-- Banner Listo para retirar -->
-                        <div v-if="pedido.estado === 'listo_para_retirar' && ['retiro', 'acumulacion'].includes(pedido.tipo_envio)" class="mt-4 p-4 bg-green-500/10 border border-green-500/20 rounded-xl flex items-start gap-3">
-                            <span class="text-xl">🎉</span>
-                            <div>
-                                <p class="text-green-400 font-bold text-xs uppercase tracking-wider">¡Tu pedido está listo!</p>
-                                <p class="text-white/70 text-[10px] mt-1 font-medium leading-relaxed">
-                                    Ya podés pasar a retirar tus libros por la sucursal <strong>{{ pedido.sucursal_nombre }}</strong>.
-                                </p>
-                            </div>
-                        </div>
+                                        <!-- Status Badge with Colored Dot -->
+                                        <span class="bg-[#111] border border-white/10 text-white font-bold text-xs rounded-full px-3 py-1 inline-flex items-center gap-1.5 shadow-sm">
+                                            <span class="w-2 h-2 rounded-full shrink-0" :class="estadoConfig[pedido.estado]?.bgDot || 'bg-white/40'"></span>
+                                            {{ estadoConfig[pedido.estado]?.label ?? pedido.estado }}
+                                        </span>
+                                    </div>
 
-                        <!-- Subir Comprobante (Transferencia Pendiente) -->
-                        <div v-if="pedido.estado === 'pendiente_pago' && pedido.metodo_pago === 'Transferencia'" class="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl">
-                            <h4 class="text-xs font-black uppercase tracking-widest text-white/50 mb-3">Comprobante de Transferencia</h4>
-                            
-                            <div v-if="pedido.comprobante_path" class="flex items-center gap-3">
-                                <span class="text-green-400">✅</span>
-                                <p class="text-xs text-white/70">Comprobante enviado. Esperando verificación.</p>
-                                <div class="ml-auto flex items-center gap-3">
-                                    <a :href="route('mi-cuenta.comprobante.ver', pedido.id)" target="_blank" class="text-[10px] font-bold text-brand-red uppercase hover:underline">Ver adjunto</a>
-                                    <button @click="deleteComprobante(pedido.id)" class="text-white/40 hover:text-red-400 transition-colors" title="Eliminar comprobante">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
+                                    <!-- Date & Sucursal / Delivery with Clean Dot Spacing -->
+                                    <div class="flex flex-wrap items-center gap-2 text-xs font-semibold text-white/40">
+                                        <span>{{ formatFecha(pedido.fecha) }}</span>
+                                        <span v-if="pedido.sucursal_nombre" class="text-white/20">•</span>
+                                        <span v-if="pedido.sucursal_nombre">{{ pedido.sucursal_nombre }}</span>
+                                        <span class="text-white/20">•</span>
+                                        <span>{{ getTipoEnvioLabel(pedido.tipo_envio) }}</span>
+                                    </div>
                                 </div>
                             </div>
-                            
-                            <form v-else @submit.prevent="uploadComprobante(pedido.id)" class="flex flex-col sm:flex-row items-center gap-3">
-                                <input 
-                                    type="file" 
-                                    accept="image/*"
-                                    @input="uploadForm.comprobante = $event.target.files[0]"
-                                    class="w-full text-xs text-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-brand-red/20 file:text-brand-red hover:file:bg-brand-red/30 cursor-pointer"
-                                    required
+
+                            <!-- Right: Total Price + Chevron Arrow -->
+                            <div class="flex items-center justify-between md:justify-end gap-5 border-t md:border-t-0 border-white/5 pt-3 md:pt-0">
+                                <p class="text-lg sm:text-xl font-bold text-white tracking-tight">
+                                    {{ formatPrecio(pedido.total) }}
+                                </p>
+
+                                <div
+                                    class="w-8 h-8 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/60 transition-transform duration-200"
+                                    :class="{ 'rotate-180 bg-white/10 text-white': expandedPedidos.includes(pedido.id) }"
                                 >
-                                <button 
-                                    type="submit"
-                                    :disabled="uploadForm.processing || !uploadForm.comprobante"
-                                    class="w-full sm:w-auto px-4 py-2 bg-brand-red text-white text-[10px] font-black uppercase rounded-lg disabled:opacity-50"
-                                >
-                                    {{ uploadForm.processing ? 'Enviando...' : 'Enviar comprobante' }}
-                                </button>
-                            </form>
-                            <p v-if="uploadForm.errors.comprobante" class="text-red-400 text-[10px] mt-2">{{ uploadForm.errors.comprobante }}</p>
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </div>
+                            </div>
                         </div>
+
+                        <!-- Collapsible Order Details Content -->
+                        <transition name="fade">
+                            <div v-if="expandedPedidos.includes(pedido.id)" class="border-t border-white/10 bg-[#111]">
+                                <div class="p-5 space-y-4">
+                                    <h4 class="text-xs font-extrabold uppercase tracking-wider text-white/40 border-b border-white/5 pb-2">
+                                        Detalle del pedido ({{ pedido.items?.length || 0 }} {{ (pedido.items?.length === 1) ? 'producto' : 'productos' }})
+                                    </h4>
+
+                                    <!-- Items List -->
+                                    <div class="space-y-2.5">
+                                        <div v-for="(item, i) in pedido.items" :key="i" class="flex justify-between items-center text-sm py-1 border-b border-white/5 last:border-0">
+                                            <span class="text-white/80 font-medium line-clamp-1">
+                                                {{ item.titulo }}
+                                                <span class="text-white/40 text-xs font-bold ml-1">x{{ item.cantidad }}</span>
+                                            </span>
+                                            <span class="font-normal text-white/60 ml-4 shrink-0">{{ formatPrecio(item.subtotal) }}</span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Banner Listo para retirar -->
+                                    <div v-if="pedido.estado === 'listo_para_retirar' && ['retiro', 'acumulacion'].includes(pedido.tipo_envio)" class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-start gap-3 mt-4">
+                                        <span class="text-xl">🎉</span>
+                                        <div>
+                                            <p class="text-emerald-400 font-bold text-xs uppercase tracking-wider">¡Tu pedido está listo!</p>
+                                            <p class="text-white/70 text-[10px] mt-1 font-medium leading-relaxed">
+                                                Ya podés pasar a retirar tus libros por la sucursal <strong>{{ pedido.sucursal_nombre }}</strong>.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Subir Comprobante (Transferencia Pendiente) -->
+                                    <div v-if="pedido.estado === 'pendiente_pago' && pedido.metodo_pago === 'Transferencia'" class="p-4 bg-white/5 border border-white/10 rounded-xl mt-4">
+                                        <h4 class="text-xs font-black uppercase tracking-widest text-white/50 mb-3">Comprobante de Transferencia</h4>
+                                        
+                                        <div v-if="pedido.comprobante_path" class="flex items-center gap-3">
+                                            <span class="text-green-400">✅</span>
+                                            <p class="text-xs text-white/70">Comprobante enviado. Esperando verificación.</p>
+                                            <div class="ml-auto flex items-center gap-3">
+                                                <a :href="route('mi-cuenta.comprobante.ver', pedido.id)" target="_blank" class="text-[10px] font-bold text-brand-red uppercase hover:underline">Ver adjunto</a>
+                                                <button @click.stop="deleteComprobante(pedido.id)" class="text-white/40 hover:text-red-400 transition-colors" title="Eliminar comprobante">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        
+                                        <form v-else @submit.prevent="uploadComprobante(pedido.id)" class="flex flex-col sm:flex-row items-center gap-3">
+                                            <input 
+                                                type="file" 
+                                                accept="image/*"
+                                                @input="uploadForm.comprobante = $event.target.files[0]"
+                                                class="w-full text-xs text-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-brand-red/20 file:text-brand-red hover:file:bg-brand-red/30 cursor-pointer"
+                                                required
+                                            >
+                                            <button 
+                                                type="submit"
+                                                :disabled="uploadForm.processing || !uploadForm.comprobante"
+                                                class="w-full sm:w-auto px-4 py-2 bg-brand-red text-white text-[10px] font-black uppercase rounded-lg disabled:opacity-50"
+                                            >
+                                                {{ uploadForm.processing ? 'Enviando...' : 'Enviar comprobante' }}
+                                            </button>
+                                        </form>
+                                        <p v-if="uploadForm.errors.comprobante" class="text-red-400 text-[10px] mt-2">{{ uploadForm.errors.comprobante }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </transition>
                     </div>
                 </div>
 

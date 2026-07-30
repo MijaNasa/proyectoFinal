@@ -11,53 +11,87 @@ class LibroMasterController extends Controller
 {
     private function processRelations(&$data)
     {
-        if (!is_numeric($data['autor_id'])) {
-            $autorStr = trim($data['autor_id']);
-            $parts = explode(' ', $autorStr);
-            $apellido = count($parts) > 1 ? array_pop($parts) : null;
-            $nombre = implode(' ', $parts);
-
-            $autor = \App\Models\Autor::where('nombre', $nombre)
-                ->where('apellido', $apellido)
-                ->first();
-
-            if (!$autor) {
-                $autor = \App\Models\Autor::create(['nombre' => $nombre, 'apellido' => $apellido]);
-            }
-            $data['autor_id'] = $autor->id;
-        }
-
-        if (!is_numeric($data['categoria_id'])) {
-            $catStr = trim($data['categoria_id']);
-            $categoria = \App\Models\Categoria::where('nombre', $catStr)->first();
-            if (!$categoria) {
-                $categoria = \App\Models\Categoria::create(['nombre' => $catStr]);
-            }
-            $data['categoria_id'] = $categoria->id;
-        }
-
-        if (!empty($data['proveedor_id']) && !is_numeric($data['proveedor_id'])) {
-            $provStr = trim($data['proveedor_id']);
-            $proveedor = \App\Models\Proveedor::where('nombre_empresa', $provStr)->first();
-            if (!$proveedor) {
-                $proveedor = \App\Models\Proveedor::create(['nombre_empresa' => $provStr]);
-            }
-            $data['proveedor_id'] = $proveedor->id;
-        }
-
-        if (!empty($data['idioma_id']) && !is_numeric($data['idioma_id'])) {
-            $idStr = trim($data['idioma_id']);
-            $idioma = \App\Models\Idioma::where('nombre', $idStr)->first();
-            if (!$idioma) {
-                // Generar un código dummy para el idioma (ej: si es "Inglés", el código podría ser "ING")
-                $codigo = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $idStr), 0, 3));
-                // Asegurarse de que el código sea único o intentar un fallback
-                if (\App\Models\Idioma::where('codigo', $codigo)->exists()) {
-                    $codigo = substr(md5(uniqid()), 0, 5);
+        if (empty($data['autor_id'])) {
+            $data['autor_id'] = null;
+        } else if (!is_numeric($data['autor_id'])) {
+            $autorStr = trim((string)$data['autor_id']);
+            if ($autorStr !== '') {
+                $parts = explode(' ', $autorStr);
+                $apellido = count($parts) > 1 ? array_pop($parts) : null;
+                $nombre = implode(' ', $parts);
+                if (empty($nombre)) {
+                    $nombre = $apellido;
+                    $apellido = null;
                 }
-                $idioma = \App\Models\Idioma::create(['nombre' => $idStr, 'codigo' => $codigo]);
+
+                if (!empty($nombre)) {
+                    $autor = \App\Models\Autor::where('nombre', $nombre)
+                        ->where('apellido', $apellido)
+                        ->first();
+
+                    if (!$autor) {
+                        $autor = \App\Models\Autor::create(['nombre' => $nombre, 'apellido' => $apellido]);
+                    }
+                    $data['autor_id'] = $autor->id;
+                } else {
+                    $data['autor_id'] = null;
+                }
+            } else {
+                $data['autor_id'] = null;
             }
-            $data['idioma_id'] = $idioma->id;
+        }
+
+        if (empty($data['categoria_id'])) {
+            $data['categoria_id'] = null;
+        } else if (!is_numeric($data['categoria_id'])) {
+            $catStr = trim((string)$data['categoria_id']);
+            if ($catStr !== '') {
+                $categoria = \App\Models\Categoria::where('nombre', $catStr)->first();
+                if (!$categoria) {
+                    $categoria = \App\Models\Categoria::create(['nombre' => $catStr]);
+                }
+                $data['categoria_id'] = $categoria->id;
+            } else {
+                $data['categoria_id'] = null;
+            }
+        }
+
+        if (empty($data['proveedor_id'])) {
+            $data['proveedor_id'] = null;
+        } else if (!is_numeric($data['proveedor_id'])) {
+            $provStr = trim((string)$data['proveedor_id']);
+            if ($provStr !== '') {
+                $proveedor = \App\Models\Proveedor::where('nombre_empresa', $provStr)->first();
+                if (!$proveedor) {
+                    $proveedor = \App\Models\Proveedor::create(['nombre_empresa' => $provStr]);
+                }
+                $data['proveedor_id'] = $proveedor->id;
+            } else {
+                $data['proveedor_id'] = null;
+            }
+        }
+
+        if (empty($data['idioma_id'])) {
+            $data['idioma_id'] = null;
+        } else if (!is_numeric($data['idioma_id'])) {
+            $idStr = trim((string)$data['idioma_id']);
+            if ($idStr !== '') {
+                $idioma = \App\Models\Idioma::where('nombre', $idStr)->first();
+                if (!$idioma) {
+                    $codigo = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $idStr), 0, 3));
+                    if (\App\Models\Idioma::where('codigo', $codigo)->exists()) {
+                        $codigo = substr(md5(uniqid()), 0, 5);
+                    }
+                    $idioma = \App\Models\Idioma::create(['nombre' => $idStr, 'codigo' => $codigo]);
+                }
+                $data['idioma_id'] = $idioma->id;
+            } else {
+                $data['idioma_id'] = null;
+            }
+        }
+
+        if (empty($data['formato'])) {
+            $data['formato'] = null;
         }
     }
 
@@ -98,14 +132,14 @@ class LibroMasterController extends Controller
 
         // Validar unicidad compuesta (Título + Formato + Idioma + Proveedor)
         $exists = LibroMaster::where('titulo', $data['titulo'])
-            ->where('formato', $data['formato'])
-            ->where('idioma_id', $data['idioma_id'])
-            ->where('proveedor_id', $data['proveedor_id'])
+            ->where('formato', $data['formato'] ?? null)
+            ->where('idioma_id', $data['idioma_id'] ?? null)
+            ->where('proveedor_id', $data['proveedor_id'] ?? null)
             ->exists();
 
         if ($exists) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'titulo' => 'Ya existe una obra con exactamente el mismo título, formato, idioma y proveedor.'
+                'titulo' => 'Ya existe un producto con exactamente el mismo título, formato, idioma y proveedor.'
             ]);
         }
 
@@ -116,7 +150,7 @@ class LibroMasterController extends Controller
         LibroMaster::create($data);
 
         return redirect()->route('libros.index')
-            ->with('message', 'Obra maestra (título) creada con éxito');
+            ->with('message', 'Producto máster creado con éxito');
     }
 
     /**
@@ -129,15 +163,15 @@ class LibroMasterController extends Controller
 
         // Validar unicidad compuesta (Título + Formato + Idioma + Proveedor) excluyendo el actual
         $exists = LibroMaster::where('titulo', $data['titulo'])
-            ->where('formato', $data['formato'])
-            ->where('idioma_id', $data['idioma_id'])
-            ->where('proveedor_id', $data['proveedor_id'])
+            ->where('formato', $data['formato'] ?? null)
+            ->where('idioma_id', $data['idioma_id'] ?? null)
+            ->where('proveedor_id', $data['proveedor_id'] ?? null)
             ->where('id', '!=', $libroMaster->id)
             ->exists();
 
         if ($exists) {
             throw \Illuminate\Validation\ValidationException::withMessages([
-                'titulo' => 'Ya existe otra obra con exactamente el mismo título, formato, idioma y proveedor.'
+                'titulo' => 'Ya existe otro producto con exactamente el mismo título, formato, idioma y proveedor.'
             ]);
         }
 

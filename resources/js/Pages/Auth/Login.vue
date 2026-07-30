@@ -53,8 +53,8 @@ const submit = () => {
 
         <!-- Main Form Container -->
         <div class="max-w-md mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
-                <div class="text-center pb-4 border-b border-slate-800">
+            <div class="bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+                <div class="text-center pb-4 border-b border-white/10">
                     <p class="text-xs font-medium text-white/70">
                         Ingresá con tu correo y contraseña para acceder a tus pedidos
                     </p>
@@ -71,7 +71,7 @@ const submit = () => {
                         <TextInput
                             id="email"
                             type="email"
-                            class="mt-1.5 block w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
+                            class="mt-1.5 block w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
                             v-model="form.email"
                             placeholder="ej.: usuario@purocomic.com"
                             required
@@ -89,7 +89,7 @@ const submit = () => {
                             <TextInput
                                 id="password"
                                 :type="showPassword ? 'text' : 'password'"
-                                class="block w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2.5 pr-10 text-sm text-white placeholder-slate-500 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
+                                class="block w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-sm text-white placeholder-white/40 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
                                 v-model="form.password"
                                 placeholder="••••••••"
                                 required
@@ -98,7 +98,7 @@ const submit = () => {
                             <button
                                 type="button"
                                 @click="showPassword = !showPassword"
-                                class="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-white transition-colors focus:outline-none"
+                                class="absolute inset-y-0 right-0 flex items-center pr-3 text-white/40 hover:text-white transition-colors focus:outline-none"
                                 tabindex="-1"
                             >
                                 <svg v-if="!showPassword" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -5,11 +5,20 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
+import { computed } from 'vue';
 
-defineProps({
+const props = defineProps({
     status: {
         type: String,
     },
+});
+
+const statusTraducido = computed(() => {
+    if (!props.status) return '';
+    if (props.status === 'We have emailed your password reset link.') {
+        return 'Te hemos enviado por correo electrónico el enlace para restablecer tu contraseña.';
+    }
+    return props.status;
 });
 
 const form = useForm({
@@ -42,8 +51,8 @@ const submit = () => {
 
         <!-- Main Form Container -->
         <div class="max-w-md mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
-                <div class="text-center pb-4 border-b border-slate-800">
+            <div class="bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+                <div class="text-center pb-4 border-b border-white/10">
                     <p class="text-xs font-medium text-white/70 leading-relaxed">
                         Ingresá tu correo electrónico registrado y te enviaremos las instrucciones para restablecer tu contraseña.
                     </p>
@@ -56,7 +65,7 @@ const submit = () => {
                     <svg class="w-4 h-4 text-green-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    <span>{{ status }}</span>
+                    <span>{{ statusTraducido }}</span>
                 </div>
 
                 <form @submit.prevent="submit" class="space-y-5">
@@ -66,7 +75,7 @@ const submit = () => {
                         <TextInput
                             id="email"
                             type="email"
-                            class="mt-1.5 block w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
+                            class="mt-1.5 block w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
                             v-model="form.email"
                             placeholder="ej.: usuario@purocomic.com"
                             required
@@ -79,7 +88,7 @@ const submit = () => {
 
                     <div class="pt-2">
                         <PrimaryButton
-                            class="w-full justify-center py-3 text-xs font-extrabold uppercase tracking-widest bg-brand-red hover:bg-brand-red/90 text-white rounded-lg transition-all shadow-lg"
+                            class="w-full justify-center py-3 text-xs font-bold uppercase tracking-widest bg-brand-red/80 hover:bg-brand-red text-white border border-brand-red/30 rounded-xl transition-all shadow-md"
                             :class="{ 'opacity-50 cursor-not-allowed': form.processing }"
                             :disabled="form.processing"
                         >
@@ -90,7 +99,7 @@ const submit = () => {
                     <div class="text-center pt-2">
                         <Link
                             :href="route('login')"
-                            class="text-xs font-bold text-slate-400 hover:text-white transition-colors flex items-center justify-center gap-1.5"
+                            class="text-xs font-bold text-white/40 hover:text-white transition-colors flex items-center justify-center gap-1.5"
                         >
                             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />

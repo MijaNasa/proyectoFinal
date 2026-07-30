@@ -46,7 +46,15 @@ class LibroController extends Controller
     public function store(StoreLibroRequest $request)
     {
         \DB::transaction(function() use ($request) {
-            $libro = Libro::create($request->validated());
+            $data = $request->validated();
+            if (empty($data['isbn']) || trim($data['isbn']) === '') {
+                $data['isbn'] = null;
+            }
+            if (empty($data['numero_tomo']) || trim($data['numero_tomo']) === '') {
+                $data['numero_tomo'] = null;
+            }
+
+            $libro = Libro::create($data);
 
             $libro->precios()->create([
                 'precio_compra' => $request->precio_compra ?? 0,
@@ -78,7 +86,15 @@ class LibroController extends Controller
     public function update(UpdateLibroRequest $request, Libro $libro)
     {
         \DB::transaction(function() use ($request, $libro) {
-            $libro->update($request->validated());
+            $data = $request->validated();
+            if (empty($data['isbn']) || trim($data['isbn']) === '') {
+                $data['isbn'] = null;
+            }
+            if (empty($data['numero_tomo']) || trim($data['numero_tomo']) === '') {
+                $data['numero_tomo'] = null;
+            }
+
+            $libro->update($data);
 
             $currentPrice = $libro->precioActual; // Note: using relationship property
             

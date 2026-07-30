@@ -528,6 +528,14 @@ const openTomoModal = (tomo = null, masterId = null) => {
 };
 
 const submitTomo = () => {
+    tomoForm.transform((data) => ({
+        ...data,
+        isbn: data.isbn && data.isbn.trim() !== '' ? data.isbn.trim() : null,
+        numero_tomo: data.numero_tomo && data.numero_tomo.trim() !== '' ? data.numero_tomo.trim() : null,
+        año_edicion: data.año_edicion || null,
+        cantidad_paginas: data.cantidad_paginas || null,
+    }));
+
     if (isEditingTomo.value) {
         tomoForm.put(route('libros.update', tomoForm.id), {
             onSuccess: () => {
@@ -735,16 +743,20 @@ const openBulkModal = async () => {
 };
 
 const bulkForm = useForm({
-    criterio: 'proveedor_formato', // 'serie' o 'proveedor_formato'
+    criterio: 'proveedor_formato',
     serie: '',
     proveedor: '',
     formato: '',
     libro_id: '',
     nuevo_precio: '',
-    motivo: 'Aumento proveedor'
+    motivo: 'Aumento masivo'
 });
 
 // Extraemos datos únicos desde las opciones pasadas por el backend (Lazy Loaded)
+const categoriasDisponibles = computed(() => {
+    return opcionesMasivasLocal.value?.categorias || [];
+});
+
 const seriesDisponibles = computed(() => {
     return opcionesMasivasLocal.value?.series || [];
 });
@@ -788,6 +800,7 @@ const librosFiltrados = computed(() => {
 
 // Limpiamos al cambiar de criterio
 watch(() => bulkForm.criterio, () => {
+    bulkForm.categoria_id = '';
     bulkForm.serie = '';
     bulkForm.proveedor = '';
     bulkForm.formato = '';
@@ -811,16 +824,20 @@ const submitBulk = () => {
     }
 
     // 2. Validación manual amigable
-    if (bulkForm.criterio === 'proveedor_formato' && (!bulkForm.proveedor || !bulkForm.formato)) {
-        Swal.fire({ title: 'Atención', text: 'Seleccioná el proveedor y el formato', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+    if (bulkForm.criterio === 'categoria' && !bulkForm.categoria_id) {
+        Swal.fire({ title: 'Atención', text: 'Seleccioná una categoría', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        return;
+    }
+    if (bulkForm.criterio === 'proveedor_formato' && !bulkForm.proveedor) {
+        Swal.fire({ title: 'Atención', text: 'Seleccioná al menos un proveedor', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
         return;
     }
     if (bulkForm.criterio === 'serie' && !bulkForm.serie) {
-        Swal.fire({ title: 'Atención', text: 'Seleccioná una serie', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        Swal.fire({ title: 'Atención', text: 'Seleccioná un producto o serie', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
         return;
     }
     if (bulkForm.criterio === 'libro_individual' && !bulkForm.libro_id) {
-        Swal.fire({ title: 'Atención', text: 'Seleccioná un libro', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        Swal.fire({ title: 'Atención', text: 'Seleccioná un producto individual', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
         return;
     }
     if (!bulkForm.nuevo_precio || bulkForm.nuevo_precio <= 0) {
@@ -864,8 +881,8 @@ const submitBulk = () => {
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
                     Deshabilitar Preventas
                 </button>
-                <button v-if="$page.props.auth.esAdmin" @click="openBulkModal" class="px-4 py-2 bg-transparent text-brand-red border border-brand-red/30 hover:bg-brand-red hover:text-white transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <button v-if="$page.props.auth.esAdmin" @click="openBulkModal" class="px-4 py-2 bg-transparent text-white border border-white/20 hover:bg-white/[0.05] hover:border-white/40 transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                     Aumento Masivo
                 </button>
             </div>
@@ -882,7 +899,7 @@ const submitBulk = () => {
                     <input 
                         v-model="search" 
                         type="text" 
-                        placeholder="Buscar por título de obra, autor o ISBN..." 
+                        placeholder="Buscar por título de producto, autor o ISBN" 
                         class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
                     >
                 </div>
@@ -891,7 +908,7 @@ const submitBulk = () => {
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
                         </svg>
-                        Nueva Obra
+                        Nuevo Producto
                     </button>
                 </div>
             </div>
@@ -901,9 +918,9 @@ const submitBulk = () => {
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="border-b border-white/10 bg-white/[0.01] text-xs font-bold uppercase tracking-wider text-white/50">
-                                    <th class="p-4">Obra</th>
-                                    <th class="p-4">Autor</th>
-                                    <th class="p-4 text-center">Cantidad de Tomos</th>
+                                    <th class="p-4">Producto / Título</th>
+                                    <th class="p-4 text-center">Autor</th>
+                                    <th class="p-4 text-center">Ítems / Tomos</th>
                                     <th class="p-4 text-center">Proveedor</th>
                                     <th class="p-4 text-center w-36">Acciones</th>
                                 </tr>
@@ -916,21 +933,20 @@ const submitBulk = () => {
                                         <td class="p-4">
                                             <div class="font-black text-base leading-tight uppercase text-white">{{ obra.titulo }}</div>
                                             <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1 flex items-center gap-2">
-                                                <span>{{ obra.categoria ? obra.categoria.nombre : 'S/C' }}</span>
-                                                <span class="w-1 h-1 rounded-full bg-white/20"></span>
-                                                <span>{{ obra.formato || 'S/F' }}</span>
-                                                <span class="w-1 h-1 rounded-full bg-white/20"></span>
-                                                <span>{{ obra.idioma ? obra.idioma.nombre : 'S/I' }}</span>
+                                                <template v-for="(tag, idx) in [obra.categoria?.nombre, obra.formato, obra.idioma?.nombre].filter(Boolean)" :key="idx">
+                                                    <span v-if="idx > 0" class="w-1 h-1 rounded-full bg-white/20"></span>
+                                                    <span>{{ tag }}</span>
+                                                </template>
                                             </div>
                                         </td>
-                                        <td class="p-4">
-                                            <div class="text-sm text-white/70 font-medium">{{ obra.autor ? obra.autor.nombre + ' ' + obra.autor.apellido : 'S/A' }}</div>
+                                        <td class="p-4 text-center">
+                                            <div class="text-sm text-white/70 font-medium">{{ obra.autor ? (obra.autor.nombre + (obra.autor.apellido ? ' ' + obra.autor.apellido : '')) : '-' }}</div>
                                         </td>
                                         <td class="p-4 text-center">
                                             <span class="bg-white/10 text-white/70 px-2.5 py-0.5 rounded text-xs font-bold">{{ obra.libros ? obra.libros.length : 0 }}</span>
                                         </td>
                                         <td class="p-4 text-center">
-                                            <span class="text-sm font-bold text-white/80 uppercase">{{ obra.proveedor ? obra.proveedor.nombre_empresa : 'S/P' }}</span>
+                                            <span class="text-sm font-bold text-white/80 uppercase">{{ obra.proveedor ? obra.proveedor.nombre_empresa : '-' }}</span>
                                         </td>
                                     <td class="p-4 text-center w-36">
                                         <div class="flex justify-center gap-2 items-center">
@@ -954,20 +970,18 @@ const submitBulk = () => {
                                 <tr v-show="expandedMasters.includes(obra.id)" class="bg-black/40">
                                     <td colspan="5" class="p-0 border-b border-brand-red/10">
                                         <div class="p-4 pl-12 border-l-4 border-brand-red/50 relative">
-                                            
-                                            <div class="flex justify-between items-end mb-4">
-                                                <h4 class="text-xs font-black text-white/40 uppercase tracking-widest">Tomos Registrados</h4>
+                                            <div class="flex justify-end items-center mb-4">
                                                 <button @click.stop="openTomoModal(null, obra.id)" class="text-xs bg-white/10 hover:bg-brand-red/20 text-white hover:text-brand-red transition-colors px-3 py-1 rounded font-bold flex items-center gap-1 border border-white/20 hover:border-brand-red/50">
                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                                                    Añadir Tomo
+                                                    Añadir Ítem / Tomo
                                                 </button>
                                             </div>
 
                                             <table class="w-full text-left border-collapse" v-if="obra.libros && obra.libros.length > 0">
                                                 <thead>
                                                     <tr class="text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
-                                                        <th class="pb-2">Tomo N°</th>
-                                                        <th class="pb-2">ISBN</th>
+                                                        <th class="pb-2">N° Tomo / Variante</th>
+                                                        <th class="pb-2">ISBN / Código</th>
                                                         <th class="pb-2 text-center">Precio</th>
                                                         <th class="pb-2 text-center w-36">Acciones</th>
                                                     </tr>
@@ -975,15 +989,15 @@ const submitBulk = () => {
                                                 <tbody>
                                                     <tr v-for="libro in obra.libros" :key="libro.id" class="hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-opacity" :class="[!libro.activo ? 'opacity-40' : '']">
                                                         <td class="py-3 pr-4">
-                                                            <div class="text-[12px] font-black uppercase tracking-widest" :class="libro.numero_tomo ? 'text-white/90' : 'text-white/60'">{{ libro.numero_tomo ? 'Tomo ' + libro.numero_tomo : 'Único' }}</div>
+                                                            <div class="text-[12px] font-black uppercase tracking-widest" :class="libro.numero_tomo ? 'text-white/90' : 'text-white/60'">{{ libro.numero_tomo ? (/^\d+$/.test(libro.numero_tomo) ? 'Tomo ' + libro.numero_tomo : libro.numero_tomo) : 'Único' }}</div>
                                                         </td>
                                                         <td class="py-3 pr-4">
-                                                            <span class="font-mono text-xs text-white/70">{{ libro.isbn || 'SIN ISBN' }}</span>
+                                                            <span class="font-mono text-xs text-white/70">{{ libro.isbn || '-' }}</span>
                                                         </td>
                                                         <td class="py-3 px-4 text-center">
                                                             <div v-if="libro.precios && libro.precios.find(p => p.activo)" class="text-base font-black text-white">
                                                                 {{ formatCurrency(libro.precios.find(p => p.activo).precio_venta) }}
-                                                            </div>
+                                                             </div>
                                                             <div v-else class="text-[10px] font-black uppercase text-brand-red opacity-50 italic">Sin Precio</div>
                                                         </td>
                                                         <td class="py-3 text-center w-36">
@@ -993,7 +1007,7 @@ const submitBulk = () => {
                                                                     @click.stop="toggleTomoActivo(libro)" 
                                                                     class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none align-middle mr-4"
                                                                     :class="libro.activo ? 'bg-brand-red' : 'bg-white/10'"
-                                                                    :title="libro.activo ? 'Tomo visible (Click para ocultar)' : 'Tomo oculto (Click para mostrar)'"
+                                                                    :title="libro.activo ? 'Ítem visible (Click para ocultar)' : 'Ítem oculto (Click para mostrar)'"
                                                                 >
                                                                     <span 
                                                                         class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
@@ -1003,7 +1017,7 @@ const submitBulk = () => {
                                                                 <button @click.stop="quickEditPrice(libro)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Actualizar Precio">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                                 </button>
-                                                                <button @click.stop="openTomoModal(libro, obra.id)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Editar Tomo">
+                                                                <button @click.stop="openTomoModal(libro, obra.id)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Editar Ítem">
                                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                                                 </button>
                                                                 <!-- Conditional Trash Button -->
@@ -1019,7 +1033,7 @@ const submitBulk = () => {
                                                                     v-else
                                                                     @click.stop="deleteTomo(libro.id)" 
                                                                     class="p-1.5 text-white/40 hover:text-brand-red hover:bg-brand-red/10 rounded transition-colors" 
-                                                                    title="Eliminar Tomo"
+                                                                    title="Eliminar Ítem"
                                                                 >
                                                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
                                                                 </button>
@@ -1029,14 +1043,14 @@ const submitBulk = () => {
                                                 </tbody>
                                             </table>
                                             <div v-else class="text-white/30 text-xs italic py-4 text-center border-t border-white/5">
-                                                Esta obra aún no tiene tomos registrados.
+                                                Este producto aún no tiene ítems/unidades registradas.
                                             </div>
                                         </div>
                                     </td>
                                 </tr>
                             </template>
                             <tr v-if="filteredObras.length === 0">
-                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron obras registradas en el catálogo.</td>
+                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron productos registrados en el catálogo.</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1044,14 +1058,14 @@ const submitBulk = () => {
             </div>
         </div>
 
-        <!-- Modal OBRA -->
+        <!-- Modal PRODUCTO MÁSTER -->
         <template v-if="showObraModal">
         <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showObraModal = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
             <div class="flex min-h-full items-start justify-center p-4">
             <div class="relative w-full max-w-xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
                 <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
-                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingObra ? 'Editar' : 'Nueva' }} <span class="text-white">Obra</span></h3>
+                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingObra ? 'Editar' : 'Nuevo' }} <span class="text-white">Producto</span></h3>
                     <button @click="showObraModal = false" class="text-white/80 hover:text-white transition-colors relative">
                         <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
@@ -1060,58 +1074,58 @@ const submitBulk = () => {
                 <form @submit.prevent="submitObra" class="p-6">
                     <div class="grid grid-cols-1 gap-6">
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Título de la Obra</label>
-                            <input v-model="obraForm.titulo" type="text" class="input-field w-full text-sm font-bold" placeholder="Ej: Dragon Ball" required>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Nombre / Título del Producto *</label>
+                            <input v-model="obraForm.titulo" type="text" class="input-field w-full text-sm font-bold" placeholder="Nombre del producto" required>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Autor</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.autor_id" :options="autoresLocal" :labelKey="(a) => a.nombre + (a.apellido ? ' ' + a.apellido : '')" placeholder="-- Seleccionar Autor --" :required="true" />
+                                <SearchableSelect v-model="obraForm.autor_id" :options="autoresLocal" :labelKey="(a) => a.nombre + (a.apellido ? ' ' + a.apellido : '')" placeholder="Seleccionar autor" :required="false" />
                                 <button type="button" @click="agregarAutor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Autor">+</button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Categoría</label>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Categoría *</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.categoria_id" :options="categoriasLocal" placeholder="-- Seleccionar Categoría --" :required="true" />
+                                <SearchableSelect v-model="obraForm.categoria_id" :options="categoriasLocal" placeholder="Seleccionar categoría" :required="false" />
                                 <button type="button" @click="agregarCategoria" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Categoría">+</button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Proveedor</label>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Proveedor / Marca</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.proveedor_id" :options="mappedProveedores" placeholder="-- Seleccionar Proveedor --" :required="true" />
+                                <SearchableSelect v-model="obraForm.proveedor_id" :options="mappedProveedores" placeholder="Seleccionar proveedor" :required="false" />
                                 <button type="button" @click="agregarProveedor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Proveedor">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Idioma</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.idioma_id" :options="idiomasLocal" placeholder="-- Seleccionar Idioma --" :required="true" />
+                                <SearchableSelect v-model="obraForm.idioma_id" :options="idiomasLocal" placeholder="Seleccionar idioma" :required="false" />
                                 <button type="button" @click="agregarIdioma" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Idioma">+</button>
                             </div>
                         </div>
                         <div>
                             <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Formato</label>
                             <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.formato" :options="formatosLocal" placeholder="-- Selecciona Formato --" :required="true" />
+                                <SearchableSelect v-model="obraForm.formato" :options="formatosLocal" placeholder="Seleccionar formato" :required="false" />
                                 <button type="button" @click="agregarFormato" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Formato">+</button>
                             </div>
                         </div>
                         <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Sinopsis</label>
-                            <textarea v-model="obraForm.synopsis" class="input-field w-full text-sm font-bold h-24 resize-none" placeholder="Breve descripción..."></textarea>
+                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Descripción / Detalles</label>
+                            <textarea v-model="obraForm.synopsis" class="input-field w-full text-sm font-bold h-24 resize-none" placeholder="Descripción del producto"></textarea>
                         </div>
-                        <div class="flex items-center gap-2 bg-white/5 p-3 rounded border border-white/5 mt-2">
-                            <input type="checkbox" v-model="obraForm.activo" id="obra_activa" class="rounded border-white/20 bg-brand-black text-brand-red focus:ring-brand-red">
-                            <label for="obra_activa" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer">Obra Activa en Catálogo</label>
+                        <div class="flex items-center gap-3 mt-4 mb-2">
+                            <input type="checkbox" v-model="obraForm.activo" id="obra_activa" class="rounded border-white/20 bg-black/60 text-brand-red focus:ring-brand-red h-4 w-4">
+                            <label for="obra_activa" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer select-none">Producto Activo en Catálogo</label>
                         </div>
                     </div>
 
                     <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
                         <button type="button" @click="showObraModal = false" class="px-6 py-2 bg-transparent text-white/60 hover:text-white border border-white/10 hover:bg-white/5 transition-colors rounded-lg font-bold uppercase text-xs">Cancelar</button>
                         <button type="submit" :disabled="obraForm.processing" class="btn-primary px-10 relative overflow-hidden group">
-                           <span class="relative z-10">{{ obraForm.processing ? 'PROCESANDO...' : (isEditingObra ? 'ACTUALIZAR' : 'GUARDAR OBRA') }}</span>
+                           <span class="relative z-10">{{ obraForm.processing ? 'PROCESANDO' : (isEditingObra ? 'ACTUALIZAR' : 'GUARDAR PRODUCTO') }}</span>
                            <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
                         </button>
                     </div>
@@ -1122,7 +1136,7 @@ const submitBulk = () => {
         </template>
 
 
-        <!-- Modal TOMO -->
+        <!-- Modal TOMO / ÍTEM -->
         <template v-if="showTomoModal">
         <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showTomoModal = false"></div>
         <div class="fixed inset-0 z-[101] overflow-y-auto">
@@ -1131,7 +1145,7 @@ const submitBulk = () => {
                 <div class="bg-gradient-to-r from-brand-red via-brand-red/90 to-black p-5 flex justify-between items-center relative overflow-hidden">
                     <div>
                         <h3 class="text-xl font-black uppercase tracking-tighter text-white">
-                            {{ isEditingTomo ? 'Editar' : 'Añadir' }} <span class="text-white">Tomo</span>
+                            {{ isEditingTomo ? 'Editar' : 'Añadir' }} <span class="text-white">Ítem / Tomo</span>
                         </h3>
                     </div>
                     <button @click="showTomoModal = false" class="text-white/70 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
@@ -1145,28 +1159,52 @@ const submitBulk = () => {
                     <!-- Grid de Campos Principales -->
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Volumen / Tomo N°</label>
-                            <input v-model="tomoForm.numero_tomo" type="number" min="0" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Ej: 1, 2, 3...">
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Volumen / Tomo N° / Variante</label>
+                            <input v-model="tomoForm.numero_tomo" type="text" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Número o variante">
+                            <div v-if="tomoForm.errors.numero_tomo" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.numero_tomo }}</span>
+                            </div>
                         </div>
 
                         <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">ISBN</label>
-                            <input v-model="tomoForm.isbn" type="text" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-brand-red transition-all" placeholder="Ej: 978-...">
+                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">ISBN / Código de Barras</label>
+                            <input v-model="tomoForm.isbn" type="text" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-brand-red transition-all" placeholder="ISBN o Código EAN">
+                            <div v-if="tomoForm.errors.isbn" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.isbn }}</span>
+                            </div>
                         </div>
 
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Año Edición</label>
-                            <input v-model="tomoForm.año_edicion" type="number" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="2024">
+                            <input v-model="tomoForm.año_edicion" type="number" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Año">
+                            <div v-if="tomoForm.errors.año_edicion" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.año_edicion }}</span>
+                            </div>
                         </div>
 
                         <div>
                             <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">N° Páginas</label>
-                            <input v-model="tomoForm.cantidad_paginas" type="number" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Ej: 200">
+                            <input v-model="tomoForm.cantidad_paginas" type="number" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Cantidad">
+                            <div v-if="tomoForm.errors.cantidad_paginas" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                                <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.cantidad_paginas }}</span>
+                            </div>
                         </div>
                     </div>
 
                     <!-- Toggles de Estado -->
-                    <div class="grid grid-cols-2 gap-3 bg-white/[0.02] p-3 rounded-xl border border-white/5">
+                    <div class="grid grid-cols-2 gap-3 mt-1 mb-2">
                         <label class="flex items-center gap-3 cursor-pointer select-none">
                             <input type="checkbox" v-model="tomoForm.activo" class="rounded border-white/20 bg-black/60 text-brand-red focus:ring-brand-red h-4 w-4">
                             <span class="text-xs font-bold uppercase tracking-wider text-white/80">Tomo Activo</span>
@@ -1183,6 +1221,12 @@ const submitBulk = () => {
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/40 font-bold">$</span>
                             <input v-model="tomoForm.precio_venta" type="number" step="0.01" min="0" class="w-full bg-black/60 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-lg text-white font-black text-right focus:outline-none focus:border-brand-red transition-all" placeholder="0.00" required />
+                        </div>
+                        <div v-if="tomoForm.errors.precio_venta" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                            <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.precio_venta }}</span>
                         </div>
                     </div>
 
@@ -1201,7 +1245,7 @@ const submitBulk = () => {
                     <div class="flex justify-end gap-3 border-t border-white/10 pt-4">
                         <button type="button" @click="showTomoModal = false" class="px-6 py-2.5 rounded-xl font-black text-white/50 hover:bg-white/5 transition-colors uppercase text-xs tracking-wider">Cancelar</button>
                         <button type="submit" :disabled="tomoForm.processing" class="btn-primary px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider relative overflow-hidden group">
-                           <span class="relative z-10">{{ tomoForm.processing ? 'PROCESANDO...' : (isEditingTomo ? 'ACTUALIZAR TOMO' : 'REGISTRAR TOMO') }}</span>
+                           <span class="relative z-10">{{ tomoForm.processing ? 'PROCESANDO' : (isEditingTomo ? 'ACTUALIZAR TOMO' : 'REGISTRAR TOMO') }}</span>
                         </button>
                     </div>
                 </form>
@@ -1217,7 +1261,7 @@ const submitBulk = () => {
                 <div class="flex min-h-full items-start justify-center p-4">
                     <div class="relative w-full max-w-lg card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8 bg-[#111]">
                         <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
-                            <h3 class="text-xl font-black uppercase tracking-tighter relative text-white">Aumento <span class="text-brand-red">Masivo</span></h3>
+                            <h3 class="text-xl font-black uppercase tracking-tighter relative text-white">Aumento Masivo</h3>
                             <button @click="showBulkModal = false" class="text-white/80 hover:text-white transition-colors relative">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
@@ -1225,15 +1269,15 @@ const submitBulk = () => {
                         
                         <div v-if="loadingOpciones" class="p-12 text-center flex flex-col items-center justify-center gap-3">
                             <div class="w-8 h-8 border-2 border-brand-red border-t-transparent rounded-full animate-spin"></div>
-                            <p class="text-xs font-bold uppercase tracking-widest text-white/40">Cargando opciones del catálogo...</p>
+                            <p class="text-xs font-bold uppercase tracking-widest text-white/40">Cargando opciones del catálogo</p>
                         </div>
                         <form v-else @submit.prevent="submitBulk" class="p-6 space-y-4">
                             <div>
                                 <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Criterio de Aumento</label>
                                 <select v-model="bulkForm.criterio" class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-bold uppercase focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red">
                                     <option value="proveedor_formato">Por Proveedor y Formato</option>
-                                    <option value="serie">Por Serie individual</option>
-                                    <option value="libro_individual">Por Libro Individual</option>
+                                    <option value="serie">Por Producto / Serie</option>
+                                    <option value="libro_individual">Por Ítem / Producto Individual</option>
                                 </select>
                             </div>
 
@@ -1241,7 +1285,7 @@ const submitBulk = () => {
                                 <div class="relative">
                                     <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">1. Proveedor *</label>
                                     <div class="relative">
-                                        <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar..." class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                        <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar" class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                     </div>
                                     
@@ -1254,18 +1298,18 @@ const submitBulk = () => {
                                     <div v-if="showProveedorDropdown" class="fixed inset-0 z-40" @click="showProveedorDropdown = false"></div>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">2. Formato *</label>
+                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">2. Formato</label>
                                     <select v-model="bulkForm.formato" :disabled="!bulkForm.proveedor" class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold uppercase transition-opacity" :class="!bulkForm.proveedor ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''">
-                                        <option value="" disabled>Elegir formato...</option>
+                                        <option value="">Todos los formatos</option>
                                         <option v-for="f in formatosDisponibles" :key="f" :value="f">{{ f }}</option>
                                     </select>
                                 </div>
                             </div>
 
                             <div v-if="bulkForm.criterio === 'serie'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Serie *</label>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Producto / Serie *</label>
                                 <div class="relative">
-                                    <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar serie..." class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                    <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar producto o serie" class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                 </div>
                                 
@@ -1279,9 +1323,9 @@ const submitBulk = () => {
                             </div>
 
                             <div v-if="bulkForm.criterio === 'libro_individual'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Libro *</label>
+                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Ítem Individual *</label>
                                 <div class="relative">
-                                    <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar libro por título o ISBN..." class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
+                                    <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar ítem por título o ISBN" class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
                                 </div>
                                 

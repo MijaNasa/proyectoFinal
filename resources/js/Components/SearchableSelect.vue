@@ -86,7 +86,6 @@ const filteredOptions = computed(() => {
     });
 });
 
-// Get the value for an option
 const getOptValue = (opt) => {
     if (!opt) return '';
     return (typeof opt === 'string' || typeof opt === 'number') ? opt : opt[props.valueKey];
@@ -98,11 +97,23 @@ const selectOption = (opt) => {
     isOpen.value = false;
 };
 
+const clearSelection = () => {
+    emit('update:modelValue', '');
+    search.value = '';
+    isOpen.value = false;
+};
+
 // Handle clicks outside to close the dropdown
 const handleClickOutside = (event) => {
     if (wrapperRef.value && !wrapperRef.value.contains(event.target)) {
         isOpen.value = false;
         
+        // If the user completely cleared the text, clear the modelValue
+        if (search.value.trim() === '') {
+            emit('update:modelValue', '');
+            return;
+        }
+
         if (selectedOption.value && search.value === getLabel(selectedOption.value)) {
             // Already selected and text matches, do nothing
             return;
@@ -142,10 +153,19 @@ onBeforeUnmount(() => {
             @focus="isOpen = true"
             @click="isOpen = true; search = ''" 
             :placeholder="placeholder"
-            class="input-field w-full text-sm font-bold bg-brand-black cursor-pointer pr-10"
+            class="input-field w-full text-sm font-bold bg-brand-black cursor-pointer pr-14"
         />
+        
+        <!-- Clear Icon -->
+        <div v-if="!required && modelValue !== '' && modelValue !== null && modelValue !== undefined" 
+             @click.stop="clearSelection" 
+             class="absolute right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-white/10 hover:bg-brand-red rounded-full cursor-pointer text-white transition-colors z-20 shadow-md"
+             title="Quitar selección">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </div>
+
         <!-- Arrow Icon -->
-        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40">
+        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40 z-10">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
         </div>
         

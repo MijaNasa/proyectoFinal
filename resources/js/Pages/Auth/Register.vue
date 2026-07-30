@@ -92,8 +92,8 @@ const submit = () => {
 
         <!-- Main Form Container -->
         <div class="max-w-xl mx-auto px-4 sm:px-6 lg:px-8 pb-20">
-            <div class="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
-                <div class="text-center pb-4 border-b border-slate-800">
+            <div class="bg-[#1A1A1A] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-2xl space-y-6">
+                <div class="text-center pb-4 border-b border-white/10">
                     <p class="text-xs font-medium text-white/70">
                         Comprá más rápido y llevá el control de tus pedidos, <span class="font-bold text-white">¡en un solo lugar!</span>
                     </p>
@@ -106,7 +106,7 @@ const submit = () => {
                         <TextInput
                             id="name"
                             type="text"
-                            class="mt-1.5 block w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
+                            class="mt-1.5 block w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
                             v-model="form.name"
                             placeholder="ej.: María Perez"
                             required
@@ -123,7 +123,7 @@ const submit = () => {
                         <TextInput
                             id="email"
                             type="email"
-                            class="mt-1.5 block w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
+                            class="mt-1.5 block w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
                             v-model="form.email"
                             placeholder="ej.: tunombre@email.com"
                             required
@@ -141,7 +141,7 @@ const submit = () => {
                         <TextInput
                             id="telefono"
                             type="text"
-                            class="mt-1.5 block w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2.5 text-sm text-white placeholder-slate-500 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
+                            class="mt-1.5 block w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white placeholder-white/40 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
                             v-model="form.telefono"
                             placeholder="ej.: 1123445567"
                             autocomplete="tel"
@@ -157,7 +157,7 @@ const submit = () => {
                             <TextInput
                                 id="password"
                                 :type="showPassword ? 'text' : 'password'"
-                                class="block w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2.5 pr-10 text-sm text-white placeholder-slate-500 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
+                                class="block w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-sm text-white placeholder-white/40 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
                                 v-model="form.password"
                                 placeholder="••••••••"
                                 required
@@ -167,7 +167,7 @@ const submit = () => {
                             <button
                                 type="button"
                                 @click="showPassword = !showPassword"
-                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors"
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white transition-colors"
                                 tabindex="-1"
                             >
                                 <svg v-if="!showPassword" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -189,7 +189,7 @@ const submit = () => {
                             <TextInput
                                 id="password_confirmation"
                                 :type="showPasswordConfirmation ? 'text' : 'password'"
-                                class="block w-full bg-slate-800/80 border border-slate-700 rounded-lg px-4 py-2.5 pr-10 text-sm text-white placeholder-slate-500 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
+                                class="block w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 pr-10 text-sm text-white placeholder-white/40 focus:border-brand-red focus:ring-1 focus:ring-brand-red transition-all"
                                 v-model="form.password_confirmation"
                                 placeholder="••••••••"
                                 required
@@ -199,7 +199,7 @@ const submit = () => {
                             <button
                                 type="button"
                                 @click="showPasswordConfirmation = !showPasswordConfirmation"
-                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white transition-colors"
+                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-white/40 hover:text-white transition-colors"
                                 tabindex="-1"
                             >
                                 <svg v-if="!showPasswordConfirmation" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

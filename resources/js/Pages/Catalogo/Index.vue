@@ -181,8 +181,8 @@ const onMouseMove = (e) => {
             <!-- Preventas Activas -->
                     <div v-if="preventas?.length > 0" class="mb-12">
                         <div class="flex items-center gap-3 mb-6">
-                            <h2 class="text-xl font-black uppercase tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-brand-red to-orange-500">Preventas Activas</h2>
-                            <div class="h-px flex-1 bg-gradient-to-r from-brand-red/30 to-transparent"></div>
+                            <h2 class="text-xl font-black uppercase tracking-[0.2em] text-white">Preventas Activas</h2>
+                            <div class="h-px flex-1 bg-white/10"></div>
                         </div>
 
                         <div 

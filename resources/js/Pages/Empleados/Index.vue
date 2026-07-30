@@ -378,7 +378,7 @@ const colorCargo = (nombre) => {
                                     <p v-if="form.errors.sucursal_id" class="text-[10px] text-brand-red mt-1">{{ form.errors.sucursal_id }}</p>
                                 </div>
                                 <div>
-                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Cargo Principal (opcional)</label>
+                                    <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Cargo Principal</label>
                                     <select v-model="form.cargo_id" class="input-field w-full bg-brand-black font-bold uppercase text-xs" :class="{'border-brand-red': form.errors.cargo_id}">
                                         <option value="">Sin cargo asignado</option>
                                         <option v-for="c in cargos" :key="c.id" :value="c.id">{{ c.nombre }}</option>

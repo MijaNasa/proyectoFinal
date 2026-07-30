@@ -488,7 +488,7 @@ const decodeLabel = (l) => {
                     <!-- Observaciones -->
                     <div>
                         <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">OBSERVACIONES</label>
-                        <input v-model="form.observaciones" type="text" placeholder="Observaciones opcionales..."
+                        <input v-model="form.observaciones" type="text" placeholder="Observaciones"
                             class="input-field w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50" />
                     </div>
 

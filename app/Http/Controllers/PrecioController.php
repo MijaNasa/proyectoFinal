@@ -18,15 +18,20 @@ class PrecioController extends Controller
 
         // 1. Validamos que lleguen los datos obligatorios
         $request->validate([
-            'criterio'     => 'required|in:serie,proveedor_formato,libro_individual',
+            'criterio'     => 'required|in:categoria,serie,proveedor_formato,libro_individual',
             'nuevo_precio' => 'required|numeric|min:0',
+            'categoria_id' => 'nullable|exists:categorias,id',
             'libro_id'     => 'nullable|exists:libros,id'
         ]);
 
         $query = \App\Models\Libro::query();
 
         // 2. Filtramos según lo que eligió el usuario
-        if ($request->criterio === 'serie') {
+        if ($request->criterio === 'categoria') {
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('categoria_id', $request->categoria_id);
+            });
+        } elseif ($request->criterio === 'serie') {
             $query->whereHas('master', function ($q) use ($request) {
                 $q->where('titulo', $request->serie);
             });
@@ -36,14 +41,16 @@ class PrecioController extends Controller
             $query->whereHas('master.proveedor', function ($q) use ($request) {
                 $q->where('nombre_empresa', $request->proveedor);
             });
-            $query->whereHas('master', function ($q) use ($request) {
-                $q->where('formato', $request->formato);
-            });
+            if (!empty($request->formato)) {
+                $query->whereHas('master', function ($q) use ($request) {
+                    $q->where('formato', $request->formato);
+                });
+            }
         }
 
         $libros = $query->get();
 
-        // 3. Aplicamos el aumento a todos los libros encontrados
+        // 3. Aplicamos el aumento a todos los productos encontrados
         foreach ($libros as $libro) {
             // Capturamos el precio viejo para no perder el dato del costo original
             $precioViejo = $libro->precios()->where('activo', true)->first();
@@ -52,11 +59,11 @@ class PrecioController extends Controller
             // Desactivamos el historial viejo
             $libro->precios()->update(['activo' => false]);
 
-            // Creamos el nuevo precio (usando la misma estructura de tu LibroController)
+            // Creamos el nuevo precio
             $libro->precios()->create([
                 'precio_compra' => $costoActual,
                 'precio_venta'  => $request->nuevo_precio,
-                'motivo'        => 'Aumento proveedor',
+                'motivo'        => 'Aumento masivo',
                 'fecha_desde'   => now(),
                 'activo'        => true,
             ]);
@@ -72,6 +79,7 @@ class PrecioController extends Controller
         }
 
         $opcionesMasivas = [
+            'categorias' => \App\Models\Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
             'series' => \App\Models\LibroMaster::orderBy('titulo')->pluck('titulo'),
             'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->pluck('nombre_empresa'),
@@ -86,7 +94,7 @@ class PrecioController extends Controller
             'libros' => Libro::whereHas('master')->with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
                 return [
                     'id' => $l->id,
-                    'titulo' => ($l->master ? $l->master->titulo : 'Sin Obra') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : '')
+                    'titulo' => ($l->master ? $l->master->titulo : 'Sin Producto') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : '')
                 ];
             })->sortBy('titulo')->values()
         ];

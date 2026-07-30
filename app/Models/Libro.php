@@ -43,7 +43,11 @@ class Libro extends Model
 
     public function setIsbnAttribute($value)
     {
-        $this->attributes['isbn'] = preg_replace('/[^0-9]/', '', $value); 
+        if (empty($value) || trim((string)$value) === '') {
+            $this->attributes['isbn'] = null;
+        } else {
+            $this->attributes['isbn'] = preg_replace('/[^0-9]/', '', $value) ?: null;
+        }
     }
 
     public function master(): BelongsTo
