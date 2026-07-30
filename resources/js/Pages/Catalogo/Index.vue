@@ -177,115 +177,8 @@ const onMouseMove = (e) => {
             </div>
         </div>
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <div class="flex flex-col lg:flex-row gap-12">
-
-                <!-- Sidebar -->
-                <aside class="w-full lg:w-52 flex-shrink-0">
-
-                    <!-- Búsqueda -->
-                    <div class="mb-6">
-                        <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-4 underline decoration-2 underline-offset-4">Búsqueda</h3>
-                        <input
-                            v-model="search"
-                            @keyup.enter="applyFilters"
-                            type="text"
-                            placeholder="BUSCAR..."
-                            class="w-full bg-white/5 border border-white/10 rounded-lg py-3 px-4 text-sm text-white focus:border-brand-red outline-none transition-all placeholder:text-white/40 font-bold uppercase"
-                        >
-                    </div>
-
-                    <!-- Categoría -->
-                    <div v-if="categorias.length" class="border-t border-white/5">
-                        <button @click="open.categorias = !open.categorias" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.categorias || selected.categoria ? 'text-white' : 'text-white/50'">
-                            <span>Categoría <span v-if="selected.categoria" class="text-brand-red">(1)</span></span>
-                            <svg class="w-3 h-3 transition-transform duration-200" :class="open.categorias ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="open.categorias" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in categorias" :key="item.id" @click="toggle('categoria', item.id)" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.categoria === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.categoria === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </div>
-                                <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors">{{ item.nombre }}</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Autor -->
-                    <div v-if="autores.length" class="border-t border-white/5">
-                        <button @click="open.autores = !open.autores" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.autores || selected.autor ? 'text-white' : 'text-white/50'">
-                            <span>Autor <span v-if="selected.autor" class="text-brand-red">(1)</span></span>
-                            <svg class="w-3 h-3 transition-transform duration-200" :class="open.autores ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="open.autores" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in autores" :key="item.id" @click="toggle('autor', item.id)" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.autor === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.autor === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </div>
-                                <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors line-clamp-1">{{ item.apellido }}, {{ item.nombre }}</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Serie -->
-                    <div v-if="series.length" class="border-t border-white/5">
-                        <button @click="open.series = !open.series" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.series || selected.serie ? 'text-white' : 'text-white/50'">
-                            <span>Serie <span v-if="selected.serie" class="text-brand-red">(1)</span></span>
-                            <svg class="w-3 h-3 transition-transform duration-200" :class="open.series ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="open.series" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in series" :key="item.id" @click="toggle('serie', item.id)" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.serie === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.serie === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </div>
-                                <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors line-clamp-1">{{ item.nombre }}</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Proveedor -->
-                    <div v-if="proveedores.length" class="border-t border-white/5">
-                        <button @click="open.proveedores = !open.proveedores" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.proveedores || selected.proveedor ? 'text-white' : 'text-white/50'">
-                            <span>Proveedor <span v-if="selected.proveedor" class="text-brand-red">(1)</span></span>
-                            <svg class="w-3 h-3 transition-transform duration-200" :class="open.proveedores ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="open.proveedores" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in proveedores" :key="item.id" @click="toggle('proveedor', item.id)" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.proveedor === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.proveedor === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </div>
-                                <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors line-clamp-1">{{ item.nombre_empresa }}</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- Idioma -->
-                    <div v-if="idiomas.length" class="border-t border-white/5">
-                        <button @click="open.idiomas = !open.idiomas" class="w-full flex items-center justify-between py-4 text-xs font-black uppercase tracking-[0.2em] hover:text-white transition-colors" :class="open.idiomas || selected.idioma ? 'text-white' : 'text-white/50'">
-                            <span>Idioma <span v-if="selected.idioma" class="text-brand-red">(1)</span></span>
-                            <svg class="w-3 h-3 transition-transform duration-200" :class="open.idiomas ? 'rotate-180' : ''" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
-                        </button>
-                        <div v-if="open.idiomas" class="pb-4 space-y-2.5 max-h-48 overflow-y-auto pr-1">
-                            <label v-for="item in idiomas" :key="item.id" @click="toggle('idioma', item.id)" class="flex items-center gap-3 cursor-pointer group">
-                                <div class="w-4 h-4 rounded border flex-shrink-0 flex items-center justify-center transition-all" :class="selected.idioma === item.id ? 'bg-brand-red border-brand-red' : 'bg-white/5 border-white/20'">
-                                    <svg v-if="selected.idioma === item.id" class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                                </div>
-                                <span class="text-xs font-bold uppercase tracking-wide text-white/50 group-hover:text-white transition-colors">{{ item.nombre }}</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <div class="border-t border-white/5 pt-4">
-                        <button v-if="hayFiltrosActivos" @click="limpiarFiltros" class="w-full py-3 text-[10px] font-black uppercase tracking-widest text-brand-red/60 hover:text-brand-red transition-colors border border-brand-red/20 rounded-lg hover:border-brand-red/40">
-                            Limpiar todo
-                        </button>
-                    </div>
-                </aside>
-
-                <!-- Contenido -->
-                <div class="flex-1 min-w-0 overflow-hidden">
-
-                    <!-- Preventas Activas -->
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-12">
+            <!-- Preventas Activas -->
                     <div v-if="preventas?.length > 0" class="mb-12">
                         <div class="flex items-center gap-3 mb-6">
                             <h2 class="text-xl font-black uppercase tracking-[0.2em] text-transparent bg-clip-text bg-gradient-to-r from-brand-red to-orange-500">Preventas Activas</h2>
@@ -294,43 +187,79 @@ const onMouseMove = (e) => {
 
                         <div 
                             ref="carouselRef"
-                            class="flex gap-5 overflow-x-auto pb-4 snap-x cursor-grab active:cursor-grabbing select-none scrollbar-hide"
+                            class="flex gap-5 overflow-x-auto pb-4 snap-x cursor-grab active:cursor-grabbing select-none scrollbar-hide items-stretch"
                             @mousedown="onMouseDown"
                             @mouseleave="onMouseLeave"
                             @mouseup="onMouseUp"
                             @mousemove="onMouseMove"
                             style="scrollbar-width: none; -ms-overflow-style: none;"
                         >
-                            <component
-                                :is="getStockStatus(libro) === 'sin_stock' ? 'div' : Link"
+                            <div
                                 v-for="libro in preventas"
                                 :key="'prev-'+libro.id"
-                                :href="getStockStatus(libro) === 'sin_stock' ? undefined : route('catalogo.show', libro.id)"
-                                class="group flex-shrink-0 w-40 md:w-48 snap-start"
-                                :class="{ 'cursor-not-allowed': getStockStatus(libro) === 'sin_stock' }"
+                                class="group flex-shrink-0 w-44 md:w-52 snap-start flex flex-col justify-between h-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-brand-red/50 rounded-xl overflow-hidden shadow-lg transition-all duration-300"
+                                :class="{ 'opacity-50': getStockStatus(libro) === 'sin_stock' }"
                             >
-                                <div class="relative aspect-[2/3] overflow-hidden rounded-xl bg-black border-2 border-brand-red/50 shadow-[0_0_15px_rgba(230,25,25,0.2)] transition-all duration-500 group-hover:-translate-y-2 group-hover:shadow-[0_15px_35px_rgba(230,25,25,0.4)] group-hover:border-brand-red">
-                                    <div class="absolute top-2 left-2 z-10 bg-brand-red text-white text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded shadow-lg">Preventa</div>
-                                    <img
-                                        :src="libro.portada_url"
-                                        :alt="libro.titulo"
-                                        class="w-full h-full object-cover transition-all duration-700 pointer-events-none group-hover:scale-110"
-                                        draggable="false"
+                                <div class="flex flex-col flex-1">
+                                    <Link
+                                        :href="getStockStatus(libro) === 'sin_stock' ? undefined : route('catalogo.show', libro.id)"
+                                        class="block relative aspect-[2/3] overflow-hidden bg-black/40 border-b border-white/5"
+                                        :class="{ 'cursor-not-allowed': getStockStatus(libro) === 'sin_stock' }"
                                     >
-                                    <div v-if="getStockStatus(libro) === 'sin_stock'" class="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                        <span class="text-[9px] font-black uppercase tracking-widest text-white/50 bg-black/80 px-2 py-1 rounded">Sin Stock</span>
-                                    </div>
-                                </div>
-                                <div class="mt-3 space-y-1 text-left px-1">
-                                    <h3 class="font-black uppercase tracking-tighter text-sm leading-tight transition-colors line-clamp-2 group-hover:text-brand-red">{{ libro.master?.titulo }} {{ libro.numero_tomo ? '- Tomo ' + libro.numero_tomo : '' }}</h3>
-                                    <div class="flex flex-col gap-1">
-                                        <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 line-clamp-1">{{ libro.master?.autor ? libro.master.autor.apellido + ', ' + libro.master.autor.nombre : 'Autor Desconocido' }}</span>
-                                        <div class="flex items-center justify-between mt-1">
-                                            <span class="text-base font-black text-brand-red italic">{{ getPrecio(libro) }}</span>
+                                        <div class="absolute top-2 left-2 z-10 bg-brand-red text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">Preventa</div>
+                                        <img
+                                            :src="libro.portada_url"
+                                            :alt="libro.titulo"
+                                            @error="$event.target.src = '/images/no-cover.png'"
+                                            class="w-full h-full object-cover transition-transform duration-700 pointer-events-none group-hover:scale-105"
+                                            draggable="false"
+                                        >
+                                        <div v-if="getStockStatus(libro) === 'sin_stock'" class="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                            <span class="text-[9px] font-bold uppercase tracking-wider text-white/70 bg-black/80 px-2 py-1 rounded border border-white/10">Sin Stock</span>
+                                        </div>
+                                    </Link>
+                                    <div class="p-3 flex flex-col flex-1 justify-between space-y-2 text-left">
+                                        <div>
+                                            <h3 class="font-bold text-xs leading-snug text-white group-hover:text-brand-red transition-colors line-clamp-2 h-9 flex items-center" :title="`${libro.master?.titulo} ${libro.numero_tomo ? '- Tomo ' + libro.numero_tomo : ''}`">
+                                                {{ libro.master?.titulo }} {{ libro.numero_tomo ? '- Tomo ' + libro.numero_tomo : '' }}
+                                            </h3>
+                                            <p class="text-[10px] font-medium text-white/50 truncate mt-1">
+                                                {{ libro.master?.autor ? libro.master.autor.apellido + ', ' + libro.master.autor.nombre : 'Autor Desconocido' }}
+                                            </p>
+                                        </div>
+                                        <div class="pt-1">
+                                            <span class="text-sm font-bold text-white">{{ getPrecio(libro) }}</span>
                                         </div>
                                     </div>
                                 </div>
-                            </component>
+
+                                <div class="mt-auto border-t border-white/10 grid grid-cols-2 divide-x divide-white/10 bg-black/40 text-center">
+                                    <Link
+                                        :href="route('catalogo.show', libro.id)"
+                                        class="flex items-center justify-center gap-1 py-2.5 px-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                                    >
+                                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        <span>Detalles</span>
+                                    </Link>
+
+                                    <button
+                                        v-if="getStockStatus(libro) !== 'sin_stock'"
+                                        @click.stop.prevent="agregarAlCarrito(libro)"
+                                        class="flex items-center justify-center gap-1 py-2.5 px-1.5 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-brand-red transition-colors"
+                                    >
+                                        <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 0a2 2 0 100 4 2 2 0 000-4z" />
+                                        </svg>
+                                        <span>Comprar</span>
+                                    </button>
+                                    <div v-else class="flex items-center justify-center py-2.5 px-1.5 text-[10px] font-bold uppercase tracking-wider text-white/30 cursor-not-allowed">
+                                        Sin Stock
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -359,55 +288,81 @@ const onMouseMove = (e) => {
                     </p>
 
                     <!-- Grid -->
-                    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5">
-                        <component
-                            :is="getStockStatus(libro) === 'sin_stock' ? 'div' : Link"
+                    <div class="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5 items-stretch">
+                        <div
                             v-for="libro in libros.data"
                             :key="libro.id"
-                            :href="getStockStatus(libro) === 'sin_stock' ? undefined : route('catalogo.show', libro.id)"
-                            class="group"
-                            :class="{ 'cursor-not-allowed': getStockStatus(libro) === 'sin_stock' }"
+                            class="group flex flex-col justify-between h-full bg-white/[0.03] hover:bg-white/[0.06] border border-white/10 hover:border-brand-red/50 rounded-xl overflow-hidden shadow-lg transition-all duration-300"
+                            :class="{ 'opacity-50': getStockStatus(libro) === 'sin_stock' }"
                         >
-                            <div
-                                class="relative aspect-[2/3] overflow-hidden rounded-xl bg-white/5 border border-white/10 transition-all duration-500"
-                                :class="getStockStatus(libro) === 'sin_stock' ? 'opacity-50' : 'group-hover:border-brand-red group-hover:-translate-y-1 group-hover:shadow-[0_12px_30px_rgba(230,25,25,0.15)]'"
-                            >
-                                <img
-                                    :src="libro.portada_url"
-                                    :alt="libro.titulo"
-                                    class="w-full h-full object-cover grayscale transition-all duration-700"
-                                    :class="getStockStatus(libro) === 'sin_stock' ? '' : 'group-hover:grayscale-0 scale-100 group-hover:scale-105'"
+                            <div class="flex flex-col flex-1">
+                                <Link
+                                    :href="getStockStatus(libro) === 'sin_stock' ? undefined : route('catalogo.show', libro.id)"
+                                    class="block relative aspect-[2/3] overflow-hidden bg-black/40 border-b border-white/5"
+                                    :class="{ 'cursor-not-allowed': getStockStatus(libro) === 'sin_stock' }"
                                 >
-                                <div v-if="getStockStatus(libro) === 'sin_stock'" class="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                    <span class="text-[9px] font-black uppercase tracking-widest text-white/50 bg-black/80 px-2 py-1 rounded">Sin Stock</span>
-                                </div>
-                            </div>
-                            <div class="mt-3 space-y-1">
-                                <h3 class="font-black uppercase tracking-tighter text-sm leading-tight transition-colors line-clamp-2" :class="{ 'group-hover:text-brand-red': getStockStatus(libro) !== 'sin_stock', 'text-white/40': getStockStatus(libro) === 'sin_stock' }">{{ libro.master?.titulo }} {{ libro.numero_tomo ? '- Tomo ' + libro.numero_tomo : '' }}</h3>
-                                <div class="flex flex-col gap-1">
-                                    <span class="text-[10px] font-bold uppercase tracking-widest text-white/40 line-clamp-1">{{ libro.master?.autor ? libro.master.autor.apellido + ', ' + libro.master.autor.nombre : 'Autor Desconocido' }}</span>
-                                    <div class="flex items-center justify-between">
+                                    <img
+                                        :src="libro.portada_url"
+                                        :alt="libro.titulo"
+                                        @error="$event.target.src = '/images/no-cover.png'"
+                                        class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                                        :class="{ 'grayscale': getStockStatus(libro) === 'sin_stock' }"
+                                    >
+                                    <div v-if="libro.permite_preventa" class="absolute top-2 left-2 z-10 bg-brand-red text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">Preventa</div>
+                                    <div v-if="getStockStatus(libro) === 'sin_stock'" class="absolute inset-0 bg-black/70 flex items-center justify-center">
+                                        <span class="text-[9px] font-bold uppercase tracking-wider text-white/70 bg-black/80 px-2 py-1 rounded border border-white/10">Sin Stock</span>
+                                    </div>
+                                </Link>
+                                <div class="p-3 flex flex-col flex-1 justify-between space-y-2 text-left">
+                                    <div>
+                                        <h3
+                                            class="font-bold text-xs leading-snug text-white transition-colors line-clamp-2 h-9 flex items-center"
+                                            :class="{ 'group-hover:text-brand-red': getStockStatus(libro) !== 'sin_stock', 'text-white/40': getStockStatus(libro) === 'sin_stock' }"
+                                            :title="`${libro.master?.titulo} ${libro.numero_tomo ? '- Tomo ' + libro.numero_tomo : ''}`"
+                                        >
+                                            {{ libro.master?.titulo }} {{ libro.numero_tomo ? '- Tomo ' + libro.numero_tomo : '' }}
+                                        </h3>
+                                        <p class="text-[10px] font-medium text-white/50 truncate mt-1">
+                                            {{ libro.master?.autor ? libro.master.autor.apellido + ', ' + libro.master.autor.nombre : 'Autor Desconocido' }}
+                                        </p>
+                                    </div>
+                                    <div class="pt-1 flex items-baseline justify-between">
                                         <div class="flex flex-col">
-                                            <span v-if="libro.permite_preventa" class="text-[10px] font-black text-white/40 line-through leading-none">{{ getPrecioOriginal(libro) }}</span>
-                                            <span class="text-base font-black text-brand-red italic">{{ getPrecio(libro) }}</span>
+                                            <span v-if="libro.permite_preventa" class="text-[10px] text-white/40 line-through leading-none">{{ getPrecioOriginal(libro) }}</span>
+                                            <span class="text-sm font-bold text-white">{{ getPrecio(libro) }}</span>
                                         </div>
-                                        <span v-if="getStockStatus(libro) !== 'disponible'" :class="['text-[8px] font-black uppercase tracking-widest', stockClass[getStockStatus(libro)]]">{{ stockLabel[getStockStatus(libro)] }}</span>
+                                        <span v-if="getStockStatus(libro) !== 'disponible'" :class="['text-[8px] font-bold uppercase tracking-wider', stockClass[getStockStatus(libro)]]">{{ stockLabel[getStockStatus(libro)] }}</span>
                                     </div>
-                                    <div v-if="tieneVariasEdiciones(libro)" class="flex gap-1 flex-wrap">
-                                        <span
-                                            v-for="idioma in getIdiomas(libro)"
-                                            :key="idioma"
-                                            class="text-[8px] font-black uppercase tracking-widest px-1.5 py-0.5 bg-white/5 border border-white/10 rounded text-white/40"
-                                        >{{ idioma }}</span>
-                                    </div>
-                                    <button
-                                        v-if="!tieneVariasEdiciones(libro) && getStockStatus(libro) !== 'sin_stock'"
-                                        @click.stop.prevent="agregarAlCarrito(libro)"
-                                        class="mt-1 w-full py-2 rounded-lg bg-brand-red/10 border border-brand-red/30 text-brand-red text-[9px] font-black uppercase tracking-widest hover:bg-brand-red hover:text-white transition-all"
-                                    >Agregar al Carrito</button>
                                 </div>
                             </div>
-                        </component>
+
+                            <div class="mt-auto border-t border-white/10 grid grid-cols-2 divide-x divide-white/10 bg-black/40 text-center">
+                                <Link
+                                    :href="route('catalogo.show', libro.id)"
+                                    class="flex items-center justify-center gap-1 py-2.5 px-1.5 text-[10px] font-bold uppercase tracking-wider text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+                                >
+                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    <span>Detalles</span>
+                                </Link>
+
+                                <button
+                                    v-if="getStockStatus(libro) !== 'sin_stock'"
+                                    @click.stop.prevent="agregarAlCarrito(libro)"
+                                    class="flex items-center justify-center gap-1 py-2.5 px-1.5 text-[10px] font-bold uppercase tracking-wider text-white hover:bg-brand-red transition-colors"
+                                >
+                                    <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 0a2 2 0 100 4 2 2 0 000-4z" />
+                                    </svg>
+                                    <span>Comprar</span>
+                                </button>
+                                <div v-else class="flex items-center justify-center py-2.5 px-1.5 text-[10px] font-bold uppercase tracking-wider text-white/30 cursor-not-allowed">
+                                    Sin Stock
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Sin resultados -->
@@ -429,8 +384,6 @@ const onMouseMove = (e) => {
                             :class="{ 'bg-brand-red text-white border-brand-red shadow-lg': link.active, 'text-white/30 pointer-events-none': !link.url }"
                         >{{ decodeLabel(link.label) }}</Link>
                     </div>
-                </div>
-            </div>
         </div>
     </PublicLayout>
 </template>

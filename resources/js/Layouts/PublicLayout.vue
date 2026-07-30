@@ -1,6 +1,6 @@
 <script setup>
 import { Link, usePage, router } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import AgentSidebar from '@/Components/AgentSidebar.vue';
 
 const logout = () => router.post(route('logout'));
@@ -9,7 +9,91 @@ const isMenuOpen = ref(false);
 const isTerminalMenuOpen = ref(false);
 const page = usePage();
 const carritoCount = computed(() => page.props.carritoCount ?? 0);
+const carritoTotal = computed(() => page.props.carritoTotal ?? 0);
 const user = computed(() => page.props.auth?.user ?? null);
+
+const navSearch = ref('');
+const searchResults = ref([]);
+const isSearching = ref(false);
+const showSearchDropdown = ref(false);
+const searchContainerRef = ref(null);
+let searchTimeout = null;
+
+const onNavSearchInput = () => {
+    if (searchTimeout) clearTimeout(searchTimeout);
+    const query = navSearch.value.trim();
+    if (query.length < 2) {
+        searchResults.value = [];
+        showSearchDropdown.value = false;
+        return;
+    }
+
+    searchTimeout = setTimeout(async () => {
+        isSearching.value = true;
+        try {
+            const res = await fetch(route('catalogo.buscar-ajax', { q: query }));
+            if (res.ok) {
+                const data = await res.json();
+                searchResults.value = data;
+                showSearchDropdown.value = true;
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            isSearching.value = false;
+        }
+    }, 200);
+};
+
+const handleClickOutside = (event) => {
+    if (searchContainerRef.value && !searchContainerRef.value.contains(event.target)) {
+        showSearchDropdown.value = false;
+    }
+};
+
+onMounted(() => {
+    document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+    document.removeEventListener('click', handleClickOutside);
+});
+
+const executeNavSearch = () => {
+    if (!navSearch.value.trim()) return;
+    showSearchDropdown.value = false;
+    router.get(route('catalogo.index'), { search: navSearch.value.trim() });
+};
+
+const fmtARS = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(val);
+
+const activeDropdown = ref(null);
+
+const menuMangas = [
+    { nombre: 'Chainsaw Man', search: 'Chainsaw Man' },
+    { nombre: 'Jujutsu Kaisen', search: 'Jujutsu' },
+    { nombre: 'Demon Slayer', search: 'Demon Slayer' },
+    { nombre: 'Berserk', search: 'Berserk' },
+    { nombre: 'Spy x Family', search: 'Spy x Family' },
+];
+
+const menuComics = [
+    { nombre: 'Spider-Man', search: 'Spider-Man' },
+    { nombre: 'Batman', search: 'Batman' },
+    { nombre: 'Watchmen', search: 'Watchmen' },
+];
+
+const menuEditoriales = [
+    { nombre: 'Ivrea Argentina', search: 'Ivrea' },
+    { nombre: 'Panini Comics', search: 'Panini' },
+    { nombre: 'Ovni Press', search: 'Ovni Press' },
+    { nombre: 'ECC Ediciones', search: 'ECC' },
+    { nombre: 'Planeta Cómic', search: 'Planeta' },
+];
+
+const filterBySearch = (query) => {
+    router.get(route('catalogo.index'), { search: query });
+};
 
 const toast = ref(null);
 let toastTimer = null;
@@ -29,116 +113,313 @@ watch(() => page.props.flash, (flash) => {
 
 <template>
     <div class="min-h-screen bg-[#0A0A0A] text-white font-sans selection:bg-brand-red selection:text-white">
-        <!-- Navigation -->
-        <nav class="sticky top-0 z-50 bg-[#0A0A0A]/80 backdrop-blur-md border-b border-white/5">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between h-20">
-                    <div class="flex items-center gap-4">
-                        <button v-if="page.props.auth?.empleado || page.props.auth?.esAdmin" @click="isTerminalMenuOpen = true" class="hidden md:flex p-2 text-white/60 hover:text-brand-red hover:bg-brand-red/10 rounded-lg transition-colors items-center justify-center">
-                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
-                            </svg>
-                        </button>
-                        <Link :href="route('catalogo.index')" class="flex items-center gap-2 group">
-                            <div class="w-10 h-10 bg-brand-red flex items-center justify-center rounded-lg rotate-3 group-hover:rotate-6 transition-transform shadow-[0_0_20px_rgba(230,25,25,0.3)]">
-                                <span class="text-2xl font-black italic">P</span>
-                            </div>
-                            <span class="text-xl font-black uppercase tracking-tighter group-hover:text-brand-red transition-colors">Puro<span class="text-brand-red">Comic</span> <span class="font-light italic text-white/40 ml-1">Store</span></span>
-                        </Link>
-                    </div>
+        <!-- Top Announcement Banner Strip -->
+        <div class="bg-white text-slate-900 py-1.5 px-4 text-center text-[11px] font-bold uppercase tracking-wider overflow-hidden truncate border-b border-slate-200">
+            ENVÍOS GRATIS A PARTIR DE $80.000 A SUCURSAL DE CORREO / ENVÍOS GRATIS A DOMICILIO A PARTIR DE $100.000
+        </div>
 
-                    <!-- Desktop Menu -->
-                    <div class="hidden md:flex items-center space-x-6">
-                        <Link :href="route('catalogo.index')" class="text-sm font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">Catálogo</Link>
-
-
-                        <!-- Carrito -->
-                        <Link :href="route('carrito.index')" class="relative p-2 text-white/60 hover:text-white transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                            <span v-if="carritoCount > 0" class="absolute -top-1 -right-1 bg-brand-red text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
-                                {{ carritoCount > 9 ? '9+' : carritoCount }}
-                            </span>
-                        </Link>
-
-                        <!-- Sesión -->
-                        <template v-if="user">
-                            <Link :href="route('mi-cuenta.index')" class="text-sm font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">
-                                Mi Cuenta
-                            </Link>
-                            <button @click="logout" class="text-sm font-bold uppercase tracking-widest text-white/40 hover:text-brand-red transition-colors">
-                                Salir
+        <!-- Main Top Navigation Area -->
+        <header class="sticky top-0 z-50 bg-[#0F172A] border-b border-slate-800 shadow-2xl">
+            <!-- Top Utility Bar -->
+            <div class="bg-[#0B132B] border-b border-slate-800/80">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                    <div class="flex items-center justify-between h-14">
+                        <!-- Left: Logo & Terminal toggle -->
+                        <div class="flex items-center gap-4">
+                            <button
+                                v-if="page.props.auth?.empleado || page.props.auth?.esAdmin"
+                                @click="isTerminalMenuOpen = true"
+                                class="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-brand-red bg-brand-red/10 border border-brand-red/30 rounded hover:bg-brand-red hover:text-white transition-colors"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                                </svg>
+                                <span>Terminal</span>
                             </button>
-                        </template>
-                        <template v-else>
-                            <Link :href="route('login')" class="text-sm font-bold uppercase tracking-widest text-white/60 hover:text-white transition-colors">Iniciar Sesión</Link>
-                            <Link :href="route('register')" class="btn-primary py-2 px-6 rounded-full text-xs shadow-none border border-brand-red/50 hover:bg-brand-red">Registrarse</Link>
-                        </template>
-                    </div>
 
-                    <!-- Mobile Toggle -->
-                    <div class="md:hidden flex items-center gap-4">
-                        <!-- Carrito mobile -->
-                        <Link :href="route('carrito.index')" class="relative p-1 text-white/60 hover:text-white transition-colors">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                            <span v-if="carritoCount > 0" class="absolute -top-1 -right-1 bg-brand-red text-white text-[10px] font-black rounded-full w-4 h-4 flex items-center justify-center">
-                                {{ carritoCount }}
-                            </span>
-                        </Link>
-                        <button @click="isMenuOpen = !isMenuOpen" class="text-white">
-                            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path v-if="!isMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-                                <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
+                            <Link :href="route('catalogo.index')" class="flex items-center gap-2 group">
+                                <div class="w-8 h-8 bg-brand-red flex items-center justify-center rounded group-hover:rotate-6 transition-transform shadow-[0_0_15px_rgba(230,25,25,0.4)]">
+                                    <span class="text-xl font-black italic">P</span>
+                                </div>
+                                <span class="text-lg font-extrabold uppercase tracking-tight text-white group-hover:text-brand-red transition-colors">
+                                    Puro<span class="text-brand-red">Comic</span>
+                                </span>
+                            </Link>
+                        </div>
+
+                        <!-- Right: Actions (Crear cuenta, Iniciar Sesion, Carrito) -->
+                        <div class="hidden md:flex items-center space-x-6 text-xs font-bold uppercase tracking-wider text-slate-300">
+                            <template v-if="user">
+                                <Link :href="route('mi-cuenta.index')" class="flex items-center gap-1.5 hover:text-white transition-colors">
+                                    <svg class="w-4 h-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                    <span>Mi Cuenta</span>
+                                </Link>
+                                <button @click="logout" class="hover:text-brand-red transition-colors text-slate-400">
+                                    Salir
+                                </button>
+                            </template>
+
+                            <template v-else>
+                                <Link :href="route('register')" class="flex items-center gap-1.5 hover:text-white transition-colors">
+                                    <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                                    </svg>
+                                    <span>Crear Cuenta</span>
+                                </Link>
+
+                                <Link :href="route('login')" class="flex items-center gap-1.5 hover:text-white transition-colors">
+                                    <svg class="w-4 h-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                    </svg>
+                                    <span>Iniciar Sesión</span>
+                                </Link>
+                            </template>
+
+                            <!-- Carrito (con precio formateado) -->
+                            <Link :href="route('carrito.index')" class="flex items-center gap-2 px-3 py-1.5 bg-slate-800/80 hover:bg-slate-700 rounded-lg border border-slate-700 text-white transition-all group">
+                                <svg class="w-4 h-4 text-brand-red group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 0a2 2 0 100 4 2 2 0 000-4z" />
+                                </svg>
+                                <span>{{ carritoCount }} - {{ fmtARS(carritoTotal) }}</span>
+                            </Link>
+                        </div>
+
+                        <!-- Mobile Hamburger Button -->
+                        <div class="md:hidden flex items-center gap-3">
+                            <Link :href="route('carrito.index')" class="relative p-1 text-slate-300">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                                </svg>
+                                <span v-if="carritoCount > 0" class="absolute -top-1 -right-1 bg-brand-red text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                    {{ carritoCount }}
+                                </span>
+                            </Link>
+                            <button @click="isMenuOpen = !isMenuOpen" class="p-1 text-slate-300 hover:text-white">
+                                <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path v-if="!isMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                                    <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Mobile Menu -->
+            <!-- Lower Main Navbar with Category Dropdowns & Reactive Search -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 hidden md:block">
+                <div class="flex items-center justify-between h-12">
+                    <!-- Navigation Links with Dropdowns -->
+                    <nav class="flex items-center space-x-1 text-xs font-bold uppercase tracking-wider text-slate-300">
+                        <Link :href="route('catalogo.index')" class="px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                            INICIO
+                        </Link>
+
+                        <!-- Mangas Dropdown -->
+                        <div
+                            class="relative"
+                            @mouseenter="activeDropdown = 'mangas'"
+                            @mouseleave="activeDropdown = null"
+                        >
+                            <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                                <span>MANGAS</span>
+                                <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            <transition name="fade">
+                                <div v-if="activeDropdown === 'mangas'" class="absolute left-0 top-full mt-1 w-48 bg-[#0F172A] border border-slate-700 rounded-lg shadow-xl py-2 z-50">
+                                    <button
+                                        v-for="item in menuMangas"
+                                        :key="item.nombre"
+                                        @click="filterBySearch(item.search)"
+                                        class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
+                                    >
+                                        {{ item.nombre }}
+                                    </button>
+                                </div>
+                            </transition>
+                        </div>
+
+                        <!-- Comics Dropdown -->
+                        <div
+                            class="relative"
+                            @mouseenter="activeDropdown = 'comics'"
+                            @mouseleave="activeDropdown = null"
+                        >
+                            <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                                <span>COMICS</span>
+                                <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            <transition name="fade">
+                                <div v-if="activeDropdown === 'comics'" class="absolute left-0 top-full mt-1 w-48 bg-[#0F172A] border border-slate-700 rounded-lg shadow-xl py-2 z-50">
+                                    <button
+                                        v-for="item in menuComics"
+                                        :key="item.nombre"
+                                        @click="filterBySearch(item.search)"
+                                        class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
+                                    >
+                                        {{ item.nombre }}
+                                    </button>
+                                </div>
+                            </transition>
+                        </div>
+
+                        <!-- Editoriales Dropdown -->
+                        <div
+                            class="relative"
+                            @mouseenter="activeDropdown = 'editoriales'"
+                            @mouseleave="activeDropdown = null"
+                        >
+                            <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                                <span>EDITORIALES</span>
+                                <svg class="w-3 h-3 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+
+                            <transition name="fade">
+                                <div v-if="activeDropdown === 'editoriales'" class="absolute left-0 top-full mt-1 w-48 bg-[#0F172A] border border-slate-700 rounded-lg shadow-xl py-2 z-50">
+                                    <button
+                                        v-for="item in menuEditoriales"
+                                        :key="item.nombre"
+                                        @click="filterBySearch(item.search)"
+                                        class="w-full text-left px-4 py-2 text-xs text-slate-300 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
+                                    >
+                                        {{ item.nombre }}
+                                    </button>
+                                </div>
+                            </transition>
+                        </div>
+
+                        <Link :href="route('catalogo.index')" class="px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                            PREVENTAS
+                        </Link>
+
+                        <Link :href="route('nosotros')" class="px-3 py-2 rounded-md hover:text-white hover:bg-slate-800 transition-colors">
+                            NOSOTROS
+                        </Link>
+                    </nav>
+
+                    <!-- Embedded Search Bar with Live Autocomplete -->
+                    <div ref="searchContainerRef" class="relative w-80 md:w-[420px]">
+                        <input
+                            v-model="navSearch"
+                            @input="onNavSearchInput"
+                            @focus="showSearchDropdown = searchResults.length > 0"
+                            @keyup.enter="executeNavSearch"
+                            type="text"
+                            placeholder="Buscar productos..."
+                            class="w-full bg-slate-800/90 border border-slate-700 rounded-md py-2 pl-3.5 pr-9 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-brand-red transition-all"
+                        >
+                        <button @click="executeNavSearch" class="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </button>
+
+                        <!-- Live Autocomplete Panel (Width matches search input exactly) -->
+                        <transition name="fade">
+                            <div
+                                v-if="showSearchDropdown && (searchResults.length || isSearching)"
+                                class="absolute right-0 left-0 top-full mt-2 w-full bg-[#0F172A] border border-slate-700 rounded-xl shadow-2xl overflow-hidden z-50 divide-y divide-slate-800 max-h-96 overflow-y-auto"
+                            >
+                                <div v-if="isSearching" class="p-4 text-center text-xs text-slate-400 font-medium">
+                                    Buscando tomos...
+                                </div>
+                                
+                                <template v-else-if="searchResults.length">
+                                    <Link
+                                        v-for="item in searchResults"
+                                        :key="item.id"
+                                        :href="route('catalogo.show', item.id)"
+                                        @click="showSearchDropdown = false; navSearch = ''"
+                                        class="flex items-center gap-3 p-3 hover:bg-slate-800/90 transition-colors group"
+                                    >
+                                        <img
+                                            :src="item.portada_url"
+                                            :alt="item.titulo"
+                                            @error="$event.target.src = '/images/no-cover.png'"
+                                            class="w-10 h-14 object-cover rounded bg-black/40 border border-slate-700 shrink-0"
+                                        >
+                                        <div class="flex-1 min-w-0">
+                                            <h4 class="text-xs font-bold text-white group-hover:text-slate-200 transition-colors truncate">
+                                                {{ item.titulo }}
+                                            </h4>
+                                            <p class="text-xs font-bold text-white mt-0.5">
+                                                {{ item.precio }}
+                                            </p>
+                                        </div>
+                                        <svg class="w-4 h-4 text-slate-500 group-hover:text-white transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </Link>
+                                </template>
+
+                                <div v-else-if="navSearch.trim().length >= 2" class="p-4 text-center text-xs text-slate-400 font-medium">
+                                    No se encontraron tomos coincidentes.
+                                </div>
+                            </div>
+                        </transition>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mobile Dropdown Menu -->
             <transition name="fade">
-                <div v-if="isMenuOpen" class="md:hidden bg-[#0F0F0F] border-b border-white/5 p-4 space-y-4">
-                    <Link :href="route('catalogo.index')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Catálogo</Link>
+                <div v-if="isMenuOpen" class="md:hidden bg-[#0F172A] border-b border-slate-800 p-4 space-y-4 text-xs font-bold uppercase tracking-wider">
+                    <Link :href="route('catalogo.index')" class="block py-1 text-slate-300 hover:text-white">Inicio</Link>
+
+                    <div class="space-y-1 pl-2 border-l border-slate-800">
+                        <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Mangas</div>
+                        <button v-for="item in menuMangas" :key="item.nombre" @click="filterBySearch(item.search); isMenuOpen = false" class="block py-1 text-slate-400 hover:text-white">
+                            {{ item.nombre }}
+                        </button>
+                    </div>
+
+                    <div class="space-y-1 pl-2 border-l border-slate-800">
+                        <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Editoriales</div>
+                        <button v-for="item in menuEditoriales" :key="item.nombre" @click="filterBySearch(item.search); isMenuOpen = false" class="block py-1 text-slate-400 hover:text-white">
+                            {{ item.nombre }}
+                        </button>
+                    </div>
 
                     <template v-if="user">
-                        <button v-if="page.props.auth?.empleado || page.props.auth?.esAdmin" @click="isTerminalMenuOpen = true; isMenuOpen = false" class="block text-lg font-bold uppercase text-brand-red hover:text-white">Terminal</button>
-                        <Link :href="route('mi-cuenta.index')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Mi Cuenta</Link>
-                        <button @click="logout" class="block text-lg font-bold uppercase text-white/40 hover:text-brand-red">Salir</button>
+                        <Link :href="route('mi-cuenta.index')" class="block py-1 text-slate-300 hover:text-white">Mi Cuenta</Link>
+                        <button @click="logout" class="block py-1 text-slate-400 hover:text-brand-red">Salir</button>
                     </template>
                     <template v-else>
-                        <Link :href="route('login')" class="block text-lg font-bold uppercase text-white/60 hover:text-brand-red">Iniciar Sesión</Link>
-                        <Link :href="route('register')" class="block btn-primary text-center">Registrarse</Link>
+                        <Link :href="route('register')" class="block py-1 text-slate-300 hover:text-white">Crear Cuenta</Link>
+                        <Link :href="route('login')" class="block py-1 text-slate-300 hover:text-white">Iniciar Sesión</Link>
                     </template>
                 </div>
             </transition>
-            <!-- Agent Sidebar Drawer -->
-            <transition name="slide-left">
-                <div v-if="isTerminalMenuOpen" class="fixed inset-y-0 left-0 z-[60] flex">
-                    <!-- The Sidebar Component -->
-                    <AgentSidebar />
-                    
-                    <!-- Backdrop -->
-                    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm -z-10" @click="isTerminalMenuOpen = false"></div>
-                    
-                    <!-- Close button -->
-                    <button @click="isTerminalMenuOpen = false" class="absolute top-4 -right-12 text-white/60 hover:text-white p-2">
-                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                </div>
-            </transition>
-        </nav>
+        </header>
+
+        <!-- Terminal Sidebar Drawer -->
+        <transition name="slide-left">
+            <div v-if="isTerminalMenuOpen" class="fixed inset-y-0 left-0 z-[60] flex">
+                <AgentSidebar />
+                <div class="fixed inset-0 bg-black/60 backdrop-blur-sm -z-10" @click="isTerminalMenuOpen = false"></div>
+                <button @click="isTerminalMenuOpen = false" class="absolute top-4 -right-12 text-white/60 hover:text-white p-2">
+                    <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+        </transition>
 
         <!-- Main Content -->
         <main>
             <slot />
         </main>
 
-        <!-- Toast -->
+        <!-- Toast Notification -->
         <transition name="toast">
             <div
                 v-if="toast"
@@ -149,67 +430,8 @@ watch(() => page.props.flash, (flash) => {
                     'bg-brand-red/90 text-white':  toast.type === 'error',
                 }"
             >
-                <svg v-if="toast.type === 'success'" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-                <svg v-else-if="toast.type === 'warning'" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                <svg v-else class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                {{ toast.msg }}
+                <span>{{ toast.msg }}</span>
             </div>
         </transition>
-
-        <!-- Footer -->
-        <footer class="bg-black border-t border-white/5 py-20 mt-20">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 md:grid-cols-4 gap-12">
-                <div class="col-span-1 md:col-span-2">
-                    <Link :href="route('catalogo.index')" class="flex items-center gap-2 mb-6">
-                        <div class="w-8 h-8 bg-brand-red flex items-center justify-center rounded transform -rotate-6">
-                            <span class="text-xl font-black italic">P</span>
-                        </div>
-                        <span class="text-lg font-black uppercase tracking-tighter text-white">Puro<span class="text-brand-red">Comic</span></span>
-                    </Link>
-                    <p class="text-white/40 max-w-sm font-medium leading-relaxed">
-                        Explora nuestra exclusiva colección de historietas y libros. Un sistema que evoluciona junto a tu pasión por el noveno arte.
-                    </p>
-                </div>
-                <div>
-                    <h4 class="text-brand-red font-black uppercase tracking-widest text-xs mb-6">Explorar</h4>
-                    <ul class="space-y-4">
-                        <li><Link :href="route('catalogo.index')" class="text-white/60 hover:text-white transition-colors text-sm">Ver Catálogo</Link></li>
-                        <li><Link :href="route('nosotros')" class="text-white/60 hover:text-white transition-colors text-sm">Nosotros</Link></li>
-                    </ul>
-                </div>
-                <div>
-                    <h4 class="text-brand-red font-black uppercase tracking-widest text-xs mb-6">Mi Cuenta</h4>
-                    <ul class="space-y-4">
-                        <li v-if="!user"><Link :href="route('login')" class="text-white/60 hover:text-white transition-colors text-sm">Iniciar Sesión</Link></li>
-                        <li v-if="!user"><Link :href="route('register')" class="text-white/60 hover:text-white transition-colors text-sm">Registrarse</Link></li>
-                        <li v-if="user"><Link :href="route('mi-cuenta.index')" class="text-white/60 hover:text-white transition-colors text-sm">Mi Cuenta</Link></li>
-                        <li v-if="user"><button @click="logout" class="text-white/60 hover:text-brand-red transition-colors text-sm">Cerrar Sesión</button></li>
-                        <li><Link :href="route('carrito.index')" class="text-white/60 hover:text-white transition-colors text-sm">Mi Carrito</Link></li>
-                    </ul>
-                </div>
-            </div>
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center text-[10px] uppercase tracking-widest text-white/20 font-black">
-                <p>&copy; 2026 PuroComic. Todos los derechos reservados.</p>
-                <div class="flex gap-8 mt-4 md:mt-0">
-                    <Link :href="route('login')" class="hover:text-white transition-colors">Panel de Control</Link>
-                </div>
-            </div>
-        </footer>
     </div>
 </template>
-
-<style scoped>
-.fade-enter-active, .fade-leave-active { transition: opacity 0.3s ease; }
-.fade-enter-from, .fade-leave-to { opacity: 0; }
-
-.toast-enter-active { transition: opacity 0.25s ease, transform 0.25s ease; }
-.toast-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
-.toast-enter-from  { opacity: 0; transform: translateY(12px); }
-.toast-leave-to    { opacity: 0; transform: translateY(12px); }
-.slide-left-enter-active, .slide-left-leave-active {
-  transition: transform 0.3s ease;
-}
-.slide-left-enter-from, .slide-left-leave-to {
-  transform: translateX(-100%);
-}
-</style>

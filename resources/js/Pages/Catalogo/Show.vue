@@ -1,7 +1,7 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 
 const props = defineProps({
     libro: Object,
@@ -9,14 +9,28 @@ const props = defineProps({
 });
 
 const cantidad = ref(1);
+const codigoPostal = ref('');
+const cpCalculado = ref('');
+const mostrandoResultadosCp = ref(false);
+const showMediosPagoModal = ref(false);
 
-const getPrecio = (libro) => {
+const esPreventa = computed(() => !!props.libro?.permite_preventa);
+
+const getPrecioVentaNum = (libro) => {
     if (libro.precio_actual) {
         let precio = libro.precio_actual.precio_venta;
         if (libro.permite_preventa) {
             precio = precio * 0.90;
         }
-        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(precio);
+        return precio;
+    }
+    return 0;
+};
+
+const getPrecioFinal = (libro) => {
+    const num = getPrecioVentaNum(libro);
+    if (num > 0) {
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(num);
     }
     return 'Consultar';
 };
@@ -24,6 +38,14 @@ const getPrecio = (libro) => {
 const getPrecioOriginal = (libro) => {
     if (libro.precio_actual) {
         return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(libro.precio_actual.precio_venta);
+    }
+    return '';
+};
+
+const getCuotaMensual = (libro) => {
+    const num = getPrecioVentaNum(libro);
+    if (num > 0) {
+        return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format((num * 1.15) / 12);
     }
     return '';
 };
@@ -51,181 +73,351 @@ const agregarAlCarrito = () => {
         },
     });
 };
+
+const agregarTomoDirecto = (tomoId) => {
+    router.post(route('carrito.agregar'), {
+        libro_id: tomoId,
+        cantidad: 1,
+    }, { preserveScroll: true, preserveState: true });
+};
+
+const calcularEnvio = () => {
+    if (!codigoPostal.value.trim()) return;
+    cpCalculado.value = codigoPostal.value.trim();
+    mostrandoResultadosCp.value = true;
+};
+
+const cambiarCp = () => {
+    mostrandoResultadosCp.value = false;
+    codigoPostal.value = '';
+};
+
+const envioDomicilioClasico = computed(() => {
+    const val = getPrecioVentaNum(props.libro);
+    return val >= 100000 ? 'Gratis' : '$9.177,02';
+});
+
+const envioSucursalCorreo = computed(() => {
+    const val = getPrecioVentaNum(props.libro);
+    return val >= 80000 ? 'Gratis' : '$6.264,56';
+});
 </script>
 
 <template>
-    <Head :title="libro.master?.titulo + (libro.numero_tomo ? ' - Tomo ' + libro.numero_tomo : '')" />
+    <Head :title="(libro.master?.titulo ?? '') + (libro.numero_tomo ? ' ' + libro.numero_tomo : '') + (esPreventa ? ' (Preventa)' : '') + ' - PuroComic'" />
 
     <PublicLayout>
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-            <!-- Breadcrumbs -->
-            <nav class="flex mb-8 text-[10px] font-black uppercase tracking-widest text-white/30">
-                <Link :href="route('catalogo.index')" class="hover:text-white transition-colors">Catálogo</Link>
-                <span class="mx-3">/</span>
-                <span class="text-white/60">{{ libro.master?.categoria?.nombre }}</span>
-                <span class="mx-3">/</span>
-                <span class="text-brand-red line-clamp-1">{{ libro.master?.titulo }}</span>
-            </nav>
+        <!-- Top Breadcrumb Bar -->
+        <div class="bg-white/[0.02] border-b border-white/10 py-4 mb-8">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
+                <nav class="text-xs font-bold uppercase tracking-wider text-white/50 space-x-2">
+                    <Link :href="route('catalogo.index')" class="hover:text-white transition-colors">Inicio</Link>
+                    <span>-</span>
+                    <span class="text-white/70">{{ libro.master?.categoria?.nombre ?? 'MANGAS' }}</span>
+                    <span>-</span>
+                    <span v-if="libro.master?.proveedor" class="text-white/70">{{ libro.master.proveedor.nombre_empresa }}</span>
+                    <span v-if="libro.master?.proveedor">-</span>
+                    <span class="text-white truncate max-w-[250px] inline-block align-bottom">{{ libro.master?.titulo }}</span>
+                </nav>
+            </div>
+        </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-12">
-                <!-- Book Image -->
-                <div class="lg:col-span-4">
-                    <div class="sticky top-24">
-                        <div class="relative group">
-                            <div class="absolute inset-0 bg-brand-red/20 blur-[60px] opacity-20 group-hover:opacity-40 transition-opacity"></div>
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-16">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                <!-- Left: Product Image -->
+                <div class="lg:col-span-5 flex justify-center">
+                    <div class="w-full max-w-md">
+                        <div class="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-800 shadow-2xl">
                             <img
                                 :src="libro.master?.portada_url"
                                 :alt="libro.master?.titulo"
-                                class="relative w-full aspect-[2/3] object-cover rounded-2xl border border-white/10 shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]"
+                                @error="$event.target.src = '/images/no-cover.png'"
+                                class="w-full aspect-[2/3] object-cover"
                             >
+                            <span v-if="esPreventa" class="absolute top-3 right-3 bg-brand-red text-white text-xs font-black uppercase px-3 py-1 rounded shadow-lg">
+                                Preventa
+                            </span>
                         </div>
                     </div>
                 </div>
 
-                <!-- Book Info -->
-                <div class="lg:col-span-8">
-                    <div class="space-y-8">
-                        <section>
-                            <span class="px-2 py-0.5 bg-white/5 border border-white/10 rounded-full text-[10px] font-black uppercase tracking-widest text-white/60 mb-4 inline-block">
-                                {{ libro.master?.categoria?.nombre }}
+                <!-- Right: Title, Price, Action Row & Delivery -->
+                <div class="lg:col-span-7 space-y-6 text-white">
+                    <!-- Title above Price -->
+                    <div>
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                            {{ libro.master?.categoria?.nombre ?? 'MANGA' }} {{ libro.master?.proveedor ? '• ' + libro.master.proveedor.nombre_empresa : '' }}
+                        </span>
+                        <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
+                            {{ libro.master?.titulo }} {{ libro.numero_tomo ? libro.numero_tomo : '' }}
+                            <span v-if="esPreventa" class="text-slate-400 font-semibold text-lg ml-2">(Preventa)</span>
+                        </h1>
+                        <div class="h-1 w-20 bg-brand-red mt-2.5 rounded"></div>
+                    </div>
+
+                    <!-- Pricing Section -->
+                    <div class="space-y-3 pt-2">
+                        <div class="flex items-baseline gap-3">
+                            <span v-if="esPreventa" class="text-lg font-bold text-slate-400 line-through">
+                                {{ getPrecioOriginal(libro) }}
                             </span>
-                            <h1 class="text-3xl md:text-5xl font-black uppercase tracking-tighter leading-none text-white mb-2">
-                                {{ libro.master?.titulo }} {{ libro.numero_tomo ? ' - Tomo ' + libro.numero_tomo : '' }}
-                            </h1>
-                            <p class="text-lg font-black italic text-brand-red/80 tracking-tight" v-if="libro.master?.titulo_original">
-                                {{ libro.master?.titulo_original }}
+                            <span class="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
+                                {{ getPrecioFinal(libro) }}
+                            </span>
+                        </div>
+
+                        <!-- Preventa 10% Discount Note (ONLY if preventa enabled) -->
+                        <div v-if="esPreventa" class="space-y-1 text-xs font-semibold text-slate-300">
+                            <p class="text-white font-bold">
+                                10% de descuento especial por Preventa aplicado
                             </p>
-                            
-                            <div class="mt-6 flex flex-wrap gap-4 text-xs font-bold uppercase tracking-widest text-white/40">
-                                <span v-if="libro.master?.proveedor">Editorial: {{ libro.master.proveedor.nombre_empresa }}</span>
-                                <span v-if="libro.master?.idioma">{{ libro.master.idioma.nombre }}</span>
-                                <span v-if="libro.año_edicion">{{ libro.año_edicion }}</span>
-                                <span v-if="libro.cantidad_paginas">{{ libro.cantidad_paginas }} págs</span>
-                                <span v-if="libro.isbn">ISBN: {{ libro.isbn }}</span>
-                            </div>
+                        </div>
 
-                            <div class="mt-8 flex items-center gap-4 border-t border-white/10 pt-8">
-                                <div class="w-12 h-12 bg-white/5 rounded-full flex items-center justify-center font-black italic border border-white/10 text-brand-red text-lg">
-                                    {{ libro.master?.autor?.nombre?.charAt(0) }}{{ libro.master?.autor?.apellido?.charAt(0) }}
-                                </div>
-                                <div class="flex flex-col">
-                                    <span class="text-[10px] font-black uppercase tracking-[0.2em] text-white/30">Escrito por</span>
-                                    <span class="text-base font-bold uppercase tracking-tight text-white/80">{{ libro.master?.autor?.apellido }}, {{ libro.master?.autor?.nombre }}</span>
-                                </div>
-                            </div>
-                        </section>
+                        <!-- Installments Info (Neutral white/slate) -->
+                        <div class="flex items-center gap-2 text-xs font-semibold text-slate-300">
+                            <svg class="w-4 h-4 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                            </svg>
+                            <span>12 cuotas de <strong>{{ getCuotaMensual(libro) }}</strong></span>
+                        </div>
 
-                        <!-- Synopsis -->
-                        <section v-if="libro.synopsis">
-                            <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-3 underline decoration-2 underline-offset-4">Sinopsis</h3>
-                            <div class="text-white/60 text-sm leading-relaxed font-medium">
-                                {{ libro.synopsis }}
-                            </div>
-                        </section>
+                        <!-- Modal Ver Medios de Pago Trigger -->
+                        <div class="pt-1">
+                            <button
+                                @click="showMediosPagoModal = true"
+                                class="px-3.5 py-1.5 border border-slate-600 text-slate-300 hover:border-white hover:text-white transition-colors text-[11px] font-bold uppercase tracking-wider rounded-md"
+                            >
+                                VER MEDIOS DE PAGO
+                            </button>
+                        </div>
 
-                        <!-- Pricing and Add to Cart -->
-                        <section class="bg-white/[0.03] border border-white/10 rounded-2xl p-6 mt-8">
-                            <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-6">
-                                <div>
-                                    <div class="text-sm font-black uppercase tracking-widest text-white/40 mb-1">Precio</div>
-                                    <div class="text-4xl font-black text-brand-red italic flex flex-col items-start">
-                                        <span v-if="libro.permite_preventa" class="text-lg font-black text-white/40 line-through leading-none">{{ getPrecioOriginal(libro) }}</span>
-                                        <span>{{ getPrecio(libro) }}</span>
-                                    </div>
-                                </div>
-                                <div class="text-right">
-                                    <span
-                                        :class="{
-                                            'text-green-400': getStockStatus(libro) === 'disponible',
-                                            'text-yellow-400': getStockStatus(libro) === 'pocos',
-                                            'text-red-400': getStockStatus(libro) === 'sin_stock',
-                                        }"
-                                        class="text-[12px] font-black uppercase tracking-widest bg-white/5 px-3 py-1 rounded-full border border-white/5"
-                                    >
-                                        {{ getStockStatus(libro) === 'disponible' ? 'En stock' : getStockStatus(libro) === 'pocos' ? 'Quedan pocos (' + getStockTotal(libro) + ')' : 'Sin stock' }}
-                                    </span>
-                                </div>
-                            </div>
+                        <!-- Free Shipping Notice (Neutral white/slate) -->
+                        <div class="flex items-center gap-2 text-xs font-bold text-slate-300 pt-1">
+                            <svg class="w-4 h-4 text-slate-300 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                            </svg>
+                            <span>Envío gratis superando los $80.000,00</span>
+                        </div>
+                    </div>
 
-                            <div>
-                            <div class="flex items-center gap-3">
-                                <!-- Selector de cantidad -->
-                                <div class="flex items-center gap-2 bg-black/40 border border-white/10 rounded-xl px-4 py-3">
-                                    <button
-                                        @click="cantidad = Math.max(1, cantidad - 1)"
-                                        :disabled="getStockStatus(libro) === 'sin_stock' || cantidad <= 1"
-                                        class="font-black text-xl leading-none w-8 text-center transition-colors"
-                                        :class="cantidad <= 1 ? 'text-white/20 cursor-not-allowed' : 'text-white/50 hover:text-white'"
-                                    >−</button>
-                                    <span class="text-lg font-black text-white w-8 text-center">{{ cantidad }}</span>
-                                    <button
-                                        @click="cantidad = Math.min(5, getStockTotal(libro), cantidad + 1)"
-                                        :disabled="getStockStatus(libro) === 'sin_stock' || cantidad >= Math.min(5, getStockTotal(libro))"
-                                        class="font-black text-xl leading-none w-8 text-center transition-colors"
-                                        :class="cantidad >= Math.min(5, getStockTotal(libro)) ? 'text-white/20 cursor-not-allowed' : 'text-white/50 hover:text-white'"
-                                    >+</button>
-                                </div>
+                    <hr class="border-slate-800">
 
+                    <!-- Quantity & Add to Cart Action Row (Pastel Red Button & Compact Size) -->
+                    <div class="flex items-center gap-4 py-1">
+                        <!-- Quantity Selector -->
+                        <div class="flex items-center border border-slate-700 bg-slate-900 rounded-lg overflow-hidden shrink-0">
+                            <button
+                                @click="cantidad = Math.max(1, cantidad - 1)"
+                                class="px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold text-xs"
+                            >−</button>
+                            <span class="px-3 py-1.5 text-xs font-extrabold text-white min-w-[2rem] text-center">{{ cantidad }}</span>
+                            <button
+                                @click="cantidad = cantidad + 1"
+                                class="px-3 py-2 text-slate-400 hover:text-white hover:bg-slate-800 transition-colors font-bold text-xs"
+                            >+</button>
+                        </div>
+
+                        <!-- Compact Add to Cart Button (Pastel Red) -->
+                        <button
+                            @click="agregarAlCarrito"
+                            :disabled="getStockStatus(libro) === 'sin_stock'"
+                            class="py-2.5 px-6 bg-[#D9434E] hover:bg-[#C23641] text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-all shadow-md text-center"
+                        >
+                            {{ getStockStatus(libro) === 'sin_stock' ? 'AGOTADO' : 'AGREGAR AL CARRITO' }}
+                        </button>
+                    </div>
+
+                    <hr class="border-slate-800">
+
+                    <!-- Shipping Calculator Box & Calculation Results -->
+                    <div class="space-y-3">
+                        <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-300">Medios de envío</h4>
+
+                        <!-- Input form before calculation -->
+                        <div v-if="!mostrandoResultadosCp" class="flex flex-wrap items-center gap-3">
+                            <input
+                                v-model="codigoPostal"
+                                @keyup.enter="calcularEnvio"
+                                type="text"
+                                placeholder="Tu código postal"
+                                class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:border-slate-500 focus:outline-none w-44"
+                            >
+                            <button
+                                @click="calcularEnvio"
+                                class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg transition-colors"
+                            >
+                                CALCULAR
+                            </button>
+                        </div>
+
+                        <!-- Results display when CP entered -->
+                        <div v-else class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-4">
+                            <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                                <span class="text-xs font-bold text-slate-300">
+                                    Entregas para el CP: <strong class="text-white">{{ cpCalculado }}</strong>
+                                </span>
                                 <button
-                                    @click="agregarAlCarrito"
-                                    :disabled="getStockStatus(libro) === 'sin_stock'"
-                                    class="flex-1 py-4 rounded-xl font-black text-sm md:text-base uppercase tracking-widest transition-all"
-                                    :class="getStockStatus(libro) === 'sin_stock'
-                                        ? 'bg-white/5 text-white/20 cursor-not-allowed border border-white/5'
-                                        : 'bg-brand-red hover:bg-brand-red/80 text-white shadow-lg shadow-brand-red/20'"
+                                    @click="cambiarCp"
+                                    class="px-2.5 py-1 border border-slate-600 text-[10px] font-bold uppercase text-slate-300 hover:text-white rounded hover:border-slate-400 transition-colors"
                                 >
-                                    {{ getStockStatus(libro) === 'sin_stock' ? 'Agotado' : 'Agregar al Carrito' }}
+                                    CAMBIAR CP
                                 </button>
                             </div>
 
-                            <p v-if="cantidad >= Math.min(5, getStockTotal(libro)) && getStockStatus(libro) !== 'sin_stock'" class="mt-2 text-[11px] font-black uppercase tracking-widest text-yellow-400">
-                                Alcanzaste el límite de unidades de este producto para esta compra.
-                            </p>
+                            <div class="p-3 bg-slate-950/60 rounded-lg border border-slate-800 text-xs text-slate-300 font-medium">
+                                ¡Gracias por elegir <strong>PuroComic</strong>! Recordá ingresar tus datos reales en la compra para acumular puntos.
                             </div>
-                        </section>
 
-                        <div class="pt-4">
-                            <Link :href="route('catalogo.index')" class="btn-primary w-full py-5 rounded-2xl flex items-center justify-center gap-3 text-sm tracking-widest group bg-white/5 hover:bg-white/10 border-white/10 text-white/60 hover:text-white">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transform group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                                </svg>
-                                Volver al Catálogo
-                            </Link>
+                            <!-- ENVÍO A DOMICILIO -->
+                            <div class="space-y-2">
+                                <h5 class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">ENVÍO A DOMICILIO</h5>
+                                <div class="bg-slate-950/40 border border-slate-800 rounded-lg p-3 space-y-2 text-xs">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="font-bold text-white">Correo Argentino Clásico - Envío a domicilio</p>
+                                            <p class="text-[11px] text-slate-400 mt-0.5">Llega en 3 a 5 días hábiles</p>
+                                        </div>
+                                        <span class="font-extrabold text-white">{{ envioDomicilioClasico }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-start border-t border-slate-800/80 pt-2">
+                                        <div>
+                                            <p class="font-bold text-white">Correo Argentino Expreso - Envío a domicilio</p>
+                                            <p class="text-[11px] text-slate-400 mt-0.5">Llega en 1 a 2 días hábiles</p>
+                                        </div>
+                                        <span class="font-extrabold text-white">$12.619,31</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- RETIRAR POR -->
+                            <div class="space-y-2">
+                                <h5 class="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">RETIRAR POR</h5>
+                                <div class="bg-slate-950/40 border border-slate-800 rounded-lg p-3 space-y-2 text-xs">
+                                    <div class="flex justify-between items-start">
+                                        <div>
+                                            <p class="font-bold text-white">Punto de retiro - Sucursal Correo Argentino</p>
+                                            <p class="text-[11px] text-slate-400 mt-0.5">Retirás en 2 a 4 días hábiles</p>
+                                        </div>
+                                        <span class="font-extrabold text-white">{{ envioSucursalCorreo }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-start border-t border-slate-800/80 pt-2">
+                                        <div>
+                                            <p class="font-bold text-white">Retiro en el local - Sucursal Principal PuroComic</p>
+                                            <p class="text-[11px] text-slate-400 mt-0.5">Retiro inmediato en sucursal</p>
+                                        </div>
+                                        <span class="font-bold text-green-400">Gratis</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="border-slate-800">
+
+                    <!-- Description / Synopsis -->
+                    <div class="space-y-2 pt-1">
+                        <h3 class="text-xs font-extrabold uppercase tracking-widest text-slate-300">DESCRIPCIÓN</h3>
+                        <div class="text-xs text-slate-300 leading-relaxed space-y-2">
+                            <p v-if="libro.synopsis">{{ libro.synopsis }}</p>
+                            <p v-else>
+                                Disfruta del tomo {{ libro.numero_tomo ?? '01' }} de {{ libro.master?.titulo }}. Editado originalmente por {{ libro.master?.proveedor?.nombre_empresa ?? 'la editorial' }}. Incluye páginas a color y sobrecubierta de alta calidad.
+                            </p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Related Books Section -->
-            <div v-if="relacionados && relacionados.length > 0" class="mt-24 border-t border-white/10 pt-16">
-                <h3 class="text-lg font-black uppercase tracking-[0.2em] text-brand-red mb-8">También te puede interesar</h3>
-                
-                <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    <Link
+            <!-- Compact Related Products Section ("Productos similares") -->
+            <div v-if="relacionados && relacionados.length > 0" class="mt-16 border-t border-slate-800 pt-10">
+                <div class="mb-6">
+                    <h3 class="text-lg font-extrabold text-white tracking-tight">Productos similares</h3>
+                    <div class="h-1 w-12 bg-brand-red mt-1.5 rounded"></div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                    <div
                         v-for="rel in relacionados"
                         :key="rel.id"
-                        :href="route('catalogo.show', rel.id)"
-                        class="group"
+                        class="bg-[#0F172A] border border-slate-800/90 rounded-lg overflow-hidden shadow flex flex-col justify-between group hover:border-slate-700 transition-all"
                     >
-                        <div class="relative aspect-[2/3] overflow-hidden rounded-xl bg-white/5 border border-white/10 transition-all duration-300 group-hover:border-brand-red group-hover:-translate-y-1">
+                        <!-- Cover Image -->
+                        <Link :href="route('catalogo.show', rel.id)" class="relative aspect-[2/3] overflow-hidden bg-black/40 block">
                             <img
                                 :src="rel.master?.portada_url"
                                 :alt="rel.master?.titulo"
-                                class="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
+                                @error="$event.target.src = '/images/no-cover.png'"
+                                class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                             >
-                        </div>
-                        <div class="mt-3">
-                            <h4 class="font-black uppercase tracking-tighter text-xs leading-tight transition-colors line-clamp-2 group-hover:text-brand-red text-white">
-                                {{ rel.master?.titulo }} {{ rel.numero_tomo ? '- Tomo ' + rel.numero_tomo : '' }}
-                            </h4>
-                            <div class="text-brand-red font-bold text-sm mt-1 flex flex-col">
-                                <span v-if="rel.permite_preventa" class="text-[10px] font-black text-white/40 line-through leading-none mb-1">{{ getPrecioOriginal(rel) }}</span>
-                                <span>{{ getPrecio(rel) }}</span>
+                        </Link>
+
+                        <!-- Card Details -->
+                        <div class="p-3 flex-1 flex flex-col justify-between">
+                            <div>
+                                <h4 class="text-[11px] font-bold text-white group-hover:text-slate-200 transition-colors line-clamp-2 h-8 leading-tight">
+                                    {{ rel.master?.titulo }} {{ rel.numero_tomo ? ' ' + rel.numero_tomo : '' }}
+                                </h4>
+
+                                <div class="mt-2 text-xs font-black text-white">
+                                    {{ getPrecioFinal(rel) }}
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons: DETALLES | COMPRAR -->
+                            <div class="grid grid-cols-2 gap-1.5 mt-3 pt-2 border-t border-slate-800/80">
+                                <Link
+                                    :href="route('catalogo.show', rel.id)"
+                                    class="py-1 px-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded text-[10px] font-bold uppercase text-center transition-colors"
+                                >
+                                    DETALLES
+                                </Link>
+
+                                <button
+                                    @click="agregarTomoDirecto(rel.id)"
+                                    class="py-1 px-1 bg-[#D9434E] hover:bg-[#C23641] text-white rounded text-[10px] font-bold uppercase transition-colors"
+                                >
+                                    COMPRAR
+                                </button>
                             </div>
                         </div>
-                    </Link>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- Payment Methods Modal -->
+        <transition name="fade">
+            <div v-if="showMediosPagoModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+                <div class="bg-[#0F172A] border border-slate-700 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h3 class="text-sm font-extrabold text-white uppercase tracking-wider">Medios de Pago Aceptados</h3>
+                        <button @click="showMediosPagoModal = false" class="text-slate-400 hover:text-white text-lg">✕</button>
+                    </div>
+
+                    <div class="space-y-3 text-xs text-slate-300">
+                        <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 space-y-1">
+                            <p class="font-bold text-white text-xs">💳 Tarjetas de Crédito y Débito</p>
+                            <p>Hasta 12 cuotas sin interés con Visa, MasterCard, American Express, Naranja.</p>
+                        </div>
+
+                        <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 space-y-1">
+                            <p class="font-bold text-white text-xs">💵 Transferencia o Depósito Bancario</p>
+                            <p class="text-slate-300">Aceptamos transferencias desde cualquier banco o billetera virtual (Mercado Pago, MODO, etc.).</p>
+                        </div>
+
+                        <div class="p-3 bg-slate-900/90 rounded-lg border border-slate-800 space-y-1">
+                            <p class="font-bold text-white text-xs">🏪 Efectivo en Sucursal / Rapipago / Pago Fácil</p>
+                            <p>Pago inmediato al retirar en el local o en puntos de cobro.</p>
+                        </div>
+                    </div>
+
+                    <button
+                        @click="showMediosPagoModal = false"
+                        class="w-full py-2.5 bg-slate-800 border border-slate-700 text-white text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-slate-700 transition-colors"
+                    >
+                        Entendido
+                    </button>
+                </div>
+            </div>
+        </transition>
     </PublicLayout>
 </template>

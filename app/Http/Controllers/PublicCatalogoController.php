@@ -148,4 +148,40 @@ class PublicCatalogoController extends Controller
             'relacionados' => $relacionados,
         ]);
     }
+
+    public function search(Request $request)
+    {
+        $term = trim($request->input('q', ''));
+        if (strlen($term) < 2) {
+            return response()->json([]);
+        }
+
+        $libros = Libro::query()
+            ->with(['master', 'precioActual'])
+            ->whereHas('master', fn($q) => $q->where('activo', true))
+            ->where('activo', true)
+            ->where(function ($q) use ($term) {
+                $q->where('isbn', 'like', "%{$term}%")
+                  ->orWhereHas('master', function ($q2) use ($term) {
+                      $q2->where('titulo', 'like', "%{$term}%")
+                         ->orWhere('titulo_original', 'like', "%{$term}%");
+                  });
+            })
+            ->limit(8)
+            ->get()
+            ->map(function ($libro) {
+                $precio = $libro->precioActual?->precio_venta;
+                if ($libro->permite_preventa && $precio) {
+                    $precio = $precio * 0.90;
+                }
+                return [
+                    'id' => $libro->id,
+                    'titulo' => ($libro->master?->titulo ?? '') . ($libro->numero_tomo ? ' - Tomo ' . $libro->numero_tomo : ''),
+                    'portada_url' => $libro->portada_url,
+                    'precio' => $precio ? '$' . number_format($precio, 2, ',', '.') : 'Consultar',
+                ];
+            });
+
+        return response()->json($libros);
+    }
 }

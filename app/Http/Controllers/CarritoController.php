@@ -119,4 +119,10 @@ class CarritoController extends Controller
         $carrito = session(self::SESSION_KEY, []);
         return array_sum(array_column($carrito, 'cantidad'));
     }
+
+    public static function getTotal(): float
+    {
+        $carrito = session(self::SESSION_KEY, []);
+        return (float) collect($carrito)->sum(fn($item) => ($item['precio'] ?? 0) * ($item['cantidad'] ?? 0));
+    }
 }

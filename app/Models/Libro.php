@@ -18,7 +18,23 @@ class Libro extends Model
         'año_edicion', 'cantidad_paginas', 'activo', 'permite_preventa',
     ];
 
-    protected $appends = ['tiene_historial'];
+    protected $appends = ['tiene_historial', 'portada_url'];
+
+    public function getPortadaUrlAttribute(): string
+    {
+        if ($this->relationLoaded('master') && $this->master) {
+            return $this->master->portada_url;
+        }
+
+        if ($this->master_id) {
+            $master = $this->master;
+            if ($master) {
+                return $master->portada_url;
+            }
+        }
+
+        return asset('images/no-cover.png');
+    }
 
     protected $casts = [
         'permite_preventa' => 'boolean',

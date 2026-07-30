@@ -21,7 +21,7 @@ class LibroMasterFactory extends Factory
         return [
             'titulo' => $this->faker->sentence(3),
             'titulo_original' => $this->faker->sentence(3),
-            'portada' => 'https://picsum.photos/seed/' . bin2hex(random_bytes(5)) . '/400/600',
+            'portada' => 'images/no-cover.png',
             'autor_id' => Autor::factory(),
             'categoria_id' => Categoria::factory(),
             'activo' => true,

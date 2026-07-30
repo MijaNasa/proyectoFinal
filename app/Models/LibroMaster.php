@@ -24,9 +24,9 @@ class LibroMaster extends Model
         return $this->libros->sum(fn($libro) => $libro->stocks->sum('cantidad_disponible'));
     }
 
-    public function getPortadaUrlAttribute()
+    public function getPortadaUrlAttribute(): string
     {
-        if (!$this->portada) {
+        if (!$this->portada || trim((string)$this->portada) === '' || $this->portada === 'null') {
             return asset('images/no-cover.png');
         }
 
@@ -34,7 +34,7 @@ class LibroMaster extends Model
             return $this->portada;
         }
 
-        return asset('storage/' . $this->portada);
+        return asset('storage/' . ltrim($this->portada, '/'));
     }
 
     public function autor(): BelongsTo

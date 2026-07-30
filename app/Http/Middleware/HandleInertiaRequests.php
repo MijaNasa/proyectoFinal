@@ -53,6 +53,7 @@ class HandleInertiaRequests extends Middleware
                 'esGerente' => $user?->esGerente() ?? false,
             ],
             'carritoCount' => CarritoController::getCount(),
+            'carritoTotal' => CarritoController::getTotal(),
             'flash' => [
                 'success' => session('success') ?? session('message'),
                 'warning' => session('warning'),

@@ -2,86 +2,18 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
-use Database\Seeders\CargoPermisoSeeder;
-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
 {
-    use WithoutModelEvents;
-
     /**
      * Seed the application's database.
      */
     public function run(): void
     {
         $this->call([
-            PaisSeeder::class,
-            GeografiaSeeder::class,
-            TipoClienteSeeder::class,
-            IdiomaSeeder::class,
-            CategoriaSeeder::class,
-            SucursalSeeder::class,
-            ProveedorSeeder::class,
+            AdminSeeder::class,
+            RealCatalogSeeder::class,
         ]);
-
-        // 2b. Cargos y permisos (se llama después de crear sucursales y admin user)
-
-        // 2. Usuarios base
-        \App\Models\User::factory()->create([
-            'name' => 'Admin PuroComic',
-            'email' => 'admin@purocomic.com',
-            'password' => bcrypt('password'),
-        ]);
-
-        // 3. Catálogo y Operaciones (Factories)
-        // Creamos sucursales primero
-        $sucursales = \App\Models\Sucursal::factory()->count(3)->create();
-
-        // Creamos Categorías e Idiomas
-        \App\Models\Categoria::factory()->count(10)->create();
-        \App\Models\Idioma::factory()->count(5)->create();
-
-        // Creamos Autores
-        $autores = \App\Models\Autor::factory()->count(20)->create();
-        $proveedores = \App\Models\Proveedor::all();
-
-        // Creamos Libros (Master y Variantes con Stock)
-        foreach ($proveedores as $proveedor) {
-            $libroMasters = \App\Models\LibroMaster::factory()->count(2)->create([
-                'autor_id' => $autores->random()->id,
-                'categoria_id' => \App\Models\Categoria::inRandomOrder()->first()->id,
-                'proveedor_id' => $proveedor->id,
-                'idioma_id' => \App\Models\Idioma::inRandomOrder()->first()->id,
-            ]);
-
-            foreach ($libroMasters as $master) {
-                $libro = \App\Models\Libro::factory()->create([
-                    'master_id' => $master->id,
-                ]);
-
-                // Crear precio actual
-                \App\Models\PrecioLibro::factory()->create(['libro_id' => $libro->id]);
-
-                // Crear stock en cada sucursal
-                foreach ($sucursales as $sucursal) {
-                    \App\Models\Stock::factory()->create([
-                        'libro_id' => $libro->id,
-                        'sucursal_id' => $sucursal->id,
-                    ]);
-                }
-            }
-        }
-
-        // 4. Clientes
-        \App\Models\Cliente::factory()->count(20)->create();
-        // Proveedores ya fueron creados por el ProveedorSeeder y usados arriba.
-
-        // 5. Ventas para el Dashboard
-        \App\Models\Venta::factory()->count(50)->create();
-
-        // 6. Cargos, permisos y asignación del usuario admin
-        $this->call(CargoPermisoSeeder::class);
     }
 }

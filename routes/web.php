@@ -32,6 +32,7 @@ use Inertia\Inertia;
 
 // Rutas Públicas de E-commerce
 Route::get('/catalogo', [PublicCatalogoController::class, 'index'])->name('catalogo.index');
+Route::get('/catalogo/buscar-ajax', [PublicCatalogoController::class, 'search'])->name('catalogo.buscar-ajax');
 Route::get('/catalogo/{id}', [PublicCatalogoController::class, 'show'])->where('id', '[0-9]+')->name('catalogo.show');
 Route::get('/nosotros', fn() => \Inertia\Inertia::render('Nosotros'))->name('nosotros');
 
