@@ -3,6 +3,7 @@ import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
+import Swal from 'sweetalert2';
 
 const props = defineProps({
     ordenes:     Object,
@@ -10,6 +11,20 @@ const props = defineProps({
     sucursales:  Array,
     stats:       Object,
     filters:     Object,
+});
+
+const darkSwal = Swal.mixin({
+    background: '#131316',
+    color: '#ffffff',
+    buttonsStyling: false,
+    customClass: {
+        popup: 'border border-white/10 rounded-2xl p-6 shadow-2xl bg-[#131316] page-ordenes-compra',
+        title: 'text-xl font-bold text-white tracking-tight',
+        htmlContainer: 'text-sm text-zinc-300 font-medium mt-2 leading-relaxed',
+        confirmButton: 'px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md active:scale-95 mx-1 cursor-pointer',
+        cancelButton: 'px-6 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-sm border border-white/10 transition-all active:scale-95 mx-1 cursor-pointer',
+        actions: 'mt-6 flex items-center justify-end gap-2'
+    }
 });
 
 // ── Formato ─────────────────────────────────────────────────────────────────
@@ -153,6 +168,13 @@ function submitOrden() {
                 itemResults.value = [];
                 itemLoadings.value = [];
                 itemLabels.value = [];
+                darkSwal.fire({
+                    title: '¡Éxito!',
+                    text: 'Orden de compra actualizada correctamente.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
             },
         });
     } else {
@@ -166,6 +188,13 @@ function submitOrden() {
                 itemResults.value = [];
                 itemLoadings.value = [];
                 itemLabels.value = [];
+                darkSwal.fire({
+                    title: '¡Éxito!',
+                    text: 'Orden de compra creada correctamente.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
             },
         });
     }
@@ -251,22 +280,77 @@ function searchLibros(i, q) {
 
 // ── Acciones ──────────────────────────────────────────────────────────────────
 function confirmar(orden) {
-    if (!confirm(`¿Confirmar la orden ${orden.numero_orden}?`)) return;
-    router.post(route('ordenes-compra.confirmar', orden.id), {}, {
-        onSuccess: () => {},
+    darkSwal.fire({
+        title: '¿Confirmar orden?',
+        text: `¿Deseas confirmar la orden ${orden.numero_orden}?`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, confirmar',
+        cancelButtonText: 'Cancelar'
+    }).then(result => {
+        if (result.isConfirmed) {
+            router.post(route('ordenes-compra.confirmar', orden.id), {}, {
+                onSuccess: () => {
+                    darkSwal.fire({
+                        title: 'Orden Confirmada',
+                        text: 'La orden ha sido confirmada con éxito.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                },
+            });
+        }
     });
 }
 
 function recibir(orden) {
-    if (!confirm(`¿Marcar como recibida la orden ${orden.numero_orden}? Esto actualizará el stock y la deuda con el proveedor.`)) return;
-    router.post(route('ordenes-compra.recibir', orden.id), {}, {
-        onSuccess: () => {},
+    darkSwal.fire({
+        title: '¿Marcar como recibida?',
+        text: `Esto actualizará el stock y registrará la deuda con el proveedor para la orden ${orden.numero_orden}.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, recibir',
+        cancelButtonText: 'Cancelar'
+    }).then(result => {
+        if (result.isConfirmed) {
+            router.post(route('ordenes-compra.recibir', orden.id), {}, {
+                onSuccess: () => {
+                    darkSwal.fire({
+                        title: 'Orden Recibida',
+                        text: 'El stock y la deuda han sido actualizados.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                },
+            });
+        }
     });
 }
 
 function cancelar(orden) {
-    if (!confirm(`¿Cancelar la orden ${orden.numero_orden}?`)) return;
-    router.delete(route('ordenes-compra.destroy', orden.id));
+    darkSwal.fire({
+        title: '¿Cancelar orden?',
+        text: `¿Estás seguro de cancelar la orden ${orden.numero_orden}?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, cancelar',
+        cancelButtonText: 'Volver'
+    }).then(result => {
+        if (result.isConfirmed) {
+            router.delete(route('ordenes-compra.destroy', orden.id), {
+                onSuccess: () => {
+                    darkSwal.fire({
+                        title: 'Orden Cancelada',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            });
+        }
+    });
 }
 
 // ── Paginación ────────────────────────────────────────────────────────────────
@@ -279,20 +363,27 @@ const decodeLabel = (l) => {
 
 <template>
     <Head title="Órdenes de Compra" />
+
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between min-h-[42px] w-full">
-                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Órdenes de <span class="text-brand-red not-italic">Compra</span></h2>
-                <button @click="openModal" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-lg shadow-red-900/20">
+            <div class="flex items-center justify-between w-full page-ordenes-compra">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-tight uppercase">ÓRDENES DE COMPRA</h2>
+                </div>
+                <button 
+                    @click="openModal" 
+                    class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
+                >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
                     </svg>
-                    Nueva Orden
+                    <span>Nueva Orden</span>
                 </button>
             </div>
         </template>
 
-        <div class="p-6 max-w-7xl mx-auto space-y-6">
+        <div class="py-8 page-ordenes-compra">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
                 <!-- Stats Grid -->
                 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -302,17 +393,17 @@ const decodeLabel = (l) => {
                         'Confirmadas': stats.confirmadas,
                         'Recibidas': stats.recibidas,
                     }" :key="key"
-                        class="bg-[#141414] border border-white/10 rounded-2xl p-5 shadow-xl">
-                        <p class="text-[10px] font-black uppercase tracking-widest text-white/40">{{ key }}</p>
-                        <p class="text-3xl font-black text-white font-mono tracking-tight mt-1">{{ val }}</p>
+                        class="bg-[#131316] border border-white/5 rounded-2xl p-5 shadow-xl">
+                        <p class="text-xs uppercase font-semibold text-zinc-400">{{ key }}</p>
+                        <p class="text-3xl font-bold text-white font-mono tracking-tight mt-1">{{ val }}</p>
                     </div>
                 </div>
 
-                <!-- Filtros Reactivos -->
-                <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <!-- Filtros Reactivos Container -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex flex-col sm:flex-row gap-4 items-center justify-between shadow-xl">
                     <div class="relative w-full flex-1">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 pointer-events-none text-white/40">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-500">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                             </svg>
                         </span>
@@ -320,7 +411,7 @@ const decodeLabel = (l) => {
                             v-model="search"
                             type="text"
                             placeholder="Buscar por número de orden o proveedor..."
-                            class="w-full bg-[#141414] border border-white/10 rounded-xl pl-11 pr-4 py-3 text-xs font-bold text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all"
+                            class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium transition-all"
                         />
                     </div>
 
@@ -328,298 +419,306 @@ const decodeLabel = (l) => {
                     <div class="w-full sm:w-64">
                         <select
                             v-model="estadoFiltro"
-                            class="w-full bg-[#141414] border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50 cursor-pointer uppercase"
+                            class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer"
                         >
-                            <option value="" class="bg-[#1A1A1A]">Todos los estados</option>
-                            <option value="borrador" class="bg-[#1A1A1A]">Borrador</option>
-                            <option value="confirmada" class="bg-[#1A1A1A]">Confirmada</option>
-                            <option value="recibida" class="bg-[#1A1A1A]">Recibida</option>
-                            <option value="cancelada" class="bg-[#1A1A1A]">Cancelada</option>
+                            <option value="" class="bg-[#131316] text-zinc-400">Todos los estados</option>
+                            <option value="borrador" class="bg-[#131316] text-white">Borrador</option>
+                            <option value="confirmada" class="bg-[#131316] text-white">Confirmada</option>
+                            <option value="recibida" class="bg-[#131316] text-white">Recibida</option>
+                            <option value="cancelada" class="bg-[#131316] text-white">Cancelada</option>
                         </select>
                     </div>
                 </div>
 
-                <!-- Tabla -->
-                <div class="bg-[#141414] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-                    <table class="w-full text-left border-collapse">
-                        <thead>
-                            <tr class="bg-white/[0.02] text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/10">
-                                <th class="p-4">N° Orden</th>
-                                <th class="p-4">Proveedor</th>
-                                <th class="p-4">Sucursal</th>
-                                <th class="p-4">Fecha</th>
-                                <th class="p-4 text-right">Total</th>
-                                <th class="p-4 text-center">Estado</th>
-                                <th class="p-4 text-right">Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-white/5 text-sm">
-                            <tr v-if="ordenes.data.length === 0">
-                                <td colspan="7" class="p-12 text-center text-white/30 italic">No se encontraron órdenes de compra.</td>
-                            </tr>
-                            <tr v-for="o in ordenes.data" :key="o.id" class="hover:bg-white/[0.01] transition-colors">
-                                <td class="p-4 font-mono font-bold text-white">{{ o.numero_orden }}</td>
-                                <td class="p-4 font-bold text-white">{{ o.proveedor?.nombre_empresa || '—' }}</td>
-                                <td class="p-4 text-white/70 font-medium">{{ o.sucursal?.nombre || '—' }}</td>
-                                <td class="p-4 text-white/70 font-medium">{{ fmtDate(o.fecha) }}</td>
-                                <td class="p-4 text-right font-mono font-bold text-white text-base">{{ fmt(o.total) }}</td>
-                                <td class="p-4 text-center">
-                                    <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-[#1E1E1E] border border-white/5 shadow-sm">
-                                        <span class="w-2.5 h-2.5 rounded-full shrink-0" :class="{
-                                            'bg-amber-400': o.estado === 'borrador',
-                                            'bg-blue-400': o.estado === 'confirmada',
-                                            'bg-emerald-400': o.estado === 'recibida',
-                                            'bg-rose-500': o.estado === 'cancelada'
-                                        }"></span>
-                                        <span class="text-xs font-black tracking-wider text-white">
-                                            {{ estadoLabels[o.estado] || o.estado }}
+                <!-- Tabla Container -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
+                                    <th class="p-4">N° Orden</th>
+                                    <th class="p-4">Proveedor</th>
+                                    <th class="p-4">Sucursal</th>
+                                    <th class="p-4">Fecha</th>
+                                    <th class="p-4 text-right">Total</th>
+                                    <th class="p-4 text-center">Estado</th>
+                                    <th class="p-4 text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5 text-sm">
+                                <tr v-if="ordenes.data.length === 0">
+                                    <td colspan="7" class="p-12 text-center text-zinc-500 italic">No se encontraron órdenes de compra.</td>
+                                </tr>
+                                <tr v-for="o in ordenes.data" :key="o.id" class="hover:bg-white/[0.02] transition-colors group">
+                                    <td class="p-4 font-mono font-bold text-white tracking-tight">{{ o.numero_orden }}</td>
+                                    <td class="p-4 font-bold text-white capitalize group-hover:text-zinc-200 transition-colors">{{ o.proveedor?.nombre_empresa || '—' }}</td>
+                                    <td class="p-4 text-xs font-semibold text-zinc-300">{{ o.sucursal?.nombre || '—' }}</td>
+                                    <td class="p-4 text-xs font-medium text-zinc-400">{{ fmtDate(o.fecha) }}</td>
+                                    <td class="p-4 text-right font-mono font-bold text-white text-sm">{{ fmt(o.total) }}</td>
+                                    <td class="p-4 text-center">
+                                        <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
+                                            <span class="w-2 h-2 rounded-full shrink-0" :class="{
+                                                'bg-amber-400': o.estado === 'borrador',
+                                                'bg-sky-400': o.estado === 'confirmada',
+                                                'bg-emerald-400': o.estado === 'recibida',
+                                                'bg-rose-400': o.estado === 'cancelada'
+                                            }"></span>
+                                            <span>{{ estadoLabels[o.estado] || o.estado }}</span>
                                         </span>
-                                    </div>
-                                </td>
-                                <td class="p-4 text-right">
-                                    <div class="flex items-center justify-end gap-2">
-                                        <Link :href="route('ordenes-compra.show', o.id)"
-                                            class="p-2 text-white/60 hover:text-white transition-colors cursor-pointer" title="Ver / Imprimir orden">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                                            </svg>
-                                        </Link>
-                                        <button v-if="['borrador', 'confirmada'].includes(o.estado)" @click="editOrden(o)"
-                                            class="p-2 text-white/60 hover:text-amber-400 transition-colors cursor-pointer" title="Editar orden">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-                                            </svg>
-                                        </button>
-                                        <button v-if="o.estado === 'borrador'" @click="confirmar(o)"
-                                            class="p-2 text-white/60 hover:text-blue-400 transition-colors cursor-pointer" title="Confirmar orden">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                                            </svg>
-                                        </button>
-                                        <button v-if="o.estado === 'confirmada'" @click="recibir(o)"
-                                            class="p-2 text-white/60 hover:text-emerald-400 transition-colors cursor-pointer" title="Registrar recepción">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
-                                            </svg>
-                                        </button>
-                                        <button v-if="['borrador','confirmada'].includes(o.estado)" @click="cancelar(o)"
-                                            class="p-2 text-white/60 hover:text-brand-red transition-colors cursor-pointer" title="Cancelar orden">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                                    </td>
+                                    <td class="p-4 text-right">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <a :href="route('ordenes-compra.show', o.id)" target="_blank"
+                                                class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Ver / Imprimir orden">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                                                </svg>
+                                            </a>
+                                            <button v-if="['borrador', 'confirmada'].includes(o.estado)" @click="editOrden(o)"
+                                                class="p-2 text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-xl transition-all" title="Editar orden">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+                                                </svg>
+                                            </button>
+                                            <button v-if="o.estado === 'borrador'" @click="confirmar(o)"
+                                                class="p-2 text-zinc-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-xl transition-all" title="Confirmar orden">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                                                </svg>
+                                            </button>
+                                            <button v-if="o.estado === 'confirmada'" @click="recibir(o)"
+                                                class="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all" title="Registrar recepción">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/>
+                                                </svg>
+                                            </button>
+                                            <button v-if="['borrador','confirmada'].includes(o.estado)" @click="cancelar(o)"
+                                                class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" title="Cancelar orden">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
 
                 <!-- Paginación -->
-                <div v-if="ordenes.last_page > 1" class="flex justify-center gap-2 pt-2">
+                <div v-if="ordenes.last_page > 1" class="flex justify-center gap-2 mt-6">
                     <Link v-for="link in ordenes.links" :key="link.label"
                         :href="link.url ?? '#'"
-                        class="px-3 py-1.5 rounded-xl border border-white/5 text-xs font-bold uppercase transition-all"
+                        class="px-4 py-2 rounded-xl border border-white/5 transition-all text-xs font-semibold"
                         :class="link.active
-                            ? 'bg-brand-red text-white border-brand-red'
+                            ? 'bg-white text-black border-white shadow-md'
                             : link.url
-                                ? 'text-white/40 hover:text-white hover:bg-white/5'
-                                : 'text-white/20 cursor-default'"
+                                ? 'text-zinc-500 hover:text-white bg-white/5'
+                                : 'text-zinc-600 cursor-not-allowed'"
                         v-html="decodeLabel(link.label)" />
                 </div>
-        </div>
-    </AuthenticatedLayout>
-
-    <!-- Modal crear orden -->
-    <Teleport to="body">
-        <div v-if="showModal" class="fixed inset-0 z-[100] bg-black/95 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto" @click="showModal = false">
-            <div class="relative w-full max-w-3xl bg-[#111] border border-white/10 rounded-2xl overflow-hidden shadow-2xl my-8" @click.stop>
-
-                <div class="bg-gradient-to-r from-brand-red to-black p-6 flex justify-between items-center">
-                    <h3 class="text-xl font-black uppercase tracking-tighter text-white">
-                        {{ isEditing ? 'Editar' : 'Nueva' }} <span class="text-white">Orden de Compra</span>
-                    </h3>
-                    <button @click="showModal = false" class="text-white/80 hover:text-white transition-colors cursor-pointer">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-
-                <form @submit.prevent="submitOrden" class="p-6 sm:p-8 space-y-6">
-
-                    <!-- Inline Error Alert -->
-                    <div v-if="modalError" class="bg-rose-500/10 border border-rose-500/30 text-rose-400 p-4 rounded-xl flex items-center justify-between text-xs font-bold transition-all">
-                        <div class="flex items-center gap-2">
-                            <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
-                            </svg>
-                            <span>{{ modalError }}</span>
-                        </div>
-                        <button type="button" @click="modalError = ''" class="text-rose-400 hover:text-white transition-colors cursor-pointer">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                        </button>
-                    </div>
-
-                    <!-- Proveedor & Sucursal -->
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">PROVEEDOR *</label>
-                            <SearchableSelect
-                                v-model="form.proveedor_id"
-                                :options="proveedores"
-                                placeholder="-- Seleccionar Proveedor --"
-                                :required="true"
-                            />
-                            <p v-if="form.errors.proveedor_id" class="text-brand-red text-xs mt-1">{{ form.errors.proveedor_id }}</p>
-                        </div>
-
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">SUCURSAL DESTINO *</label>
-                            <SearchableSelect
-                                v-model="form.sucursal_id"
-                                :options="sucursales"
-                                placeholder="-- Seleccionar Sucursal --"
-                                :required="true"
-                            />
-                            <p v-if="form.errors.sucursal_id" class="text-brand-red text-xs mt-1">{{ form.errors.sucursal_id }}</p>
-                        </div>
-                    </div>
-
-                    <!-- Observaciones -->
-                    <div>
-                        <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">OBSERVACIONES</label>
-                        <input v-model="form.observaciones" type="text" placeholder="Observaciones"
-                            class="input-field w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50" />
-                    </div>
-
-                    <!-- Items -->
-                    <div>
-                        <div class="flex items-center justify-between mb-3">
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50">ÍTEMS DE LA ORDEN *</label>
-                        </div>
-
-                        <div v-if="form.items.length === 0" class="text-center text-white/30 text-xs py-8 border border-dashed border-white/10 rounded-xl">
-                            Agrega al menos un libro a la orden de compra
-                        </div>
-
-                        <div v-else class="bg-[#141414] border border-white/10 rounded-2xl p-4 shadow-xl space-y-3">
-                            <!-- Items Header Grid -->
-                            <div class="hidden sm:grid grid-cols-12 gap-3 text-[10px] font-black uppercase tracking-widest text-white/40 pb-2 border-b border-white/10 px-1">
-                                <div class="col-span-5">LIBRO A PEDIR</div>
-                                <div class="col-span-2">CANTIDAD</div>
-                                <div class="col-span-2">PRECIO UNIT.</div>
-                                <div class="col-span-2 text-right">SUBTOTAL</div>
-                                <div class="col-span-1"></div>
-                            </div>
-
-                            <div class="divide-y divide-white/5 space-y-3 sm:space-y-0">
-                                <div v-for="(item, i) in form.items" :key="i" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center pt-3 first:pt-0 pb-3 last:pb-0 px-1">
-
-                                    <!-- Libro dropdown -->
-                                    <div class="col-span-1 sm:col-span-5 relative">
-                                        <button type="button" @click="openItemDd(i)"
-                                            class="w-full flex items-center justify-between bg-black/40 border border-white/10 text-white text-xs font-bold rounded-xl px-4 py-3">
-                                            <span class="truncate">{{ itemLabels[i] || 'Seleccionar libro' }}</span>
-                                            <svg class="w-4 h-4 text-white/40 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                        </button>
-                                        <p v-if="item.reservas > 0" class="text-[10px] text-fuchsia-400 mt-1 font-bold">
-                                            ⚡ ¡Hay {{ item.reservas }} tomo(s) en preventa!
-                                        </p>
-                                        <div v-if="itemDdOpen[i]" @click.stop class="absolute z-50 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
-                                            <div class="p-2 border-b border-white/10">
-                                                <input
-                                                    :value="itemSearches[i]"
-                                                    @input="itemSearches[i] = $event.target.value; searchLibros(i, $event.target.value)"
-                                                    type="text" placeholder="Buscar por título o ISBN…"
-                                                    class="w-full bg-black/40 text-white placeholder-white/30 text-xs font-bold rounded-lg px-3 py-2 focus:outline-none"
-                                                />
-                                            </div>
-                                            <div class="max-h-40 overflow-y-auto">
-                                                <div v-if="itemLoadings[i]" class="px-3 py-3 text-white/40 text-xs text-center">Cargando libros…</div>
-                                                <div v-else-if="!itemResults[i] || itemResults[i].length === 0" class="px-3 py-3 text-white/30 text-xs text-center">No hay libros para este proveedor.</div>
-                                                <template v-else>
-                                                    <button v-for="l in itemResults[i]" :key="l.id" type="button"
-                                                        @click="selectItemLibro(i, l)"
-                                                        class="w-full text-left px-3 py-2 text-xs text-white/70 hover:bg-white/10 transition-colors flex justify-between items-center cursor-pointer"
-                                                        :class="{ 'text-white font-bold': item.libro_id == l.id }">
-                                                        <span class="truncate pr-2">{{ l.titulo }}</span>
-                                                        <div class="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shrink-0">
-                                                            <span class="text-white/30">Stock: {{ l.stock }}</span>
-                                                            <span v-if="l.reservas > 0" class="bg-brand-red text-white px-1.5 py-0.5 rounded shadow-sm shadow-brand-red/20">
-                                                                Reservas: {{ l.reservas }}
-                                                            </span>
-                                                        </div>
-                                                    </button>
-                                                </template>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <!-- Cantidad -->
-                                    <div class="col-span-1 sm:col-span-2">
-                                        <input v-model.number="item.cantidad" type="number" min="1" placeholder="Ej: 10"
-                                            class="input-field w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50" />
-                                    </div>
-
-                                    <!-- Precio unitario -->
-                                    <div class="col-span-1 sm:col-span-2">
-                                        <div class="relative flex items-center">
-                                            <span class="absolute left-3 text-xs font-bold text-white/40 pointer-events-none">$</span>
-                                            <input v-model.number="item.precio_unitario" type="number" min="0" step="0.01" placeholder="0.00"
-                                                class="input-field w-full bg-black/40 border border-white/10 rounded-xl pl-7 pr-3 py-3 text-xs font-bold text-white focus:outline-none focus:border-brand-red/50" />
-                                        </div>
-                                    </div>
-
-                                    <!-- Subtotal -->
-                                    <div class="col-span-1 sm:col-span-2 text-right font-mono text-xs font-bold text-white">
-                                        {{ fmt(item.cantidad * item.precio_unitario) }}
-                                    </div>
-
-                                    <!-- Remove -->
-                                    <div class="col-span-1 flex justify-end">
-                                        <button type="button" @click="removeItem(i)"
-                                            class="text-white/30 hover:text-brand-red transition-colors p-2 cursor-pointer" title="Eliminar ítem">
-                                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                                            </svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Botón Agregar abajo -->
-                        <div class="mt-4 flex justify-center">
-                            <button type="button" @click="addItem()"
-                                class="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-white/70 hover:text-white transition-colors cursor-pointer">
-                                <span class="text-brand-red text-base leading-none">+</span> Agregar libro
-                            </button>
-                        </div>
-
-                        <p v-if="form.errors.items" class="text-brand-red text-xs mt-2">{{ form.errors.items }}</p>
-                    </div>
-
-                    <!-- Total y acciones -->
-                    <div class="flex items-center justify-between border-t border-white/10 pt-6">
-                        <div>
-                            <p class="text-[10px] text-white/40 font-black uppercase tracking-widest">TOTAL ORDEN DE COMPRA</p>
-                            <p class="text-3xl font-black text-white font-mono tracking-tight mt-1">{{ fmt(totalOrden) }}</p>
-                        </div>
-                        <div class="flex gap-4">
-                            <button type="button" @click="showModal = false"
-                                class="px-6 py-3 rounded-xl font-bold text-white/80 hover:text-white hover:bg-white/10 border border-white/20 transition-colors text-xs cursor-pointer">
-                                Cancelar
-                            </button>
-                            <button type="submit" :disabled="form.processing || form.items.length === 0"
-                                class="bg-[#e61919] hover:bg-red-700 text-white font-bold text-xs py-3 px-8 rounded-xl transition-colors shadow-none border-0 cursor-pointer">
-                                {{ isEditing ? 'Guardar cambios' : 'Crear orden' }}
-                            </button>
-                        </div>
-                    </div>
-
-                </form>
             </div>
         </div>
-    </Teleport>
+
+        <!-- Modal crear orden -->
+        <Teleport to="body">
+            <div v-if="showModal" class="page-ordenes-compra">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showModal = false" />
+                <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
+                    <div class="relative w-full max-w-3xl bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-hidden shadow-2xl pointer-events-auto">
+
+                        <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                {{ isEditing ? 'Editar' : 'Nueva' }} Orden de Compra
+                            </h3>
+                            <button @click="showModal = false" class="text-zinc-400 hover:text-white transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <form @submit.prevent="submitOrden" class="p-6 space-y-4">
+
+                            <!-- Inline Error Alert -->
+                            <div v-if="modalError" class="bg-rose-500/10 border border-rose-500/20 text-rose-400 p-4 rounded-xl flex items-center justify-between text-xs font-semibold">
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                                    </svg>
+                                    <span>{{ modalError }}</span>
+                                </div>
+                                <button type="button" @click="modalError = ''" class="text-rose-400 hover:text-white transition-colors">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+                                </button>
+                            </div>
+
+                            <!-- Proveedor & Sucursal -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">PROVEEDOR *</label>
+                                    <SearchableSelect
+                                        v-model="form.proveedor_id"
+                                        :options="proveedores"
+                                        placeholder="-- Seleccionar Proveedor --"
+                                        :required="true"
+                                    />
+                                    <p v-if="form.errors.proveedor_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.proveedor_id }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">SUCURSAL DESTINO *</label>
+                                    <SearchableSelect
+                                        v-model="form.sucursal_id"
+                                        :options="sucursales"
+                                        placeholder="-- Seleccionar Sucursal --"
+                                        :required="true"
+                                    />
+                                    <p v-if="form.errors.sucursal_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.sucursal_id }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Observaciones -->
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 mb-1">OBSERVACIONES</label>
+                                <input v-model="form.observaciones" type="text" placeholder="Observaciones"
+                                    class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" />
+                            </div>
+
+                            <!-- Items -->
+                            <div>
+                                <div class="flex items-center justify-between mb-2">
+                                    <label class="block text-xs font-semibold text-zinc-400">ÍTEMS DE LA ORDEN *</label>
+                                </div>
+
+                                <div v-if="form.items.length === 0" class="text-center text-zinc-500 text-xs font-semibold py-8 border border-dashed border-white/10 rounded-2xl">
+                                    Agrega al menos un libro a la orden de compra
+                                </div>
+
+                                <div v-else class="bg-[#131316] border border-white/5 rounded-2xl p-4 shadow-xl space-y-3">
+                                    <!-- Items Header Grid -->
+                                    <div class="hidden sm:grid grid-cols-12 gap-3 text-xs font-semibold uppercase tracking-wider text-zinc-400 pb-2 border-b border-white/5 px-1">
+                                        <div class="col-span-5">LIBRO A PEDIR</div>
+                                        <div class="col-span-2">CANTIDAD</div>
+                                        <div class="col-span-2">PRECIO UNIT.</div>
+                                        <div class="col-span-2 text-right">SUBTOTAL</div>
+                                        <div class="col-span-1"></div>
+                                    </div>
+
+                                    <div class="divide-y divide-white/5 space-y-3 sm:space-y-0">
+                                        <div v-for="(item, i) in form.items" :key="i" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center pt-3 first:pt-0 pb-3 last:pb-0 px-1">
+
+                                            <!-- Libro dropdown -->
+                                            <div class="col-span-1 sm:col-span-5 relative">
+                                                <button type="button" @click="openItemDd(i)"
+                                                    class="w-full flex items-center justify-between bg-[#0d0d0f] border border-white/10 text-white text-xs font-bold rounded-xl px-4 py-2.5">
+                                                    <span class="truncate">{{ itemLabels[i] || 'Seleccionar libro' }}</span>
+                                                    <svg class="w-4 h-4 text-zinc-500 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                                                </button>
+                                                <p v-if="item.reservas > 0" class="text-xs text-amber-400 mt-1 font-semibold">
+                                                    ⚡ ¡Hay {{ item.reservas }} tomo(s) en preventa!
+                                                </p>
+                                                <div v-if="itemDdOpen[i]" @click.stop class="absolute z-50 mt-1 w-full bg-[#131316] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
+                                                    <div class="p-2 border-b border-white/5">
+                                                        <input
+                                                            :value="itemSearches[i]"
+                                                            @input="itemSearches[i] = $event.target.value; searchLibros(i, $event.target.value)"
+                                                            type="text" placeholder="Buscar por título o ISBN…"
+                                                            class="w-full bg-[#0d0d0f] text-white placeholder-zinc-500 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none"
+                                                        />
+                                                    </div>
+                                                    <div class="max-h-40 overflow-y-auto">
+                                                        <div v-if="itemLoadings[i]" class="px-3 py-3 text-zinc-500 text-xs text-center">Cargando libros…</div>
+                                                        <div v-else-if="!itemResults[i] || itemResults[i].length === 0" class="px-3 py-3 text-zinc-500 text-xs text-center">No hay libros para este proveedor.</div>
+                                                        <template v-else>
+                                                            <button v-for="l in itemResults[i]" :key="l.id" type="button"
+                                                                @click="selectItemLibro(i, l)"
+                                                                class="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 transition-colors flex justify-between items-center"
+                                                                :class="{ 'text-white font-bold': item.libro_id == l.id }">
+                                                                <span class="truncate pr-2">{{ l.titulo }}</span>
+                                                                <div class="flex items-center gap-2 text-xs font-semibold shrink-0">
+                                                                    <span class="text-zinc-500">Stock: {{ l.stock }}</span>
+                                                                    <span v-if="l.reservas > 0" class="bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded-lg border border-amber-400/30">
+                                                                        Reservas: {{ l.reservas }}
+                                                                    </span>
+                                                                </div>
+                                                            </button>
+                                                        </template>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Cantidad -->
+                                            <div class="col-span-1 sm:col-span-2">
+                                                <input v-model.number="item.cantidad" type="number" min="1" placeholder="Ej: 10"
+                                                    class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 text-center" />
+                                            </div>
+
+                                            <!-- Precio unitario -->
+                                            <div class="col-span-1 sm:col-span-2">
+                                                <div class="relative flex items-center">
+                                                    <span class="absolute left-3 text-xs font-bold text-zinc-500 pointer-events-none">$</span>
+                                                    <input v-model.number="item.precio_unitario" type="number" min="0" step="0.01" placeholder="0.00"
+                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-6 pr-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 font-mono" />
+                                                </div>
+                                            </div>
+
+                                            <!-- Subtotal -->
+                                            <div class="col-span-1 sm:col-span-2 text-right font-mono text-xs font-bold text-white">
+                                                {{ fmt(item.cantidad * item.precio_unitario) }}
+                                            </div>
+
+                                            <!-- Remove -->
+                                            <div class="col-span-1 flex justify-end">
+                                                <button type="button" @click="removeItem(i)"
+                                                    class="p-2 text-zinc-500 hover:text-rose-400 transition-colors" title="Eliminar ítem">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Botón Agregar abajo -->
+                                <div class="mt-3 flex justify-center">
+                                    <button type="button" @click="addItem()"
+                                        class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs font-bold text-zinc-300 hover:text-white transition-all">
+                                        <span class="text-white text-base leading-none">+</span> Agregar libro
+                                    </button>
+                                </div>
+
+                                <p v-if="form.errors.items" class="text-rose-400 text-xs font-semibold mt-2">{{ form.errors.items }}</p>
+                            </div>
+
+                            <div class="mt-6 flex justify-between items-center border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
+                                <div>
+                                    <p class="text-xs uppercase font-semibold text-zinc-400">TOTAL ORDEN DE COMPRA</p>
+                                    <p class="text-2xl font-bold text-white font-mono tracking-tight mt-0.5">{{ fmt(totalOrden) }}</p>
+                                </div>
+                                <div class="flex gap-3">
+                                    <button type="button" @click="showModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">
+                                        Cancelar
+                                    </button>
+                                    <button type="submit" :disabled="form.processing || form.items.length === 0" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                        <span>{{ isEditing ? 'Guardar cambios' : 'Crear orden' }}</span>
+                                    </button>
+                                </div>
+                            </div>
+
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+    </AuthenticatedLayout>
 </template>
 
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+.page-ordenes-compra,
+.page-ordenes-compra * {
+    font-family: 'Montserrat', sans-serif !important;
+}
+</style>

@@ -89,6 +89,62 @@ class ClienteController extends Controller
     }
 
     /**
+     * Store a client quickly via AJAX (e.g. from POS terminal).
+     */
+    public function storeRapido(Request $request)
+    {
+        $request->validate([
+            'nombre'   => 'required|string|max:255',
+            'apellido' => 'required|string|max:255',
+            'email'    => 'required|email|unique:users,email',
+            'dni'      => 'required|string|unique:users,dni',
+        ], [
+            'nombre.required'   => 'El nombre es obligatorio.',
+            'apellido.required' => 'El apellido es obligatorio.',
+            'email.required'    => 'El email es obligatorio.',
+            'email.email'       => 'El formato del email no es válido.',
+            'email.unique'      => 'El email ingresado ya se encuentra registrado.',
+            'dni.required'      => 'El DNI / CUIT es obligatorio.',
+            'dni.unique'        => 'El DNI / CUIT ingresado ya se encuentra registrado.',
+        ]);
+
+        $cliente = DB::transaction(function() use ($request) {
+            $user = \App\Models\User::create([
+                'name'     => $request->nombre,
+                'apellido' => $request->apellido,
+                'email'    => $request->email,
+                'dni'      => $request->dni,
+                'password' => \Hash::make($request->dni),
+                'activo'   => true,
+            ]);
+
+            $tipoClienteId = \App\Models\TipoCliente::first()?->id ?? 1;
+
+            return $user->cliente()->create([
+                'tipo_cliente_id' => $tipoClienteId,
+                'estado_abono'    => 'Activo',
+                'saldo_actual'    => 0,
+            ]);
+        });
+
+        $cliente->load('user:id,name,apellido,email,dni');
+
+        return response()->json([
+            'message' => 'Cliente creado con éxito',
+            'cliente' => [
+                'id'           => $cliente->id,
+                'saldo_actual' => $cliente->saldo_actual,
+                'user'         => [
+                    'name'     => $cliente->user->name,
+                    'apellido' => $cliente->user->apellido,
+                    'email'    => $cliente->user->email,
+                    'dni'      => $cliente->user->dni,
+                ],
+            ]
+        ]);
+    }
+
+    /**
      * Update the specified resource in storage.
      */
     public function update(UpdateClienteRequest $request, Cliente $cliente)
@@ -244,7 +300,7 @@ class ClienteController extends Controller
 
         $pdf = Pdf::loadView('pdf.resumen_cliente', compact('cliente', 'historial'));
 
-        return $pdf->download('Resumen_Cuenta_' . $cliente->user->apellido . '.pdf');
+        return $pdf->stream('Resumen_Cuenta_' . $cliente->user->apellido . '.pdf', ['Attachment' => false]);
     }
 
     public function consolidarPedidos(Request $request, Cliente $cliente)

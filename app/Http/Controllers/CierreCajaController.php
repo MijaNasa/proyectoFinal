@@ -126,7 +126,14 @@ class CierreCajaController extends Controller
             ->whereDate('fecha', $cierreCaja->fecha)
             ->get();
 
-        $totalesMetodo = [
+        $facturado = [
+            'Efectivo' => 0,
+            'Tarjeta' => 0,
+            'Transferencia' => 0,
+            'Cuenta Corriente' => 0,
+        ];
+        
+        $egresos = [
             'Efectivo' => 0,
             'Tarjeta' => 0,
             'Transferencia' => 0,
@@ -136,12 +143,18 @@ class CierreCajaController extends Controller
         $movimientosManuales = [];
 
         foreach ($transacciones as $t) {
-            $signo = $t->tipo === 'ingreso' ? 1 : -1;
-            
-            if (array_key_exists($t->metodo_pago, $totalesMetodo)) {
-                $totalesMetodo[$t->metodo_pago] += ($t->monto * $signo);
+            if ($t->tipo === 'ingreso') {
+                if (array_key_exists($t->metodo_pago, $facturado)) {
+                    $facturado[$t->metodo_pago] += $t->monto;
+                } else {
+                    $facturado[$t->metodo_pago] = $t->monto;
+                }
             } else {
-                $totalesMetodo[$t->metodo_pago] = ($t->monto * $signo);
+                if (array_key_exists($t->metodo_pago, $egresos)) {
+                    $egresos[$t->metodo_pago] += $t->monto;
+                } else {
+                    $egresos[$t->metodo_pago] = $t->monto;
+                }
             }
 
             if (!str_starts_with($t->descripcion, '[Venta #')) {
@@ -158,7 +171,8 @@ class CierreCajaController extends Controller
 
         return response()->json([
             'cierre' => $cierreCaja,
-            'totales_metodo' => $totalesMetodo,
+            'facturado_metodo' => $facturado,
+            'egresos_metodo' => $egresos,
             'movimientos_manuales' => $movimientosManuales
         ]);
     }

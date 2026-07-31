@@ -181,6 +181,6 @@ class GastoController extends Controller
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.gastos', compact('gastos', 'desde', 'hasta', 'sucursal', 'categoria', 'stats'));
         
-        return $pdf->download('reporte_gastos_' . now()->format('Ymd_His') . '.pdf');
+        return $pdf->stream('reporte_gastos_' . now()->format('Ymd_His') . '.pdf', ['Attachment' => false]);
     }
 }

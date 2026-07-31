@@ -72,7 +72,7 @@ const toggleGroup = (group) => {
             </nav>
 
             <!-- Content Area -->
-            <main class="flex-1 overflow-y-auto relative scroll-smooth bg-brand-black">
+            <main class="flex-1 overflow-y-auto [scrollbar-gutter:stable] relative scroll-smooth bg-brand-black">
                 <!-- Page Heading -->
                 <header class="bg-brand-black border-b border-white/5" v-if="$slots.header">
                     <div class="mx-auto max-w-7xl px-6 h-20 flex items-center justify-between">

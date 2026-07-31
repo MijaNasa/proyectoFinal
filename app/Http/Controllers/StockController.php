@@ -56,17 +56,17 @@ class StockController extends Controller
                     'master.autor:id,apellido',
                 ])
                 ->has('master')
-                ->select(['id', 'master_id', 'isbn'])
+                ->select(['id', 'master_id', 'isbn', 'numero_tomo'])
                 ->get()
                 ->map(function($l) {
                     $titulo = $l->master?->titulo ?? 'Sin título';
-                    $autor = $l->master?->autor?->apellido ?? '';
+                    $tomoStr = $l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : '';
                     return [
                         'id'     => $l->id,
-                        'label'  => $titulo . ' (' . ($l->isbn ?: 'S/I') . ')',
-                        'titulo' => $titulo,
+                        'label'  => $titulo . $tomoStr,
+                        'titulo' => $titulo . $tomoStr,
                         'isbn'   => $l->isbn,
-                        'autor'  => $autor,
+                        'autor'  => $l->master?->autor?->apellido ?? '',
                     ];
                 }),
             'stocksExistentes' => \App\Models\Stock::select(['id', 'libro_id', 'sucursal_id', 'cantidad_disponible'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->get(),

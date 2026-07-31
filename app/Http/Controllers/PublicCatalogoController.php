@@ -179,6 +179,8 @@ class PublicCatalogoController extends Controller
                     'titulo' => ($libro->master?->titulo ?? '') . ($libro->numero_tomo ? ' - Tomo ' . $libro->numero_tomo : ''),
                     'portada_url' => $libro->portada_url,
                     'precio' => $precio ? '$' . number_format($precio, 2, ',', '.') : 'Consultar',
+                    'precio_original' => ($libro->permite_preventa && $libro->precioActual?->precio_venta) ? '$' . number_format($libro->precioActual->precio_venta, 2, ',', '.') : null,
+                    'es_preventa' => (bool) $libro->permite_preventa,
                 ];
             });
 

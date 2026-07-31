@@ -45,6 +45,20 @@ const toggleMaster = (masterId) => {
     }
 };
 
+const darkSwal = Swal.mixin({
+    background: '#131316',
+    color: '#ffffff',
+    buttonsStyling: false,
+    customClass: {
+        popup: 'border border-white/10 rounded-2xl p-6 shadow-2xl bg-[#131316] page-catalogo',
+        title: 'text-xl font-bold text-white tracking-tight',
+        htmlContainer: 'text-sm text-zinc-300 font-medium mt-2 leading-relaxed',
+        confirmButton: 'px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md active:scale-95 mx-1 cursor-pointer',
+        cancelButton: 'px-6 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-sm border border-white/10 transition-all active:scale-95 mx-1 cursor-pointer',
+        actions: 'mt-6 flex items-center justify-end gap-2'
+    }
+});
+
 // --- LOGICA DE OBRA (LibroMaster) ---
 const showObraModal = ref(false);
 const isEditingObra = ref(false);
@@ -111,30 +125,23 @@ const openObraModal = (obra = null) => {
 };
 
 const agregarAutor = () => {
-    Swal.fire({
+    darkSwal.fire({
         title: 'Agregar nuevo autor',
         html: `
             <div class="space-y-4 text-left">
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
-                    <input id="swal-autor-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Eiichiro">
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Nombre *</label>
+                    <input id="swal-autor-nombre" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Eiichiro">
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Apellido *</label>
-                    <input id="swal-autor-apellido" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Oda">
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Apellido *</label>
+                    <input id="swal-autor-apellido" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Oda">
                 </div>
             </div>
         `,
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
-        reverseButtons: true,
-        customClass: {
-            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
-            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
-        },
-        buttonsStyling: false,
-        background: '#1A1A1A', color: '#FFF',
         focusConfirm: false,
         preConfirm: async () => {
             const popup = Swal.getPopup();
@@ -164,7 +171,7 @@ const agregarAutor = () => {
             const createdItem = result.value;
             autoresLocal.value.push(createdItem);
             obraForm.autor_id = createdItem.id;
-            Swal.fire({ title: 'Autor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            darkSwal.fire({ title: 'Autor Creado', icon: 'success', timer: 1500, showConfirmButton: false });
             router.reload({
                 only: ['autores'],
                 onSuccess: () => {
@@ -176,24 +183,17 @@ const agregarAutor = () => {
 };
 
 const agregarCategoria = () => {
-    Swal.fire({
+    darkSwal.fire({
         title: 'Agregar nueva categoría',
         html: `
             <div class="text-left">
-                <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
-                <input id="swal-cat-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Shonen">
+                <label class="text-xs font-semibold text-zinc-400 block mb-1">Nombre *</label>
+                <input id="swal-cat-nombre" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Shonen">
             </div>
         `,
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
-        reverseButtons: true,
-        customClass: {
-            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
-            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
-        },
-        buttonsStyling: false,
-        background: '#1A1A1A', color: '#FFF',
         focusConfirm: false,
         preConfirm: async () => {
             const popup = Swal.getPopup();
@@ -221,7 +221,7 @@ const agregarCategoria = () => {
             const createdItem = result.value;
             categoriasLocal.value.push(createdItem);
             obraForm.categoria_id = createdItem.id;
-            Swal.fire({ title: 'Categoría Creada', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            darkSwal.fire({ title: 'Categoría Creada', icon: 'success', timer: 1500, showConfirmButton: false });
             router.reload({
                 only: ['categorias'],
                 onSuccess: () => {
@@ -233,57 +233,44 @@ const agregarCategoria = () => {
 };
 
 const agregarProveedor = () => {
-    Swal.fire({
+    darkSwal.fire({
         title: 'Agregar nuevo proveedor',
         html: `
             <div class="space-y-4 text-left">
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre de Empresa *</label>
-                    <input id="swal-prov-nombre_empresa" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Ivrea">
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Nombre de Empresa *</label>
+                    <input id="swal-prov-nombre_empresa" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Ivrea">
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Email de Contacto *</label>
-                    <input id="swal-prov-email" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="email" placeholder="Ej: contacto@proveedor.com">
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Email de Contacto *</label>
+                    <input id="swal-prov-email" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="email" placeholder="Ej: contacto@proveedor.com">
                 </div>
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Teléfono *</label>
-                    <input id="swal-prov-telefono" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: 1122334455">
-                </div>
-                <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Dirección *</label>
-                    <input id="swal-prov-direccion" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Av. Siempreviva 123">
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Teléfono *</label>
+                    <input id="swal-prov-telefono" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: 1122334455">
                 </div>
             </div>
         `,
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
-        reverseButtons: true,
-        customClass: {
-            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
-            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
-        },
-        buttonsStyling: false,
-        background: '#1A1A1A', color: '#FFF',
         focusConfirm: false,
         preConfirm: async () => {
             const popup = Swal.getPopup();
-            const nombreEmpresaInput = popup ? popup.querySelector('#swal-prov-nombre_empresa') : null;
+            const empInput = popup ? popup.querySelector('#swal-prov-nombre_empresa') : null;
             const emailInput = popup ? popup.querySelector('#swal-prov-email') : null;
-            const telefonoInput = popup ? popup.querySelector('#swal-prov-telefono') : null;
-            const direccionInput = popup ? popup.querySelector('#swal-prov-direccion') : null;
-
-            const nombre_empresa = nombreEmpresaInput ? nombreEmpresaInput.value.trim() : '';
-            const email = emailInput ? emailInput.value.trim() : '';
-            const telefono = telefonoInput ? telefonoInput.value.trim() : '';
-            const direccion = direccionInput ? direccionInput.value.trim() : '';
+            const telInput = popup ? popup.querySelector('#swal-prov-telefono') : null;
             
-            if (!nombre_empresa || !email || !telefono || !direccion) {
-                Swal.showValidationMessage('Todos los campos son obligatorios');
+            const nombre_empresa = empInput ? empInput.value.trim() : '';
+            const email = emailInput ? emailInput.value.trim() : '';
+            const telefono = telInput ? telInput.value.trim() : '';
+            
+            if (!nombre_empresa || !email || !telefono) {
+                Swal.showValidationMessage('Nombre de Empresa, Email y Teléfono son obligatorios');
                 return false;
             }
             try {
-                const res = await window.axios.post('/catalogo/ajustes/proveedores', { nombre_empresa, email, telefono, direccion }, {
+                const res = await window.axios.post('/catalogo/ajustes/proveedores', { nombre_empresa, email, telefono }, {
                     headers: { 'Accept': 'application/json' }
                 });
                 const createdItem = res.data.model || res.data.data;
@@ -300,7 +287,7 @@ const agregarProveedor = () => {
             const createdItem = result.value;
             proveedoresLocal.value.push(createdItem);
             obraForm.proveedor_id = createdItem.id;
-            Swal.fire({ title: 'Proveedor Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            darkSwal.fire({ title: 'Proveedor Creado', icon: 'success', timer: 1500, showConfirmButton: false });
             router.reload({
                 only: ['proveedores'],
                 onSuccess: () => {
@@ -312,30 +299,21 @@ const agregarProveedor = () => {
 };
 
 const agregarIdioma = () => {
-    Swal.fire({
+    darkSwal.fire({
         title: 'Agregar nuevo idioma',
         html: `
-            <div class="space-y-4 text-left">
-                <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre *</label>
-                    <input id="swal-id-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: Japonés">
-                </div>
+            <div class="text-left">
+                <label class="text-xs font-semibold text-zinc-400 block mb-1">Nombre *</label>
+                <input id="swal-idioma-nombre" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Japonés">
             </div>
         `,
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
-        reverseButtons: true,
-        customClass: {
-            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
-            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
-        },
-        buttonsStyling: false,
-        background: '#1A1A1A', color: '#FFF',
         focusConfirm: false,
         preConfirm: async () => {
             const popup = Swal.getPopup();
-            const nombreInput = popup ? popup.querySelector('#swal-id-nombre') : null;
+            const nombreInput = popup ? popup.querySelector('#swal-idioma-nombre') : null;
             const nombre = nombreInput ? nombreInput.value.trim() : '';
             if (!nombre) {
                 Swal.showValidationMessage('El nombre es obligatorio');
@@ -359,7 +337,7 @@ const agregarIdioma = () => {
             const createdItem = result.value;
             idiomasLocal.value.push(createdItem);
             obraForm.idioma_id = createdItem.id;
-            Swal.fire({ title: 'Idioma Creado', icon: 'success', timer: 1500, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            darkSwal.fire({ title: 'Idioma Creado', icon: 'success', timer: 1500, showConfirmButton: false });
             router.reload({
                 only: ['idiomas'],
                 onSuccess: () => {
@@ -371,99 +349,73 @@ const agregarIdioma = () => {
 };
 
 const agregarFormato = () => {
-    Swal.fire({
+    darkSwal.fire({
         title: 'Agregar nuevo formato',
         html: `
             <div class="text-left">
-                <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nombre del Formato *</label>
-                <input id="swal-formato-nombre" class="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-sm text-white mt-1" type="text" placeholder="Ej: A4, Deluxe...">
+                <label class="text-xs font-semibold text-zinc-400 block mb-1">Nombre del Formato *</label>
+                <input id="swal-formato-nombre" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Hardcover">
             </div>
         `,
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
-        reverseButtons: true,
-        customClass: {
-            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
-            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
-        },
-        buttonsStyling: false,
-        background: '#1A1A1A', color: '#FFF',
         focusConfirm: false,
         preConfirm: () => {
-            const popup = Swal.getPopup();
-            const nombreInput = popup ? popup.querySelector('#swal-formato-nombre') : null;
-            const nombre = nombreInput ? nombreInput.value.trim() : '';
-            if (!nombre) {
-                Swal.showValidationMessage('El nombre es obligatorio');
+            const val = Swal.getPopup().querySelector('#swal-formato-nombre').value.trim();
+            if (!val) {
+                Swal.showValidationMessage('El nombre del formato es obligatorio');
                 return false;
             }
-            return nombre;
+            return val;
         }
     }).then((result) => {
         if (result.isConfirmed && result.value) {
-            const nuevo = result.value;
-            if (!formatosLocal.value.includes(nuevo)) {
-                formatosLocal.value.unshift(nuevo);
+            const nuevoFormato = result.value;
+            if (!formatosLocal.value.includes(nuevoFormato)) {
+                formatosLocal.value.push(nuevoFormato);
             }
-            obraForm.formato = nuevo;
-            Swal.fire({ title: 'Formato Añadido', icon: 'success', timer: 1000, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+            obraForm.formato = nuevoFormato;
+            darkSwal.fire({ title: 'Formato Añadido', icon: 'success', timer: 1200, showConfirmButton: false });
         }
     });
 };
 
 const submitObra = () => {
     if (isEditingObra.value) {
-        obraForm.put(route('libro-masters.update', obraForm.id), {
+        obraForm.post(route('obras.update', obraForm.id), {
+            preserveScroll: true,
             onSuccess: () => {
                 showObraModal.value = false;
-                Swal.fire({ title: '¡Éxito!', text: 'Obra actualizada correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
-            },
-            onError: (errors) => {
-                let errorMsg = Object.values(errors).join('\n');
-                if (errorMsg.includes('required') || errorMsg.includes('requerido')) {
-                    errorMsg = 'Por favor completa todos los campos obligatorios.';
-                }
-                Swal.fire({ title: 'Error de Validación', text: errorMsg, icon: 'error', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+                darkSwal.fire({ title: '¡Éxito!', text: 'Producto actualizado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
             }
         });
     } else {
-        obraForm.post(route('libro-masters.store'), {
+        obraForm.post(route('obras.store'), {
+            preserveScroll: true,
             onSuccess: () => {
                 showObraModal.value = false;
                 obraForm.reset();
-                Swal.fire({ title: '¡Éxito!', text: 'Nueva obra registrada correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
-            },
-            onError: (errors) => {
-                let errorMsg = Object.values(errors).join('\n');
-                if (errorMsg.includes('required') || errorMsg.includes('requerido')) {
-                    errorMsg = 'Por favor completa todos los campos obligatorios.';
-                }
-                Swal.fire({ title: 'Error de Validación', text: errorMsg, icon: 'error', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+                darkSwal.fire({ title: '¡Éxito!', text: 'Producto creado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
             }
         });
     }
 };
 
 const deleteObra = (id) => {
-    Swal.fire({
-        title: '¿Eliminar serie?',
-        text: "Esto eliminará la serie y todos sus tomos asociados.",
+    darkSwal.fire({
+        title: '¿Eliminar producto?',
+        text: "Esto eliminará el producto y todos sus tomos/variantes asociados.",
         icon: 'warning',
-        iconColor: '#E61919',
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar',
-        background: '#1A1A1A', color: '#FFF'
     }).then((result) => {
         if (result.isConfirmed) {
-            obraForm.delete(route('libro-masters.destroy', id));
+            obraForm.delete(route('obras.destroy', id));
         }
     });
 };
-
 
 // --- LOGICA DE TOMO (Libro) ---
 const showTomoModal = ref(false);
@@ -472,27 +424,15 @@ const currentStocks = ref({});
 
 const tomoForm = useForm({
     id: null,
+    master_id: null,
     isbn: '',
-    master_id: '',
     numero_tomo: '',
     año_edicion: '',
     cantidad_paginas: '',
     activo: true,
     permite_preventa: false,
-    precio_compra: 0,
     precio_venta: 0,
-});
-
-watch(() => tomoForm.precio_venta, (val) => {
-    if (val !== null && val !== undefined) {
-        const str = val.toString();
-        if (str.includes('.')) {
-            const dec = str.split('.')[1];
-            if (dec && dec.length > 2) {
-                tomoForm.precio_venta = parseFloat(parseFloat(val).toFixed(2));
-            }
-        }
-    }
+    precio_compra: 0,
 });
 
 const openTomoModal = (tomo = null, masterId = null) => {
@@ -522,7 +462,7 @@ const openTomoModal = (tomo = null, masterId = null) => {
         isEditingTomo.value = false;
         currentStocks.value = {};
         tomoForm.reset();
-        tomoForm.master_id = masterId; // Pre-seleccionar la obra
+        tomoForm.master_id = masterId;
     }
     showTomoModal.value = true;
 };
@@ -540,7 +480,7 @@ const submitTomo = () => {
         tomoForm.put(route('libros.update', tomoForm.id), {
             onSuccess: () => {
                 showTomoModal.value = false;
-                Swal.fire({ title: '¡Éxito!', text: 'Tomo actualizado correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+                darkSwal.fire({ title: '¡Éxito!', text: 'Tomo actualizado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
             }
         });
     } else {
@@ -548,24 +488,20 @@ const submitTomo = () => {
             onSuccess: () => {
                 showTomoModal.value = false;
                 tomoForm.reset();
-                Swal.fire({ title: '¡Éxito!', text: 'Nuevo tomo registrado correctamente', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+                darkSwal.fire({ title: '¡Éxito!', text: 'Nuevo tomo registrado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
             }
         });
     }
 };
 
 const deleteTomo = (id) => {
-    Swal.fire({
+    darkSwal.fire({
         title: '¿Eliminar tomo?',
         text: "Esto eliminará únicamente el tomo específico, la serie se mantendrá",
         icon: 'warning',
-        iconColor: '#E61919',
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar',
-        background: '#1A1A1A', color: '#FFF'
     }).then((result) => {
         if (result.isConfirmed) {
             tomoForm.delete(route('libros.destroy', id));
@@ -578,7 +514,6 @@ const formatCurrency = (value) => {
 };
 
 const quickEditPrice = async (libro) => {
-    // Cambiamos temporalmente el cursor a cargando en el body
     document.body.style.cursor = 'wait';
     let historialHtml = '';
     try {
@@ -589,19 +524,19 @@ const quickEditPrice = async (libro) => {
             historialHtml = historial.map(h => `
                 <div class="flex justify-between items-center py-2 border-b border-white/5 last:border-0 text-xs">
                     <div>
-                        <span class="font-black text-white">${formatCurrency(h.precio_venta)}</span>
-                        ${h.activo ? '<span class="ml-2 text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded-full border border-emerald-500/20">Actual</span>' : ''}
-                        ${h.motivo ? `<p class="text-[10px] text-white/30 mt-0.5 mt-1">${h.motivo}</p>` : ''}
+                        <span class="font-bold text-white">${formatCurrency(h.precio_venta)}</span>
+                        ${h.activo ? '<span class="ml-2 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Actual</span>' : ''}
+                        ${h.motivo ? `<p class="text-[11px] text-zinc-400 mt-0.5">${h.motivo}</p>` : ''}
                     </div>
-                    <span class="text-[10px] text-white/40 font-bold">${new Date(h.fecha_desde).toLocaleDateString('es-AR')}</span>
+                    <span class="text-[11px] text-zinc-400 font-medium">${new Date(h.fecha_desde).toLocaleDateString('es-AR')}</span>
                 </div>
             `).join('');
         } else {
-            historialHtml = '<p class="text-white/20 text-xs italic text-center py-2">Sin historial registrado</p>';
+            historialHtml = '<p class="text-zinc-500 text-xs italic text-center py-2">Sin historial registrado</p>';
         }
     } catch (e) {
         console.error("Error al cargar historial", e);
-        historialHtml = '<p class="text-red-400 text-xs italic text-center py-2">Error al cargar historial</p>';
+        historialHtml = '<p class="text-rose-400 text-xs italic text-center py-2">Error al cargar historial</p>';
     } finally {
         document.body.style.cursor = 'default';
     }
@@ -609,21 +544,21 @@ const quickEditPrice = async (libro) => {
     const currentPrice = libro.precios?.find(p => p.activo);
     const precioVenta = currentPrice ? parseFloat(currentPrice.precio_venta).toFixed(2) : '';
 
-    Swal.fire({
+    darkSwal.fire({
         title: 'Actualizar Precio',
         html: `
             <div class="space-y-4 text-left">
                 <div>
-                    <label class="text-[10px] uppercase font-black tracking-widest text-white/40">Nuevo Precio de Venta *</label>
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Nuevo Precio de Venta *</label>
                     <div class="relative mt-1">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/50 text-base font-bold">$</span>
-                        <input id="swal-quick-precio" class="w-full bg-black/40 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-base text-white font-bold focus:outline-none focus:border-brand-red/50" type="number" step="0.01" min="0" value="${precioVenta}" placeholder="0.00">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-400 text-base font-bold">$</span>
+                        <input id="swal-quick-precio" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-base text-white font-bold focus:outline-none focus:border-white/30" type="number" step="0.01" min="0" value="${precioVenta}" placeholder="0.00">
                     </div>
                 </div>
 
                 <div class="border-t border-white/10 pt-4">
-                    <label class="block text-[10px] uppercase font-black tracking-widest text-white/40 mb-2">Historial de Precios</label>
-                    <div class="max-h-40 overflow-y-auto space-y-1 bg-black/30 p-3 rounded-lg border border-white/5 pr-2">
+                    <label class="block text-xs font-semibold text-zinc-400 mb-2">Historial de Precios</label>
+                    <div class="max-h-40 overflow-y-auto space-y-1 bg-[#131316] p-3 rounded-xl border border-white/5 pr-2">
                         ${historialHtml}
                     </div>
                 </div>
@@ -632,14 +567,6 @@ const quickEditPrice = async (libro) => {
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
-        reverseButtons: true,
-        customClass: {
-            title: 'text-lg font-black uppercase tracking-tight text-white pt-6',
-            confirmButton: 'px-5 py-2.5 bg-brand-red hover:bg-red-700 text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors ml-3',
-            cancelButton: 'px-5 py-2.5 bg-transparent hover:bg-white/[0.05] text-white/60 hover:text-white rounded-lg font-bold text-xs uppercase tracking-wider transition-colors border border-white/10'
-        },
-        buttonsStyling: false,
-        background: '#1A1A1A', color: '#FFF',
         preConfirm: () => {
             const val = Swal.getPopup().querySelector('#swal-quick-precio').value;
             if (!val || val <= 0) {
@@ -656,10 +583,10 @@ const quickEditPrice = async (libro) => {
             }, {
                 preserveScroll: true,
                 onSuccess: () => {
-                    Swal.fire({ title: '¡Éxito!', text: 'Precio actualizado correctamente.', icon: 'success', timer: 1200, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                    darkSwal.fire({ title: '¡Éxito!', text: 'Precio actualizado correctamente.', icon: 'success', timer: 1200, showConfirmButton: false });
                 },
                 onError: (errors) => {
-                    Swal.fire({ title: 'Error', text: Object.values(errors).join('\n') || 'Error al guardar el precio', icon: 'error', background: '#1A1A1A', color: '#FFF' });
+                    darkSwal.fire({ title: 'Error', text: Object.values(errors).join('\n') || 'Error al guardar el precio', icon: 'error' });
                 }
             });
         }
@@ -667,23 +594,19 @@ const quickEditPrice = async (libro) => {
 };
 
 const deshabilitarPreventasMassive = () => {
-    Swal.fire({
+    darkSwal.fire({
         title: '¿Deshabilitar Preventas?',
         text: "Esto desactivará la preventa de todos los tomos activos inmediatamente.",
         icon: 'warning',
-        iconColor: '#E61919',
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Sí, deshabilitar',
         cancelButtonText: 'Cancelar',
-        background: '#1A1A1A', color: '#FFF'
     }).then((result) => {
         if (result.isConfirmed) {
             router.post(route('libros.deshabilitar-preventas'), {}, {
                 preserveScroll: true,
                 onSuccess: () => {
-                    Swal.fire({ title: '¡Éxito!', text: 'Todas las preventas han sido deshabilitadas.', icon: 'success', timer: 2000, showConfirmButton: false, background: '#1A1A1A', color: '#FFF' });
+                    darkSwal.fire({ title: '¡Éxito!', text: 'Todas las preventas han sido deshabilitadas.', icon: 'success', timer: 2000, showConfirmButton: false });
                 }
             });
         }
@@ -730,11 +653,10 @@ const openBulkModal = async () => {
             opcionesMasivasLocal.value = await res.json();
         } catch (e) {
             console.error("Error al cargar opciones masivas", e);
-            Swal.fire({
+            darkSwal.fire({
                 title: 'Error',
                 text: 'No se pudieron obtener las opciones del catálogo.',
-                icon: 'error',
-                background: '#1A1A1A', color: '#FFF'
+                icon: 'error'
             });
         } finally {
             loadingOpciones.value = false;
@@ -748,57 +670,49 @@ const bulkForm = useForm({
     proveedor: '',
     formato: '',
     libro_id: '',
-    nuevo_precio: '',
-    motivo: 'Aumento masivo'
+    categoria_id: '',
+    nuevo_precio: ''
 });
 
-// Extraemos datos únicos desde las opciones pasadas por el backend (Lazy Loaded)
-const categoriasDisponibles = computed(() => {
-    return opcionesMasivasLocal.value?.categorias || [];
-});
-
-const seriesDisponibles = computed(() => {
-    return opcionesMasivasLocal.value?.series || [];
-});
-
-const proveedoresDisponibles = computed(() => {
-    return opcionesMasivasLocal.value?.proveedores || [];
-});
-
-const formatosDisponibles = computed(() => {
-    if (bulkForm.proveedor && opcionesMasivasLocal.value?.proveedoresFormatos) {
-        return opcionesMasivasLocal.value.proveedoresFormatos[bulkForm.proveedor] || [];
-    }
-    return opcionesMasivasLocal.value?.formatos || [];
-});
-
-const librosDisponibles = computed(() => {
-    return opcionesMasivasLocal.value?.libros || [];
-});
-
-// Buscadores independientes
 const searchSerieQuery = ref('');
 const showSerieDropdown = ref(false);
-const seriesFiltradas = computed(() => {
-    if (!searchSerieQuery.value) return seriesDisponibles.value;
-    return seriesDisponibles.value.filter(s => s.toLowerCase().includes(searchSerieQuery.value.toLowerCase()));
-});
 
 const searchProveedorQuery = ref('');
 const showProveedorDropdown = ref(false);
-const proveedoresFiltrados = computed(() => {
-    if (!searchProveedorQuery.value) return proveedoresDisponibles.value;
-    return proveedoresDisponibles.value.filter(e => e.toLowerCase().includes(searchProveedorQuery.value.toLowerCase()));
-});
 
 const searchLibroQuery = ref('');
 const showLibroDropdown = ref(false);
-const librosFiltrados = computed(() => {
-    if (!searchLibroQuery.value) return librosDisponibles.value;
-    return librosDisponibles.value.filter(l => l.titulo.toLowerCase().includes(searchLibroQuery.value.toLowerCase()));
+
+const seriesFiltradas = computed(() => {
+    if (!opcionesMasivasLocal.value?.series) return [];
+    if (!searchSerieQuery.value) return opcionesMasivasLocal.value.series;
+    const q = searchSerieQuery.value.toLowerCase();
+    return opcionesMasivasLocal.value.series.filter(s => s && s.toLowerCase().includes(q));
 });
 
-// Limpiamos al cambiar de criterio
+const proveedoresFiltrados = computed(() => {
+    if (!opcionesMasivasLocal.value?.proveedores_formatos) return [];
+    const lista = Object.keys(opcionesMasivasLocal.value.proveedores_formatos);
+    if (!searchProveedorQuery.value) return lista;
+    const q = searchProveedorQuery.value.toLowerCase();
+    return lista.filter(p => p && p.toLowerCase().includes(q));
+});
+
+const formatosDisponibles = computed(() => {
+    if (!bulkForm.proveedor || !opcionesMasivasLocal.value?.proveedores_formatos) return [];
+    return opcionesMasivasLocal.value.proveedores_formatos[bulkForm.proveedor] || [];
+});
+
+const librosFiltrados = computed(() => {
+    if (!opcionesMasivasLocal.value?.libros) return [];
+    if (!searchLibroQuery.value) return opcionesMasivasLocal.value.libros;
+    const q = searchLibroQuery.value.toLowerCase();
+    return opcionesMasivasLocal.value.libros.filter(l => 
+        (l.titulo && l.titulo.toLowerCase().includes(q)) || 
+        (l.isbn && l.isbn.toLowerCase().includes(q))
+    );
+});
+
 watch(() => bulkForm.criterio, () => {
     bulkForm.categoria_id = '';
     bulkForm.serie = '';
@@ -810,60 +724,54 @@ watch(() => bulkForm.criterio, () => {
     searchLibroQuery.value = '';
 });
 
-// Limpiamos formato al cambiar de proveedor
 watch(() => bulkForm.proveedor, () => {
     bulkForm.formato = '';
 });
 
 const submitBulk = () => {
-    // 1. Forzar la captura del texto si el usuario olvidó hacer clic en el menú desplegable
     if (bulkForm.criterio === 'proveedor_formato') {
         bulkForm.proveedor = bulkForm.proveedor || searchProveedorQuery.value;
     } else if (bulkForm.criterio === 'serie') {
         bulkForm.serie = bulkForm.serie || searchSerieQuery.value;
     }
 
-    // 2. Validación manual amigable
     if (bulkForm.criterio === 'categoria' && !bulkForm.categoria_id) {
-        Swal.fire({ title: 'Atención', text: 'Seleccioná una categoría', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        darkSwal.fire({ title: 'Atención', text: 'Seleccioná una categoría', icon: 'warning' });
         return;
     }
     if (bulkForm.criterio === 'proveedor_formato' && !bulkForm.proveedor) {
-        Swal.fire({ title: 'Atención', text: 'Seleccioná al menos un proveedor', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        darkSwal.fire({ title: 'Atención', text: 'Seleccioná al menos un proveedor', icon: 'warning' });
         return;
     }
     if (bulkForm.criterio === 'serie' && !bulkForm.serie) {
-        Swal.fire({ title: 'Atención', text: 'Seleccioná un producto o serie', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        darkSwal.fire({ title: 'Atención', text: 'Seleccioná un producto o serie', icon: 'warning' });
         return;
     }
     if (bulkForm.criterio === 'libro_individual' && !bulkForm.libro_id) {
-        Swal.fire({ title: 'Atención', text: 'Seleccioná un producto individual', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        darkSwal.fire({ title: 'Atención', text: 'Seleccioná un producto individual', icon: 'warning' });
         return;
     }
     if (!bulkForm.nuevo_precio || bulkForm.nuevo_precio <= 0) {
-        Swal.fire({ title: 'Atención', text: 'Ingresá un precio válido mayor a 0', icon: 'warning', background: '#1A1A1A', color: '#FFF' });
+        darkSwal.fire({ title: 'Atención', text: 'Ingresá un precio válido mayor a 0', icon: 'warning' });
         return;
     }
 
-    // 3. Envío al servidor
     bulkForm.post(route('precios.bulk'), {
         onSuccess: () => {
             showBulkModal.value = false;
             bulkForm.reset();
-            Swal.fire({
+            darkSwal.fire({
                 title: '¡Actualización Exitosa!',
                 text: 'Precios masivos aplicados en el catálogo',
                 icon: 'success',
-                background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919'
             });
         },
         onError: (errores) => {
             console.error(errores);
-            Swal.fire({
+            darkSwal.fire({
                 title: 'Error de servidor',
                 text: 'Revisá los datos ingresados',
                 icon: 'error',
-                background: '#1A1A1A', color: '#FFF'
             });
         }
     });
@@ -875,49 +783,71 @@ const submitBulk = () => {
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Catálogo <span class="text-brand-red not-italic">Principal</span></h2>
-            <div class="flex gap-3">
-                <button @click="deshabilitarPreventasMassive" class="px-4 py-2 bg-transparent text-white border border-white/20 hover:bg-white/[0.05] hover:border-white/40 transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" /></svg>
-                    Deshabilitar Preventas
-                </button>
-                <button v-if="$page.props.auth.esAdmin" @click="openBulkModal" class="px-4 py-2 bg-transparent text-white border border-white/20 hover:bg-white/[0.05] hover:border-white/40 transition-colors rounded-lg font-black uppercase text-xs tracking-widest flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                    Aumento Masivo
-                </button>
-            </div>
-        </template>
-
-        <div class="p-6 max-w-7xl mx-auto space-y-6">
-            <div class="bg-brand-surface border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div class="relative flex-1 max-w-md">
-                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                    </span>
-                    <input 
-                        v-model="search" 
-                        type="text" 
-                        placeholder="Buscar por título de producto, autor o ISBN" 
-                        class="w-full bg-black/40 border border-white/10 rounded-xl pl-10 pr-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 transition-all font-bold"
-                    >
+            <div class="flex items-center justify-between w-full page-catalogo">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-tight uppercase">CATÁLOGO DE PRODUCTOS</h2>
                 </div>
-                <div class="flex items-center gap-4">
-                    <button @click="openObraModal()" class="btn-primary flex items-center gap-2 px-6 py-2.5 text-xs font-black uppercase tracking-wider relative overflow-hidden group rounded-xl">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                            <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                <div class="flex items-center gap-3">
+                    <button 
+                        @click="deshabilitarPreventasMassive" 
+                        class="px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 font-semibold text-xs border border-amber-500/20 transition-all flex items-center gap-2 active:scale-95"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                         </svg>
-                        Nuevo Producto
+                        <span>Deshabilitar Preventas</span>
+                    </button>
+                    <button 
+                        v-if="$page.props.auth.esAdmin" 
+                        @click="openBulkModal" 
+                        class="px-4 py-2 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 font-semibold text-xs border border-blue-500/20 transition-all flex items-center gap-2 active:scale-95"
+                    >
+                        <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Aumento Masivo</span>
                     </button>
                 </div>
             </div>
+        </template>
 
-            <div class="bg-brand-surface border border-white/5 rounded-2xl overflow-hidden shadow-2xl">
+        <div class="py-8 page-catalogo">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
+                
+                <!-- Search & Add Bar -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
+                    <div class="relative flex-1 max-w-md">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-zinc-500">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                            </svg>
+                        </span>
+                        <input 
+                            v-model="search" 
+                            type="text" 
+                            placeholder="Buscar por título de producto, autor o ISBN" 
+                            class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
+                        >
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <button 
+                            @click="openObraModal()" 
+                            class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
+                        >
+                            <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Nuevo Producto</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Products Table Card -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
-                                <tr class="border-b border-white/10 bg-white/[0.01] text-xs font-bold uppercase tracking-wider text-white/50">
+                                <tr class="border-b border-white/5 bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400">
                                     <th class="p-4">Producto / Título</th>
                                     <th class="p-4 text-center">Autor</th>
                                     <th class="p-4 text-center">Ítems / Tomos</th>
@@ -927,12 +857,14 @@ const submitBulk = () => {
                             </thead>
                             <tbody class="divide-y divide-white/5 text-sm">
                                 <template v-for="obra in filteredObras" :key="obra.id">
-                                    <tr @click="toggleMaster(obra.id)" 
-                                        class="hover:bg-white/[0.01] transition-colors cursor-pointer group-row"
-                                        :class="expandedMasters.includes(obra.id) ? 'bg-black/20' : ''">
+                                    <tr 
+                                        @click="toggleMaster(obra.id)" 
+                                        class="hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                                        :class="expandedMasters.includes(obra.id) ? 'bg-black/20' : ''"
+                                    >
                                         <td class="p-4">
-                                            <div class="font-black text-base leading-tight uppercase text-white">{{ obra.titulo }}</div>
-                                            <div class="text-[10px] text-white/40 uppercase tracking-widest mt-1 flex items-center gap-2">
+                                            <div class="font-bold text-base text-white tracking-tight">{{ obra.titulo }}</div>
+                                            <div class="text-xs text-zinc-400 font-medium mt-1 flex items-center gap-2">
                                                 <template v-for="(tag, idx) in [obra.categoria?.nombre, obra.formato, obra.idioma?.nombre].filter(Boolean)" :key="idx">
                                                     <span v-if="idx > 0" class="w-1 h-1 rounded-full bg-white/20"></span>
                                                     <span>{{ tag }}</span>
@@ -940,424 +872,418 @@ const submitBulk = () => {
                                             </div>
                                         </td>
                                         <td class="p-4 text-center">
-                                            <div class="text-sm text-white/70 font-medium">{{ obra.autor ? (obra.autor.nombre + (obra.autor.apellido ? ' ' + obra.autor.apellido : '')) : '-' }}</div>
+                                            <div class="text-xs text-zinc-300 font-medium">{{ obra.autor ? (obra.autor.nombre + (obra.autor.apellido ? ' ' + obra.autor.apellido : '')) : '-' }}</div>
                                         </td>
                                         <td class="p-4 text-center">
-                                            <span class="bg-white/10 text-white/70 px-2.5 py-0.5 rounded text-xs font-bold">{{ obra.libros ? obra.libros.length : 0 }}</span>
+                                            <span class="bg-white/5 text-zinc-300 px-2.5 py-1 rounded-lg text-xs font-semibold border border-white/5">{{ obra.libros ? obra.libros.length : 0 }}</span>
                                         </td>
                                         <td class="p-4 text-center">
-                                            <span class="text-sm font-bold text-white/80 uppercase">{{ obra.proveedor ? obra.proveedor.nombre_empresa : '-' }}</span>
+                                            <span class="text-xs font-semibold text-zinc-300 uppercase">{{ obra.proveedor ? obra.proveedor.nombre_empresa : '-' }}</span>
                                         </td>
-                                    <td class="p-4 text-center w-36">
-                                        <div class="flex justify-center gap-2 items-center">
-                                            <button @click.stop="openObraModal(obra)" class="p-2 text-white/40 hover:text-white transition-colors" title="Editar Obra">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                                            </button>
-                                            <button @click.stop="deleteObra(obra.id)" class="p-2 text-white/40 hover:text-brand-red transition-colors" title="Eliminar Obra">
-                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                                            </button>
-                                            <svg xmlns="http://www.w3.org/2000/svg" 
-                                                 class="h-6 w-6 ml-2 text-white/30 transition-transform duration-300"
-                                                 :class="{'rotate-180 text-brand-red': expandedMasters.includes(obra.id)}" 
-                                                 fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                            </svg>
-                                        </div>
-                                    </td>
-                                </tr>
-                                
-                                <!-- Detail Row -->
-                                <tr v-show="expandedMasters.includes(obra.id)" class="bg-black/40">
-                                    <td colspan="5" class="p-0 border-b border-brand-red/10">
-                                        <div class="p-4 pl-12 border-l-4 border-brand-red/50 relative">
-                                            <div class="flex justify-end items-center mb-4">
-                                                <button @click.stop="openTomoModal(null, obra.id)" class="text-xs bg-white/10 hover:bg-brand-red/20 text-white hover:text-brand-red transition-colors px-3 py-1 rounded font-bold flex items-center gap-1 border border-white/20 hover:border-brand-red/50">
-                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
-                                                    Añadir Ítem / Tomo
+                                        <td class="p-4 text-center w-36">
+                                            <div class="flex justify-center gap-1 items-center">
+                                                <button @click.stop="openObraModal(obra)" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Editar Obra">
+                                                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                                 </button>
+                                                <button @click.stop="deleteObra(obra.id)" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" title="Eliminar Obra">
+                                                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                </button>
+                                                <svg 
+                                                    class="w-5 h-5 ml-1 text-zinc-500 transition-transform duration-300"
+                                                    :class="{'rotate-180 text-white': expandedMasters.includes(obra.id)}" 
+                                                    fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"
+                                                >
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                                </svg>
                                             </div>
+                                        </td>
+                                    </tr>
+                                    
+                                    <!-- Detail Row -->
+                                    <tr v-show="expandedMasters.includes(obra.id)" class="bg-[#0d0d0f]/60">
+                                        <td colspan="5" class="p-0 border-b border-white/5">
+                                            <div class="p-4 pl-12 border-l-2 border-white/20 relative">
+                                                <div class="flex justify-end items-center mb-3">
+                                                    <button @click.stop="openTomoModal(null, obra.id)" class="text-xs bg-white/5 hover:bg-white/10 text-white transition-all px-3 py-1.5 rounded-xl font-semibold flex items-center gap-1.5 border border-white/10">
+                                                        <svg class="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                                        Añadir Ítem / Tomo
+                                                    </button>
+                                                </div>
 
-                                            <table class="w-full text-left border-collapse" v-if="obra.libros && obra.libros.length > 0">
-                                                <thead>
-                                                    <tr class="text-xs font-bold uppercase tracking-wider text-white/50 border-b border-white/5">
-                                                        <th class="pb-2">N° Tomo / Variante</th>
-                                                        <th class="pb-2">ISBN / Código</th>
-                                                        <th class="pb-2 text-center">Precio</th>
-                                                        <th class="pb-2 text-center w-36">Acciones</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr v-for="libro in obra.libros" :key="libro.id" class="hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-opacity" :class="[!libro.activo ? 'opacity-40' : '']">
-                                                        <td class="py-3 pr-4">
-                                                            <div class="text-[12px] font-black uppercase tracking-widest" :class="libro.numero_tomo ? 'text-white/90' : 'text-white/60'">{{ libro.numero_tomo ? (/^\d+$/.test(libro.numero_tomo) ? 'Tomo ' + libro.numero_tomo : libro.numero_tomo) : 'Único' }}</div>
-                                                        </td>
-                                                        <td class="py-3 pr-4">
-                                                            <span class="font-mono text-xs text-white/70">{{ libro.isbn || '-' }}</span>
-                                                        </td>
-                                                        <td class="py-3 px-4 text-center">
-                                                            <div v-if="libro.precios && libro.precios.find(p => p.activo)" class="text-base font-black text-white">
-                                                                {{ formatCurrency(libro.precios.find(p => p.activo).precio_venta) }}
-                                                             </div>
-                                                            <div v-else class="text-[10px] font-black uppercase text-brand-red opacity-50 italic">Sin Precio</div>
-                                                        </td>
-                                                        <td class="py-3 text-center w-36">
-                                                            <div class="flex justify-center items-center gap-1">
-                                                                <!-- Visibility Switch -->
-                                                                <button 
-                                                                    @click.stop="toggleTomoActivo(libro)" 
-                                                                    class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none align-middle mr-4"
-                                                                    :class="libro.activo ? 'bg-brand-red' : 'bg-white/10'"
-                                                                    :title="libro.activo ? 'Ítem visible (Click para ocultar)' : 'Ítem oculto (Click para mostrar)'"
-                                                                >
-                                                                    <span 
-                                                                        class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                                                                        :class="libro.activo ? 'translate-x-3' : 'translate-x-0'"
-                                                                    />
-                                                                </button>
-                                                                <button @click.stop="quickEditPrice(libro)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Actualizar Precio">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                                                </button>
-                                                                <button @click.stop="openTomoModal(libro, obra.id)" class="p-1.5 text-white/40 hover:text-white hover:bg-white/10 rounded transition-colors" title="Editar Ítem">
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
-                                                                </button>
-                                                                <!-- Conditional Trash Button -->
-                                                                <button 
-                                                                    v-if="libro.tiene_historial"
-                                                                    class="p-1.5 text-white/15 cursor-not-allowed" 
-                                                                    title="No se puede eliminar porque tiene historial de movimientos"
-                                                                    @click.stop
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                                                                </button>
-                                                                <button 
-                                                                    v-else
-                                                                    @click.stop="deleteTomo(libro.id)" 
-                                                                    class="p-1.5 text-white/40 hover:text-brand-red hover:bg-brand-red/10 rounded transition-colors" 
-                                                                    title="Eliminar Ítem"
-                                                                >
-                                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                                                                </button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                            <div v-else class="text-white/30 text-xs italic py-4 text-center border-t border-white/5">
-                                                Este producto aún no tiene ítems/unidades registradas.
+                                                <table class="w-full text-left border-collapse" v-if="obra.libros && obra.libros.length > 0">
+                                                    <thead>
+                                                        <tr class="text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
+                                                            <th class="pb-2">N° Tomo / Variante</th>
+                                                            <th class="pb-2">ISBN / Código</th>
+                                                            <th class="pb-2 text-center">Precio</th>
+                                                            <th class="pb-2 text-center w-36">Acciones</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <tr v-for="libro in obra.libros" :key="libro.id" class="hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-opacity" :class="[!libro.activo ? 'opacity-40' : '']">
+                                                            <td class="py-3 pr-4">
+                                                                <div class="text-xs font-bold text-white tracking-tight">{{ libro.numero_tomo ? (/^\d+$/.test(libro.numero_tomo) ? 'Tomo ' + libro.numero_tomo : libro.numero_tomo) : 'Único' }}</div>
+                                                            </td>
+                                                            <td class="py-3 pr-4">
+                                                                <span class="font-mono text-xs text-zinc-400">{{ libro.isbn || '-' }}</span>
+                                                            </td>
+                                                            <td class="py-3 px-4 text-center">
+                                                                <div v-if="libro.precios && libro.precios.find(p => p.activo)" class="text-sm font-bold text-white">
+                                                                    {{ formatCurrency(libro.precios.find(p => p.activo).precio_venta) }}
+                                                                </div>
+                                                                <div v-else class="text-xs font-semibold text-rose-400 opacity-60 italic">Sin Precio</div>
+                                                            </td>
+                                                            <td class="py-3 text-center w-36">
+                                                                <div class="flex justify-center items-center gap-1">
+                                                                    <!-- Visibility Switch -->
+                                                                    <button 
+                                                                        @click.stop="toggleTomoActivo(libro)" 
+                                                                        class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none align-middle mr-2"
+                                                                        :class="libro.activo ? 'bg-emerald-500' : 'bg-zinc-700'"
+                                                                        :title="libro.activo ? 'Ítem visible (Click para ocultar)' : 'Ítem oculto (Click para mostrar)'"
+                                                                    >
+                                                                        <span 
+                                                                            class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
+                                                                            :class="libro.activo ? 'translate-x-3' : 'translate-x-0'"
+                                                                        />
+                                                                    </button>
+                                                                    <button @click.stop="quickEditPrice(libro)" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Actualizar Precio">
+                                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                                                    </button>
+                                                                    <button @click.stop="openTomoModal(libro, obra.id)" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Editar Ítem">
+                                                                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
+                                                                    </button>
+                                                                    <!-- Conditional Trash Button -->
+                                                                    <button 
+                                                                        v-if="libro.tiene_historial"
+                                                                        class="p-1.5 text-zinc-700 cursor-not-allowed" 
+                                                                        title="No se puede eliminar porque tiene historial de movimientos"
+                                                                        @click.stop
+                                                                    >
+                                                                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                                    </button>
+                                                                    <button 
+                                                                        v-else
+                                                                        @click.stop="deleteTomo(libro.id)" 
+                                                                        class="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" 
+                                                                        title="Eliminar Ítem"
+                                                                    >
+                                                                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                                    </button>
+                                                                </div>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                                <div v-else class="text-zinc-500 text-xs italic py-4 text-center border-t border-white/5">
+                                                    Este producto aún no tiene ítems/unidades registradas.
+                                                </div>
                                             </div>
-                                        </div>
-                                    </td>
+                                        </td>
+                                    </tr>
+                                </template>
+                                <tr v-if="filteredObras.length === 0">
+                                    <td colspan="5" class="p-12 text-center text-zinc-500 italic">No se encontraron productos registrados en el catálogo.</td>
                                 </tr>
-                            </template>
-                            <tr v-if="filteredObras.length === 0">
-                                <td colspan="5" class="p-12 text-center text-white/30 italic">No se encontraron productos registrados en el catálogo.</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <!-- Modal PRODUCTO MÁSTER -->
-        <template v-if="showObraModal">
-        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showObraModal = false"></div>
-        <div class="fixed inset-0 z-[101] overflow-y-auto">
-            <div class="flex min-h-full items-start justify-center p-4">
-            <div class="relative w-full max-w-xl card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8">
-                <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
-                    <h3 class="text-xl font-black uppercase tracking-tighter relative"> {{ isEditingObra ? 'Editar' : 'Nuevo' }} <span class="text-white">Producto</span></h3>
-                    <button @click="showObraModal = false" class="text-white/80 hover:text-white transition-colors relative">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                
-                <form @submit.prevent="submitObra" class="p-6">
-                    <div class="grid grid-cols-1 gap-6">
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Nombre / Título del Producto *</label>
-                            <input v-model="obraForm.titulo" type="text" class="input-field w-full text-sm font-bold" placeholder="Nombre del producto" required>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Autor</label>
-                            <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.autor_id" :options="autoresLocal" :labelKey="(a) => a.nombre + (a.apellido ? ' ' + a.apellido : '')" placeholder="Seleccionar autor" :required="false" />
-                                <button type="button" @click="agregarAutor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Autor">+</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Categoría *</label>
-                            <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.categoria_id" :options="categoriasLocal" placeholder="Seleccionar categoría" :required="false" />
-                                <button type="button" @click="agregarCategoria" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Categoría">+</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Proveedor / Marca</label>
-                            <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.proveedor_id" :options="mappedProveedores" placeholder="Seleccionar proveedor" :required="false" />
-                                <button type="button" @click="agregarProveedor" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Proveedor">+</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Idioma</label>
-                            <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.idioma_id" :options="idiomasLocal" placeholder="Seleccionar idioma" :required="false" />
-                                <button type="button" @click="agregarIdioma" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Idioma">+</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Formato</label>
-                            <div class="flex gap-2">
-                                <SearchableSelect v-model="obraForm.formato" :options="formatosLocal" placeholder="Seleccionar formato" :required="false" />
-                                <button type="button" @click="agregarFormato" class="py-2 px-4 bg-white/5 text-white/80 hover:text-white border border-white/10 hover:border-white/30 hover:bg-white/10 hover:shadow-[0_0_8px_rgba(255,255,255,0.15)] transition-all rounded-lg font-black text-sm" title="Crear Formato">+</button>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs font-bold uppercase tracking-widest text-white/50 mb-1">Descripción / Detalles</label>
-                            <textarea v-model="obraForm.synopsis" class="input-field w-full text-sm font-bold h-24 resize-none" placeholder="Descripción del producto"></textarea>
-                        </div>
-                        <div class="flex items-center gap-3 mt-4 mb-2">
-                            <input type="checkbox" v-model="obraForm.activo" id="obra_activa" class="rounded border-white/20 bg-black/60 text-brand-red focus:ring-brand-red h-4 w-4">
-                            <label for="obra_activa" class="text-sm font-bold uppercase tracking-widest text-white/80 cursor-pointer select-none">Producto Activo en Catálogo</label>
-                        </div>
-                    </div>
-
-                    <div class="mt-8 flex justify-end gap-3 border-t border-white/10 pt-6">
-                        <button type="button" @click="showObraModal = false" class="px-6 py-2 bg-transparent text-white/60 hover:text-white border border-white/10 hover:bg-white/5 transition-colors rounded-lg font-bold uppercase text-xs">Cancelar</button>
-                        <button type="submit" :disabled="obraForm.processing" class="btn-primary px-10 relative overflow-hidden group">
-                           <span class="relative z-10">{{ obraForm.processing ? 'PROCESANDO' : (isEditingObra ? 'ACTUALIZAR' : 'GUARDAR PRODUCTO') }}</span>
-                           <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
-                        </button>
-                    </div>
-                </form>
-            </div>
-            </div>
-        </div>
-        </template>
-
-
-        <!-- Modal TOMO / ÍTEM -->
-        <template v-if="showTomoModal">
-        <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showTomoModal = false"></div>
-        <div class="fixed inset-0 z-[101] overflow-y-auto">
-            <div class="flex min-h-full items-start justify-center p-4">
-            <div class="relative w-full max-w-xl card p-0 border-white/10 bg-[#121212] shadow-2xl overflow-hidden transform transition-all group my-8 rounded-2xl">
-                <div class="bg-gradient-to-r from-brand-red via-brand-red/90 to-black p-5 flex justify-between items-center relative overflow-hidden">
-                    <div>
-                        <h3 class="text-xl font-black uppercase tracking-tighter text-white">
-                            {{ isEditingTomo ? 'Editar' : 'Añadir' }} <span class="text-white">Ítem / Tomo</span>
-                        </h3>
-                    </div>
-                    <button @click="showTomoModal = false" class="text-white/70 hover:text-white transition-colors p-1 rounded-lg hover:bg-white/10">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                
-                <form @submit.prevent="submitTomo" class="p-5 space-y-4">
-                    <input type="hidden" v-model="tomoForm.master_id">
-
-                    <!-- Grid de Campos Principales -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Volumen / Tomo N° / Variante</label>
-                            <input v-model="tomoForm.numero_tomo" type="text" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Número o variante">
-                            <div v-if="tomoForm.errors.numero_tomo" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
-                                <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.numero_tomo }}</span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">ISBN / Código de Barras</label>
-                            <input v-model="tomoForm.isbn" type="text" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono placeholder-white/20 focus:outline-none focus:border-brand-red transition-all" placeholder="ISBN o Código EAN">
-                            <div v-if="tomoForm.errors.isbn" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
-                                <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.isbn }}</span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">Año Edición</label>
-                            <input v-model="tomoForm.año_edicion" type="number" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Año">
-                            <div v-if="tomoForm.errors.año_edicion" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
-                                <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.año_edicion }}</span>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/50 mb-1">N° Páginas</label>
-                            <input v-model="tomoForm.cantidad_paginas" type="number" class="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-all font-bold" placeholder="Cantidad">
-                            <div v-if="tomoForm.errors.cantidad_paginas" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                                </svg>
-                                <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.cantidad_paginas }}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Toggles de Estado -->
-                    <div class="grid grid-cols-2 gap-3 mt-1 mb-2">
-                        <label class="flex items-center gap-3 cursor-pointer select-none">
-                            <input type="checkbox" v-model="tomoForm.activo" class="rounded border-white/20 bg-black/60 text-brand-red focus:ring-brand-red h-4 w-4">
-                            <span class="text-xs font-bold uppercase tracking-wider text-white/80">Tomo Activo</span>
-                        </label>
-                        <label class="flex items-center gap-3 cursor-pointer select-none">
-                            <input type="checkbox" v-model="tomoForm.permite_preventa" class="rounded border-white/20 bg-black/60 text-brand-red focus:ring-brand-red h-4 w-4">
-                            <span class="text-xs font-bold uppercase tracking-wider text-white/80">Habilitar Preventa</span>
-                        </label>
-                    </div>
-
-                    <!-- Precio de Venta Inicial (Sin fondo degradado rojo) -->
-                    <div v-if="!isEditingTomo" class="bg-black/40 border border-white/10 p-4 rounded-xl">
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/60 mb-1.5">Precio de Venta Inicial *</label>
-                        <div class="relative">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/40 font-bold">$</span>
-                            <input v-model="tomoForm.precio_venta" type="number" step="0.01" min="0" class="w-full bg-black/60 border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-lg text-white font-black text-right focus:outline-none focus:border-brand-red transition-all" placeholder="0.00" required />
-                        </div>
-                        <div v-if="tomoForm.errors.precio_venta" class="flex items-start gap-2 mt-2 bg-brand-red/10 border border-brand-red/20 p-2.5 rounded-lg">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-brand-red shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                            <span class="text-brand-red text-[11px] font-bold leading-snug">{{ tomoForm.errors.precio_venta }}</span>
-                        </div>
-                    </div>
-
-                    <!-- Stock por Sucursal (Al editar) -->
-                    <div v-if="isEditingTomo" class="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2">
-                        <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Stock Disponible por Sucursal</label>
-                        <div class="grid grid-cols-1 gap-2">
-                            <div v-for="sucursal in sucursales" :key="sucursal.id" class="flex items-center justify-between px-3 py-2 bg-black/40 border border-white/5 rounded-lg">
-                                <span class="text-xs font-bold text-white/70">{{ formatSucursalName(sucursal.nombre) }}</span>
-                                <span class="text-white font-black text-sm bg-white/5 px-2.5 py-0.5 rounded border border-white/5">{{ currentStocks[sucursal.id] || 0 }} <span class="text-[9px] text-white/40 uppercase font-normal">uds</span></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Footer / Acciones -->
-                    <div class="flex justify-end gap-3 border-t border-white/10 pt-4">
-                        <button type="button" @click="showTomoModal = false" class="px-6 py-2.5 rounded-xl font-black text-white/50 hover:bg-white/5 transition-colors uppercase text-xs tracking-wider">Cancelar</button>
-                        <button type="submit" :disabled="tomoForm.processing" class="btn-primary px-8 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider relative overflow-hidden group">
-                           <span class="relative z-10">{{ tomoForm.processing ? 'PROCESANDO' : (isEditingTomo ? 'ACTUALIZAR TOMO' : 'REGISTRAR TOMO') }}</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-            </div>
-        </div>
-        </template>
-
-        <!-- Modal Aumento Masivo -->
-        <template v-if="showBulkModal">
-            <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm" @click="showBulkModal = false"></div>
-            <div class="fixed inset-0 z-[101] overflow-y-auto">
-                <div class="flex min-h-full items-start justify-center p-4">
-                    <div class="relative w-full max-w-lg card p-0 border-brand-red shadow-2xl overflow-hidden transform transition-all group my-8 bg-[#111]">
-                        <div class="bg-gradient-to-r from-brand-red to-black p-4 flex justify-between items-center relative overflow-hidden">
-                            <h3 class="text-xl font-black uppercase tracking-tighter relative text-white">Aumento Masivo</h3>
-                            <button @click="showBulkModal = false" class="text-white/80 hover:text-white transition-colors relative">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                        </div>
-                        
-                        <div v-if="loadingOpciones" class="p-12 text-center flex flex-col items-center justify-center gap-3">
-                            <div class="w-8 h-8 border-2 border-brand-red border-t-transparent rounded-full animate-spin"></div>
-                            <p class="text-xs font-bold uppercase tracking-widest text-white/40">Cargando opciones del catálogo</p>
-                        </div>
-                        <form v-else @submit.prevent="submitBulk" class="p-6 space-y-4">
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Criterio de Aumento</label>
-                                <select v-model="bulkForm.criterio" class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white font-bold uppercase focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red">
-                                    <option value="proveedor_formato">Por Proveedor y Formato</option>
-                                    <option value="serie">Por Producto / Serie</option>
-                                    <option value="libro_individual">Por Ítem / Producto Individual</option>
-                                </select>
-                            </div>
-
-                            <div v-if="bulkForm.criterio === 'proveedor_formato'" class="grid grid-cols-2 gap-4 bg-white/5 p-4 rounded-lg border border-white/5">
-                                <div class="relative">
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">1. Proveedor *</label>
-                                    <div class="relative">
-                                        <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar" class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                    </div>
-                                    
-                                    <div v-if="showProveedorDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
-                                        <div v-for="e in proveedoresFiltrados" :key="e" @mousedown.prevent="bulkForm.proveedor = e; searchProveedorQuery = e; showProveedorDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.proveedor === e ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
-                                            {{ e }}
-                                        </div>
-                                        <div v-if="proveedoresFiltrados.length === 0" class="px-4 py-3 text-xs text-white/30 italic text-center">No hay resultados</div>
-                                    </div>
-                                    <div v-if="showProveedorDropdown" class="fixed inset-0 z-40" @click="showProveedorDropdown = false"></div>
-                                </div>
-                                <div>
-                                    <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">2. Formato</label>
-                                    <select v-model="bulkForm.formato" :disabled="!bulkForm.proveedor" class="w-full bg-black/40 border border-white/10 rounded-lg px-4 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold uppercase transition-opacity" :class="!bulkForm.proveedor ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''">
-                                        <option value="">Todos los formatos</option>
-                                        <option v-for="f in formatosDisponibles" :key="f" :value="f">{{ f }}</option>
-                                    </select>
-                                </div>
-                            </div>
-
-                            <div v-if="bulkForm.criterio === 'serie'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Producto / Serie *</label>
-                                <div class="relative">
-                                    <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar producto o serie" class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                </div>
-                                
-                                <div v-if="showSerieDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
-                                    <div v-for="s in seriesFiltradas" :key="s" @mousedown.prevent="bulkForm.serie = s; searchSerieQuery = s; showSerieDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.serie === s ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
-                                        {{ s }}
-                                    </div>
-                                    <div v-if="seriesFiltradas.length === 0" class="px-4 py-3 text-xs text-white/30 italic text-center">No hay resultados</div>
-                                </div>
-                                <div v-if="showSerieDropdown" class="fixed inset-0 z-40" @click="showSerieDropdown = false"></div>
-                            </div>
-
-                            <div v-if="bulkForm.criterio === 'libro_individual'" class="relative bg-white/5 p-4 rounded-lg border border-white/5">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Seleccionar Ítem Individual *</label>
-                                <div class="relative">
-                                    <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar ítem por título o ISBN" class="w-full bg-black/40 border border-white/10 rounded-lg pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red font-bold relative z-50" />
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                </div>
-                                
-                                <div v-if="showLibroDropdown" class="absolute z-50 w-full mt-1 bg-[#1a1a1a] border border-white/10 rounded-lg max-h-48 overflow-y-auto shadow-2xl">
-                                    <div v-for="l in librosFiltrados" :key="l.id" @mousedown.prevent="bulkForm.libro_id = l.id; searchLibroQuery = l.titulo; showLibroDropdown = false" class="px-4 py-2.5 text-xs text-white/80 cursor-pointer hover:bg-brand-red/20 hover:text-white transition-colors border-b border-white/5 last:border-0 uppercase font-bold" :class="bulkForm.libro_id === l.id ? 'bg-brand-red/30 text-white border-l-2 border-brand-red' : ''">
-                                        {{ l.titulo }}
-                                    </div>
-                                    <div v-if="librosFiltrados.length === 0" class="px-4 py-3 text-xs text-white/30 italic text-center">No hay resultados</div>
-                                </div>
-                                <div v-if="showLibroDropdown" class="fixed inset-0 z-40" @click="showLibroDropdown = false"></div>
-                            </div>
-                            
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-1">Nuevo Precio *</label>
-                                <div class="relative mt-1">
-                                    <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-white/50 text-sm font-bold">$</span>
-                                    <input v-model="bulkForm.nuevo_precio" type="number" step="0.01" min="0" class="w-full bg-black/40 border border-white/10 rounded-lg pl-8 pr-4 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-brand-red focus:ring-1 focus:ring-brand-red" placeholder="0.00" required />
-                                </div>
-                            </div>
-                            
-                            <div class="flex justify-end gap-3 border-t border-white/10 pt-4 mt-6">
-                                <button type="button" @click="showBulkModal = false" class="px-6 py-2 bg-transparent text-white/60 hover:text-white border border-white/10 hover:bg-white/5 transition-colors rounded-lg font-bold uppercase text-xs">Cancelar</button>
-                                <button type="submit" :disabled="bulkForm.processing" class="btn-primary px-8 relative overflow-hidden group">
-                                    <span class="relative z-10">{{ bulkForm.processing ? 'APLICANDO...' : 'APLICAR A TODOS' }}</span>
-                                    <div class="absolute inset-0 bg-white opacity-0 group-hover:opacity-10 transition-opacity"></div>
+        <Teleport to="body">
+            <template v-if="showObraModal">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showObraModal = false"></div>
+                <div class="fixed inset-0 z-[101] overflow-y-auto page-catalogo">
+                    <div class="flex min-h-full items-start justify-center p-4">
+                        <div class="relative w-full max-w-xl bg-[#0d0d0f] border border-white/10 shadow-2xl overflow-hidden rounded-2xl my-8">
+                            <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-wider"> 
+                                    {{ isEditingObra ? 'Editar' : 'Nuevo' }} Producto
+                                </h3>
+                                <button @click="showObraModal = false" class="text-zinc-400 hover:text-white transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                             </div>
-                        </form>
+                            
+                            <form @submit.prevent="submitObra" class="p-6">
+                                <div class="grid grid-cols-1 gap-5">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Nombre / Título del Producto *</label>
+                                        <input v-model="obraForm.titulo" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium" placeholder="Nombre del producto" required>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Autor</label>
+                                        <div class="flex gap-2">
+                                            <SearchableSelect v-model="obraForm.autor_id" :options="autoresLocal" :labelKey="(a) => a.nombre + (a.apellido ? ' ' + a.apellido : '')" placeholder="Seleccionar autor" :required="false" />
+                                            <button type="button" @click="agregarAutor" class="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-sm transition-all">+</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Categoría *</label>
+                                        <div class="flex gap-2">
+                                            <SearchableSelect v-model="obraForm.categoria_id" :options="categoriasLocal" placeholder="Seleccionar categoría" :required="false" />
+                                            <button type="button" @click="agregarCategoria" class="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-sm transition-all">+</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Proveedor / Marca</label>
+                                        <div class="flex gap-2">
+                                            <SearchableSelect v-model="obraForm.proveedor_id" :options="mappedProveedores" placeholder="Seleccionar proveedor" :required="false" />
+                                            <button type="button" @click="agregarProveedor" class="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-sm transition-all">+</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Idioma</label>
+                                        <div class="flex gap-2">
+                                            <SearchableSelect v-model="obraForm.idioma_id" :options="idiomasLocal" placeholder="Seleccionar idioma" :required="false" />
+                                            <button type="button" @click="agregarIdioma" class="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-sm transition-all">+</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Formato</label>
+                                        <div class="flex gap-2">
+                                            <SearchableSelect v-model="obraForm.formato" :options="formatosLocal" placeholder="Seleccionar formato" :required="false" />
+                                            <button type="button" @click="agregarFormato" class="py-2.5 px-4 bg-white/5 hover:bg-white/10 text-white border border-white/10 rounded-xl font-bold text-sm transition-all">+</button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Descripción / Detalles</label>
+                                        <textarea v-model="obraForm.synopsis" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium h-24 resize-none" placeholder="Descripción del producto"></textarea>
+                                    </div>
+                                    <div class="flex items-center gap-3 mt-2">
+                                        <input type="checkbox" v-model="obraForm.activo" id="obra_activa" class="rounded border-white/20 bg-[#131316] text-emerald-500 focus:ring-emerald-500 h-4 w-4">
+                                        <label for="obra_activa" class="text-xs font-semibold text-white cursor-pointer select-none">Producto Activo en Catálogo</label>
+                                    </div>
+                                </div>
+
+                                <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
+                                    <button type="button" @click="showObraModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
+                                    <button type="submit" :disabled="obraForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95">
+                                       <span>{{ obraForm.processing ? 'PROCESANDO...' : (isEditingObra ? 'ACTUALIZAR' : 'GUARDAR PRODUCTO') }}</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
                     </div>
                 </div>
-            </div>
-        </template>
+            </template>
+        </Teleport>
+
+        <!-- Modal TOMO / ÍTEM -->
+        <Teleport to="body">
+            <template v-if="showTomoModal">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showTomoModal = false"></div>
+                <div class="fixed inset-0 z-[101] overflow-y-auto page-catalogo">
+                    <div class="flex min-h-full items-start justify-center p-4">
+                        <div class="relative w-full max-w-xl bg-[#0d0d0f] border border-white/10 shadow-2xl overflow-hidden rounded-2xl my-8">
+                            <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                    {{ isEditingTomo ? 'Editar' : 'Añadir' }} Ítem / Tomo
+                                </h3>
+                                <button @click="showTomoModal = false" class="text-zinc-400 hover:text-white transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                            
+                            <form @submit.prevent="submitTomo" class="p-6 space-y-4">
+                                <input type="hidden" v-model="tomoForm.master_id">
+
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Volumen / N° Tomo / Variante</label>
+                                        <input v-model="tomoForm.numero_tomo" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" placeholder="Número o variante">
+                                        <div v-if="tomoForm.errors.numero_tomo" class="mt-2 text-rose-400 text-xs font-semibold">
+                                            {{ tomoForm.errors.numero_tomo }}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">ISBN / Código de Barras</label>
+                                        <input v-model="tomoForm.isbn" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-white/30" placeholder="ISBN o Código EAN">
+                                        <div v-if="tomoForm.errors.isbn" class="mt-2 text-rose-400 text-xs font-semibold">
+                                            {{ tomoForm.errors.isbn }}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Año Edición</label>
+                                        <input v-model="tomoForm.año_edicion" type="number" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" placeholder="Año">
+                                        <div v-if="tomoForm.errors.año_edicion" class="mt-2 text-rose-400 text-xs font-semibold">
+                                            {{ tomoForm.errors.año_edicion }}
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">N° Páginas</label>
+                                        <input v-model="tomoForm.cantidad_paginas" type="number" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" placeholder="Cantidad">
+                                        <div v-if="tomoForm.errors.cantidad_paginas" class="mt-2 text-rose-400 text-xs font-semibold">
+                                            {{ tomoForm.errors.cantidad_paginas }}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-2 gap-3 pt-2">
+                                    <label class="flex items-center gap-3 cursor-pointer select-none">
+                                        <input type="checkbox" v-model="tomoForm.activo" class="rounded border-white/20 bg-[#131316] text-emerald-500 focus:ring-emerald-500 h-4 w-4">
+                                        <span class="text-xs font-semibold text-white">Tomo Activo</span>
+                                    </label>
+                                    <label class="flex items-center gap-3 cursor-pointer select-none">
+                                        <input type="checkbox" v-model="tomoForm.permite_preventa" class="rounded border-white/20 bg-[#131316] text-emerald-500 focus:ring-emerald-500 h-4 w-4">
+                                        <span class="text-xs font-semibold text-white">Habilitar Preventa</span>
+                                    </label>
+                                </div>
+
+                                <div v-if="!isEditingTomo" class="bg-white/[0.02] border border-white/5 p-4 rounded-xl">
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Precio de Venta Inicial *</label>
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-400 font-bold">$</span>
+                                        <input v-model="tomoForm.precio_venta" type="number" step="0.01" min="0" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-base text-white font-bold text-right focus:outline-none focus:border-white/30" placeholder="0.00" required />
+                                    </div>
+                                    <div v-if="tomoForm.errors.precio_venta" class="mt-2 text-rose-400 text-xs font-semibold">
+                                        {{ tomoForm.errors.precio_venta }}
+                                    </div>
+                                </div>
+
+                                <div v-if="isEditingTomo" class="bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2">
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-2">Stock Disponible por Sucursal</label>
+                                    <div class="grid grid-cols-1 gap-2">
+                                        <div v-for="sucursal in sucursales" :key="sucursal.id" class="flex items-center justify-between px-3 py-2 bg-[#131316] border border-white/5 rounded-xl">
+                                            <span class="text-xs font-semibold text-zinc-300">{{ formatSucursalName(sucursal.nombre) }}</span>
+                                            <span class="text-white font-bold text-xs bg-white/5 px-2.5 py-1 rounded-lg border border-white/5">{{ currentStocks[sucursal.id] || 0 }} <span class="text-[10px] text-zinc-500 font-normal">uds</span></span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
+                                    <button type="button" @click="showTomoModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
+                                    <button type="submit" :disabled="tomoForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95">
+                                       <span>{{ tomoForm.processing ? 'PROCESANDO...' : (isEditingTomo ? 'ACTUALIZAR TOMO' : 'REGISTRAR TOMO') }}</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </Teleport>
+
+        <!-- Modal Aumento Masivo -->
+        <Teleport to="body">
+            <template v-if="showBulkModal">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showBulkModal = false"></div>
+                <div class="fixed inset-0 z-[101] overflow-y-auto page-catalogo">
+                    <div class="flex min-h-full items-start justify-center p-4">
+                        <div class="relative w-full max-w-lg bg-[#0d0d0f] border border-white/10 shadow-2xl overflow-hidden rounded-2xl my-8">
+                            <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                                <h3 class="text-sm font-bold text-white uppercase tracking-wider">Aumento Masivo</h3>
+                                <button @click="showBulkModal = false" class="text-zinc-400 hover:text-white transition-colors">
+                                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                            
+                            <div v-if="loadingOpciones" class="p-12 text-center flex flex-col items-center justify-center gap-3">
+                                <div class="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <p class="text-xs font-semibold text-zinc-400">Cargando opciones del catálogo</p>
+                            </div>
+                            <form v-else @submit.prevent="submitBulk" class="p-6 space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Criterio de Aumento</label>
+                                    <select v-model="bulkForm.criterio" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
+                                        <option value="proveedor_formato">Por Proveedor y Formato</option>
+                                        <option value="serie">Por Producto / Serie</option>
+                                        <option value="libro_individual">Por Ítem / Producto Individual</option>
+                                    </select>
+                                </div>
+
+                                <div v-if="bulkForm.criterio === 'proveedor_formato'" class="grid grid-cols-2 gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                                    <div class="relative">
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">1. Proveedor *</label>
+                                        <div class="relative">
+                                            <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium relative z-50" />
+                                            <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                        </div>
+                                        
+                                        <div v-if="showProveedorDropdown" class="absolute z-50 w-full mt-1 bg-[#131316] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
+                                            <div v-for="e in proveedoresFiltrados" :key="e" @mousedown.prevent="bulkForm.proveedor = e; searchProveedorQuery = e; showProveedorDropdown = false" class="px-4 py-2.5 text-xs text-zinc-300 cursor-pointer hover:bg-white/10 hover:text-white transition-colors border-b border-white/5 last:border-0 font-medium" :class="bulkForm.proveedor === e ? 'bg-white/10 text-white font-bold' : ''">
+                                                {{ e }}
+                                            </div>
+                                            <div v-if="proveedoresFiltrados.length === 0" class="px-4 py-3 text-xs text-zinc-500 italic text-center">No hay resultados</div>
+                                        </div>
+                                        <div v-if="showProveedorDropdown" class="fixed inset-0 z-40" @click="showProveedorDropdown = false"></div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">2. Formato</label>
+                                        <select v-model="bulkForm.formato" :disabled="!bulkForm.proveedor" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium transition-opacity" :class="!bulkForm.proveedor ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''">
+                                            <option value="">Todos los formatos</option>
+                                            <option v-for="f in formatosDisponibles" :key="f" :value="f">{{ f }}</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div v-if="bulkForm.criterio === 'serie'" class="relative bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Seleccionar Producto / Serie *</label>
+                                    <div class="relative">
+                                        <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar producto o serie" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium relative z-50" />
+                                        <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                    
+                                    <div v-if="showSerieDropdown" class="absolute z-50 w-full mt-1 bg-[#131316] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
+                                        <div v-for="s in seriesFiltradas" :key="s" @mousedown.prevent="bulkForm.serie = s; searchSerieQuery = s; showSerieDropdown = false" class="px-4 py-2.5 text-xs text-zinc-300 cursor-pointer hover:bg-white/10 hover:text-white transition-colors border-b border-white/5 last:border-0 font-medium" :class="bulkForm.serie === s ? 'bg-white/10 text-white font-bold' : ''">
+                                            {{ s }}
+                                        </div>
+                                        <div v-if="seriesFiltradas.length === 0" class="px-4 py-3 text-xs text-zinc-500 italic text-center">No hay resultados</div>
+                                    </div>
+                                    <div v-if="showSerieDropdown" class="fixed inset-0 z-40" @click="showSerieDropdown = false"></div>
+                                </div>
+
+                                <div v-if="bulkForm.criterio === 'libro_individual'" class="relative bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Seleccionar Ítem Individual *</label>
+                                    <div class="relative">
+                                        <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar ítem por título o ISBN" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium relative z-50" />
+                                        <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                                    </div>
+                                    
+                                    <div v-if="showLibroDropdown" class="absolute z-50 w-full mt-1 bg-[#131316] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
+                                        <div v-for="l in librosFiltrados" :key="l.id" @mousedown.prevent="bulkForm.libro_id = l.id; searchLibroQuery = l.titulo; showLibroDropdown = false" class="px-4 py-2.5 text-xs text-zinc-300 cursor-pointer hover:bg-white/10 hover:text-white transition-colors border-b border-white/5 last:border-0 font-medium" :class="bulkForm.libro_id === l.id ? 'bg-white/10 text-white font-bold' : ''">
+                                            {{ l.titulo }}
+                                        </div>
+                                        <div v-if="librosFiltrados.length === 0" class="px-4 py-3 text-xs text-zinc-500 italic text-center">No hay resultados</div>
+                                    </div>
+                                    <div v-if="showLibroDropdown" class="fixed inset-0 z-40" @click="showLibroDropdown = false"></div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Nuevo Precio *</label>
+                                    <div class="relative mt-1">
+                                        <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-400 text-sm font-bold">$</span>
+                                        <input v-model="bulkForm.nuevo_precio" type="number" step="0.01" min="0" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-sm text-white font-bold focus:outline-none focus:border-white/30" placeholder="0.00" required />
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
+                                    <button type="button" @click="showBulkModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
+                                    <button type="submit" :disabled="bulkForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95">
+                                        <span>{{ bulkForm.processing ? 'APLICANDO...' : 'APLICAR A TODOS' }}</span>
+                                    </button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </template>
+        </Teleport>
 
     </AuthenticatedLayout>
 </template>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+.page-catalogo,
+.page-catalogo * {
+    font-family: 'Montserrat', sans-serif !important;
+}
+</style>

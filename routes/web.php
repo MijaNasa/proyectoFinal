@@ -61,16 +61,17 @@ Route::middleware('auth')->group(function () {
 });
 
 Route::get('/', function () {
-    return Inertia::render('Welcome', [
-        'canLogin'    => Route::has('login'),
-        'canRegister' => Route::has('register'),
-    ]);
+    return redirect()->route('catalogo.index');
 });
 
-Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])
-    ->middleware(['auth', 'verified'])->name('dashboard');
+// ==========================================
+// RUTAS DEL PANEL DE CONTROL (Backend)
+// ==========================================
+Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
+    
+    Route::get('/dashboard', [\App\Http\Controllers\DashboardController::class, 'index'])
+        ->middleware('verified')->name('dashboard');
 
-Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
@@ -101,7 +102,10 @@ Route::middleware('auth')->group(function () {
     // Terminal de Ventas
     Route::middleware('permiso:ventas.acceder')->group(function () {
         Route::get('ventas/search-libros',   [VentaController::class, 'searchLibros'])->name('ventas.search-libros');
+        Route::get('libros/buscar',           [VentaController::class, 'searchLibros'])->name('libros.buscar');
         Route::get('ventas/search-clientes', [VentaController::class, 'searchClientes'])->name('ventas.search-clientes');
+        Route::get('clientes/buscar',         [VentaController::class, 'searchClientes'])->name('clientes.buscar');
+        Route::post('clientes/store-rapido',  [ClienteController::class, 'storeRapido'])->name('clientes.store-rapido');
         Route::delete('ventas/canceladas/all', [VentaController::class, 'destroyCanceladas'])->name('ventas.canceladas.destroyAll');
         Route::get('ventas/{venta}/comprobante-pdf', [VentaController::class, 'generarComprobantePdf'])->name('ventas.comprobante-pdf');
         Route::resource('ventas', VentaController::class)->except(['create', 'edit', 'update']);

@@ -88,6 +88,7 @@ class VentaController extends Controller
                 ->where('name', 'like', "%{$q}%")
                 ->orWhere('apellido', 'like', "%{$q}%")
                 ->orWhere('dni', 'like', "%{$q}%")
+                ->orWhere('email', 'like', "%{$q}%")
             )
             ->select('id', 'user_id', 'saldo_actual')
             ->limit(10)
@@ -110,6 +111,10 @@ class VentaController extends Controller
     {
         $q          = trim($request->get('q', ''));
         $sucursalId = filter_var($request->get('sucursal_id'), FILTER_VALIDATE_INT) ?: null;
+
+        if (!$sucursalId) {
+            $sucursalId = $request->user()->empleado?->sucursal_id ?? \App\Models\Sucursal::where('activo', true)->first()?->id;
+        }
 
         if (strlen($q) < 1) {
             return response()->json([]);
@@ -484,7 +489,7 @@ class VentaController extends Controller
 
         $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.comprobante_venta', compact('venta', 'metodoPago'));
 
-        return $pdf->download('Comprobante_Venta_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf');
+        return $pdf->stream('Comprobante_Venta_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf', ['Attachment' => false]);
     }
 
     public function destroy(Venta $venta)

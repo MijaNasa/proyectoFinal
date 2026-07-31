@@ -54,6 +54,7 @@ class HandleInertiaRequests extends Middleware
             ],
             'carritoCount' => CarritoController::getCount(),
             'carritoTotal' => CarritoController::getTotal(),
+            'globalCategorias' => \App\Models\Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'flash' => [
                 'success' => session('success') ?? session('message'),
                 'warning' => session('warning'),

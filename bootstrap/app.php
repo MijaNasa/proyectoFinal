@@ -22,6 +22,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         $middleware->alias([
             'permiso' => \App\Http\Middleware\CheckPermiso::class,
+            'admin_or_empleado' => \App\Http\Middleware\CheckAdminOrEmpleado::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

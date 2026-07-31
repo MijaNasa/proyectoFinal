@@ -12,6 +12,20 @@ const props = defineProps({
 const page = usePage();
 const esAdmin = computed(() => page.props.auth.esAdmin);
 
+const darkSwal = Swal.mixin({
+    background: '#131316',
+    color: '#ffffff',
+    buttonsStyling: false,
+    customClass: {
+        popup: 'border border-white/10 rounded-2xl p-6 shadow-2xl bg-[#131316] page-cargos',
+        title: 'text-xl font-bold text-white tracking-tight',
+        htmlContainer: 'text-sm text-zinc-300 font-medium mt-2 leading-relaxed',
+        confirmButton: 'px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md active:scale-95 mx-1 cursor-pointer',
+        cancelButton: 'px-6 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-sm border border-white/10 transition-all active:scale-95 mx-1 cursor-pointer',
+        actions: 'mt-6 flex items-center justify-end gap-2'
+    }
+});
+
 // Agrupar permisos por módulo para mostrarlos como checkboxes
 const permisosPorModulo = computed(() => {
     const grupos = {};
@@ -54,7 +68,7 @@ const submit = () => {
         form.put(route('cargos.update', form.id), {
             onSuccess: () => {
                 showModal.value = false;
-                Swal.fire({ title: '¡Actualizado!', text: 'Cargo actualizado con éxito', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+                darkSwal.fire({ title: '¡Actualizado!', text: 'Cargo actualizado con éxito.', icon: 'success', timer: 1500, showConfirmButton: false });
             },
         });
     } else {
@@ -62,33 +76,39 @@ const submit = () => {
             onSuccess: () => {
                 showModal.value = false;
                 form.reset();
-                Swal.fire({ title: '¡Creado!', text: 'Cargo creado con éxito', icon: 'success', background: '#1A1A1A', color: '#FFF', confirmButtonColor: '#E61919' });
+                darkSwal.fire({ title: '¡Creado!', text: 'Cargo creado con éxito.', icon: 'success', timer: 1500, showConfirmButton: false });
             },
         });
     }
 };
 
 const deleteCargo = (cargo) => {
-    Swal.fire({
+    darkSwal.fire({
         title: `¿Desactivar cargo ${cargo.nombre}?`,
         text: 'Los empleados con este cargo perderán esos accesos.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#E61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Sí, desactivar',
-        background: '#1A1A1A', color: '#FFF',
+        cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            form.delete(route('cargos.destroy', cargo.id));
+            form.delete(route('cargos.destroy', cargo.id), {
+                onSuccess: () => {
+                    darkSwal.fire({ title: 'Desactivado', icon: 'success', timer: 1500, showConfirmButton: false });
+                }
+            });
         }
     });
 };
 
 // Colores por cargo
 const colorCargo = (nombre) => {
-    const map = { ADMIN: 'bg-brand-red/20 text-brand-red border-brand-red/30', GERENTE: 'bg-blue-500/20 text-blue-400 border-blue-500/30', VENDEDOR: 'bg-green-500/20 text-green-400 border-green-500/30' };
-    return map[nombre] || 'bg-white/10 text-white/60 border-white/10';
+    const map = { 
+        ADMIN: 'bg-rose-500/10 text-rose-400 border-rose-500/20', 
+        GERENTE: 'bg-sky-500/10 text-sky-400 border-sky-500/20', 
+        VENDEDOR: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+    };
+    return map[nombre] || 'bg-white/5 text-zinc-300 border-white/5';
 };
 </script>
 
@@ -97,114 +117,143 @@ const colorCargo = (nombre) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between min-h-[42px] w-full">
-                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Cargos & <span class="text-brand-red not-italic">Accesos</span></h2>
-                <button v-if="esAdmin" @click="openModal()" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-lg shadow-red-900/20">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    Nuevo Cargo
+            <div class="flex items-center justify-between w-full page-cargos">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-tight uppercase">CARGOS Y ACCESOS</h2>
+                </div>
+                <button 
+                    v-if="esAdmin" 
+                    @click="openModal()" 
+                    class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+                    <span>Nuevo Cargo</span>
                 </button>
             </div>
         </template>
 
-        <div class="p-6 max-w-7xl mx-auto space-y-6">
+        <div class="py-8 page-cargos">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
                 <!-- Tarjetas de cargos -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div v-for="cargo in cargos" :key="cargo.id" class="card border border-white/5 hover:border-white/10 transition-all">
+                    <div v-for="cargo in cargos" :key="cargo.id" class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl space-y-4 hover:border-white/10 transition-all">
                         <!-- Header del cargo -->
-                        <div class="flex items-start justify-between mb-4">
+                        <div class="flex items-start justify-between">
                             <div>
-                                <span class="inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border" :class="colorCargo(cargo.nombre)">
+                                <span class="inline-block px-3 py-1 rounded-xl text-xs font-semibold border" :class="colorCargo(cargo.nombre)">
                                     {{ cargo.nombre }}
                                 </span>
-                                <p class="text-white/40 text-xs mt-2 italic">{{ cargo.descripcion || 'Sin descripción' }}</p>
+                                <p class="text-xs font-medium text-zinc-400 mt-2">{{ cargo.descripcion || 'Sin descripción' }}</p>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="text-[9px] font-black text-white/20 uppercase tracking-widest">
+                                <span class="text-xs font-semibold text-zinc-500">
                                     {{ cargo.empleados_activos_count }} empleado{{ cargo.empleados_activos_count !== 1 ? 's' : '' }}
                                 </span>
-                                <button v-if="esAdmin" @click="openModal(cargo)" class="p-1.5 text-white/30 hover:text-brand-red transition-colors bg-white/5 rounded">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                                <button 
+                                    v-if="esAdmin" 
+                                    @click="openModal(cargo)" 
+                                    class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                                    title="Editar Cargo"
+                                >
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                                     </svg>
                                 </button>
-                                <button v-if="esAdmin && cargo.nombre !== 'ADMIN'" @click="deleteCargo(cargo)" class="p-1.5 text-white/30 hover:text-brand-red transition-colors bg-white/5 rounded">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                        <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                <button 
+                                    v-if="esAdmin && cargo.nombre !== 'ADMIN'" 
+                                    @click="deleteCargo(cargo)" 
+                                    class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+                                    title="Desactivar Cargo"
+                                >
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
                                     </svg>
                                 </button>
                             </div>
                         </div>
 
                         <!-- Permisos del cargo -->
-                        <div>
-                            <p class="text-[9px] font-black uppercase tracking-[0.3em] text-white/20 mb-2">Permisos habilitados</p>
+                        <div class="border-t border-white/5 pt-3">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Permisos habilitados</p>
                             <div v-if="cargo.permisos.length" class="flex flex-wrap gap-1.5">
-                                <span v-for="p in cargo.permisos" :key="p.id" class="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider bg-white/5 text-white/50 border border-white/5">
+                                <span v-for="p in cargo.permisos" :key="p.id" class="px-2.5 py-1 rounded-xl text-xs font-semibold bg-white/5 text-zinc-300 border border-white/5">
                                     {{ p.nombre }}
                                 </span>
                             </div>
-                            <p v-else class="text-[10px] text-white/20 italic">Sin permisos asignados</p>
+                            <p v-else class="text-xs text-zinc-500 italic">Sin permisos asignados</p>
                         </div>
                     </div>
                 </div>
 
-                <div v-if="!cargos.length" class="card text-center py-20 text-white/20 text-sm font-black uppercase tracking-widest italic">
-                    No hay cargos definidos en el sistema
+                <div v-if="!cargos.length" class="bg-[#131316] border border-white/5 rounded-2xl p-12 text-center text-zinc-500 italic">
+                    No hay cargos definidos en el sistema.
                 </div>
+            </div>
         </div>
 
         <!-- Modal Cargo -->
         <Teleport to="body">
-            <div v-if="showModal && esAdmin" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div class="absolute inset-0 bg-black/95 backdrop-blur-md" @click="showModal = false"></div>
-                <div class="relative w-full max-w-3xl card p-0 border border-brand-red/50 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                    <div class="bg-brand-red p-6 flex justify-between items-center">
-                        <h3 class="text-2xl font-black uppercase tracking-tighter">
-                            {{ isEditing ? 'Editar' : 'Nuevo' }} <span class="text-white">Cargo</span>
-                        </h3>
-                        <button @click="showModal = false" class="text-white hover:scale-110 transition-transform">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                        </button>
-                    </div>
-
-                    <form @submit.prevent="submit" class="p-8 space-y-6 overflow-y-auto flex-1">
-                        <!-- Datos básicos -->
-                        <div class="grid grid-cols-2 gap-6">
-                            <div>
-                                <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Nombre del Cargo</label>
-                                <input v-model="form.nombre" type="text" class="input-field w-full font-black uppercase" :class="{'border-brand-red': form.errors.nombre}" placeholder="Ej: VENDEDOR">
-                                <p v-if="form.errors.nombre" class="text-brand-red text-[10px] mt-1">{{ form.errors.nombre }}</p>
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-black uppercase text-white/40 mb-2 tracking-widest">Descripción</label>
-                                <input v-model="form.descripcion" type="text" class="input-field w-full" placeholder="Descripción breve...">
-                            </div>
-                        </div>
-
-                        <!-- Permisos agrupados por módulo -->
-                        <div>
-                            <p class="text-[9px] font-black uppercase tracking-[0.3em] text-brand-red mb-4 border-b border-brand-red/20 pb-1">Permisos del Cargo</p>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div v-for="(permisosGrupo, modulo) in permisosPorModulo" :key="modulo" class="bg-white/[0.03] rounded-lg p-4 border border-white/5">
-                                    <p class="text-[9px] font-black uppercase tracking-[0.3em] text-white/30 mb-3">{{ modulo }}</p>
-                                    <label v-for="p in permisosGrupo" :key="p.id" class="flex items-center gap-2 cursor-pointer group mb-2">
-                                        <input type="checkbox" :value="p.id" v-model="form.permiso_ids" class="w-4 h-4 accent-brand-red">
-                                        <span class="text-xs font-bold text-white/60 group-hover:text-white transition-colors uppercase">{{ p.nombre }}</span>
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="flex justify-end gap-4 border-t border-white/10 pt-6">
-                            <button type="button" @click="showModal = false" class="px-8 py-3 font-black text-white/30 hover:text-white transition-colors uppercase text-[10px] tracking-[0.3em]">Cancelar</button>
-                            <button type="submit" :disabled="form.processing" class="btn-primary px-16">
-                                <span class="font-black italic tracking-widest">{{ form.processing ? 'Guardando...' : (isEditing ? 'ACTUALIZAR' : 'CREAR CARGO') }}</span>
+            <div v-if="showModal && esAdmin" class="page-cargos">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showModal = false" />
+                <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
+                    <div class="relative w-full max-w-3xl bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-hidden shadow-2xl pointer-events-auto flex flex-col max-h-[85vh]">
+                        <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center shrink-0">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                {{ isEditing ? 'EDITAR' : 'NUEVO' }} CARGO
+                            </h3>
+                            <button @click="showModal = false" class="text-zinc-400 hover:text-white transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
                         </div>
-                    </form>
+
+                        <form @submit.prevent="submit" class="p-6 space-y-6 overflow-y-auto flex-1">
+                            <!-- Datos básicos -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Nombre del Cargo *</label>
+                                    <input v-model="form.nombre" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" :class="{'border-rose-500': form.errors.nombre}" placeholder="Ej: VENDEDOR">
+                                    <p v-if="form.errors.nombre" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.nombre }}</p>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Descripción</label>
+                                    <input v-model="form.descripcion" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" placeholder="Descripción breve...">
+                                </div>
+                            </div>
+
+                            <!-- Permisos agrupados por módulo -->
+                            <div class="space-y-3">
+                                <p class="text-xs font-bold uppercase tracking-wider text-white border-b border-white/5 pb-2">Permisos del Cargo</p>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div v-for="(permisosGrupo, modulo) in permisosPorModulo" :key="modulo" class="bg-[#131316] rounded-2xl p-4 border border-white/5 space-y-2">
+                                        <p class="text-xs font-bold uppercase tracking-wider text-zinc-400 mb-2">{{ modulo }}</p>
+                                        <label v-for="p in permisosGrupo" :key="p.id" class="flex items-center gap-3 cursor-pointer group">
+                                            <input type="checkbox" :value="p.id" v-model="form.permiso_ids" class="rounded border-white/10 bg-[#0d0d0f] text-white focus:ring-0 h-4 w-4">
+                                            <span class="text-xs font-medium text-zinc-300 group-hover:text-white transition-colors">{{ p.nombre }}</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6 shrink-0">
+                                <button type="button" @click="showModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
+                                <button type="submit" :disabled="form.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                    <span>{{ form.processing ? 'GUARDANDO...' : (isEditing ? 'ACTUALIZAR' : 'CREAR CARGO') }}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
                 </div>
             </div>
         </Teleport>
     </AuthenticatedLayout>
 </template>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+.page-cargos,
+.page-cargos * {
+    font-family: 'Montserrat', sans-serif !important;
+}
+</style>

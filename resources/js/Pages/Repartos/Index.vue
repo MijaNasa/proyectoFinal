@@ -67,19 +67,29 @@ watch(search, () => {
     }, 300);
 });
 
+const darkSwal = Swal.mixin({
+    background: '#131316',
+    color: '#ffffff',
+    buttonsStyling: false,
+    customClass: {
+        popup: 'border border-white/10 rounded-2xl p-6 shadow-2xl bg-[#131316] page-repartos',
+        title: 'text-xl font-bold text-white tracking-tight',
+        htmlContainer: 'text-sm text-zinc-300 font-medium mt-2 leading-relaxed',
+        confirmButton: 'px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md active:scale-95 mx-1 cursor-pointer',
+        cancelButton: 'px-6 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-sm border border-white/10 transition-all active:scale-95 mx-1 cursor-pointer',
+        actions: 'mt-6 flex items-center justify-end gap-2'
+    }
+});
+
 const eliminar = (ruta) => {
     if (ruta.estado === 'finalizada') return;
-    Swal.fire({
+    darkSwal.fire({
         title: '¿Eliminar ruta?',
         text: `"${ruta.nombre}" será eliminada permanentemente.`,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonColor: '#e61919',
-        cancelButtonColor: '#333',
         confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar',
-        background: '#111',
-        color: '#fff',
     }).then(result => {
         if (result.isConfirmed) {
             router.delete(route('rutas-reparto.destroy', ruta.id));
@@ -114,183 +124,202 @@ const formatFecha = (f) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between min-h-[42px] w-full">
-                <h2 class="text-3xl font-black leading-none text-white tracking-tighter uppercase">Rutas de <span class="text-brand-red not-italic">Reparto</span></h2>
-                <button @click="crearNuevaRutaDirecta" :disabled="form.processing" class="btn-primary px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 cursor-pointer shadow-lg shadow-red-900/20">
+            <div class="flex items-center justify-between w-full page-repartos">
+                <div>
+                    <h2 class="text-2xl font-bold text-white tracking-tight uppercase">RUTAS DE REPARTO</h2>
+                </div>
+                <button 
+                    @click="crearNuevaRutaDirecta" 
+                    :disabled="form.processing" 
+                    class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2 disabled:opacity-50"
+                >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    {{ form.processing ? 'Creando...' : 'Nueva Ruta' }}
+                    <span>{{ form.processing ? 'CREANDO...' : 'NUEVA RUTA' }}</span>
                 </button>
             </div>
         </template>
 
-        <div class="p-6 max-w-7xl mx-auto space-y-6">
+        <div class="py-8 page-repartos">
+            <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
-            <!-- Barra de Filtros -->
-            <div class="card p-4 border-white/5 space-y-2">
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
-                    <!-- Buscador -->
-                    <div class="w-full">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Búsqueda</label>
-                        <div class="relative w-full">
-                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-white/40">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                </svg>
-                            </span>
+                <!-- Filter Bar Container -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 shadow-xl space-y-2">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
+                        <!-- Buscador -->
+                        <div class="w-full">
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Búsqueda</label>
+                            <div class="relative w-full">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-500">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                    </svg>
+                                </span>
+                                <input
+                                    v-model="search"
+                                    type="text"
+                                    placeholder="Ruta o repartidor..."
+                                    class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium"
+                                />
+                            </div>
+                        </div>
+
+                        <!-- Desde -->
+                        <div class="w-full">
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Desde</label>
                             <input
-                                v-model="search"
-                                type="text"
-                                placeholder="Ruta o repartidor..."
-                                class="w-full bg-black/40 border border-white/10 rounded-lg pl-9 pr-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 placeholder-white/30"
+                                v-model="desde"
+                                @change="aplicarFiltros"
+                                @click="$event.target.showPicker && $event.target.showPicker()"
+                                type="date"
+                                class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer"
                             />
                         </div>
-                    </div>
 
-                    <!-- Desde -->
-                    <div class="w-full">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Desde</label>
-                        <input
-                            v-model="desde"
-                            @change="aplicarFiltros"
-                            @click="$event.target.showPicker && $event.target.showPicker()"
-                            type="date"
-                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer"
-                        />
-                    </div>
+                        <!-- Hasta -->
+                        <div class="w-full">
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Hasta</label>
+                            <input
+                                v-model="hasta"
+                                @change="aplicarFiltros"
+                                @click="$event.target.showPicker && $event.target.showPicker()"
+                                type="date"
+                                class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer"
+                            />
+                        </div>
 
-                    <!-- Hasta -->
-                    <div class="w-full">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Hasta</label>
-                        <input
-                            v-model="hasta"
-                            @change="aplicarFiltros"
-                            @click="$event.target.showPicker && $event.target.showPicker()"
-                            type="date"
-                            class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer"
-                        />
+                        <!-- Estado -->
+                        <div class="w-full">
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1">Estado</label>
+                            <select v-model="estadoFiltro" @change="aplicarFiltros" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer">
+                                <option value="" class="bg-[#131316] text-zinc-400">Todas las rutas</option>
+                                <option value="pendiente" class="bg-[#131316] text-white">Pendiente</option>
+                                <option value="activa" class="bg-[#131316] text-white">En Curso</option>
+                                <option value="finalizada" class="bg-[#131316] text-white">Finalizada</option>
+                            </select>
+                        </div>
                     </div>
-
-                    <!-- Estado -->
-                    <div class="w-full">
-                        <label class="block text-xs font-bold uppercase tracking-wider text-white/50 mb-1.5">Estado</label>
-                        <select v-model="estadoFiltro" @change="aplicarFiltros" class="w-full bg-black/40 border border-white/10 rounded-lg px-3.5 py-2 text-xs font-medium text-white/90 focus:outline-none focus:border-brand-red/50 cursor-pointer">
-                            <option value="" class="bg-[#1a1a1a] text-white/60">Todas las rutas</option>
-                            <option value="pendiente" class="bg-[#1a1a1a] text-white">Pendiente</option>
-                            <option value="activa" class="bg-[#1a1a1a] text-white">En Curso</option>
-                            <option value="finalizada" class="bg-[#1a1a1a] text-white">Finalizada</option>
-                        </select>
+                    <div v-if="search || desde || hasta || estadoFiltro" class="flex justify-end pt-1">
+                        <button @click="limpiarFiltros" class="text-xs font-semibold uppercase tracking-wider text-rose-400 hover:underline cursor-pointer">
+                            Limpiar Filtros
+                        </button>
                     </div>
                 </div>
-                <div v-if="search || desde || hasta || estadoFiltro" class="flex justify-end pt-1">
-                    <button @click="limpiarFiltros" class="text-[10px] font-black uppercase tracking-wider text-brand-red hover:underline cursor-pointer">
-                        Limpiar Filtros
-                    </button>
+
+                <!-- Tabla Container -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left table-fixed">
+                            <thead>
+                                <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
+                                    <th class="p-4 w-[25%]">Ruta</th>
+                                    <th class="p-4 w-[20%]">Fecha</th>
+                                    <th class="p-4 w-[25%]">Repartidor</th>
+                                    <th class="p-4 w-[20%] text-center">Paradas</th>
+                                    <th class="p-4 w-[18%] text-center">Estado</th>
+                                    <th class="p-4 w-[12%] text-right">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-white/5 text-sm">
+                                <tr v-if="!rutas.data.length">
+                                    <td colspan="6" class="text-center p-12 text-zinc-500 italic">
+                                        No hay rutas registradas
+                                    </td>
+                                </tr>
+                                <tr
+                                    v-for="ruta in rutas.data"
+                                    :key="ruta.id"
+                                    class="hover:bg-white/[0.02] transition-colors"
+                                >
+                                    <td class="p-4">
+                                        <div class="font-bold text-white tracking-tight">{{ formatNombreRuta(ruta.nombre) }}</div>
+                                        <div class="text-xs text-zinc-400 font-medium mt-0.5">
+                                            {{ (ruta.paradas?.length ?? 0) === 1 ? '1 parada' : `${ruta.paradas?.length ?? 0} paradas` }}
+                                        </div>
+                                    </td>
+                                    <td class="p-4 text-sm font-semibold text-zinc-300">
+                                        {{ formatFecha(ruta.fecha) }}
+                                    </td>
+                                    <td class="p-4 text-sm font-bold text-white capitalize">
+                                        {{ ruta.repartidor?.user ? `${ruta.repartidor.user.name} ${ruta.repartidor.user.apellido ?? ''}` : 'Sin asignar' }}
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <div v-if="ruta.paradas?.length" class="flex flex-col items-center gap-1.5">
+                                            <span class="text-xs font-semibold text-emerald-400">
+                                                {{ contarEntregadas(ruta.paradas) }}/{{ ruta.paradas.length }} entregadas
+                                            </span>
+                                            <div class="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
+                                                <div
+                                                    class="h-full bg-emerald-400 rounded-full transition-all"
+                                                    :style="{ width: (contarEntregadas(ruta.paradas) / ruta.paradas.length * 100) + '%' }"
+                                                ></div>
+                                            </div>
+                                        </div>
+                                        <span v-else class="text-zinc-500 text-xs font-medium">Sin paradas</span>
+                                    </td>
+                                    <td class="p-4 text-center">
+                                        <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
+                                            <span
+                                                class="w-2 h-2 rounded-full shrink-0"
+                                                :class="{
+                                                    'bg-amber-400': ruta.estado === 'pendiente',
+                                                    'bg-sky-400': ruta.estado === 'activa',
+                                                    'bg-emerald-400': ruta.estado === 'finalizada'
+                                                }"
+                                            ></span>
+                                            <span>{{ ruta.estado === 'pendiente' ? 'Pendiente' : (ruta.estado === 'activa' ? 'En Curso' : 'Finalizada') }}</span>
+                                        </span>
+                                    </td>
+                                    <td class="p-4 text-right">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <Link
+                                                :href="route('rutas-reparto.show', ruta.id)"
+                                                class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                                                title="Ver detalle de ruta"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </Link>
+                                            <button
+                                                v-if="ruta.estado !== 'finalizada'"
+                                                @click="eliminar(ruta)"
+                                                class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+                                                title="Eliminar ruta"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
 
-            <!-- Tabla -->
-            <div class="card p-0 overflow-hidden">
-                <table class="w-full text-left table-fixed">
-                    <thead>
-                        <tr class="border-b border-white/10 bg-white/[0.01] uppercase text-xs font-bold tracking-wider text-white/50">
-                            <th class="p-4 w-[25%]">Ruta</th>
-                            <th class="p-4 w-[20%]">Fecha</th>
-                            <th class="p-4 w-[25%]">Repartidor</th>
-                            <th class="p-4 w-[20%] text-center">Paradas</th>
-                            <th class="p-4 w-[18%] text-center">Estado</th>
-                            <th class="p-4 w-[12%] text-right">Acciones</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-white/5">
-                        <tr v-if="!rutas.data.length">
-                            <td colspan="6" class="text-center py-12 text-white/20 font-bold uppercase tracking-widest text-xs">
-                                No hay rutas registradas
-                            </td>
-                        </tr>
-                        <tr
-                            v-for="ruta in rutas.data"
-                            :key="ruta.id"
-                            class="hover:bg-white/[0.02] transition-colors"
-                        >
-                            <td class="p-4">
-                                <p class="text-sm font-bold text-white">{{ formatNombreRuta(ruta.nombre) }}</p>
-                                <p class="text-xs text-white/50 font-medium">
-                                    {{ (ruta.paradas?.length ?? 0) === 1 ? '1 parada' : `${ruta.paradas?.length ?? 0} paradas` }}
-                                </p>
-                            </td>
-                            <td class="p-4 text-sm font-bold text-white">
-                                {{ formatFecha(ruta.fecha) }}
-                            </td>
-                            <td class="p-4 text-sm font-bold text-white">
-                                {{ ruta.repartidor?.user ? `${ruta.repartidor.user.name} ${ruta.repartidor.user.apellido ?? ''}` : 'Sin asignar' }}
-                            </td>
-                            <td class="p-4 text-center">
-                                <div v-if="ruta.paradas?.length" class="flex flex-col items-center gap-1">
-                                    <span class="text-xs font-bold text-emerald-400/90">
-                                        {{ contarEntregadas(ruta.paradas) }}/{{ ruta.paradas.length }} entregadas
-                                    </span>
-                                    <div class="w-20 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                        <div
-                                            class="h-full bg-emerald-400 rounded-full transition-all"
-                                            :style="{ width: (contarEntregadas(ruta.paradas) / ruta.paradas.length * 100) + '%' }"
-                                        ></div>
-                                    </div>
-                                </div>
-                                <span v-else class="text-white/30 text-xs font-medium">Sin paradas</span>
-                            </td>
-                            <td class="p-4 text-center">
-                                <span class="bg-[#1a1a1a] border border-white/10 text-white font-bold text-xs rounded-full px-3 py-1 inline-flex items-center gap-1.5 shadow-sm">
-                                    <span
-                                        class="w-2 h-2 rounded-full"
-                                        :class="{
-                                            'bg-amber-400': ruta.estado === 'pendiente',
-                                            'bg-sky-400': ruta.estado === 'activa',
-                                            'bg-emerald-400': ruta.estado === 'finalizada'
-                                        }"
-                                    ></span>
-                                    {{ ruta.estado === 'pendiente' ? 'Pendiente' : (ruta.estado === 'activa' ? 'En Curso' : 'Finalizada') }}
-                                </span>
-                            </td>
-                            <td class="p-4 text-right">
-                                <div class="flex items-center justify-end gap-1">
-                                    <Link
-                                        :href="route('rutas-reparto.show', ruta.id)"
-                                        class="p-1.5 text-white/40 hover:text-white transition-colors hover:bg-white/5 rounded-lg"
-                                        title="Ver detalle de ruta"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                                        </svg>
-                                    </Link>
-                                    <button
-                                        v-if="ruta.estado !== 'finalizada'"
-                                        @click="eliminar(ruta)"
-                                        class="p-1.5 text-white/40 hover:text-brand-red transition-colors hover:bg-white/5 rounded-lg"
-                                        title="Eliminar ruta"
-                                    >
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                    </button>
-                                </div>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Paginación -->
-            <div v-if="rutas.links?.length > 3" class="flex justify-center gap-2">
-                <Link
-                    v-for="link in rutas.links"
-                    :key="link.label"
-                    :href="link.url || '#'"
-                    class="px-4 py-2 rounded-lg border border-white/10 text-xs font-bold uppercase transition-all"
-                    :class="{ 'bg-brand-red text-white border-brand-red': link.active, 'text-white/30 pointer-events-none': !link.url }"
-                >{{ decodeLabel(link.label) }}</Link>
+                <!-- Paginación -->
+                <div v-if="rutas.links?.length > 3" class="flex justify-center gap-2 mt-6">
+                    <Link
+                        v-for="link in rutas.links"
+                        :key="link.label"
+                        :href="link.url || '#'"
+                        class="px-4 py-2 rounded-xl border border-white/5 transition-all text-xs font-semibold"
+                        :class="{'bg-white text-black border-white shadow-md': link.active, 'text-zinc-500 hover:text-white bg-white/5': !link.active && link.url, 'text-zinc-600 cursor-not-allowed': !link.url}"
+                        v-html="decodeLabel(link.label)"
+                    ></Link>
+                </div>
             </div>
         </div>
     </AuthenticatedLayout>
 </template>
 
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+.page-repartos,
+.page-repartos * {
+    font-family: 'Montserrat', sans-serif !important;
+}
+</style>
