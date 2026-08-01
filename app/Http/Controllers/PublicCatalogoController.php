@@ -30,12 +30,12 @@ class PublicCatalogoController extends Controller
             ->where('activo', true);
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('isbn', 'like', "%{$search}%")
-                  ->orWhereHas('master', function ($q2) use ($search) {
-                      $q2->where('titulo', 'like', "%{$search}%")
-                         ->orWhere('titulo_original', 'like', "%{$search}%");
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(isbn) LIKE ?', [$like])
+                  ->orWhereHas('master', function ($q2) use ($like) {
+                      $q2->whereRaw('LOWER(titulo) LIKE ?', [$like])
+                         ->orWhereRaw('LOWER(titulo_original) LIKE ?', [$like]);
                   });
             });
         }
@@ -161,10 +161,11 @@ class PublicCatalogoController extends Controller
             ->whereHas('master', fn($q) => $q->where('activo', true))
             ->where('activo', true)
             ->where(function ($q) use ($term) {
-                $q->where('isbn', 'like', "%{$term}%")
-                  ->orWhereHas('master', function ($q2) use ($term) {
-                      $q2->where('titulo', 'like', "%{$term}%")
-                         ->orWhere('titulo_original', 'like', "%{$term}%");
+                $like = '%' . mb_strtolower($term) . '%';
+                $q->whereRaw('LOWER(isbn) LIKE ?', [$like])
+                  ->orWhereHas('master', function ($q2) use ($like) {
+                      $q2->whereRaw('LOWER(titulo) LIKE ?', [$like])
+                         ->orWhereRaw('LOWER(titulo_original) LIKE ?', [$like]);
                   });
             })
             ->limit(8)

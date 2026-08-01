@@ -23,12 +23,12 @@ class SuscripcionController extends Controller
         $query = Suscripcion::with(['cliente.user:id,name,apellido,email', 'serie:id,titulo', 'sucursal:id,nombre']);
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->whereHas('cliente.user', function ($q) use ($search) {
-                $q->where('name', 'like', "%{$search}%")
-                  ->orWhere('apellido', 'like', "%{$search}%");
-            })->orWhereHas('serie', function ($q) use ($search) {
-                $q->where('titulo', 'like', "%{$search}%");
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->whereHas('cliente.user', function ($q) use ($like) {
+                $q->whereRaw('LOWER(name) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(apellido) LIKE ?', [$like]);
+            })->orWhereHas('serie', function ($q) use ($like) {
+                $q->whereRaw('LOWER(titulo) LIKE ?', [$like]);
             });
         }
 

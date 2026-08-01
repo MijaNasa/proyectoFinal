@@ -27,8 +27,9 @@ class VentaController extends Controller
                     $q->where('id', 'like', '%' . (int)$searchNum . '%');
                 }
                 $q->orWhereHas('cliente.user', function ($q2) use ($search) {
-                    $q2->where('name', 'like', '%' . $search . '%')
-                       ->orWhere('apellido', 'like', '%' . $search . '%');
+                    $like = '%' . mb_strtolower($search) . '%';
+                    $q2->whereRaw('LOWER(name) LIKE ?', [$like])
+                       ->orWhereRaw('LOWER(apellido) LIKE ?', [$like]);
                 });
             });
         }

@@ -18,12 +18,12 @@ class LibroController extends Controller
             ->with(['autor:id,nombre,apellido', 'categoria:id,nombre', 'proveedor:id,nombre_empresa', 'idioma:id,nombre', 'libros.precios', 'libros.stocks']);
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('titulo', 'like', "%{$search}%")
-                  ->orWhereHas('autor', fn($sq) => $sq->where('nombre', 'like', "%{$search}%")
-                      ->orWhere('apellido', 'like', "%{$search}%"))
-                  ->orWhereHas('libros', fn($sq) => $sq->where('isbn', 'like', "%{$search}%"));
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(titulo) LIKE ?', [$like])
+                  ->orWhereHas('autor', fn($sq) => $sq->whereRaw('LOWER(nombre) LIKE ?', [$like])
+                      ->orWhereRaw('LOWER(apellido) LIKE ?', [$like]))
+                  ->orWhereHas('libros', fn($sq) => $sq->whereRaw('LOWER(isbn) LIKE ?', [$like]));
             });
         }
 

@@ -105,11 +105,11 @@ class LibroMasterController extends Controller
             ->select(['id', 'titulo', 'portada', 'autor_id', 'categoria_id', 'proveedor_id', 'idioma_id', 'formato', 'synopsis', 'activo']);
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('titulo', 'like', "%{$search}%")
-                  ->orWhereHas('autor', fn($sq) => $sq->where('nombre', 'like', "%{$search}%")
-                      ->orWhere('apellido', 'like', "%{$search}%"));
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(titulo) LIKE ?', [$like])
+                  ->orWhereHas('autor', fn($sq) => $sq->whereRaw('LOWER(nombre) LIKE ?', [$like])
+                      ->orWhereRaw('LOWER(apellido) LIKE ?', [$like]));
             });
         }
 

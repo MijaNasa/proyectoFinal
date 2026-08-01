@@ -18,12 +18,12 @@ class RutaRepartoController extends Controller
         $query = RutaReparto::with(['repartidor.user', 'paradas']);
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('nombre', 'like', '%' . $search . '%')
-                  ->orWhereHas('repartidor.user', function($u) use ($search) {
-                      $u->where('name', 'like', '%' . $search . '%')
-                        ->orWhere('apellido', 'like', '%' . $search . '%');
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function($q) use ($like) {
+                $q->whereRaw('LOWER(nombre) LIKE ?', [$like])
+                  ->orWhereHas('repartidor.user', function($u) use ($like) {
+                      $u->whereRaw('LOWER(name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(apellido) LIKE ?', [$like]);
                   });
             });
         }

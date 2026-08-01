@@ -24,12 +24,12 @@ class ClienteController extends Controller
             ->with(['user', 'tipoCliente']);
 
         if ($request->has('search') && $request->search != '') {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('users.name', 'like', '%' . $search . '%')
-                  ->orWhere('users.apellido', 'like', '%' . $search . '%')
-                  ->orWhere('users.dni', 'like', '%' . $search . '%')
-                  ->orWhere('users.email', 'like', '%' . $search . '%');
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function($q) use ($like) {
+                $q->whereRaw('LOWER(users.name) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(users.apellido) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(users.dni) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(users.email) LIKE ?', [$like]);
             });
         }
 

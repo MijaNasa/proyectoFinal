@@ -20,10 +20,10 @@ class OrdenCompraController extends Controller
             ->latest();
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('numero_orden', 'like', "%{$search}%")
-                  ->orWhereHas('proveedor', fn($q2) => $q2->where('nombre', 'like', "%{$search}%"));
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(numero_orden) LIKE ?', [$like])
+                  ->orWhereHas('proveedor', fn($q2) => $q2->whereRaw('LOWER(nombre_empresa) LIKE ?', [$like]));
             });
         }
 
@@ -321,9 +321,10 @@ class OrdenCompraController extends Controller
         }
 
         if (strlen($q) > 0) {
-            $query->where(function($query) use ($q) {
-                $query->whereHas('master', fn($q2) => $q2->where('titulo', 'like', "%{$q}%"))
-                      ->orWhere('numero_tomo', 'like', "%{$q}%");
+            $like = '%' . mb_strtolower($q) . '%';
+            $query->where(function($query) use ($like) {
+                $query->whereHas('master', fn($q2) => $q2->whereRaw('LOWER(titulo) LIKE ?', [$like]))
+                      ->orWhereRaw('LOWER(numero_tomo) LIKE ?', [$like]);
             });
         }
 

@@ -22,13 +22,13 @@ class EmpleadoController extends Controller
         ]);
 
         if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('legajo', 'like', '%' . $search . '%')
-                  ->orWhereHas('user', function($sq) use ($search) {
-                      $sq->where('name', 'like', '%' . $search . '%')
-                        ->orWhere('apellido', 'like', '%' . $search . '%')
-                        ->orWhere('dni', 'like', '%' . $search . '%');
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function($q) use ($like) {
+                $q->whereRaw('LOWER(legajo) LIKE ?', [$like])
+                  ->orWhereHas('user', function($sq) use ($like) {
+                      $sq->whereRaw('LOWER(name) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(apellido) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(dni) LIKE ?', [$like]);
                   });
             });
         }

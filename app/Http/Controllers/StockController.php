@@ -33,15 +33,15 @@ class StockController extends Controller
 
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('titulo', 'like', "%{$search}%")
-                  ->orWhereHas('autor', function($sq) use ($search) {
-                      $sq->where('nombre', 'like', "%{$search}%")
-                         ->orWhere('apellido', 'like', "%{$search}%");
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function($q) use ($like) {
+                $q->whereRaw('LOWER(titulo) LIKE ?', [$like])
+                  ->orWhereHas('autor', function($sq) use ($like) {
+                      $sq->whereRaw('LOWER(nombre) LIKE ?', [$like])
+                         ->orWhereRaw('LOWER(apellido) LIKE ?', [$like]);
                   })
-                  ->orWhereHas('libros', function($sq) use ($search) {
-                      $sq->where('isbn', 'like', "%{$search}%");
+                  ->orWhereHas('libros', function($sq) use ($like) {
+                      $sq->whereRaw('LOWER(isbn) LIKE ?', [$like]);
                   });
             });
         }

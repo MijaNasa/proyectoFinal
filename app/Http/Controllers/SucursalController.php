@@ -17,10 +17,10 @@ class SucursalController extends Controller
         $query = Sucursal::query()->with('ciudad.provincia.pais');
 
         if ($request->filled('search')) {
-            $search = $request->search;
-            $query->where(function($q) use ($search) {
-                $q->where('nombre', 'like', '%' . $search . '%')
-                  ->orWhere('email', 'like', '%' . $search . '%');
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function($q) use ($like) {
+                $q->whereRaw('LOWER(nombre) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(email) LIKE ?', [$like]);
             });
         }
 

@@ -16,10 +16,10 @@ class ProveedorController extends Controller
         $query = Proveedor::query();
 
         if ($request->has('search')) {
-            $search = $request->search;
-            $query->where(function ($q) use ($search) {
-                $q->where('nombre_empresa', 'like', '%' . $search . '%')
-                  ->orWhere('email', 'like', '%' . $search . '%');
+            $like = '%' . mb_strtolower($request->search) . '%';
+            $query->where(function ($q) use ($like) {
+                $q->whereRaw('LOWER(nombre_empresa) LIKE ?', [$like])
+                  ->orWhereRaw('LOWER(email) LIKE ?', [$like]);
             });
         }
         
