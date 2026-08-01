@@ -80,11 +80,11 @@ const toggleGroup = (group) => {
             </div>
 
             <!-- Group: Ventas y Caja -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('ventas.acceder') || hasPermiso('caja.acceder') || hasPermiso('gastos.acceder')" class="space-y-1">
+            <div v-if="$page.props.auth.esAdmin || hasPermiso('ventas.acceder') || hasPermiso('caja.acceder') || hasPermiso('gastos.acceder') || hasPermiso('repartos.acceder')" class="space-y-1">
                 <button 
                     @click="toggleGroup('operations')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
-                    :class="(route().current('ventas.*') || route().current('cierre-cajas.*') || route().current('gastos.*')) ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
+                    :class="(route().current('ventas.*') || route().current('cierre-cajas.*') || route().current('gastos.*') || route().current('rutas-reparto.*')) ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
                 >
                     <div class="flex items-center gap-3">
                         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -98,15 +98,16 @@ const toggleGroup = (group) => {
                     <Link v-if="$page.props.auth.esAdmin || hasPermiso('ventas.acceder')" :href="route('ventas.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('ventas.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Ventas</Link>
                     <Link v-if="$page.props.auth.esAdmin || hasPermiso('caja.acceder')" :href="route('cierre-cajas.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('cierre-cajas.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Cierres de Caja</Link>
                     <Link v-if="$page.props.auth.esAdmin || hasPermiso('gastos.acceder')" :href="route('gastos.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('gastos.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Gastos</Link>
+                    <Link v-if="$page.props.auth.esAdmin || hasPermiso('repartos.acceder')" :href="route('rutas-reparto.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('rutas-reparto.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Rutas de Reparto</Link>
                 </div>
             </div>
 
             <!-- Group: Logística y Stock -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('stock.acceder') || hasPermiso('repartos.acceder')" class="space-y-1">
+            <div v-if="$page.props.auth.esAdmin || hasPermiso('stock.acceder')" class="space-y-1">
                 <button 
                     @click="toggleGroup('inventory')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
-                    :class="(route().current('sucursales.*') || route().current('stocks.*') || route().current('logistica.*') || route().current('rutas-reparto.*')) ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
+                    :class="(route().current('stocks.*') || route().current('logistica.*')) ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
                 >
                     <div class="flex items-center gap-3">
                         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -119,8 +120,6 @@ const toggleGroup = (group) => {
                 <div v-show="expandedGroups.inventory" class="pl-9 pr-2 space-y-1">
                     <Link :href="route('stocks.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('stocks.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Stock</Link>
                     <Link :href="route('logistica.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('logistica.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Historial Logística</Link>
-                    <Link :href="route('sucursales.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('sucursales.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Sucursales</Link>
-                    <Link v-if="$page.props.auth.esAdmin || hasPermiso('repartos.acceder')" :href="route('rutas-reparto.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('rutas-reparto.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Rutas de Reparto</Link>
                 </div>
             </div>
 
@@ -185,7 +184,7 @@ const toggleGroup = (group) => {
                 <button 
                     @click="toggleGroup('admin')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
-                    :class="(route().current('cargos.*') || route().current('empleados.*')) ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
+                    :class="(route().current('cargos.*') || route().current('empleados.*') || route().current('sucursales.*')) ? 'bg-white/10 text-white' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
                 >
                     <div class="flex items-center gap-3">
                         <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -198,6 +197,7 @@ const toggleGroup = (group) => {
                 </button>
                 <div v-show="expandedGroups.admin" class="pl-9 pr-2 space-y-1">
                     <Link v-if="$page.props.auth.esAdmin || hasPermiso('empleados.acceder')" :href="route('empleados.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('empleados.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Recursos Humanos</Link>
+                    <Link :href="route('sucursales.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('sucursales.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Sucursales</Link>
                     <Link v-if="$page.props.auth.esAdmin || hasPermiso('cargos.gestionar')" :href="route('cargos.index')" class="block py-2 px-3 rounded-lg text-sm font-semibold transition-colors" :class="route().current('cargos.*') ? 'text-white bg-white/5' : 'text-zinc-400 hover:text-white'">Cargos y Accesos</Link>
                 </div>
             </div>
