@@ -235,11 +235,11 @@ const resetearPassword = () => {
 
 const colorCargo = (nombre) => {
     const map = { 
-        ADMIN: 'bg-rose-500/10 text-rose-400 border-rose-500/20', 
-        GERENTE: 'bg-sky-500/10 text-sky-400 border-sky-500/20', 
-        VENDEDOR: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+        ADMIN: 'bg-rose-400', 
+        GERENTE: 'bg-sky-400', 
+        VENDEDOR: 'bg-emerald-400' 
     };
-    return map[nombre] || 'bg-white/5 text-zinc-300 border-white/5';
+    return map[nombre] || 'bg-zinc-400';
 };
 </script>
 
@@ -312,8 +312,9 @@ const colorCargo = (nombre) => {
                                     </td>
                                     <td class="p-4">
                                         <div class="flex flex-wrap gap-1.5">
-                                            <span v-for="c in emp.cargos" :key="c.id" class="px-2.5 py-1 rounded-xl text-xs font-semibold border" :class="colorCargo(c.nombre)">
-                                                {{ c.nombre }}
+                                            <span v-for="c in emp.cargos" :key="c.id" class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
+                                                <span class="w-2 h-2 rounded-full shrink-0" :class="colorCargo(c.nombre)"></span>
+                                                <span>{{ c.nombre }}</span>
                                             </span>
                                             <span v-if="!emp.cargos?.length" class="text-xs text-zinc-500 italic">Sin cargo</span>
                                         </div>
@@ -490,9 +491,10 @@ const colorCargo = (nombre) => {
                             <div>
                                 <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-3">Cargos Activos</p>
                                 <div v-if="empleadoSeleccionado?.cargos?.length" class="flex flex-wrap gap-2">
-                                    <div v-for="c in empleadoSeleccionado.cargos" :key="c.id" class="flex items-center gap-2 px-3 py-1 rounded-xl border text-xs font-semibold" :class="colorCargo(c.nombre)">
+                                    <div v-for="c in empleadoSeleccionado.cargos" :key="c.id" class="flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
+                                        <span class="w-2 h-2 rounded-full shrink-0" :class="colorCargo(c.nombre)"></span>
                                         <span>{{ c.nombre }}</span>
-                                        <button @click="desasignarCargo(c)" class="hover:text-white transition-colors opacity-70 hover:opacity-100">✕</button>
+                                        <button @click="desasignarCargo(c)" class="hover:text-white transition-colors opacity-70 hover:opacity-100 ml-1">✕</button>
                                     </div>
                                 </div>
                                 <p v-else class="text-xs text-zinc-500 italic">Este empleado no tiene cargos asignados</p>

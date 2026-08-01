@@ -104,11 +104,11 @@ const deleteCargo = (cargo) => {
 // Colores por cargo
 const colorCargo = (nombre) => {
     const map = { 
-        ADMIN: 'bg-rose-500/10 text-rose-400 border-rose-500/20', 
-        GERENTE: 'bg-sky-500/10 text-sky-400 border-sky-500/20', 
-        VENDEDOR: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+        ADMIN: 'bg-rose-400', 
+        GERENTE: 'bg-sky-400', 
+        VENDEDOR: 'bg-emerald-400' 
     };
-    return map[nombre] || 'bg-white/5 text-zinc-300 border-white/5';
+    return map[nombre] || 'bg-zinc-400';
 };
 </script>
 
@@ -141,14 +141,16 @@ const colorCargo = (nombre) => {
                         <!-- Header del cargo -->
                         <div class="flex items-start justify-between">
                             <div>
-                                <span class="inline-block px-3 py-1 rounded-xl text-xs font-semibold border" :class="colorCargo(cargo.nombre)">
-                                    {{ cargo.nombre }}
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
+                                    <span class="w-2 h-2 rounded-full shrink-0" :class="colorCargo(cargo.nombre)"></span>
+                                    <span>{{ cargo.nombre }}</span>
                                 </span>
                                 <p class="text-xs font-medium text-zinc-400 mt-2">{{ cargo.descripcion || 'Sin descripción' }}</p>
                             </div>
                             <div class="flex items-center gap-2">
-                                <span class="text-xs font-semibold text-zinc-500">
-                                    {{ cargo.empleados_activos_count }} empleado{{ cargo.empleados_activos_count !== 1 ? 's' : '' }}
+                                <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
+                                    <span class="w-2 h-2 rounded-full shrink-0 bg-emerald-400"></span>
+                                    <span>{{ cargo.empleados_activos_count }} empleado{{ cargo.empleados_activos_count !== 1 ? 's' : '' }}</span>
                                 </span>
                                 <button 
                                     v-if="esAdmin" 

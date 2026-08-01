@@ -97,17 +97,6 @@ const eliminarTodas = () => {
                 <div>
                     <h2 class="text-2xl font-bold text-white tracking-tight uppercase">NOTIFICACIONES</h2>
                 </div>
-                <div v-if="notificaciones.data.length > 0" class="flex items-center gap-3">
-                    <button 
-                        @click="eliminarTodas" 
-                        class="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs border border-rose-500/20 transition-all flex items-center gap-2 active:scale-95"
-                    >
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
-                        <span>Eliminar Todas</span>
-                    </button>
-                </div>
             </div>
         </template>
 
@@ -122,6 +111,17 @@ const eliminarTodas = () => {
                                 <span class="w-2 h-2 rounded-full bg-blue-400"></span>
                                 {{ notificaciones.total }} sin leer
                             </span>
+                        </div>
+                        <div v-if="notificaciones.data.length > 0" class="flex items-center gap-3">
+                            <button 
+                                @click="eliminarTodas" 
+                                class="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs border border-rose-500/20 transition-all flex items-center gap-2 active:scale-95"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                                <span>Eliminar Todas</span>
+                            </button>
                         </div>
                     </div>
 

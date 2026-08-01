@@ -124,7 +124,7 @@ const envioSucursalCorreo = computed(() => {
                 </div>
 
                 <!-- Right: Title, Price, Action Row & Delivery -->
-                <div class="lg:col-span-7 space-y-6 text-white">
+                <div class="lg:col-span-7 space-y-10 text-white">
                     <!-- Title above Price -->
                     <div class="space-y-1">
                         <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400 block">
@@ -137,7 +137,7 @@ const envioSucursalCorreo = computed(() => {
                     </div>
 
                     <!-- Pricing Section -->
-                    <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl space-y-4">
+                    <div class="space-y-4">
                         <div class="flex items-baseline gap-3">
                             <span v-if="esPreventa" class="text-lg font-bold text-zinc-500 font-mono line-through">
                                 {{ getPrecioOriginal(libro) }}
@@ -174,7 +174,7 @@ const envioSucursalCorreo = computed(() => {
                     <!-- Quantity & Add to Cart Action Row -->
                     <div class="flex items-center gap-4 py-1">
                         <!-- Quantity Selector -->
-                        <div class="flex items-center border border-white/10 bg-[#0d0d0f] rounded-xl overflow-hidden shrink-0">
+                        <div v-if="getStockStatus(libro) !== 'sin_stock'" class="flex items-center border border-white/10 bg-[#0d0d0f] rounded-xl overflow-hidden shrink-0">
                             <button
                                 @click="cantidad = Math.max(1, cantidad - 1)"
                                 class="px-3.5 py-2.5 text-zinc-400 hover:text-white hover:bg-white/5 transition-colors font-bold text-xs"
@@ -197,7 +197,7 @@ const envioSucursalCorreo = computed(() => {
                     </div>
 
                     <!-- Shipping Calculator Box & Calculation Results -->
-                    <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl space-y-4">
+                    <div class="space-y-4">
                         <h4 class="text-xs font-bold uppercase tracking-wider text-white">Medios de envío</h4>
 
                         <!-- Input form before calculation -->
@@ -280,7 +280,7 @@ const envioSucursalCorreo = computed(() => {
                     </div>
 
                     <!-- Description / Synopsis -->
-                    <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl space-y-2">
+                    <div class="space-y-2">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-white">DESCRIPCIÓN</h3>
                         <div class="text-xs text-zinc-300 leading-relaxed space-y-2">
                             <p v-if="libro.synopsis">{{ libro.synopsis }}</p>

@@ -23,8 +23,8 @@ class ReporteController extends Controller
         ]);
 
         $tab       = $request->get('tab', 'ventas');
-        $desde     = $request->get('desde', now()->startOfMonth()->toDateString());
-        $hasta     = $request->get('hasta', now()->toDateString());
+        $desde     = $request->get('desde');
+        $hasta     = $request->get('hasta');
         $sucursalId = $request->user()->sucursalRestringidaId() ?: $request->get('sucursal_id');
 
         return Inertia::render('Reportes/Index', [
@@ -37,11 +37,11 @@ class ReporteController extends Controller
         ]);
     }
 
-    private function reporteVentas(string $desde, string $hasta, ?string $sucursalId): array
+    private function reporteVentas(?string $desde, ?string $hasta, ?string $sucursalId): array
     {
-        $base = Venta::where('fecha', '>=', $desde)
-            ->where('fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay())
-            ->whereNotIn('estado', ['cancelado', 'pendiente_pago']);
+        $base = Venta::whereNotIn('estado', ['cancelado', 'pendiente_pago']);
+        if ($desde) $base->where('fecha', '>=', $desde);
+        if ($hasta) $base->where('fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay());
         if ($sucursalId) $base->where('sucursal_id', $sucursalId);
 
         // Ventas por día
@@ -57,8 +57,8 @@ class ReporteController extends Controller
             ->join('ventas', 'ventas.id', '=', 'venta_detalles.venta_id')
             ->join('libros', 'libros.id', '=', 'venta_detalles.libro_id')
             ->join('libro_masters', 'libro_masters.id', '=', 'libros.master_id')
-            ->where('ventas.fecha', '>=', $desde)
-            ->where('ventas.fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay())
+            ->when($desde, fn($q) => $q->where('ventas.fecha', '>=', $desde))
+            ->when($hasta, fn($q) => $q->where('ventas.fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay()))
             ->when($sucursalId, fn($q) => $q->where('ventas.sucursal_id', $sucursalId))
             ->whereNull('ventas.deleted_at')
             ->whereNotIn('ventas.estado', ['cancelado', 'pendiente_pago'])
@@ -202,11 +202,11 @@ class ReporteController extends Controller
         return compact('sinStock', 'stockBajo', 'rotacion', 'totales');
     }
 
-    private function reporteBalance(string $desde, string $hasta, ?string $sucursalId): array
+    private function reporteBalance(?string $desde, ?string $hasta, ?string $sucursalId): array
     {
-        $base = Venta::where('fecha', '>=', $desde)
-            ->where('fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay())
-            ->whereNotIn('estado', ['cancelado', 'pendiente_pago']);
+        $base = Venta::whereNotIn('estado', ['cancelado', 'pendiente_pago']);
+        if ($desde) $base->where('fecha', '>=', $desde);
+        if ($hasta) $base->where('fecha', '<=', \Carbon\Carbon::parse($hasta)->endOfDay());
         if ($sucursalId) $base->where('sucursal_id', $sucursalId);
 
         $baseWithDetalles = (clone $base)

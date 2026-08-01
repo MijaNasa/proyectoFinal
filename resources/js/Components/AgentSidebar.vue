@@ -216,14 +216,14 @@ const toggleGroup = (group) => {
         </div>
 
         <!-- User Area -->
-        <div class="p-4 border-t border-white/5 bg-[#08080a] shrink-0 space-y-3">
+        <div class="p-4 border-t border-white/5 bg-[#08080a] shrink-0 space-y-3 user-area">
             <Link :href="route('profile.edit')" class="flex items-center gap-3.5 group p-2 rounded-xl hover:bg-white/5 transition-colors">
-                <div class="h-9 w-9 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10 shrink-0">
-                    <span class="text-sm font-bold text-white uppercase">{{ $page.props.auth.user.name.substring(0,2) }}</span>
+                <div class="h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center border border-white/10 shrink-0">
+                    <span class="text-base font-bold text-white uppercase">{{ $page.props.auth.user.name.substring(0,2) }}</span>
                 </div>
                 <div class="flex-1 overflow-hidden leading-tight">
-                    <div class="text-sm font-semibold text-white truncate">{{ $page.props.auth.user.name }}</div>
-                    <div class="text-xs text-zinc-400 truncate mt-0.5">
+                    <div class="text-base font-semibold text-white truncate">{{ $page.props.auth.user.name }}</div>
+                    <div class="text-sm text-zinc-400 truncate mt-0.5">
                         {{ $page.props.auth.user.email || ($page.props.auth.esAdmin ? 'Administrador' : 'Operador') }}
                     </div>
                 </div>
@@ -234,18 +234,24 @@ const toggleGroup = (group) => {
                 :href="route('logout')" 
                 method="post" 
                 as="button" 
-                class="w-full flex items-center justify-center gap-2 bg-white hover:bg-zinc-200 text-black font-bold text-xs py-2.5 rounded-xl transition-all shadow-md active:scale-95"
+                class="w-full flex items-center justify-center gap-2 bg-white hover:bg-zinc-200 text-black font-bold text-sm py-2.5 rounded-xl transition-all shadow-md active:scale-95"
             >
-                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                 </svg>
-                <span>Cerrar Sesión</span>
+                <span>Cerrar sesión</span>
             </Link>
         </div>
     </aside>
 </template>
 
 <style scoped>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+
+.user-area, .user-area * {
+    font-family: 'Montserrat', sans-serif !important;
+}
+
 .scrollbar-hide::-webkit-scrollbar {
     display: none;
 }
