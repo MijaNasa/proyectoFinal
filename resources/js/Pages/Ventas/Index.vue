@@ -880,8 +880,8 @@ onMounted(() => {
                                         class="text-xs font-semibold text-zinc-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 uppercase tracking-wider focus:outline-none focus:border-white/30"
                                         title="Sucursal desde la que estás vendiendo"
                                     >
-                                        <option value="" disabled>📍 Elegí sucursal</option>
-                                        <option v-for="s in props.sucursales" :key="s.id" :value="s.id">📍 {{ s.nombre }}</option>
+                                        <option value="" disabled class="bg-black text-zinc-300">📍 Elegí sucursal</option>
+                                        <option v-for="s in props.sucursales" :key="s.id" :value="s.id" class="bg-black text-zinc-300">📍 {{ s.nombre }}</option>
                                     </select>
                                     <div v-else-if="$page.props.auth.empleado?.sucursal" class="text-xs font-semibold text-zinc-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 uppercase tracking-wider">
                                         📍 {{ $page.props.auth.empleado.sucursal.nombre }}

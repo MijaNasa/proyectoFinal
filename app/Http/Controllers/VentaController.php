@@ -83,12 +83,14 @@ class VentaController extends Controller
             return response()->json([]);
         }
 
+        $like = '%' . mb_strtolower($q) . '%';
+
         $clientes = \App\Models\Cliente::with('user:id,name,apellido,email,dni')
             ->whereHas('user', fn($query) => $query
-                ->where('name', 'like', "%{$q}%")
-                ->orWhere('apellido', 'like', "%{$q}%")
-                ->orWhere('dni', 'like', "%{$q}%")
-                ->orWhere('email', 'like', "%{$q}%")
+                ->whereRaw('LOWER(name) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(apellido) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(dni) LIKE ?', [$like])
+                ->orWhereRaw('LOWER(email) LIKE ?', [$like])
             )
             ->select('id', 'user_id', 'saldo_actual')
             ->limit(10)
@@ -128,10 +130,11 @@ class VentaController extends Controller
                 ->latest('fecha_desde')
                 ->limit(1),
         ])
-        ->where(fn($query) => $query
-            ->whereHas('master', fn($q2) => $q2->where('titulo', 'like', "%{$q}%"))
-            ->orWhere('isbn', 'like', "%{$q}%")
-        )
+        ->where(function ($query) use ($q) {
+            $like = '%' . mb_strtolower($q) . '%';
+            $query->whereHas('master', fn($q2) => $q2->whereRaw('LOWER(titulo) LIKE ?', [$like]))
+                ->orWhereRaw('LOWER(isbn) LIKE ?', [$like]);
+        })
         ->select('id', 'master_id', 'isbn', 'permite_preventa', 'numero_tomo')
         ->limit(20)
         ->get();
