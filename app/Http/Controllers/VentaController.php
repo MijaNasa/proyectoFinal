@@ -161,11 +161,17 @@ class VentaController extends Controller
     public function store(StoreVentaRequest $request)
     {
         $user = \Auth::user();
-        $sucursal_id = $user->empleado?->sucursal_id;
+        // Un admin no esta atado a una sola sucursal: puede elegir desde cual vende.
+        // Un empleado normal siempre opera desde la suya, sin importar que mande el request.
+        $sucursal_id = $user->esAdmin()
+            ? ((int) $request->sucursal_id ?: $user->empleado?->sucursal_id)
+            : $user->empleado?->sucursal_id;
 
         if (!$sucursal_id) {
             return redirect()->route('ventas.index')
-                ->with('error', 'El usuario actual no tiene una sucursal asignada para operar.');
+                ->with('error', $user->esAdmin()
+                    ? 'Seleccioná una sucursal para operar.'
+                    : 'El usuario actual no tiene una sucursal asignada para operar.');
         }
 
         $libroIds = collect($request->items)->pluck('libro_id');

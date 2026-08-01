@@ -17,6 +17,7 @@ class StoreVentaRequest extends FormRequest
     {
         return [
             'cliente_id'       => ['nullable', 'exists:clientes,id', Rule::requiredIf($this->medio_pago === 'Cuenta Corriente')],
+            'sucursal_id'      => 'nullable|exists:sucursales,id',
             'tipo'             => 'required|in:online,presencial',
             'items'            => 'required|array|min:1',
             'items.*.libro_id' => 'required|exists:libros,id',

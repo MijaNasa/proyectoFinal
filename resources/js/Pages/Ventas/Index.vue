@@ -129,6 +129,7 @@ watch(search, () => {
 
 const posForm = useForm({
     cliente_id: '',
+    sucursal_id: page.props.auth.empleado?.sucursal_id || '',
     tipo: 'presencial',
     medio_pago: 'Efectivo',
     requiere_envio: false,
@@ -270,7 +271,7 @@ const buscarLibros = (query) => {
     libroSearchTimer = setTimeout(async () => {
         try {
             const res = await window.axios.get(route('ventas.search-libros'), {
-                params: { q: query, sucursal_id: page.props.auth.empleado?.sucursal_id }
+                params: { q: query, sucursal_id: posForm.sucursal_id }
             });
             librosResults.value = res.data;
         } catch (e) {
@@ -378,7 +379,7 @@ const simularEscaneo = () => {
             }
             try {
                 const res = await window.axios.get(route('libros.buscar'), {
-                    params: { q: isbn.trim(), sucursal_id: page.props.auth.empleado?.sucursal_id }
+                    params: { q: isbn.trim(), sucursal_id: posForm.sucursal_id }
                 });
                 if (!res.data || res.data.length === 0) {
                     Swal.showValidationMessage(`No se encontró ningún producto con ISBN ${isbn}`);
@@ -455,6 +456,16 @@ const openPos = () => {
     libroSeleccionado.value = null;
     showPosModal.value = true;
 };
+
+// Si el admin cambia de sucursal a mitad de una venta, el carrito quedaria
+// validado contra el stock de la sucursal anterior: lo vaciamos para evitar
+// vender algo que no hay en la sucursal nueva.
+watch(() => posForm.sucursal_id, (nuevo, anterior) => {
+    if (anterior === undefined) return;
+    posForm.items = [];
+    libroSeleccionado.value = null;
+    librosResults.value = [];
+});
 
 const submitVenta = () => {
     if (posForm.items.length === 0) return;
@@ -863,7 +874,16 @@ onMounted(() => {
                             <div class="flex justify-between items-center border-b border-white/5 pb-4">
                                 <h3 class="text-xl font-bold tracking-tight uppercase text-white">Terminal POS</h3>
                                 <div class="flex items-center gap-3">
-                                    <div v-if="$page.props.auth.empleado?.sucursal" class="text-xs font-semibold text-zinc-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 uppercase tracking-wider">
+                                    <select
+                                        v-if="$page.props.auth.esAdmin"
+                                        v-model="posForm.sucursal_id"
+                                        class="text-xs font-semibold text-zinc-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 uppercase tracking-wider focus:outline-none focus:border-white/30"
+                                        title="Sucursal desde la que estás vendiendo"
+                                    >
+                                        <option value="" disabled>📍 Elegí sucursal</option>
+                                        <option v-for="s in props.sucursales" :key="s.id" :value="s.id">📍 {{ s.nombre }}</option>
+                                    </select>
+                                    <div v-else-if="$page.props.auth.empleado?.sucursal" class="text-xs font-semibold text-zinc-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/10 uppercase tracking-wider">
                                         📍 {{ $page.props.auth.empleado.sucursal.nombre }}
                                     </div>
                                     <button @click="showPosModal = false" class="text-zinc-400 hover:text-white transition-colors p-1.5 rounded-xl hover:bg-white/5" title="Cerrar modal">
@@ -937,9 +957,9 @@ onMounted(() => {
                                         type="text" 
                                         placeholder="Buscar por título o ISBN..." 
                                         class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium" 
-                                        :disabled="!$page.props.auth.empleado?.sucursal_id && !$page.props.auth.esAdmin" 
-                                        :title="(!$page.props.auth.empleado?.sucursal_id && !$page.props.auth.esAdmin) ? 'No tienes una sucursal asignada' : ''" 
-                                        :class="{'opacity-50 cursor-not-allowed': !$page.props.auth.empleado?.sucursal_id && !$page.props.auth.esAdmin}"
+                                        :disabled="!posForm.sucursal_id"
+                                        :title="!posForm.sucursal_id ? 'Elegí una sucursal para operar' : ''"
+                                        :class="{'opacity-50 cursor-not-allowed': !posForm.sucursal_id}"
                                     >
                                     
                                     <div v-if="showLibroDropdown && librosResults.length" class="absolute top-full left-0 z-[60] w-full mt-1 bg-[#131316] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
@@ -1066,7 +1086,7 @@ onMounted(() => {
                                 </div>
 
                                 <div class="flex flex-col gap-2.5 mt-4">
-                                    <button @click="submitVenta" :disabled="posForm.processing || posForm.items.length === 0" class="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-30">
+                                    <button @click="submitVenta" :disabled="posForm.processing || posForm.items.length === 0 || !posForm.sucursal_id" class="w-full py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-30">
                                        {{ posForm.processing ? 'Sincronizando...' : 'Confirmar Pago' }}
                                     </button>
                                     <button @click="showPosModal = false" class="text-xs font-semibold text-zinc-500 hover:text-white transition-colors tracking-wider py-2 text-center">Cancelar Operación</button>
