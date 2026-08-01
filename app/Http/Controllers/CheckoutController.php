@@ -551,14 +551,31 @@ class CheckoutController extends Controller
     public function success(Request $request)
     {
         $ventaId = $request->query('external_reference');
-        $venta   = null;
+        $venta   = $ventaId ? Venta::find($ventaId) : null;
 
-        if ($ventaId) {
-            $venta = Venta::where('user_id', Auth::user()?->id)->find($ventaId);
-            if ($venta) {
-                // Limpiar carrito siempre que el pago haya avanzado,
-                // independientemente de si el webhook ya llegó o no
-                session()->forget('carrito');
+        if ($venta) {
+            // Limpiar carrito siempre que el pago haya avanzado,
+            // independientemente de si el webhook ya llegó o no
+            session()->forget('carrito');
+
+            // El webhook de MP puede demorar (o fallar por config) en avisarnos el pago;
+            // si el usuario ya volvió acá con un payment_id, verificamos directo contra la
+            // API de MP en vez de depender exclusivamente del webhook.
+            $paymentId = $request->query('payment_id') ?? $request->query('collection_id');
+            if ($venta->estado === 'pendiente_pago' && $paymentId) {
+                try {
+                    $payment = (new PaymentClient())->get($paymentId);
+                    if ($payment->status === 'approved') {
+                        $this->handleApproved($venta, (string) $paymentId);
+                        $venta->refresh();
+                    }
+                } catch (\Exception $e) {
+                    \Log::error('Checkout success: error verificando pago contra MP', [
+                        'venta_id'   => $venta->id,
+                        'payment_id' => $paymentId,
+                        'error'      => $e->getMessage(),
+                    ]);
+                }
             }
         }
 
@@ -578,9 +595,7 @@ class CheckoutController extends Controller
     public function pending(Request $request)
     {
         $ventaId = $request->query('external_reference');
-        $venta   = $ventaId
-            ? Venta::where('user_id', Auth::user()?->id)->find($ventaId)
-            : null;
+        $venta   = $ventaId ? Venta::find($ventaId) : null;
 
         return Inertia::render('Checkout/Confirmacion', [
             'status' => 'pending',
@@ -594,10 +609,9 @@ class CheckoutController extends Controller
 
         if ($ventaId) {
             $venta = Venta::where('id', $ventaId)
-                ->where('user_id', Auth::user()?->id)
                 ->where('estado', 'pendiente_pago')
                 ->first();
-                
+
             if ($venta) {
                 $venta->cancelarConRestitucionDeStock();
             }
