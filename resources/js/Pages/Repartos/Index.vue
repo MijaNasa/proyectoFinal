@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import Swal from 'sweetalert2';
@@ -17,26 +17,26 @@ const desde        = ref(props.filters.desde        || '');
 const hasta        = ref(props.filters.hasta        || '');
 const estadoFiltro = ref(props.filters.estado       || '');
 
-const showModal          = ref(false);
-const showRepartidorDrop = ref(false);
-
-const repartidorLabel = computed(() => {
-    if (!form.repartidor_id) return 'Sin asignar';
-    const r = props.repartidores.find(r => r.id == form.repartidor_id);
-    return r ? `${r.user?.name ?? ''} ${r.user?.apellido ?? ''}`.trim() : 'Sin asignar';
-});
-
-const selectRepartidor = (id) => {
-    form.repartidor_id = id;
-    showRepartidorDrop.value = false;
-};
+const showModal = ref(false);
 
 const form = useForm({
     repartidor_id: '',
 });
 
+const abrirNuevaRuta = () => {
+    form.reset();
+    showModal.value = true;
+};
+
+const cerrarNuevaRuta = () => {
+    showModal.value = false;
+    form.reset();
+};
+
 const crearNuevaRutaDirecta = () => {
-    form.post(route('rutas-reparto.store'));
+    form.post(route('rutas-reparto.store'), {
+        onSuccess: () => { showModal.value = false; },
+    });
 };
 
 const aplicarFiltros = () => {
@@ -128,13 +128,12 @@ const formatFecha = (f) => {
                 <div>
                     <h2 class="text-2xl font-bold text-white tracking-tight uppercase">RUTAS DE REPARTO</h2>
                 </div>
-                <button 
-                    @click="crearNuevaRutaDirecta" 
-                    :disabled="form.processing" 
-                    class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2 disabled:opacity-50"
+                <button
+                    @click="abrirNuevaRuta"
+                    class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
                 >
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
-                    <span>{{ form.processing ? 'CREANDO...' : 'NUEVA RUTA' }}</span>
+                    <span>NUEVA RUTA</span>
                 </button>
             </div>
         </template>
@@ -309,6 +308,43 @@ const formatFecha = (f) => {
                         :class="{'bg-white text-black border-white shadow-md': link.active, 'text-zinc-500 hover:text-white bg-white/5': !link.active && link.url, 'text-zinc-600 cursor-not-allowed': !link.url}"
                         v-html="decodeLabel(link.label)"
                     ></Link>
+                </div>
+            </div>
+        </div>
+
+        <!-- Modal: Nueva Ruta -->
+        <div v-if="showModal" class="page-repartos">
+            <div class="fixed inset-0 z-[110] bg-black/90 backdrop-blur-md" @click="cerrarNuevaRuta"></div>
+            <div class="fixed inset-0 z-[120] flex items-center justify-center p-4 pointer-events-none">
+                <div class="relative w-full max-w-md bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
+                    <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                        <h3 class="text-sm font-bold text-white uppercase tracking-wider">Nueva Ruta de Reparto</h3>
+                        <button @click="cerrarNuevaRuta" class="text-zinc-400 hover:text-white transition-colors">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                        </button>
+                    </div>
+
+                    <form @submit.prevent="crearNuevaRutaDirecta" class="p-6 space-y-4">
+                        <p class="text-xs text-zinc-400 leading-relaxed">
+                            Se crea como pendiente. Podés dejarla sin repartidor y asignar todo (repartidor y pedidos a entregar) después, desde el detalle de la ruta.
+                        </p>
+                        <div>
+                            <label class="block text-xs font-semibold text-zinc-400 mb-1.5">Repartidor</label>
+                            <select v-model="form.repartidor_id" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
+                                <option value="" class="bg-black text-zinc-300">Sin asignar (lo hago después)</option>
+                                <option v-for="r in props.repartidores" :key="r.id" :value="r.id" class="bg-black text-zinc-300">{{ r.user?.name }} {{ r.user?.apellido }}</option>
+                            </select>
+                            <p v-if="form.errors.repartidor_id" class="text-red-400 text-xs mt-1">{{ form.errors.repartidor_id }}</p>
+                        </div>
+                        <div class="flex gap-2 pt-2">
+                            <button type="button" @click="cerrarNuevaRuta" class="flex-1 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-sm border border-white/10 transition-all">
+                                Cancelar
+                            </button>
+                            <button type="submit" :disabled="form.processing" class="flex-1 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md disabled:opacity-50">
+                                {{ form.processing ? 'Creando...' : 'Crear Ruta' }}
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
