@@ -73,18 +73,26 @@ const formatTipoMovimiento = (tipo) => {
                         </div>
                     </div>
                     
-                    <div class="flex items-center gap-3 w-full md:w-auto relative z-10">
-                        <Link 
-                            :href="route('ventas.index', { nueva: 1 })" 
+                    <div v-if="stats.puede_ver_ventas" class="flex items-center gap-3 w-full md:w-auto relative z-10">
+                        <Link
+                            :href="route('ventas.index', { nueva: 1 })"
                             class="flex-1 md:flex-initial px-8 py-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md text-center active:scale-95"
                         >
                             + Nueva Venta
                         </Link>
                     </div>
+                    <div v-else class="flex items-center gap-3 w-full md:w-auto relative z-10">
+                        <Link
+                            :href="route('rutas-reparto.index')"
+                            class="flex-1 md:flex-initial px-8 py-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md text-center active:scale-95"
+                        >
+                            Ver mis rutas de reparto
+                        </Link>
+                    </div>
                 </div>
 
                 <!-- Stats Widgets Grid -->
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div v-if="stats.puede_ver_ventas" class="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <!-- Stat 1 -->
                     <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl relative overflow-hidden group hover:border-white/10 transition-all">
                         <div class="flex items-center justify-between mb-3">
@@ -144,10 +152,10 @@ const formatTipoMovimiento = (tipo) => {
                 </div>
 
                 <!-- Two-Column Recent Activity Section -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div v-if="stats.puede_ver_ventas || stats.puede_ver_stock" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                     <!-- Últimas Ventas -->
-                    <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                    <div v-if="stats.puede_ver_ventas" class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
                         <div>
                             <div class="flex justify-between items-center mb-5 pb-3 border-b border-white/5">
                                 <h3 class="text-sm font-bold text-white tracking-tight">Últimas Ventas</h3>
@@ -215,7 +223,7 @@ const formatTipoMovimiento = (tipo) => {
                     </div>
 
                     <!-- Movimientos de Stock -->
-                    <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
+                    <div v-if="stats.puede_ver_stock" class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl flex flex-col justify-between">
                         <div>
                             <div class="flex justify-between items-center mb-5 pb-3 border-b border-white/5">
                                 <h3 class="text-sm font-bold text-white tracking-tight">Movimientos de Stock</h3>
@@ -280,6 +288,18 @@ const formatTipoMovimiento = (tipo) => {
                         </div>
                     </div>
 
+                </div>
+
+                <!-- Sin permisos de ventas/stock (ej. repartidor): mandar directo a sus rutas -->
+                <div v-if="!stats.puede_ver_ventas && !stats.puede_ver_stock" class="bg-[#131316] border border-white/5 rounded-2xl p-10 shadow-xl text-center">
+                    <h3 class="text-sm font-bold text-white tracking-tight mb-2">Tus entregas están en Rutas de Reparto</h3>
+                    <p class="text-xs text-zinc-400 mb-6">Ahí vas a ver las rutas que te asignaron y podés marcar cada entrega.</p>
+                    <Link
+                        :href="route('rutas-reparto.index')"
+                        class="inline-block px-8 py-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md active:scale-95"
+                    >
+                        Ver mis rutas
+                    </Link>
                 </div>
 
             </div>

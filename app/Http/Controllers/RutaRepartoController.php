@@ -13,9 +13,36 @@ use Illuminate\Support\Facades\DB;
 
 class RutaRepartoController extends Controller
 {
+    /**
+     * Un repartidor solo puede ver/operar sus propias rutas. Admin y gerente ven todo.
+     */
+    private function autorizarVista(RutaReparto $ruta): void
+    {
+        $user = \Auth::user();
+        if ($user->esAdmin() || $user->esGerente()) return;
+        if ($ruta->repartidor_id && $ruta->repartidor_id === $user->empleado?->id) return;
+
+        abort(403, 'No tenés permiso para ver esta ruta.');
+    }
+
+    /**
+     * Crear, reasignar, reordenar u optimizar una ruta son acciones de despacho:
+     * solo admin/gerente, un repartidor no gestiona su propia ruta, solo entrega.
+     */
+    private function autorizarGestion(): void
+    {
+        $user = \Auth::user();
+        if ($user->esAdmin() || $user->esGerente()) return;
+
+        abort(403, 'No tenés permiso para gestionar rutas de reparto.');
+    }
+
     public function index(Request $request)
     {
-        $query = RutaReparto::with(['repartidor.user', 'paradas']);
+        $user = $request->user();
+
+        $query = RutaReparto::with(['repartidor.user', 'paradas'])
+            ->when(!$user->esAdmin() && !$user->esGerente(), fn($q) => $q->where('repartidor_id', $user->empleado?->id));
 
         if ($request->filled('search')) {
             $like = '%' . mb_strtolower($request->search) . '%';
@@ -55,6 +82,8 @@ class RutaRepartoController extends Controller
 
     public function store(StoreRutaRepartoRequest $request)
     {
+        $this->autorizarGestion();
+
         $data = $request->validated();
         $data['activa'] = false; // Las rutas siempre nacen inactivas
         $data['estado'] = 'pendiente';
@@ -72,6 +101,8 @@ class RutaRepartoController extends Controller
 
     public function show(RutaReparto $rutasReparto)
     {
+        $this->autorizarVista($rutasReparto);
+
         $rutasReparto->load([
             'repartidor.user',
             'paradas' => fn($q) => $q->orderBy('orden'),
@@ -101,6 +132,8 @@ class RutaRepartoController extends Controller
 
     public function update(UpdateRutaRepartoRequest $request, RutaReparto $rutasReparto)
     {
+        $this->autorizarGestion();
+
         $rutasReparto->update($request->validated());
 
         return back()->with('message', 'Ruta actualizada');
@@ -108,6 +141,8 @@ class RutaRepartoController extends Controller
 
     public function destroy(RutaReparto $rutasReparto)
     {
+        $this->autorizarGestion();
+
         if ($rutasReparto->estado === 'finalizada' || $rutasReparto->paradas()->where('estado', 'entregada')->exists()) {
             return back()->with('error', 'No se puede eliminar una ruta finalizada.');
         }
@@ -128,6 +163,8 @@ class RutaRepartoController extends Controller
 
     public function asignarVenta(Request $request, RutaReparto $rutasReparto)
     {
+        $this->autorizarGestion();
+
         if ($rutasReparto->estado === 'finalizada') {
             return back()->with('error', 'No se pueden agregar paradas a una ruta finalizada.');
         }
@@ -191,6 +228,8 @@ class RutaRepartoController extends Controller
 
     public function removeParada(RutaReparto $rutasReparto, ParadaReparto $parada)
     {
+        $this->autorizarGestion();
+
         if ($parada->ruta_reparto_id !== $rutasReparto->id) {
             abort(404);
         }
@@ -221,6 +260,10 @@ class RutaRepartoController extends Controller
 
     public function actualizarEstadoParada(Request $request, RutaReparto $rutasReparto, ParadaReparto $parada)
     {
+        // El propio repartidor asignado puede marcar sus entregas; el resto de las
+        // acciones de la ruta (crear, reasignar, reordenar) quedan para admin/gerente.
+        $this->autorizarVista($rutasReparto);
+
         if ($parada->ruta_reparto_id !== $rutasReparto->id) {
             abort(404);
         }
@@ -273,6 +316,8 @@ class RutaRepartoController extends Controller
 
     public function optimizarRuta(RutaReparto $rutasReparto)
     {
+        $this->autorizarGestion();
+
         $paradas = $rutasReparto->paradas()->orderBy('orden')->get();
         $conCoordenadas = $paradas->filter(fn($p) => $p->latitud && $p->longitud)->values();
 
@@ -330,6 +375,8 @@ class RutaRepartoController extends Controller
 
     public function iniciarRuta(RutaReparto $rutasReparto)
     {
+        $this->autorizarGestion();
+
         if (!$rutasReparto->repartidor_id) {
             return back()->with('error', 'No se puede iniciar una ruta sin un repartidor asignado.');
         }
@@ -364,6 +411,8 @@ class RutaRepartoController extends Controller
 
     public function finalizarRuta(RutaReparto $rutasReparto)
     {
+        $this->autorizarGestion();
+
         if ($rutasReparto->estado === 'finalizada') {
             return back()->with('error', 'La ruta ya se encuentra finalizada.');
         }
@@ -388,6 +437,8 @@ class RutaRepartoController extends Controller
 
     public function reordenarParadas(Request $request, RutaReparto $rutasReparto)
     {
+        $this->autorizarGestion();
+
         $request->validate([
             'orden'   => 'required|array',
             'orden.*' => 'exists:paradas_reparto,id',

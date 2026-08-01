@@ -104,6 +104,20 @@ class User extends Authenticatable
             ->exists();
     }
 
+    public function esRepartidor(): bool
+    {
+        if (!$this->empleado) return false;
+
+        if ($this->empleado->relationLoaded('cargos')) {
+            return $this->empleado->cargos->contains('nombre', 'REPARTIDOR');
+        }
+
+        return $this->empleado->cargos()
+            ->whereNull('empleados_cargos.fecha_hasta')
+            ->where('nombre', 'REPARTIDOR')
+            ->exists();
+    }
+
     /**
      * ID de sucursal al que este usuario esta restringido, o null si ve todas (ADMIN).
      */
