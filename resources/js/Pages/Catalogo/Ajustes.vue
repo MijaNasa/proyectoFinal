@@ -334,7 +334,7 @@ const itemName = computed(() => {
             <div v-if="showEditModal" class="page-ajustes">
                 <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showEditModal = false"></div>
                 <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
-                    <div class="w-full max-w-md bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-hidden shadow-2xl pointer-events-auto">
+                    <div class="w-full max-w-md bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
                         
                         <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
                             <h3 class="text-sm font-bold text-white uppercase tracking-wider">

@@ -699,7 +699,7 @@ watch(localParadas, () => {
             <div v-if="paradaEditando" class="page-repartos">
                 <div class="fixed inset-0 z-[9998] bg-black/90 backdrop-blur-md" @click="cerrarEstadoModal" />
                 <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
-                    <div class="relative w-full max-w-sm bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-hidden shadow-2xl pointer-events-auto">
+                    <div class="relative w-full max-w-sm bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
                         <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
                             <h3 class="text-sm font-bold text-white uppercase tracking-wider">
                                 Actualizar Estado
@@ -741,7 +741,7 @@ watch(localParadas, () => {
             <div v-if="ventaDetalle" class="page-repartos">
                 <div class="fixed inset-0 z-[9998] bg-black/90 backdrop-blur-md" @click="cerrarVentaDetalle" />
                 <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
-                    <div class="relative w-full max-w-lg bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-hidden shadow-2xl pointer-events-auto">
+                    <div class="relative w-full max-w-lg bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
                         
                         <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
                             <div>
@@ -796,7 +796,7 @@ watch(localParadas, () => {
             <div v-if="showAsignarModal" class="page-repartos">
                 <div class="fixed inset-0 z-[9998] bg-black/90 backdrop-blur-md" @click="cerrarAsignarModal" />
                 <div class="fixed inset-0 z-[9999] flex items-center justify-center p-4 pointer-events-none">
-                    <div class="relative w-full max-w-2xl bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-hidden shadow-2xl pointer-events-auto">
+                    <div class="relative w-full max-w-2xl bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
                         
                         <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
                             <h3 class="text-sm font-bold text-white uppercase tracking-wider">
