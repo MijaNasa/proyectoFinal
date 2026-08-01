@@ -646,57 +646,70 @@ class VentaController extends Controller
             return back()->with('error', 'La venta no está pendiente de pago.');
         }
 
-        \DB::transaction(function () use ($venta, $user) {
-            $fresh = Venta::with('detalles.libro')->lockForUpdate()->find($venta->id);
-            if ($fresh->estado !== 'pendiente_pago') return;
+        try {
+            \DB::transaction(function () use ($venta, $user) {
+                $fresh = Venta::with('detalles.libro')->lockForUpdate()->find($venta->id);
+                if ($fresh->estado !== 'pendiente_pago') return;
 
-            // Calculate pending amount
-            $montoAbonado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
-            $restante = $fresh->total - $montoAbonado;
+                // Calculate pending amount
+                $montoAbonado = $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto');
+                $restante = $fresh->total - $montoAbonado;
 
-            if ($restante > 0) {
-                $fresh->transacciones()->create([
-                    'fecha'        => now(),
-                    'tipo'         => 'ingreso',
-                    'monto'        => $restante,
-                    'metodo_pago'  => $fresh->metodo_pago ?? 'Transferencia',
-                    'sucursal_id'  => $fresh->sucursal_id,
-                    'user_id'      => $user->id,
-                    'descripcion'  => "[Venta Online #{$fresh->id}] - Pago Confirmado Manualmente",
-                ]);
-            }
+                if ($restante > 0) {
+                    $fresh->transacciones()->create([
+                        'fecha'        => now(),
+                        'tipo'         => 'ingreso',
+                        'monto'        => $restante,
+                        'metodo_pago'  => $fresh->metodo_pago ?? 'Transferencia',
+                        'sucursal_id'  => $fresh->sucursal_id,
+                        'user_id'      => $user->id,
+                        'descripcion'  => "[Venta Online #{$fresh->id}] - Pago Confirmado Manualmente",
+                    ]);
+                }
 
-            $tienePreventas = $fresh->detalles->contains(fn($detalle) => $detalle->libro && $detalle->libro->permite_preventa);
+                $tienePreventas = $fresh->detalles->contains(fn($detalle) => $detalle->libro && $detalle->libro->permite_preventa);
 
-            if ($tienePreventas) {
-                $nuevoEstado = 'en_preventa';
-            } else {
-                // Verify if there are pending transfers
-                $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $fresh->id)->exists();
-                $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
-                if (!$tieneTraslados) {
-                    if ($fresh->tipo_envio === 'retiro') {
-                        $nuevoEstado = 'listo_para_retiro';
-                    } elseif ($fresh->tipo_envio === 'acumulacion') {
-                        $nuevoEstado = 'acumulado';
+                if ($tienePreventas) {
+                    $nuevoEstado = 'en_preventa';
+                } else {
+                    // Verify if there are pending transfers
+                    $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $fresh->id)->exists();
+                    $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
+                    if (!$tieneTraslados) {
+                        if ($fresh->tipo_envio === 'retiro') {
+                            $nuevoEstado = 'listo_para_retiro';
+                        } elseif ($fresh->tipo_envio === 'acumulacion') {
+                            $nuevoEstado = 'acumulado';
+                        }
+                    }
+
+                    if ($tieneTraslados) {
+                        \App\Models\TransferenciaStock::where('venta_id', $fresh->id)
+                            ->where('estado', 'pendiente')
+                            ->update(['estado' => 'pendiente_envio']);
+
+                        $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
+                        \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
                     }
                 }
 
-                if ($tieneTraslados) {
-                    \App\Models\TransferenciaStock::where('venta_id', $fresh->id)
-                        ->where('estado', 'pendiente')
-                        ->update(['estado' => 'pendiente_envio']);
-                        
-                    $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
-                    \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
-                }
-            }
-
-            $fresh->update([
-                'estado' => $nuevoEstado,
-                'pago_expira_at' => null
+                $fresh->update([
+                    'estado' => $nuevoEstado,
+                    'pago_expira_at' => null
+                ]);
+            });
+        } catch (\Throwable $e) {
+            \Log::error('confirmarPago: excepción', [
+                'venta_id' => $venta->id,
+                'error'    => $e->getMessage(),
+                'file'     => $e->getFile(),
+                'line'     => $e->getLine(),
             ]);
-        });
+
+            // Temporal: mostramos el detalle del error al admin/gerente para diagnosticar
+            // sin depender de los logs de Render (no tenemos acceso directo).
+            return back()->with('error', 'Error al confirmar el pago: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')');
+        }
 
         return back()->with('message', 'Pago confirmado correctamente.');
     }
