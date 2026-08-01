@@ -37,29 +37,58 @@ const uploadComprobante = () => {
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
 
-const config = computed(() => ({
-    success: {
-        icon:     '✓',
-        iconBg:   'bg-green-500',
-        title:    '¡Pago aprobado!',
-        subtitle: 'Tu pedido fue confirmado y está en preparación.',
-        color:    'text-green-400',
-    },
-    pending: {
-        icon:     '⏳',
-        iconBg:   'bg-yellow-500',
-        title:    'Pago pendiente',
-        subtitle: 'Tu pago está siendo procesado. Te notificaremos cuando se confirme.',
-        color:    'text-yellow-400',
-    },
-    failure: {
-        icon:     '✕',
-        iconBg:   'bg-brand-red',
-        title:    'Pago no procesado',
-        subtitle: 'Hubo un problema con tu pago. Podés intentarlo nuevamente.',
-        color:    'text-brand-red',
-    },
-}[props.status] ?? {}));
+// Efectivo/Transferencia no pasan por Mercado Pago: el pedido se registra igual
+// (status=success), pero el pago en si sigue "pendiente_pago" hasta que alguien
+// lo confirme (subiendo comprobante o abonando en sucursal). Mostrar "¡Pago
+// aprobado!" en ese caso es enganoso, asi que se distingue por metodo_pago/estado.
+const requierePagoManual = computed(() =>
+    props.venta?.estado === 'pendiente_pago' &&
+    ['Efectivo', 'Transferencia'].includes(props.venta?.metodo_pago)
+);
+
+const config = computed(() => {
+    if (props.status === 'success' && requierePagoManual.value) {
+        return props.venta.metodo_pago === 'Transferencia'
+            ? {
+                icon:     '🏦',
+                iconBg:   'bg-yellow-500',
+                title:    'Pedido registrado',
+                subtitle: 'Falta confirmar tu pago: transferí el total y subí el comprobante más abajo.',
+                color:    'text-yellow-400',
+            }
+            : {
+                icon:     '⏳',
+                iconBg:   'bg-yellow-500',
+                title:    'Pedido registrado',
+                subtitle: 'Tu stock quedó reservado. Acercate a la sucursal a abonar en efectivo antes de que expire la reserva.',
+                color:    'text-yellow-400',
+            };
+    }
+
+    return ({
+        success: {
+            icon:     '✓',
+            iconBg:   'bg-green-500',
+            title:    '¡Pago aprobado!',
+            subtitle: 'Tu pedido fue confirmado y está en preparación.',
+            color:    'text-green-400',
+        },
+        pending: {
+            icon:     '⏳',
+            iconBg:   'bg-yellow-500',
+            title:    'Pago pendiente',
+            subtitle: 'Tu pago está siendo procesado. Te notificaremos cuando se confirme.',
+            color:    'text-yellow-400',
+        },
+        failure: {
+            icon:     '✕',
+            iconBg:   'bg-brand-red',
+            title:    'Pago no procesado',
+            subtitle: 'Hubo un problema con tu pago. Podés intentarlo nuevamente.',
+            color:    'text-brand-red',
+        },
+    }[props.status] ?? {});
+});
 </script>
 
 <template>
