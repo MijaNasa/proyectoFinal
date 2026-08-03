@@ -4,10 +4,15 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
+import ChatbotWidget from '@/Components/ChatbotWidget.vue';
 
 const props = defineProps({
     pedidos: Object,
     usuario: Object,
+    chatMensajes: {
+        type: Array,
+        default: () => [],
+    },
 });
 
 const darkSwal = Swal.mixin({
@@ -448,6 +453,8 @@ const solicitarEnvioAcumulados = () => {
             </div>
 
         </div>
+
+        <ChatbotWidget :mensajes-iniciales="chatMensajes" />
     </PublicLayout>
 </template>
 
