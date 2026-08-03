@@ -25,6 +25,7 @@ use App\Http\Controllers\SuscripcionController;
 use App\Http\Controllers\CarritoController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\MiCuentaController;
+use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\CatalogoAjustesController;
 use Illuminate\Support\Facades\Route;
@@ -58,6 +59,9 @@ Route::middleware('auth')->group(function () {
     Route::get('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'viewComprobante'])->name('mi-cuenta.comprobante.ver');
     Route::post('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'uploadComprobante'])->name('mi-cuenta.comprobante');
     Route::delete('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'deleteComprobante'])->name('mi-cuenta.comprobante.delete');
+    Route::post('/mi-cuenta/chatbot/mensajes', [ChatbotController::class, 'send'])
+        ->middleware('throttle:30,60')
+        ->name('mi-cuenta.chatbot.send');
 });
 
 Route::get('/', function () {
