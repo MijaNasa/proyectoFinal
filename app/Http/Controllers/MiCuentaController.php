@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\ChatConversacion;
 use App\Models\Venta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -36,6 +37,12 @@ class MiCuentaController extends Controller
 
         $user = Auth::user();
 
+        $conversacion = ChatConversacion::where('user_id', $user->id)->first();
+
+        $chatMensajes = $conversacion
+            ? $conversacion->mensajes()->orderBy('created_at')->limit(50)->get(['role', 'content', 'created_at'])
+            : collect();
+
         return Inertia::render('MiCuenta/Index', [
             'pedidos' => $pedidos,
             'usuario' => [
@@ -44,6 +51,7 @@ class MiCuentaController extends Controller
                 'email'      => $user->email,
                 'created_at' => $user->created_at,
             ],
+            'chatMensajes' => $chatMensajes,
         ]);
     }
 
