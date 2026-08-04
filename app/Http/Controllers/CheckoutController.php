@@ -182,30 +182,37 @@ class CheckoutController extends Controller
         $cliente = null;
 
         if (!$userId) {
-            $existingUser = \App\Models\User::where('email', $request->guest_email)->first();
+            $existingUser = \App\Models\User::where('dni', $request->guest_dni)->first();
+
             if ($existingUser) {
-                // Determine if it's a real web account (by checking if password isn't just their DNI)
-                if ($existingUser->password && !\Hash::check($existingUser->dni, $existingUser->password) && !\Hash::check($request->guest_dni, $existingUser->password)) {
-                    return back()->withErrors(['guest_email' => 'Ya tienes una cuenta registrada. Por favor inicia sesión para comprar.']);
-                }
-                if ($existingUser->dni && $existingUser->dni !== $request->guest_dni) {
-                    return back()->withErrors(['guest_email' => 'Este correo ya está asociado a otro DNI. Inicia sesión.']);
-                }
                 $userId = $existingUser->id;
                 $cliente = $existingUser->cliente;
-            } else {
-                $existingDni = \App\Models\User::where('dni', $request->guest_dni)->first();
-                if ($existingDni) {
-                    return back()->withErrors(['guest_dni' => 'Este DNI ya está registrado con otro correo. Por favor inicia sesión.']);
+                if (!$cliente) {
+                    $tipoCliente = \App\Models\TipoCliente::where('codigo', 'PART')->first();
+                    $cliente = $existingUser->cliente()->create([
+                        'tipo_cliente_id' => $tipoCliente ? $tipoCliente->id : 1,
+                        'saldo_actual'    => 0,
+                    ]);
                 }
-                
-                // Create ghost user for physical/guest profile
+                // Actualizar correo y teléfono si cambiaron o estaban incompletos
+                if ($request->guest_email && $existingUser->email !== $request->guest_email) {
+                    // Si el nuevo correo no pertenece a otro usuario, actualizarlo
+                    $emailUsado = \App\Models\User::where('email', $request->guest_email)->where('id', '!=', $existingUser->id)->exists();
+                    if (!$emailUsado) {
+                        $existingUser->update(['email' => $request->guest_email]);
+                    }
+                }
+                if ($request->guest_telefono && empty($existingUser->telefono)) {
+                    $existingUser->update(['telefono' => $request->guest_telefono]);
+                }
+            } else {
+                // Crear usuario y perfil de cliente para la compra del invitado
                 $newUser = \App\Models\User::create([
-                    'name' => $request->guest_nombre,
+                    'name'     => $request->guest_nombre,
                     'apellido' => $request->guest_apellido,
-                    'dni' => $request->guest_dni,
+                    'dni'      => $request->guest_dni,
                     'telefono' => $request->guest_telefono,
-                    'email' => $request->guest_email,
+                    'email'    => $request->guest_email,
                     'password' => \Hash::make($request->guest_dni),
                 ]);
 
@@ -596,6 +603,8 @@ class CheckoutController extends Controller
                 'metodo_pago'      => $venta->metodo_pago,
                 'estado'           => $venta->estado,
                 'comprobante_path' => $venta->comprobante_path,
+                'guest_dni'        => $venta->user?->dni ?? $venta->cliente?->user?->dni,
+                'guest_email'      => $venta->user?->email ?? $venta->cliente?->user?->email,
             ] : null,
         ]);
     }
@@ -607,7 +616,16 @@ class CheckoutController extends Controller
 
         return Inertia::render('Checkout/Confirmacion', [
             'status' => 'pending',
-            'venta'  => $venta ? ['id' => $venta->id, 'total' => $venta->total] : null,
+            'venta'  => $venta ? [
+                'id'               => $venta->id,
+                'total'            => $venta->total,
+                'tipo_envio'       => $venta->tipo_envio,
+                'metodo_pago'      => $venta->metodo_pago,
+                'estado'           => $venta->estado,
+                'comprobante_path' => $venta->comprobante_path,
+                'guest_dni'        => $venta->user?->dni ?? $venta->cliente?->user?->dni,
+                'guest_email'      => $venta->user?->email ?? $venta->cliente?->user?->email,
+            ] : null,
         ]);
     }
 

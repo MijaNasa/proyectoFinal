@@ -1,9 +1,7 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
-import { Head, Link, useForm } from '@inertiajs/vue3';
+import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { computed } from 'vue';
-
-import { router } from '@inertiajs/vue3';
 
 const props = defineProps({
     status: String, // 'success' | 'pending' | 'failure'
@@ -27,9 +25,6 @@ const uploadComprobante = () => {
         preserveScroll: true,
         onSuccess: () => {
             uploadForm.reset();
-            // The status might not change immediately in this view, 
-            // but the page will reload and backend might set something if needed.
-            // Or we just rely on a success message if any.
         },
     });
 };
@@ -37,10 +32,6 @@ const uploadComprobante = () => {
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
 
-// Efectivo/Transferencia no pasan por Mercado Pago: el pedido se registra igual
-// (status=success), pero el pago en si sigue "pendiente_pago" hasta que alguien
-// lo confirme (subiendo comprobante o abonando en sucursal). Mostrar "¡Pago
-// aprobado!" en ese caso es enganoso, asi que se distingue por metodo_pago/estado.
 const requierePagoManual = computed(() =>
     props.venta?.estado === 'pendiente_pago' &&
     ['Efectivo', 'Transferencia'].includes(props.venta?.metodo_pago)
@@ -51,180 +42,228 @@ const config = computed(() => {
         return props.venta.metodo_pago === 'Transferencia'
             ? {
                 icon:     '🏦',
-                iconBg:   'bg-yellow-500',
-                title:    'Pedido registrado',
-                subtitle: 'Falta confirmar tu pago: transferí el total y subí el comprobante más abajo.',
-                color:    'text-yellow-400',
+                iconBg:   'bg-amber-400/10 border-amber-400/20 text-amber-400',
+                title:    'Pedido Registrado',
+                subtitle: 'Falta confirmar tu pago: realiza la transferencia bancaria y adjuntá el comprobante.',
+                color:    'text-amber-400',
             }
             : {
                 icon:     '⏳',
-                iconBg:   'bg-yellow-500',
-                title:    'Pedido registrado',
-                subtitle: 'Tu stock quedó reservado. Acercate a la sucursal a abonar en efectivo antes de que expire la reserva.',
-                color:    'text-yellow-400',
+                iconBg:   'bg-amber-400/10 border-amber-400/20 text-amber-400',
+                title:    'Pedido Registrado',
+                subtitle: 'Tu stock quedó reservado por 12hs. Acercate a la sucursal a abonar en efectivo.',
+                color:    'text-amber-400',
             };
     }
 
     return ({
         success: {
             icon:     '✓',
-            iconBg:   'bg-green-500',
-            title:    '¡Pago aprobado!',
-            subtitle: 'Tu pedido fue confirmado y está en preparación.',
-            color:    'text-green-400',
+            iconBg:   'bg-emerald-500/10 border-emerald-500/20 text-emerald-400',
+            title:    '¡Pago Aprobado!',
+            subtitle: 'Tu pedido fue confirmado correctamente y ya está en proceso de preparación.',
+            color:    'text-emerald-400',
         },
         pending: {
             icon:     '⏳',
-            iconBg:   'bg-yellow-500',
-            title:    'Pago pendiente',
-            subtitle: 'Tu pago está siendo procesado. Te notificaremos cuando se confirme.',
-            color:    'text-yellow-400',
+            iconBg:   'bg-amber-400/10 border-amber-400/20 text-amber-400',
+            title:    'Pago Pendiente',
+            subtitle: 'Tu pago está siendo procesado por la pasarela. Te avisaremos apenas se confirme.',
+            color:    'text-amber-400',
         },
         failure: {
             icon:     '✕',
-            iconBg:   'bg-brand-red',
-            title:    'Pago no procesado',
-            subtitle: 'Hubo un problema con tu pago. Podés intentarlo nuevamente.',
-            color:    'text-brand-red',
+            iconBg:   'bg-rose-500/10 border-rose-500/20 text-rose-400',
+            title:    'Pago No Procesado',
+            subtitle: 'Ocurrió un inconveniente al procesar tu pago. Podés reintentarlo nuevamente.',
+            color:    'text-rose-400',
         },
     }[props.status] ?? {});
 });
 </script>
 
 <template>
-    <Head title="Confirmación de Compra" />
+    <Head title="Confirmación de Compra | PuroComic" />
 
     <PublicLayout>
-        <div class="max-w-lg mx-auto px-4 sm:px-6 lg:px-8 py-24 text-center">
+        <div class="page-confirmacion">
+            <!-- Hero Header / Status -->
+            <div class="relative overflow-hidden py-12 sm:py-16 bg-gradient-to-b from-white/[0.04] to-transparent border-b border-white/5">
+                <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
+                    <div
+                        class="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl border flex items-center justify-center mx-auto text-3xl sm:text-4xl font-bold shadow-2xl backdrop-blur-sm"
+                        :class="config.iconBg"
+                    >
+                        {{ config.icon }}
+                    </div>
 
-            <!-- Ícono -->
-            <div
-                class="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-8 text-3xl font-black text-white"
-                :class="config.iconBg"
-            >
-                {{ config.icon }}
-            </div>
-
-            <!-- Título -->
-            <h1 class="text-4xl font-black uppercase tracking-tighter mb-4">
-                {{ config.title }}
-            </h1>
-            <p class="text-white/50 text-base mb-10">
-                {{ config.subtitle }}
-            </p>
-
-            <!-- Detalle del pedido (si existe) -->
-            <div v-if="venta" class="bg-white/[0.03] border border-white/10 rounded-2xl p-6 mb-10 text-left">
-                <h3 class="text-xs font-black uppercase tracking-[0.2em] text-white/30 mb-4">Detalle del pedido</h3>
-                <div class="flex justify-between text-sm mb-2">
-                    <span class="text-white/50">Número de pedido</span>
-                    <span class="font-black">#{{ venta.id }}</span>
-                </div>
-                <div class="flex justify-between text-sm mb-2">
-                    <span class="text-white/50">Total</span>
-                    <span class="font-black text-brand-red italic text-lg">{{ formatPrecio(venta.total) }}</span>
-                </div>
-                <div v-if="venta.tipo_envio" class="flex justify-between text-sm">
-                    <span class="text-white/50">Entrega</span>
-                    <span class="font-black capitalize">{{ venta.tipo_envio === 'retiro' ? 'Retiro en sucursal' : 'Envío a domicilio' }}</span>
+                    <h1 class="text-3xl sm:text-5xl font-bold tracking-tight uppercase leading-none text-white">
+                        {{ config.title }}
+                    </h1>
+                    <p class="text-zinc-400 text-xs sm:text-sm font-medium max-w-lg mx-auto leading-relaxed">
+                        {{ config.subtitle }}
+                    </p>
                 </div>
             </div>
 
-            <!-- Datos Bancarios para Transferencia -->
-            <div v-if="venta && venta.metodo_pago === 'Transferencia'" class="bg-blue-500/10 border border-blue-500/20 rounded-2xl p-6 mb-10 text-left">
-                <div class="flex items-center gap-3 mb-4">
-                    <span class="text-2xl">🏦</span>
-                    <h3 class="text-sm font-black uppercase tracking-widest text-blue-400">Datos Bancarios</h3>
-                </div>
-                <p class="text-white/70 text-sm mb-4 leading-relaxed">
-                    Para que podamos preparar tu pedido, por favor transferí <strong class="text-white">{{ formatPrecio(venta.total) }}</strong> a la siguiente cuenta y <strong>subí el comprobante</strong> desde la sección "Mis Pedidos".
-                </p>
-                <div class="space-y-3 bg-black/20 p-4 rounded-xl text-sm">
-                    <div class="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-white/5 pb-2">
-                        <span class="text-white/40 font-bold uppercase tracking-widest text-[10px]">CBU</span>
-                        <span class="font-mono text-white/90">0000003100010000000000</span>
-                    </div>
-                    <div class="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-white/5 pb-2">
-                        <span class="text-white/40 font-bold uppercase tracking-widest text-[10px]">Alias</span>
-                        <span class="font-mono text-white/90">LIBRERIA.ANTIGRAVITY</span>
-                    </div>
-                    <div class="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-white/5 pb-2">
-                        <span class="text-white/40 font-bold uppercase tracking-widest text-[10px]">Titular</span>
-                        <span class="font-bold text-white/90">Puro Comic</span>
-                    </div>
-                    <div class="flex flex-col sm:flex-row sm:justify-between gap-1">
-                        <span class="text-white/40 font-bold uppercase tracking-widest text-[10px]">Banco</span>
-                        <span class="font-bold text-white/90">Banco Ficticio</span>
-                    </div>
-                </div>
+            <!-- Content Container -->
+            <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-6">
 
-                <!-- Subir Comprobante Inmediato -->
-                <div v-if="venta.metodo_pago === 'Transferencia' && venta.estado === 'pendiente_pago'" class="mt-6 pt-6 border-t border-white/10">
-                    <h4 class="text-xs font-black uppercase tracking-widest text-white/70 mb-3 text-left">¿Ya transferiste? Subí el comprobante</h4>
-                    
-                    <div v-if="venta.comprobante_path" class="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
-                        <span class="text-green-400">✅</span>
-                        <p class="text-xs font-medium text-white/80">Comprobante enviado exitosamente. Esperando verificación.</p>
-                        <div class="ml-auto flex items-center gap-3">
-                            <a :href="route('mi-cuenta.comprobante.ver', venta.id)" target="_blank" class="text-[10px] font-bold text-green-400 uppercase hover:underline">Ver adjunto</a>
-                            <button @click="deleteComprobante" class="text-white/40 hover:text-red-400 transition-colors" title="Eliminar comprobante">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
+                <!-- Detalle del pedido -->
+                <div v-if="venta" class="bg-[#131316] border border-white/5 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4">
+                    <div class="flex items-center justify-between border-b border-white/5 pb-3">
+                        <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                            Detalle del Pedido
+                        </h3>
+                        <span class="text-xs font-mono text-zinc-400 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full">
+                            ID: #{{ venta.id }}
+                        </span>
+                    </div>
+
+                    <div class="space-y-2.5 text-xs sm:text-sm">
+                        <div class="flex justify-between items-center">
+                            <span class="text-zinc-400 font-medium">Método de Pago</span>
+                            <span class="font-bold text-white uppercase">{{ venta.metodo_pago || '—' }}</span>
+                        </div>
+                        <div v-if="venta.tipo_envio" class="flex justify-between items-center">
+                            <span class="text-zinc-400 font-medium">Modalidad de Entrega</span>
+                            <span class="font-bold text-white capitalize">
+                                {{ venta.tipo_envio === 'retiro' ? 'Retiro en sucursal' : (venta.tipo_envio === 'acumulacion' ? 'Acumulación de envío' : 'Envío a domicilio') }}
+                            </span>
+                        </div>
+                        <div class="flex justify-between items-baseline pt-3 border-t border-white/5">
+                            <span class="text-sm font-bold uppercase tracking-wider text-white">Total Abonado</span>
+                            <span class="text-2xl font-bold font-mono text-white">{{ formatPrecio(venta.total) }}</span>
                         </div>
                     </div>
-                    
-                    <form v-else @submit.prevent="uploadComprobante" class="flex flex-col sm:flex-row items-center gap-3 p-4 bg-white/5 border border-white/10 rounded-xl">
-                        <input 
-                            type="file" 
-                            accept="image/*"
-                            @input="uploadForm.comprobante = $event.target.files[0]"
-                            class="w-full text-xs text-white/50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-[10px] file:font-black file:uppercase file:bg-brand-red/20 file:text-brand-red hover:file:bg-brand-red/30 cursor-pointer"
-                            required
-                        >
-                        <button 
-                            type="submit"
-                            :disabled="uploadForm.processing || !uploadForm.comprobante"
-                            class="w-full sm:w-auto px-4 py-2 bg-brand-red text-white text-[10px] font-black uppercase rounded-lg disabled:opacity-50"
-                        >
-                            {{ uploadForm.processing ? 'Enviando...' : 'Enviar' }}
-                        </button>
-                    </form>
-                    <p v-if="uploadForm.errors.comprobante" class="text-red-400 text-[10px] mt-2 text-left">{{ uploadForm.errors.comprobante }}</p>
                 </div>
-            </div>
 
-            <!-- Acciones -->
-            <div class="flex flex-col sm:flex-row gap-4 justify-center">
-                <template v-if="status === 'success' || status === 'pending'">
-                    <Link
-                        :href="route('mi-cuenta.index')"
-                        class="bg-brand-red hover:bg-brand-red/80 text-white font-black text-sm uppercase tracking-widest py-4 px-8 rounded-xl transition-all"
-                    >
-                        Ver mis pedidos
-                    </Link>
-                    <Link
-                        :href="route('catalogo.index')"
-                        class="border border-white/10 hover:border-white/30 text-white font-black text-sm uppercase tracking-widest py-4 px-8 rounded-xl transition-all"
-                    >
-                        Seguir comprando
-                    </Link>
-                </template>
+                <!-- Datos Bancarios para Transferencia -->
+                <div v-if="venta && venta.metodo_pago === 'Transferencia'" class="bg-[#131316] border border-cyan-500/20 rounded-2xl p-6 sm:p-8 shadow-xl space-y-4 text-left">
+                    <div class="flex items-center gap-3 border-b border-white/5 pb-3">
+                        <span class="text-2xl">🏦</span>
+                        <div>
+                            <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Datos Bancarios para Transferencia</h3>
+                            <p class="text-zinc-400 text-xs mt-0.5">Transferí el monto total para procesar el despacho de tu pedido.</p>
+                        </div>
+                    </div>
 
-                <template v-if="status === 'failure'">
-                    <Link
-                        :href="route('carrito.index')"
-                        class="bg-brand-red hover:bg-brand-red/80 text-white font-black text-sm uppercase tracking-widest py-4 px-8 rounded-xl transition-all"
-                    >
-                        Volver al carrito
-                    </Link>
-                    <Link
-                        :href="route('catalogo.index')"
-                        class="border border-white/10 hover:border-white/30 text-white font-black text-sm uppercase tracking-widest py-4 px-8 rounded-xl transition-all"
-                    >
-                        Ver catálogo
-                    </Link>
-                </template>
+                    <div class="bg-[#0d0d0f] border border-white/10 rounded-xl p-4 space-y-3 text-xs sm:text-sm font-mono">
+                        <div class="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-white/5 pb-2">
+                            <span class="text-zinc-500 uppercase text-[10px] font-bold font-sans">CBU</span>
+                            <span class="font-bold text-white select-all">0000003100010000000000</span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-white/5 pb-2">
+                            <span class="text-zinc-500 uppercase text-[10px] font-bold font-sans">Alias</span>
+                            <span class="font-bold text-white select-all">LIBRERIA.ANTIGRAVITY</span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-white/5 pb-2">
+                            <span class="text-zinc-500 uppercase text-[10px] font-bold font-sans">Titular</span>
+                            <span class="font-bold text-white">Puro Cómic</span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:justify-between gap-1">
+                            <span class="text-zinc-500 uppercase text-[10px] font-bold font-sans">Banco</span>
+                            <span class="font-bold text-white">Banco Ficticio</span>
+                        </div>
+                    </div>
+
+                    <!-- Subir Comprobante Inmediato -->
+                    <div v-if="venta.metodo_pago === 'Transferencia' && venta.estado === 'pendiente_pago'" class="pt-4 border-t border-white/5">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-3">
+                            ¿Ya realizaste la transferencia? Subí tu comprobante
+                        </h4>
+                        
+                        <div v-if="venta.comprobante_path" class="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                            <span class="text-emerald-400 text-lg">✅</span>
+                            <p class="text-xs font-semibold text-zinc-200">Comprobante enviado exitosamente. Pendiente de verificación.</p>
+                            <div class="ml-auto flex items-center gap-3 shrink-0">
+                                <a :href="route('mi-cuenta.comprobante.ver', venta.id)" target="_blank" class="text-xs font-bold text-emerald-400 uppercase hover:underline">Ver</a>
+                                <button @click="deleteComprobante" class="text-zinc-400 hover:text-rose-400 transition-colors" title="Eliminar comprobante">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <form v-else @submit.prevent="uploadComprobante" class="flex flex-col sm:flex-row items-center gap-3 p-4 bg-[#0d0d0f] border border-white/10 rounded-xl">
+                            <input 
+                                type="file" 
+                                accept="image/*"
+                                @input="uploadForm.comprobante = $event.target.files[0]"
+                                class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:uppercase file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
+                                required
+                            >
+                            <button 
+                                type="submit"
+                                :disabled="uploadForm.processing || !uploadForm.comprobante"
+                                class="w-full sm:w-auto px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-40 cursor-pointer"
+                            >
+                                {{ uploadForm.processing ? 'Enviando...' : 'Enviar' }}
+                            </button>
+                        </form>
+                        <p v-if="uploadForm.errors.comprobante" class="text-rose-400 text-xs mt-2 font-semibold">{{ uploadForm.errors.comprobante }}</p>
+                    </div>
+                </div>
+
+                <!-- Invitación a Registrarse (Solo para compras de invitados sin sesión activa) -->
+                <div v-if="!$page.props.auth?.user && venta" class="bg-[#131316] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-xl text-left">
+                    <div class="flex items-start gap-4">
+                        <div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-xl">
+                            🎁
+                        </div>
+                        <div class="space-y-1">
+                            <h3 class="text-sm font-bold uppercase tracking-wider text-white">
+                                ¿Querés hacer seguimiento a tus pedidos?
+                            </h3>
+                            <p class="text-xs text-zinc-400 leading-relaxed font-medium">
+                                Vinculamos esta compra a tu DNI <strong v-if="venta.guest_dni" class="text-white font-mono">{{ venta.guest_dni }}</strong><span v-else>ingresado</span>. Podés registrarte con tu DNI en cualquier momento para ingresar a tu cuenta y ver el seguimiento en tiempo real.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Botones de Acción -->
+                <div class="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+                    <template v-if="status === 'success' || status === 'pending'">
+                        <Link
+                            :href="$page.props.auth?.user ? route('mi-cuenta.index') : route('register')"
+                            class="px-8 py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg active:scale-95 text-center cursor-pointer"
+                        >
+                            {{ $page.props.auth?.user ? 'Ver Mis Pedidos' : 'Registrarme / Ver Mis Pedidos' }}
+                        </Link>
+                        <Link
+                            :href="route('catalogo.index')"
+                            class="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 font-semibold text-xs uppercase tracking-wider rounded-xl transition-all text-center cursor-pointer"
+                        >
+                            Seguir Comprando
+                        </Link>
+                    </template>
+
+                    <template v-if="status === 'failure'">
+                        <Link
+                            :href="route('carrito.index')"
+                            class="px-8 py-3.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg active:scale-95 text-center cursor-pointer"
+                        >
+                            Volver al Carrito
+                        </Link>
+                        <Link
+                            :href="route('catalogo.index')"
+                            class="px-8 py-3.5 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 font-semibold text-xs uppercase tracking-wider rounded-xl transition-all text-center cursor-pointer"
+                        >
+                            Ver Catálogo
+                        </Link>
+                    </template>
+                </div>
+
             </div>
         </div>
     </PublicLayout>
 </template>
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+.page-confirmacion,
+.page-confirmacion * {
+    font-family: 'Montserrat', sans-serif !important;
+}
+</style>
