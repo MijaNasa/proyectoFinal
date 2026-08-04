@@ -53,7 +53,6 @@ class CatalogoAjustesController extends Controller
             'email.email' => 'El formato del correo no es válido.',
             'email.unique' => 'Este email ya está en uso.',
             'telefono.required' => 'El teléfono es obligatorio.',
-            'direccion.required' => 'La dirección es obligatoria.',
             'codigo.required' => 'El código es obligatorio.',
             'codigo.unique' => 'Este código ya está en uso.',
         ];
@@ -100,7 +99,6 @@ class CatalogoAjustesController extends Controller
                     ],
                     'telefono' => 'required|string|max:50',
                     'email' => 'required|email|max:150',
-                    'direccion' => 'required|string|max:255',
                 ], $messages);
                 $model = \App\Models\Proveedor::withTrashed()->where('nombre_empresa', $validated['nombre_empresa'])->first();
                 
@@ -198,7 +196,6 @@ class CatalogoAjustesController extends Controller
                     ],
                     'telefono' => 'nullable|string|max:50',
                     'email' => 'nullable|email|max:150',
-                    'direccion' => 'nullable|string|max:255',
                 ], $messages);
                 $model = \App\Models\Proveedor::findOrFail($id);
                 $model->update($validated);
