@@ -16,52 +16,45 @@ const form = useForm({
 
 const showPassword = ref(false);
 const showPasswordConfirmation = ref(false);
-const touched = ref({});
-
-const markTouched = (field) => {
-    touched.value[field] = true;
-};
+const attemptedSubmit = ref(false);
 
 // Client-side validations
 const isEmailValid = computed(() => {
-    if (!form.email) return true;
+    if (!form.email) return false;
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(form.email);
 });
 
-const passwordsMatch = computed(() => {
-    if (!form.password_confirmation) return true;
-    return form.password === form.password_confirmation;
-});
-
 const clientErrors = computed(() => {
     const errors = {};
-    if (touched.value.name && !form.name.trim()) {
+    if (!attemptedSubmit.value) return errors;
+
+    if (!form.name || !form.name.trim()) {
         errors.name = 'El nombre es obligatorio.';
     }
-    if (touched.value.dni && !form.dni.trim()) {
+    if (!form.dni || !form.dni.trim()) {
         errors.dni = 'El DNI es obligatorio para asociar tus pedidos.';
     }
-    if (touched.value.email) {
-        if (!form.email.trim()) {
-            errors.email = 'El correo electrónico es obligatorio.';
-        } else if (!isEmailValid.value) {
-            errors.email = 'Ingresá un correo electrónico válido.';
-        }
+    if (!form.email || !form.email.trim()) {
+        errors.email = 'El correo electrónico es obligatorio.';
+    } else if (!isEmailValid.value) {
+        errors.email = 'Ingresá un correo electrónico válido.';
     }
-    if (touched.value.password && !form.password) {
+    if (!form.password) {
         errors.password = 'La contraseña es obligatoria.';
-    } else if (touched.value.password && form.password.length < 8) {
+    } else if (form.password.length < 8) {
         errors.password = 'La contraseña debe tener al menos 8 caracteres.';
     }
-    if (touched.value.password_confirmation && !passwordsMatch.value) {
+    if (!form.password_confirmation) {
+        errors.password_confirmation = 'Las contraseñas ingresadas no coinciden.';
+    } else if (form.password !== form.password_confirmation) {
         errors.password_confirmation = 'Las contraseñas ingresadas no coinciden.';
     }
     return errors;
 });
 
 const submit = () => {
-    ['name', 'dni', 'email', 'password', 'password_confirmation'].forEach(f => touched.value[f] = true);
+    attemptedSubmit.value = true;
     
     if (Object.keys(clientErrors.value).length > 0) {
         return;
@@ -108,7 +101,7 @@ const submit = () => {
                         </span>
                     </div>
 
-                    <form @submit.prevent="submit" class="space-y-5">
+                    <form novalidate @submit.prevent="submit" class="space-y-5">
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <!-- Nombre -->
                             <div>
@@ -121,10 +114,8 @@ const submit = () => {
                                     class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
                                     v-model="form.name"
                                     placeholder="Ej: Juan"
-                                    required
                                     autofocus
                                     autocomplete="given-name"
-                                    @blur="markTouched('name')"
                                 />
                                 <InputError class="mt-1.5 text-xs text-rose-400 font-semibold" :message="form.errors.name || clientErrors.name" />
                             </div>
@@ -141,7 +132,6 @@ const submit = () => {
                                     v-model="form.apellido"
                                     placeholder="Ej: Pérez"
                                     autocomplete="family-name"
-                                    @blur="markTouched('apellido')"
                                 />
                                 <InputError class="mt-1.5 text-xs text-rose-400 font-semibold" :message="form.errors.apellido" />
                             </div>
@@ -159,8 +149,6 @@ const submit = () => {
                                     class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
                                     v-model="form.dni"
                                     placeholder="Ej: 12345678"
-                                    required
-                                    @blur="markTouched('dni')"
                                 />
                                 <InputError class="mt-1.5 text-xs text-rose-400 font-semibold" :message="form.errors.dni || clientErrors.dni" />
                             </div>
@@ -177,7 +165,6 @@ const submit = () => {
                                     v-model="form.telefono"
                                     placeholder="Ej: 3415551234"
                                     autocomplete="tel"
-                                    @blur="markTouched('telefono')"
                                 />
                                 <InputError class="mt-1.5 text-xs text-rose-400 font-semibold" :message="form.errors.telefono" />
                             </div>
@@ -194,11 +181,9 @@ const submit = () => {
                                 class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
                                 v-model="form.email"
                                 placeholder="Ej: tu@email.com"
-                                required
                                 autocomplete="email"
                                 autocapitalize="none"
                                 @input="form.email = form.email.toLowerCase()"
-                                @blur="markTouched('email')"
                             />
                             <InputError class="mt-1.5 text-xs text-rose-400 font-semibold" :message="form.errors.email || clientErrors.email" />
                         </div>
@@ -215,9 +200,7 @@ const submit = () => {
                                     class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
                                     v-model="form.password"
                                     placeholder="••••••••"
-                                    required
                                     autocomplete="new-password"
-                                    @blur="markTouched('password')"
                                 />
                                 <button
                                     type="button"
@@ -249,9 +232,7 @@ const submit = () => {
                                     class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
                                     v-model="form.password_confirmation"
                                     placeholder="••••••••"
-                                    required
                                     autocomplete="new-password"
-                                    @blur="markTouched('password_confirmation')"
                                 />
                                 <button
                                     type="button"
