@@ -712,17 +712,23 @@ const seriesFiltradas = computed(() => {
     return opcionesMasivasLocal.value.series.filter(s => s && s.toLowerCase().includes(q));
 });
 
+const proveedoresFormatosMap = computed(() => {
+    return opcionesMasivasLocal.value?.proveedores_formatos || opcionesMasivasLocal.value?.proveedoresFormatos || {};
+});
+
 const proveedoresFiltrados = computed(() => {
-    if (!opcionesMasivasLocal.value?.proveedores_formatos) return [];
-    const lista = Object.keys(opcionesMasivasLocal.value.proveedores_formatos);
+    let lista = Object.keys(proveedoresFormatosMap.value);
+    if (lista.length === 0 && opcionesMasivasLocal.value?.proveedores) {
+        lista = opcionesMasivasLocal.value.proveedores;
+    }
     if (!searchProveedorQuery.value) return lista;
     const q = searchProveedorQuery.value.toLowerCase();
     return lista.filter(p => p && p.toLowerCase().includes(q));
 });
 
 const formatosDisponibles = computed(() => {
-    if (!bulkForm.proveedor || !opcionesMasivasLocal.value?.proveedores_formatos) return [];
-    return opcionesMasivasLocal.value.proveedores_formatos[bulkForm.proveedor] || [];
+    if (!bulkForm.proveedor) return [];
+    return proveedoresFormatosMap.value[bulkForm.proveedor] || [];
 });
 
 const librosFiltrados = computed(() => {

@@ -24,13 +24,11 @@ class CatalogoAjustesController extends Controller
 
         $autores = Autor::withCount('libroMasters')->orderBy('apellido')->get();
         $categorias = Categoria::withCount('libroMasters')->orderBy('nombre')->get();
-        $proveedores = \App\Models\Proveedor::withCount('libroMasters')->orderBy('nombre_empresa')->get();
         $idiomas = Idioma::withCount('libroMasters')->orderBy('nombre')->get();
 
         return inertia('Catalogo/Ajustes', [
             'autores' => $autores,
             'categorias' => $categorias,
-            'proveedores' => $proveedores,
             'idiomas' => $idiomas,
         ]);
     }

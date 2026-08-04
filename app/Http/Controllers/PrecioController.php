@@ -21,7 +21,10 @@ class PrecioController extends Controller
             'criterio'     => 'required|in:categoria,serie,proveedor_formato,libro_individual',
             'nuevo_precio' => 'required|numeric|min:0',
             'categoria_id' => 'nullable|exists:categorias,id',
-            'libro_id'     => 'nullable|exists:libros,id'
+            'libro_id'     => 'nullable|exists:libros,id',
+            'proveedor'    => 'nullable|string',
+            'formato'      => 'nullable|string',
+            'serie'        => 'nullable|string',
         ]);
 
         $query = \App\Models\Libro::query();
@@ -38,9 +41,11 @@ class PrecioController extends Controller
         } elseif ($request->criterio === 'libro_individual') {
             $query->where('id', $request->libro_id);
         } else {
-            $query->whereHas('master.proveedor', function ($q) use ($request) {
-                $q->where('nombre_empresa', $request->proveedor);
-            });
+            if (!empty($request->proveedor)) {
+                $query->whereHas('master.proveedor', function ($q) use ($request) {
+                    $q->where(DB::raw('LOWER(nombre_empresa)'), mb_strtolower(trim($request->proveedor), 'UTF-8'));
+                });
+            }
             if (!empty($request->formato)) {
                 $query->whereHas('master', function ($q) use ($request) {
                     $q->where('formato', $request->formato);
@@ -78,19 +83,22 @@ class PrecioController extends Controller
             abort(403, 'Acción no autorizada');
         }
 
+        $proveedoresData = \App\Models\Proveedor::orderBy('nombre_empresa')
+            ->with(['libroMasters' => fn($q) => $q->whereNotNull('formato')->where('formato', '!=', '')])
+            ->get()
+            ->mapWithKeys(function ($prov) {
+                return [
+                    $prov->nombre_empresa => $prov->libroMasters->pluck('formato')->unique()->filter()->values()->all()
+                ];
+            })->toArray();
+
         $opcionesMasivas = [
             'categorias' => \App\Models\Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
             'series' => \App\Models\LibroMaster::orderBy('titulo')->pluck('titulo'),
-            'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->pluck('nombre_empresa'),
-            'proveedoresFormatos' => \App\Models\Proveedor::where('activo', true)
-                ->with(['libroMasters' => fn($q) => $q->whereNotNull('formato')->where('formato', '!=', '')])
-                ->get()
-                ->mapWithKeys(function ($prov) {
-                    return [
-                        $prov->nombre_empresa => $prov->libroMasters->pluck('formato')->unique()->values()->all()
-                    ];
-                }),
+            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->pluck('nombre_empresa'),
+            'proveedores_formatos' => $proveedoresData,
+            'proveedoresFormatos' => $proveedoresData,
             'libros' => Libro::whereHas('master')->with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
                 return [
                     'id' => $l->id,

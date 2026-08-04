@@ -46,7 +46,7 @@ const clientErrors = computed(() => {
         errors.password = 'La contraseña debe tener al menos 8 caracteres.';
     }
     if (!form.password_confirmation) {
-        errors.password_confirmation = 'Las contraseñas ingresadas no coinciden.';
+        errors.password_confirmation = 'La confirmación de la contraseña es obligatoria.';
     } else if (form.password !== form.password_confirmation) {
         errors.password_confirmation = 'Las contraseñas ingresadas no coinciden.';
     }

@@ -8,7 +8,6 @@ import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 const props = defineProps({
     autores: Array,
     categorias: Array,
-    proveedores: Array,
     idiomas: Array
 });
 
@@ -18,7 +17,6 @@ const searchQuery = ref('');
 const tabs = [
     { id: 'autores', name: 'Autores' },
     { id: 'categorias', name: 'Categorías' },
-    { id: 'proveedores', name: 'Proveedores' },
     { id: 'idiomas', name: 'Idiomas' }
 ];
 
@@ -31,7 +29,6 @@ const filteredItems = computed(() => {
     let list = [];
     if (currentTab.value === 'autores') list = props.autores;
     else if (currentTab.value === 'categorias') list = props.categorias;
-    else if (currentTab.value === 'proveedores') list = props.proveedores;
     else if (currentTab.value === 'idiomas') list = props.idiomas;
 
     if (!searchQuery.value) return list;
@@ -41,9 +38,6 @@ const filteredItems = computed(() => {
         if (currentTab.value === 'autores') {
             return (item.nombre && item.nombre.toLowerCase().includes(term)) ||
                    (item.apellido && item.apellido.toLowerCase().includes(term));
-        } else if (currentTab.value === 'proveedores') {
-            return (item.nombre_empresa && item.nombre_empresa.toLowerCase().includes(term)) ||
-                   (item.email && item.email.toLowerCase().includes(term));
         } else {
             return item.nombre && item.nombre.toLowerCase().includes(term);
         }
