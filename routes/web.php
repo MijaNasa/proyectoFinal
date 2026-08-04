@@ -84,7 +84,7 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
 
     // Colecciones
     Route::middleware('permiso:colecciones.acceder')->group(function () {
-        Route::resource('libro-masters', LibroMasterController::class)->except(['index', 'show', 'create', 'edit']);
+        Route::resource('libro-masters', LibroMasterController::class)->names('obras')->except(['index', 'show', 'create', 'edit']);
         Route::post('libros/deshabilitar-preventas', [LibroController::class, 'deshabilitarPreventas'])->name('libros.deshabilitar-preventas');
         Route::resource('libros', LibroController::class)->except(['show', 'create', 'edit']);
         Route::post('precios/bulk', [PrecioController::class, 'bulkUpdate'])->name('precios.bulk');

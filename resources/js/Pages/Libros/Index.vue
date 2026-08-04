@@ -383,11 +383,15 @@ const agregarFormato = () => {
 
 const submitObra = () => {
     if (isEditingObra.value) {
-        obraForm.post(route('obras.update', obraForm.id), {
+        obraForm.put(route('obras.update', obraForm.id), {
             preserveScroll: true,
             onSuccess: () => {
                 showObraModal.value = false;
                 darkSwal.fire({ title: '¡Éxito!', text: 'Producto actualizado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+                darkSwal.fire({ title: 'Error de validación', text: firstError || 'Verifique los campos requeridos', icon: 'error' });
             }
         });
     } else {
@@ -397,6 +401,10 @@ const submitObra = () => {
                 showObraModal.value = false;
                 obraForm.reset();
                 darkSwal.fire({ title: '¡Éxito!', text: 'Producto creado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+                darkSwal.fire({ title: 'Error de validación', text: firstError || 'Verifique los campos requeridos', icon: 'error' });
             }
         });
     }

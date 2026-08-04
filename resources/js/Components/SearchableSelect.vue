@@ -108,9 +108,13 @@ const handleClickOutside = (event) => {
     if (wrapperRef.value && !wrapperRef.value.contains(event.target)) {
         isOpen.value = false;
         
-        // If the user completely cleared the text, clear the modelValue
+        // If search is empty when clicking outside, restore previous selection if it exists, otherwise clear modelValue
         if (search.value.trim() === '') {
-            emit('update:modelValue', '');
+            if (selectedOption.value) {
+                search.value = getLabel(selectedOption.value);
+            } else {
+                emit('update:modelValue', '');
+            }
             return;
         }
 
