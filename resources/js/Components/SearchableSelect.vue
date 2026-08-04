@@ -69,6 +69,14 @@ const updateSearchLabel = () => {
 // Update the search box when the modelValue or options changes
 watch(() => [props.modelValue, props.options], updateSearchLabel, { immediate: true, deep: true });
 
+const normalizeStr = (str) => {
+    return (str || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+};
+
 const filteredOptions = computed(() => {
     if (!props.options) return [];
     if (!search.value) return props.options;
@@ -79,10 +87,10 @@ const filteredOptions = computed(() => {
         return props.options;
     }
     
-    const term = search.value.toLowerCase();
+    const term = normalizeStr(search.value);
     return props.options.filter(opt => {
-        const label = getLabel(opt) || '';
-        return label && label.toLowerCase().includes(term);
+        const label = normalizeStr(getLabel(opt));
+        return label.includes(term);
     });
 });
 
@@ -124,7 +132,7 @@ const handleClickOutside = (event) => {
         }
 
         // Auto-select exact match if they typed it perfectly but didn't click
-        const exactMatch = props.options.find(opt => getLabel(opt).toLowerCase() === search.value.toLowerCase());
+        const exactMatch = props.options.find(opt => normalizeStr(getLabel(opt)) === normalizeStr(search.value));
         if (exactMatch) {
             selectOption(exactMatch);
             return;

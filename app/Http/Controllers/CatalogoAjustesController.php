@@ -97,8 +97,8 @@ class CatalogoAjustesController extends Controller
                         'required', 'string', 'max:150',
                         Rule::unique('proveedores')->whereNull('deleted_at')
                     ],
-                    'telefono' => 'required|string|max:50',
-                    'email' => 'required|email|max:150',
+                    'telefono' => 'nullable|string|max:50',
+                    'email' => 'nullable|email|max:150',
                 ], $messages);
                 $model = \App\Models\Proveedor::withTrashed()->where('nombre_empresa', $validated['nombre_empresa'])->first();
                 

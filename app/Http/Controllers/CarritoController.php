@@ -27,14 +27,14 @@ class CarritoController extends Controller
         $libro = Libro::with(['master.proveedor', 'precioActual', 'stocks'])->findOrFail($request->libro_id);
 
         $stockTotal = $libro->stocks->sum('cantidad_disponible');
-        if ($stockTotal === 0) {
+        if (!$libro->permite_preventa && $stockTotal === 0) {
             return back()->with('error', 'Este libro no tiene stock disponible.');
         }
 
         $carrito = session(self::SESSION_KEY, []);
         $id = $request->libro_id;
 
-        $limite = min(5, $stockTotal);
+        $limite = $libro->permite_preventa ? 5 : min(5, $stockTotal);
         $cantidadActual = $carrito[$id]['cantidad'] ?? 0;
 
         if ($cantidadActual >= $limite) {
@@ -43,13 +43,14 @@ class CarritoController extends Controller
 
         $nuevaCantidad = min($cantidadActual + $request->cantidad, $limite);
 
+        $tomoLabel = $libro->numero_tomo ? (preg_match('/^tomo\b/i', trim($libro->numero_tomo)) ? ' - ' . trim($libro->numero_tomo) : ' - Tomo ' . trim($libro->numero_tomo)) : '';
         $carrito[$id] = [
             'libro_id'    => $libro->id,
             'cantidad'    => $nuevaCantidad,
             'precio'      => $libro->permite_preventa ? ($libro->precioActual?->precio_venta * 0.90) : ($libro->precioActual?->precio_venta ?? 0),
             'precio_original' => $libro->precioActual?->precio_venta ?? 0,
             'permite_preventa' => $libro->permite_preventa,
-            'titulo'      => $libro->master->titulo . ($libro->numero_tomo ? ' - Tomo ' . $libro->numero_tomo : ''),
+            'titulo'      => $libro->master->titulo . $tomoLabel,
             'portada_url' => $libro->master->portada_url,
             'isbn'        => $libro->isbn,
             'proveedor'   => $libro->master->proveedor->nombre_empresa ?? '',
@@ -74,7 +75,7 @@ class CarritoController extends Controller
         $libro = Libro::findOrFail($libroId);
         $stockTotal = \App\Models\Stock::where('libro_id', $libro->id)->sum('cantidad_disponible');
 
-        $limite = min(5, $stockTotal);
+        $limite = $libro->permite_preventa ? 5 : min(5, $stockTotal);
         $carrito[$libroId]['cantidad'] = min($request->cantidad, $limite);
         $carrito[$libroId]['stock_total'] = $stockTotal;
         session([self::SESSION_KEY => $carrito]);

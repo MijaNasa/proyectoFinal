@@ -45,9 +45,13 @@ class CheckoutController extends Controller
             ->whereIn('sucursal_id', $sucursales->pluck('id'))
             ->get();
             
-        // Validar si el carrito entero puede ser cubierto por el stock TOTAL de la empresa
+        // Validar si el carrito entero puede ser cubierto por el stock TOTAL de la empresa (excepto preventas)
         $hayStockTotal = true;
         foreach ($carrito as $item) {
+            $libroModel = \App\Models\Libro::find($item['libro_id']);
+            if ($libroModel && $libroModel->permite_preventa) {
+                continue;
+            }
             $stockTotalParaItem = $stocks->where('libro_id', $item['libro_id'])->sum('cantidad_disponible');
             if ($stockTotalParaItem < $item['cantidad']) {
                 $hayStockTotal = false;
@@ -63,6 +67,10 @@ class CheckoutController extends Controller
         $sucursales = $sucursales->map(function($sucursal) use ($stocks, $carrito) {
             $tieneStockLocal = true;
             foreach ($carrito as $item) {
+                $libroModel = \App\Models\Libro::find($item['libro_id']);
+                if ($libroModel && $libroModel->permite_preventa) {
+                    continue;
+                }
                 $stockItem = $stocks->where('sucursal_id', $sucursal->id)
                                     ->where('libro_id', $item['libro_id'])
                                     ->first();

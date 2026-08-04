@@ -59,6 +59,14 @@ const darkSwal = Swal.mixin({
     }
 });
 
+const formatTomoDisplay = (num) => {
+    if (!num || String(num).trim() === '') return 'Único';
+    const clean = String(num).trim();
+    if (/^tomo\b/i.test(clean)) return clean;
+    if (clean.toLowerCase() === 'único' || clean.toLowerCase() === 'unico') return 'Tomo Único';
+    return `Tomo ${clean}`;
+};
+
 // --- LOGICA DE OBRA (LibroMaster) ---
 const showObraModal = ref(false);
 const isEditingObra = ref(false);
@@ -119,8 +127,8 @@ const openObraModal = (obra = null) => {
         obraForm.synopsis = '';
         obraForm.activo = true;
         obraForm.portada = null;
-        obraForm.clearErrors();
     }
+    obraForm.clearErrors();
     showObraModal.value = true;
 };
 
@@ -142,6 +150,7 @@ const agregarAutor = () => {
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
         focusConfirm: false,
         preConfirm: async () => {
             const popup = Swal.getPopup();
@@ -194,6 +203,7 @@ const agregarCategoria = () => {
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
         focusConfirm: false,
         preConfirm: async () => {
             const popup = Swal.getPopup();
@@ -242,11 +252,11 @@ const agregarProveedor = () => {
                     <input id="swal-prov-nombre_empresa" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Ivrea">
                 </div>
                 <div>
-                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Email de Contacto *</label>
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Email de Contacto</label>
                     <input id="swal-prov-email" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="email" placeholder="Ej: contacto@proveedor.com">
                 </div>
                 <div>
-                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Teléfono *</label>
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Teléfono</label>
                     <input id="swal-prov-telefono" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: 1122334455">
                 </div>
             </div>
@@ -254,6 +264,7 @@ const agregarProveedor = () => {
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
         focusConfirm: false,
         preConfirm: async () => {
             const popup = Swal.getPopup();
@@ -265,8 +276,8 @@ const agregarProveedor = () => {
             const email = emailInput ? emailInput.value.trim() : '';
             const telefono = telInput ? telInput.value.trim() : '';
             
-            if (!nombre_empresa || !email || !telefono) {
-                Swal.showValidationMessage('Nombre de Empresa, Email y Teléfono son obligatorios');
+            if (!nombre_empresa) {
+                Swal.showValidationMessage('El nombre de la empresa es obligatorio');
                 return false;
             }
             try {
@@ -310,6 +321,7 @@ const agregarIdioma = () => {
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
         focusConfirm: false,
         preConfirm: async () => {
             const popup = Swal.getPopup();
@@ -360,6 +372,7 @@ const agregarFormato = () => {
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
         focusConfirm: false,
         preConfirm: () => {
             const val = Swal.getPopup().querySelector('#swal-formato-nombre').value.trim();
@@ -444,6 +457,7 @@ const tomoForm = useForm({
 });
 
 const openTomoModal = (tomo = null, masterId = null) => {
+    tomoForm.clearErrors();
     if (tomo) {
         isEditingTomo.value = true;
         tomoForm.id = tomo.id;
@@ -930,7 +944,7 @@ const submitBulk = () => {
                                                     <tbody>
                                                         <tr v-for="libro in obra.libros" :key="libro.id" class="hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-opacity" :class="[!libro.activo ? 'opacity-40' : '']">
                                                             <td class="py-3 pr-4">
-                                                                <div class="text-xs font-bold text-white tracking-tight">{{ libro.numero_tomo ? (/^\d+$/.test(libro.numero_tomo) ? 'Tomo ' + libro.numero_tomo : libro.numero_tomo) : 'Único' }}</div>
+                                                                <div class="text-xs font-bold text-white tracking-tight">{{ formatTomoDisplay(libro.numero_tomo) }}</div>
                                                             </td>
                                                             <td class="py-3 pr-4">
                                                                 <span class="font-mono text-xs text-zinc-400">{{ libro.isbn || '-' }}</span>

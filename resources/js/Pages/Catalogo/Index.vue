@@ -82,13 +82,14 @@ const getStockTotal = (libro) =>
     libro.stocks?.reduce((s, st) => s + (st.cantidad_disponible ?? 0), 0) ?? 0;
 
 const getStockStatus = (libro) => {
+    if (libro?.permite_preventa) return 'preventa';
     const total = getStockTotal(libro);
     if (total === 0) return 'sin_stock';
     if (total < 5)  return 'pocos';
     return 'disponible';
 };
-const stockLabel = { disponible: 'Disponible', pocos: 'Quedan pocos', sin_stock: 'Sin stock' };
-const stockClass = { disponible: 'text-emerald-400', pocos: 'text-amber-400', sin_stock: 'text-rose-400' };
+const stockLabel = { disponible: 'Disponible', pocos: 'Quedan pocos', sin_stock: 'Sin stock', preventa: 'Preventa' };
+const stockClass = { disponible: 'text-emerald-400', pocos: 'text-amber-400', sin_stock: 'text-rose-400', preventa: 'text-cyan-400' };
 
 const fmt = (v) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(v);
 
