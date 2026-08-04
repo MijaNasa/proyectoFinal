@@ -439,8 +439,8 @@ const tomoForm = useForm({
     cantidad_paginas: '',
     activo: true,
     permite_preventa: false,
-    precio_venta: 0,
-    precio_compra: 0,
+    precio_venta: '',
+    precio_compra: '',
 });
 
 const openTomoModal = (tomo = null, masterId = null) => {
@@ -456,8 +456,8 @@ const openTomoModal = (tomo = null, masterId = null) => {
         tomoForm.permite_preventa = !!tomo.permite_preventa;
         
         const currentPrice = tomo.precios?.find(p => p.activo);
-        tomoForm.precio_compra = currentPrice ? currentPrice.precio_compra : 0;
-        tomoForm.precio_venta = currentPrice ? currentPrice.precio_venta : 0;
+        tomoForm.precio_compra = currentPrice ? currentPrice.precio_compra : '';
+        tomoForm.precio_venta = currentPrice ? currentPrice.precio_venta : '';
         
         const stockData = {};
         if (tomo.stocks) {
@@ -1148,7 +1148,7 @@ const submitBulk = () => {
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Precio de Venta Inicial *</label>
                                     <div class="relative">
                                         <span class="absolute inset-y-0 left-0 flex items-center pl-4 text-zinc-400 font-bold">$</span>
-                                        <input v-model="tomoForm.precio_venta" type="number" step="0.01" min="0" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-base text-white font-bold text-right focus:outline-none focus:border-white/30" placeholder="0.00" required />
+                                        <input v-model="tomoForm.precio_venta" type="number" step="0.01" min="0" @focus="$event.target.select()" @focusin="tomoForm.precio_venta == 0 ? (tomoForm.precio_venta = '') : null" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-base text-white font-bold text-right focus:outline-none focus:border-white/30" placeholder="0.00" required />
                                     </div>
                                     <div v-if="tomoForm.errors.precio_venta" class="mt-2 text-rose-400 text-xs font-semibold">
                                         {{ tomoForm.errors.precio_venta }}
