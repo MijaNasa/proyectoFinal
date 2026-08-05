@@ -92,6 +92,8 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        return redirect()->intended(route('catalogo.index', absolute: false));
+        $request->session()->forget('url.intended');
+
+        return redirect('/catalogo');
     }
 }

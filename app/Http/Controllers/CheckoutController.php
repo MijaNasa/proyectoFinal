@@ -100,9 +100,9 @@ class CheckoutController extends Controller
     public function store(Request $request)
     {
         $rules = [
-            'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion,correo_nacional',
+            'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion,correo_nacional,correo_sucursal',
             'sucursal_id'           => 'required|exists:sucursales,id',
-            'direccion_envio'       => 'required_if:tipo_envio,domicilio,correo_nacional|nullable|string|max:255',
+            'direccion_envio'       => 'required_if:tipo_envio,domicilio,correo_nacional,correo_sucursal|nullable|string|max:255',
             'latitud'               => 'nullable|numeric|between:-90,90',
             'longitud'              => 'nullable|numeric|between:-180,180',
             'medio_pago'            => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
@@ -110,7 +110,7 @@ class CheckoutController extends Controller
         
         $messages = [
             'tipo_envio.required'         => 'Seleccioná el tipo de entrega.',
-            'direccion_envio.required_if' => 'Ingresá la dirección de entrega.',
+            'direccion_envio.required_if' => 'Ingresá la dirección o sucursal de entrega.',
             'sucursal_id.required'        => 'Seleccioná la sucursal de destino.',
             'medio_pago.required'         => 'Seleccioná el método de pago.',
             'guest_nombre.required'       => 'El nombre es obligatorio.',
@@ -131,7 +131,7 @@ class CheckoutController extends Controller
 
         $request->validate($rules, $messages);
 
-        if (in_array($request->tipo_envio, ['domicilio', 'acumulacion'])) {
+        if (in_array($request->tipo_envio, ['domicilio', 'acumulacion', 'correo_nacional', 'correo_sucursal'])) {
             if ($request->medio_pago === 'Efectivo') {
                 return back()->withErrors(['medio_pago' => 'El pago en Efectivo solo está disponible para retiro en sucursal.']);
             }
@@ -147,12 +147,12 @@ class CheckoutController extends Controller
         $sucursal_id = $request->sucursal_id;
         
         $costo_envio = 0;
-        if (in_array($request->tipo_envio, ['domicilio', 'correo_nacional'])) {
+        if (in_array($request->tipo_envio, ['domicilio', 'correo_nacional', 'correo_sucursal'])) {
             $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first();
             if ($sucursalPrincipal) {
                 $sucursal_id = $sucursalPrincipal->id;
             }
-            if ($request->tipo_envio === 'correo_nacional') {
+            if (in_array($request->tipo_envio, ['correo_nacional', 'correo_sucursal'])) {
                 $costo_envio = 50000;
             }
         }

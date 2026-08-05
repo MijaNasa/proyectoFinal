@@ -12,12 +12,12 @@ const page = usePage();
 const puedeEditarEstado = page.props.auth?.esAdmin || page.props.auth?.esGerente;
 
 const estados = [
-    { value: 'pendiente_pago',     label: 'Pendiente de pago' },
     { value: 'en_preventa',        label: 'Esperando preventa' },
+    { value: 'pendiente_pago',     label: 'Pendiente de pago' },
     { value: 'esperando_traslado', label: 'Esperando traslado entre sucursales' },
-    { value: 'en_preparacion',     label: 'Envío en preparación' },
-    { value: 'listo_para_retiro',  label: 'Listo para retirar' },
     { value: 'acumulado',          label: 'Acumulado' },
+    { value: 'listo_para_retiro',  label: 'Listo para retirar' },
+    { value: 'en_preparacion',     label: 'Envío en preparación' },
     { value: 'enviado',            label: 'Enviado' },
     { value: 'finalizado',         label: 'Finalizado' },
     { value: 'cancelado',          label: 'Cancelado' },
@@ -51,7 +51,34 @@ const onSeleccionarDireccion = (f) => {
     estadoForm.longitud = lon ?? null;
 };
 
+import { computed } from 'vue';
+
+const esAdmin = computed(() =>
+    page.props.auth?.esAdmin || page.props.auth?.esGerente
+);
+
+const esEstadoRestringido = computed(() =>
+    ['en_preventa', 'esperando_traslado', 'finalizado', 'cancelado'].includes(props.venta.estado)
+);
+
+const puedeModificarEstadoManual = computed(() => {
+    if (esEstadoRestringido.value && !esAdmin.value) {
+        return false;
+    }
+    return true;
+});
+
 const guardarEstado = async () => {
+    if (!puedeModificarEstadoManual.value) {
+        darkSwal.fire({
+            title: 'Acción Restringida',
+            text: 'Este estado solo puede ser modificado por un Administrador o mediante eventos del sistema (Logística / Preventas).',
+            icon: 'warning'
+        });
+        estadoForm.estado = props.venta.estado;
+        return;
+    }
+
     if (estadoForm.estado === 'cancelado' && props.venta.estado !== 'cancelado') {
         const { isConfirmed } = await darkSwal.fire({
             title: '¿Confirmar cancelación?',
@@ -60,6 +87,20 @@ const guardarEstado = async () => {
             showCancelButton: true,
             confirmButtonText: 'Sí, cancelar',
             cancelButtonText: 'No, mantener',
+        });
+        
+        if (!isConfirmed) {
+            estadoForm.estado = props.venta.estado;
+            return;
+        }
+    } else if (estadoForm.estado === 'finalizado' && props.venta.estado !== 'finalizado') {
+        const { isConfirmed } = await darkSwal.fire({
+            title: '¿Marcar como Finalizado?',
+            text: 'Esta acción dará por concluida la venta y asentará la entrega del pedido.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, finalizar venta',
+            cancelButtonText: 'Cancelar',
         });
         
         if (!isConfirmed) {
@@ -115,25 +156,27 @@ const print = () => window.print();
             </Link>
             <div class="flex items-center gap-3">
                 <!-- Cambiar estado (solo admin/gerente) -->
-                <div v-if="puedeEditarEstado" class="flex flex-col sm:flex-row items-end gap-3 flex-wrap">
-                    <div class="flex-1 min-w-[200px]">
+                <div v-if="puedeEditarEstado" class="flex flex-col sm:flex-row items-center gap-3">
+                    <div class="w-auto min-w-[180px]">
                         <select
                             v-model="estadoForm.estado"
+                            :disabled="!puedeModificarEstadoManual"
                             title="Estado de la Venta"
-                            class="bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold uppercase text-white focus:outline-none focus:border-white/30 transition-colors w-full"
+                            class="bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold uppercase text-white focus:outline-none focus:border-white/30 transition-colors w-full disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             <option v-for="e in estados" :key="e.value" :value="e.value" class="bg-[#131316]">{{ e.label }}</option>
                         </select>
                     </div>
-                    <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="flex-1 min-w-[200px]">
+                    <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="w-auto min-w-[220px]">
                         <DireccionAutocomplete
                             v-model="estadoForm.direccion_envio"
+                            :disabled="estadoForm.estado === 'enviado' || !puedeModificarEstadoManual"
                             @select="onSeleccionarDireccion"
                             placeholder="Ej: San Martín 123, Rosario"
-                            class="bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-colors w-full"
+                            class="bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-colors w-full disabled:opacity-40 disabled:cursor-not-allowed"
                         />
                     </div>
-                    <div v-if="venta.tipo_envio === 'correo_nacional' || estadoForm.estado === 'correo_nacional'" class="flex-1 min-w-[200px]">
+                    <div v-if="['correo_nacional', 'correo_sucursal'].includes(venta.tipo_envio) && estadoForm.estado === 'enviado'" class="w-auto min-w-[180px]">
                         <input
                             type="text"
                             v-model="estadoForm.tracking_code"
@@ -144,7 +187,7 @@ const print = () => window.print();
                     <button
                         @click="guardarEstado"
                         :disabled="estadoForm.processing || (estadoForm.estado === venta.estado && estadoForm.direccion_envio === (venta.direccion_envio || '') && estadoForm.tracking_code === (venta.tracking_code || ''))"
-                        class="px-4 py-[9px] rounded-xl text-xs font-bold bg-white hover:bg-zinc-200 text-black disabled:opacity-30 disabled:cursor-not-allowed transition-all w-full sm:w-auto h-[38px] shadow-md"
+                        class="px-4 py-2 rounded-xl text-xs font-bold bg-white hover:bg-zinc-200 text-black disabled:opacity-30 disabled:cursor-not-allowed transition-all w-full sm:w-auto h-[38px] shadow-md cursor-pointer"
                     >
                         Guardar
                     </button>

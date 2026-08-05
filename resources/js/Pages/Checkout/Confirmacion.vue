@@ -128,7 +128,7 @@ const config = computed(() => {
                         <div v-if="venta.tipo_envio" class="flex justify-between items-center">
                             <span class="text-zinc-400 font-medium">Modalidad de Entrega</span>
                             <span class="font-bold text-white capitalize">
-                                {{ venta.tipo_envio === 'retiro' ? 'Retiro en sucursal' : (venta.tipo_envio === 'acumulacion' ? 'Acumulación de envío' : 'Envío a domicilio') }}
+                                {{ venta.tipo_envio === 'retiro' ? 'Retiro en sucursal (Nuestra Tienda)' : (venta.tipo_envio === 'acumulacion' ? 'Acumulación de envío' : (venta.tipo_envio === 'correo_sucursal' ? 'Envío a Sucursal Correo Argentino' : 'Envío a domicilio')) }}
                             </span>
                         </div>
                         <div class="flex justify-between items-baseline pt-3 border-t border-white/5">
@@ -155,7 +155,7 @@ const config = computed(() => {
                         </div>
                         <div class="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-white/5 pb-2">
                             <span class="text-zinc-500 uppercase text-[10px] font-bold font-sans">Alias</span>
-                            <span class="font-bold text-white select-all">LIBRERIA.ANTIGRAVITY</span>
+                            <span class="font-bold text-white select-all">puro.comic</span>
                         </div>
                         <div class="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-white/5 pb-2">
                             <span class="text-zinc-500 uppercase text-[10px] font-bold font-sans">Titular</span>

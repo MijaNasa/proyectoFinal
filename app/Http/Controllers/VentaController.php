@@ -555,25 +555,20 @@ class VentaController extends Controller
             'longitud' => 'nullable|numeric|between:-180,180',
         ]);
 
+        $user = auth()->user();
+        $esAdminOManager = $user && ($user->esAdmin() || $user->esGerente());
+        $estadosRestringidos = ['en_preventa', 'esperando_traslado', 'finalizado', 'cancelado'];
+
         if ($request->estado === 'cancelado' && $venta->estado !== 'cancelado') {
             \DB::transaction(function () use ($venta) {
-                $fresh = Venta::with(['detalles', 'cliente', 'transacciones'])
-                    ->lockForUpdate()
-                    ->find($venta->id);
-
-                if (in_array($fresh->estado, ['enviado', 'finalizado'])) {
-                    throw \Illuminate\Validation\ValidationException::withMessages([
-                        'estado' => 'No se puede cancelar una venta que ya fue enviada o finalizada.',
-                    ]);
-                }
-
+                $fresh = $venta->fresh();
                 $fresh->cancelarConRestitucionDeStock();
             });
             return back()->with('message', 'Venta cancelada y stock revertido.');
         }
 
-        if ($venta->estado === 'cancelado' && $request->estado !== 'cancelado') {
-            return back()->with('error', 'No se puede modificar el estado de una venta cancelada.');
+        if (in_array($venta->estado, $estadosRestringidos) && $request->has('estado') && $request->estado !== $venta->estado && !$esAdminOManager) {
+            return back()->with('error', 'Este estado solo puede ser modificado por un Administrador o mediante eventos del sistema (Logística / Preventas).');
         }
 
         $updates = [];
@@ -581,7 +576,9 @@ class VentaController extends Controller
             $updates['estado'] = $request->estado;
             
             if ($request->estado === 'en_preparacion') {
-                $updates['tipo_envio'] = 'domicilio';
+                if (!$venta->tipo_envio) {
+                    $updates['tipo_envio'] = 'domicilio';
+                }
                 if (!$request->direccion_envio && !$venta->direccion_envio) {
                     return back()->with('error', 'Se requiere una dirección de envío para poner la venta en preparación.');
                 }
@@ -592,7 +589,7 @@ class VentaController extends Controller
             }
         }
         
-        if ($request->has('direccion_envio')) {
+        if ($request->has('direccion_envio') && $request->direccion_envio) {
             // Si el autocomplete (Photon) ya mando coordenadas, las usamos directo
             // en vez de volver a geocodificar el texto contra Nominatim.
             $lat = $request->latitud;
@@ -608,12 +605,9 @@ class VentaController extends Controller
                 $lonSucursal = -60.6382;
                 $distancia = $this->calculateDistance($latSucursal, $lonSucursal, $lat, $lon);
 
-                if ($distancia > 20) {
+                if ($distancia > 20 && !in_array($venta->tipo_envio, ['correo_nacional', 'correo_sucursal'])) {
                     $updates['tipo_envio'] = 'correo_nacional';
-                    // Optional: si querés sumar costo extra por default al pasarlo manual, acá:
-                    // pero asumo que manualmente no cobraremos de una sino que el admin avisa,
-                    // o lo dejamos por si acaso:
-                    if (!$venta->costo_envio && $venta->tipo_envio !== 'correo_nacional') {
+                    if (!$venta->costo_envio) {
                         $updates['costo_envio'] = 50000;
                     }
                 }

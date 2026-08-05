@@ -233,6 +233,13 @@ watch([() => form.proveedor_id, () => form.sucursal_id], ([newProv, newSuc]) => 
                     itemResults.value = preventas.map(() => []);
                     itemLoadings.value = preventas.map(() => false);
                     itemLabels.value = preventas.map(p => p.titulo);
+                } else {
+                    form.items = [{ libro_id: '', cantidad: 1, precio_unitario: 0, stock: 0, reservas: 0 }];
+                    itemDdOpen.value = [false];
+                    itemSearches.value = [''];
+                    itemResults.value = [[]];
+                    itemLoadings.value = [false];
+                    itemLabels.value = [''];
                 }
             })
             .catch(error => console.error("Error fetching preventas:", error));

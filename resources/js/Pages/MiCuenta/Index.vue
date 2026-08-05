@@ -143,6 +143,7 @@ const estadoConfig = {
 const getTipoEnvioLabel = (tipo) => {
     if (tipo === 'retiro') return 'Retiro en sucursal';
     if (tipo === 'acumulacion') return 'Acumulación en sucursal';
+    if (tipo === 'correo_sucursal') return 'Envío a Sucursal Correo Argentino';
     return 'Envío a domicilio';
 };
 
@@ -394,6 +395,20 @@ const solicitarEnvioAcumulados = () => {
                                     <p class="text-emerald-400 font-bold text-xs uppercase tracking-wider">¡Tu pedido está listo!</p>
                                     <p class="text-zinc-300 text-xs mt-1 font-medium leading-relaxed">
                                         Ya podés pasar a retirar tus libros por la sucursal <strong>{{ pedido.sucursal_nombre }}</strong>.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Banner Tracking Code para Envíos de Correo -->
+                            <div v-if="['correo_nacional', 'correo_sucursal'].includes(pedido.tipo_envio) && pedido.tracking_code" class="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-start gap-3 mt-4">
+                                <span class="text-xl">📦</span>
+                                <div>
+                                    <p class="text-indigo-400 font-bold text-xs uppercase tracking-wider">Código de Seguimiento / Tracking</p>
+                                    <p class="text-zinc-200 text-xs mt-1 font-mono font-bold tracking-wider">
+                                        {{ pedido.tracking_code }}
+                                    </p>
+                                    <p v-if="pedido.direccion_envio" class="text-zinc-400 text-xs mt-0.5 font-medium">
+                                        Destino: {{ pedido.direccion_envio }}
                                     </p>
                                 </div>
                             </div>

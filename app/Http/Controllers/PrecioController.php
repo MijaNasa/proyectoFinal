@@ -83,7 +83,8 @@ class PrecioController extends Controller
             abort(403, 'Acción no autorizada');
         }
 
-        $proveedoresData = \App\Models\Proveedor::orderBy('nombre_empresa')
+        $proveedoresData = \App\Models\Proveedor::whereHas('libroMasters')
+            ->orderBy('nombre_empresa')
             ->with(['libroMasters' => fn($q) => $q->whereNotNull('formato')->where('formato', '!=', '')])
             ->get()
             ->mapWithKeys(function ($prov) {
@@ -96,7 +97,7 @@ class PrecioController extends Controller
             'categorias' => \App\Models\Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'formatos' => \App\Models\LibroMaster::whereNotNull('formato')->where('formato', '!=', '')->distinct()->pluck('formato'),
             'series' => \App\Models\LibroMaster::orderBy('titulo')->pluck('titulo'),
-            'proveedores' => \App\Models\Proveedor::orderBy('nombre_empresa')->pluck('nombre_empresa'),
+            'proveedores' => \App\Models\Proveedor::whereHas('libroMasters')->orderBy('nombre_empresa')->pluck('nombre_empresa'),
             'proveedores_formatos' => $proveedoresData,
             'proveedoresFormatos' => $proveedoresData,
             'libros' => Libro::whereHas('master')->with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {

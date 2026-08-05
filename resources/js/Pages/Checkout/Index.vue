@@ -165,13 +165,13 @@ watch(tipoEnvio, (val) => {
     localidad.value = '';
     sugerencias.value = [];
     mostrarSugerencias.value = false;
-    if (val === 'domicilio') {
-        sucursalId.value = props.sucursal_principal_id;
+    if (['domicilio', 'correo_sucursal'].includes(val)) {
+        sucursalId.value = props.sucursal_principal_id || props.sucursales?.[0]?.id || '';
     } else {
-        sucursalId.value = '';
+        sucursalId.value = props.sucursales?.[0]?.id || '';
     }
 
-    if (['domicilio', 'acumulacion'].includes(val)) {
+    if (['domicilio', 'correo_sucursal', 'acumulacion'].includes(val)) {
         if (medioPago.value === 'Efectivo') {
             medioPago.value = 'Tarjeta';
         }
@@ -221,40 +221,84 @@ onUnmounted(() => {
 const page = usePage();
 const isAuthenticated = computed(() => !!page.props.auth?.user);
 
+const sucursalCorreoInput = ref('');
+
 const puedeEnviar = computed(() => {
-    let baseValido = !!sucursalId.value;
-    if (tipoEnvio.value === 'domicilio') {
-        baseValido = baseValido && addressSelected.value && provincia.value && localidad.value;
-    }
-    
     if (!isAuthenticated.value) {
-        baseValido = baseValido && guestNombre.value.trim() && guestDni.value.trim() && guestEmail.value.trim() && guestTelefono.value.trim();
+        const guestValido = guestNombre.value.trim() && guestDni.value.trim() && guestEmail.value.trim() && guestTelefono.value.trim();
+        if (!guestValido) return false;
     }
-    
-    return baseValido;
+
+    if (tipoEnvio.value === 'retiro' || tipoEnvio.value === 'acumulacion') {
+        return !!sucursalId.value;
+    }
+
+    if (tipoEnvio.value === 'domicilio') {
+        const calleOk = direccionInput.value.trim().length > 0;
+        const provinciaOk = !!provincia.value;
+        const localidadOk = !!localidad.value;
+        const cpOk = cp.value.trim().length > 0;
+        return calleOk && provinciaOk && localidadOk && cpOk;
+    }
+
+    if (tipoEnvio.value === 'correo_sucursal') {
+        const provinciaOk = !!provincia.value;
+        const localidadOk = !!localidad.value;
+        const sucursalOk = sucursalCorreoInput.value.trim().length > 0;
+        const cpOk = cp.value.trim().length > 0;
+        return provinciaOk && localidadOk && sucursalOk && cpOk;
+    }
+
+    return false;
 });
 
 const confirmar = () => {
     if (!puedeEnviar.value || procesando.value) return;
     procesando.value = true;
 
-    let direccion = direccionFormatted.value;
-    if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
-    if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
-    if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
-    direccion += `, ${localidad.value}, ${provincia.value}`;
-    if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
+    let targetSucursalId = sucursalId.value;
+    if (!targetSucursalId || ['domicilio', 'correo_sucursal'].includes(tipoEnvio.value)) {
+        targetSucursalId = props.sucursal_principal_id || props.sucursales?.[0]?.id;
+    }
 
-    if (tipoEnvio.value === 'domicilio' && !cp.value.trim()) {
-        alert('El Código Postal es obligatorio para envíos a domicilio.');
-        procesando.value = false;
-        return;
+    let direccion = '';
+    if (tipoEnvio.value === 'domicilio') {
+        direccion = direccionFormatted.value || direccionInput.value.trim();
+        if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
+        if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
+        if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
+        if (localidad.value)    direccion += `, ${localidad.value}`;
+        if (provincia.value)    direccion += `, ${provincia.value}`;
+        if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
+
+        if (!direccionInput.value.trim()) {
+            alert('La calle y número de la dirección son obligatorios.');
+            procesando.value = false;
+            return;
+        }
+        if (!cp.value.trim()) {
+            alert('El Código Postal es obligatorio para envíos a domicilio.');
+            procesando.value = false;
+            return;
+        }
+    } else if (tipoEnvio.value === 'correo_sucursal') {
+        direccion = `Sucursal Correo Argentino: ${sucursalCorreoInput.value.trim()}`;
+        if (cp.value.trim()) direccion += `, CP ${cp.value.trim()}`;
+        if (localidad.value) direccion += `, ${localidad.value}`;
+        if (provincia.value) direccion += `, ${provincia.value}`;
+        if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
+
+        if (!cp.value.trim() || !sucursalCorreoInput.value.trim()) {
+            alert('Completá el Código Postal y la sucursal de Correo Argentino de destino.');
+            procesando.value = false;
+            return;
+        }
     }
 
     router.post(route('checkout.store'), {
         tipo_envio:            (tipoEnvio.value === 'domicilio' && !esEnvioLocal.value) ? 'correo_nacional' : tipoEnvio.value,
-        sucursal_id:           sucursalId.value,
-        direccion_envio:       tipoEnvio.value === 'domicilio' ? direccion : null,
+        sucursal_id:           targetSucursalId,
+        direccion_envio:       (tipoEnvio.value === 'domicilio' || tipoEnvio.value === 'correo_sucursal') ? direccion : null,
         latitud:               tipoEnvio.value === 'domicilio' ? latitud.value : null,
         longitud:              tipoEnvio.value === 'domicilio' ? longitud.value : null,
         medio_pago:            medioPago.value,
@@ -361,8 +405,8 @@ const confirmar = () => {
                                 >
                                     <input type="radio" v-model="tipoEnvio" value="retiro" class="mt-1 accent-white" />
                                     <div>
-                                        <p class="font-bold text-sm text-white">Retiro en Sucursal</p>
-                                        <p class="text-zinc-400 text-xs mt-0.5">Retirás tu pedido en nuestra tienda. Sin costo adicional.</p>
+                                        <p class="font-bold text-sm text-white">Retiro en Sucursal (Nuestra Tienda)</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Retirás tu pedido en nuestras sucursales físicas. Sin costo adicional.</p>
                                     </div>
                                 </label>
 
@@ -373,7 +417,18 @@ const confirmar = () => {
                                     <input type="radio" v-model="tipoEnvio" value="domicilio" class="mt-1 accent-white" />
                                     <div class="flex-1">
                                         <p class="font-bold text-sm text-white">Envío a Domicilio</p>
-                                        <p class="text-zinc-400 text-xs mt-0.5">Coordinaremos el envío directo a tu dirección.</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Coordinaremos el envío directo a tu dirección (Reparto local o Correo Nacional).</p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                    :class="tipoEnvio === 'correo_sucursal' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
+                                >
+                                    <input type="radio" v-model="tipoEnvio" value="correo_sucursal" class="mt-1 accent-white" />
+                                    <div class="flex-1">
+                                        <p class="font-bold text-sm text-white">Envío a Sucursal de Correo (Correo Argentino)</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Retirás en la sucursal de Correo Argentino que elijas. Recargo de {{ formatPrecio(50000) }}.</p>
                                     </div>
                                 </label>
 
@@ -390,7 +445,7 @@ const confirmar = () => {
                             </div>
 
                             <!-- Selector de Sucursal -->
-                            <div class="mt-6 pt-4 border-t border-white/5" v-if="tipoEnvio !== 'domicilio'">
+                            <div class="mt-6 pt-4 border-t border-white/5" v-if="tipoEnvio === 'retiro' || tipoEnvio === 'acumulacion'">
                                 <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
                                     Sucursal para Retiro / Acumulación *
                                 </label>
@@ -405,7 +460,7 @@ const confirmar = () => {
                                 </select>
                             </div>
                             
-                            <div v-if="sucursalId && !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="mt-3 p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl flex items-start gap-3">
+                            <div v-if="(tipoEnvio === 'retiro' || tipoEnvio === 'acumulacion') && sucursalId && !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="mt-3 p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl flex items-start gap-3">
                                 <span class="text-lg shrink-0">🚚</span>
                                 <div>
                                     <p class="text-amber-400 font-bold text-xs uppercase tracking-wider">Requiere traslados internos</p>
@@ -415,12 +470,15 @@ const confirmar = () => {
                                 </div>
                             </div>
 
-                            <!-- Dirección (solo si domicilio) -->
+                            <!-- Formulario de Sucursal de Correo Argentino -->
                             <transition name="fade">
-                                <div v-if="tipoEnvio === 'domicilio'" class="mt-6 space-y-4 pt-4 border-t border-white/5">
+                                <div v-if="tipoEnvio === 'correo_sucursal'" class="mt-6 space-y-4 pt-4 border-t border-white/5">
+                                    <div class="p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl text-amber-400 text-xs font-semibold">
+                                        📦 Envío a Sucursal de Correo Argentino con recargo de {{ formatPrecio(50000) }}. Retirás con tu DNI en la sucursal de correo elegida.
+                                    </div>
 
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div :class="{ 'md:col-span-2': provincia !== 'Santa Fe' }">
+                                        <div>
                                             <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
                                                 Provincia *
                                             </label>
@@ -429,25 +487,81 @@ const confirmar = () => {
                                                 <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
                                             </select>
                                         </div>
-                                        <div v-if="provincia === 'Santa Fe'">
+                                        <div>
                                             <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
                                                 Localidad *
                                             </label>
-                                            <select v-model="localidad" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
+                                            <select v-if="provincia === 'Santa Fe'" v-model="localidad" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
                                                 <option value="" disabled>-- Localidad --</option>
                                                 <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
                                             </select>
+                                            <input v-else v-model="localidad" type="text" placeholder="Ej: Córdoba Capital, Mendoza..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
+                                        </div>
+                                    </div>
+
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div class="md:col-span-2">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                                                    Dirección de Sucursal *
+                                                </label>
+                                                <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" class="text-[11px] font-semibold text-blue-400 hover:underline flex items-center gap-1">
+                                                    <span>🔍 Buscar Sucursal</span>
+                                                </a>
+                                            </div>
+                                            <input v-model="sucursalCorreoInput" type="text" placeholder="Ej: Sucursal Central / San Martín 750" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                                Código Postal *
+                                            </label>
+                                            <input v-model="cp" type="text" placeholder="Ej: 2000" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium uppercase">
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                            Observaciones para el Correo (Opcional)
+                                        </label>
+                                        <input v-model="comentario" type="text" placeholder="Ej: Retira Juan Pérez con DNI..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
+                                    </div>
+                                </div>
+                            </transition>
+
+                            <!-- Dirección (solo si domicilio) -->
+                            <transition name="fade">
+                                <div v-if="tipoEnvio === 'domicilio'" class="mt-6 space-y-4 pt-4 border-t border-white/5">
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                                Provincia *
+                                            </label>
+                                            <select v-model="provincia" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
+                                                <option value="" disabled>-- Provincia --</option>
+                                                <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                                Localidad *
+                                            </label>
+                                            <select v-if="provincia === 'Santa Fe'" v-model="localidad" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
+                                                <option value="" disabled>-- Localidad --</option>
+                                                <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
+                                            </select>
+                                            <input v-else v-model="localidad" type="text" placeholder="Ej: Córdoba Capital, Mendoza..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
                                         </div>
                                     </div>
 
                                     <div v-if="provincia && (provincia !== 'Santa Fe' || localidad) && !esEnvioLocal" class="p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl text-amber-400 text-xs font-semibold mt-2">
-                                        ⚠️ El envío{{ localidad ? ' a ' + localidad : '' }} se realiza por Correo Nacional con un recargo de {{ formatPrecio(50000) }}.
+                                        ⚠️ El envío se realiza por Correo Nacional con un recargo de {{ formatPrecio(50000) }}.
                                     </div>
 
                                     <!-- Autocomplete -->
                                     <div>
                                         <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
-                                            Calle y Número
+                                            Calle y Número *
                                         </label>
                                         <div class="relative">
                                             <input
