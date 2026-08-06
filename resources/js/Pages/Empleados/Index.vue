@@ -418,9 +418,13 @@ const colorCargo = (nombre) => {
                             <div class="space-y-4 pt-2">
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-white border-b border-white/5 pb-2">Datos de la Empresa</h4>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div>
-                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Nro. de Legajo *</label>
-                                        <input v-model="form.legajo" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono font-bold focus:outline-none focus:border-white/30" :class="{'border-rose-500': form.errors.legajo}">
+                                    <div v-if="isEditing">
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Nro. de Legajo</label>
+                                        <input v-model="form.legajo" type="text" disabled class="w-full bg-[#131316]/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-zinc-400 font-mono font-bold cursor-not-allowed">
+                                    </div>
+                                    <div v-else>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Nro. de Legajo <span class="text-zinc-500 font-normal">(Autogenerado)</span></label>
+                                        <input v-model="form.legajo" type="text" placeholder="Autogenerado al guardar" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-white/30" :class="{'border-rose-500': form.errors.legajo}">
                                         <p v-if="form.errors.legajo" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.legajo }}</p>
                                     </div>
                                     <div>
