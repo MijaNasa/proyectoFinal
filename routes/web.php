@@ -17,6 +17,7 @@ use App\Http\Controllers\CargoController;
 use App\Http\Controllers\RutaRepartoController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\PrediccionDemandaController;
+use App\Http\Controllers\ChatbotController;
 use App\Http\Controllers\PrecioController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\LogisticaController;
@@ -36,6 +37,11 @@ Route::get('/catalogo', [PublicCatalogoController::class, 'index'])->name('catal
 Route::get('/catalogo/buscar-ajax', [PublicCatalogoController::class, 'search'])->name('catalogo.buscar-ajax');
 Route::get('/catalogo/{id}', [PublicCatalogoController::class, 'show'])->where('id', '[0-9]+')->name('catalogo.show');
 Route::get('/nosotros', fn() => \Inertia\Inertia::render('Nosotros'))->name('nosotros');
+
+// Chatbot de recomendaciones (throttle: cada llamada tiene costo real de API)
+Route::post('/chatbot/responder', [ChatbotController::class, 'responder'])
+    ->middleware('throttle:20,1')
+    ->name('chatbot.responder');
 
 // Carrito (no requiere login)
 Route::get('/carrito', [CarritoController::class, 'index'])->name('carrito.index');

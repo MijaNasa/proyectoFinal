@@ -43,4 +43,9 @@ return [
         'tunnel_url'     => env('MP_TUNNEL_URL'),
     ],
 
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+        'model'   => env('ANTHROPIC_MODEL', 'claude-haiku-4-5'),
+    ],
+
 ];
