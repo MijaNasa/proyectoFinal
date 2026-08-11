@@ -16,6 +16,7 @@ use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\CargoController;
 use App\Http\Controllers\RutaRepartoController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\PrediccionDemandaController;
 use App\Http\Controllers\PrecioController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\LogisticaController;
@@ -197,6 +198,9 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
     // Reportes
     Route::middleware('permiso:reportes.acceder')->group(function () {
         Route::get('reportes', [ReporteController::class, 'index'])->name('reportes.index');
+        Route::get('reportes/prediccion', [PrediccionDemandaController::class, 'index'])->name('reportes.prediccion');
+        Route::get('reportes/prediccion/buscar', [PrediccionDemandaController::class, 'buscar'])->name('reportes.prediccion.buscar');
+        Route::get('reportes/prediccion/datos', [PrediccionDemandaController::class, 'datos'])->name('reportes.prediccion.datos');
     });
 });
 
