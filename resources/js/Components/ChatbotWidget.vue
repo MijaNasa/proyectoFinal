@@ -17,6 +17,16 @@ const mensajes = ref([
     { role: 'assistant', content: '¡Hola! 👋 Contame para quién es el libro que buscás y qué le gusta leer, y te recomiendo algo de nuestro catálogo.' },
 ]);
 
+const sugerencias = [
+    'Es un regalo para alguien que recién empieza a leer manga',
+    'Busco algo de terror o suspenso, ya leo bastante',
+    'Quiero algo de acción/shonen para un adolescente',
+];
+
+const usarSugerencia = (s) => {
+    input.value = s;
+};
+
 const scrollAbajo = () => {
     nextTick(() => {
         if (cuerpoRef.value) cuerpoRef.value.scrollTop = cuerpoRef.value.scrollHeight;
@@ -111,6 +121,23 @@ const enviar = async () => {
                                 Pensando...
                             </div>
                         </div>
+
+                        <!-- Tip + sugerencias: solo antes del primer mensaje, para aprovechar mejor los 12 mensajes -->
+                        <div v-if="mensajes.length === 1" class="space-y-2 pt-1">
+                            <p class="text-[10px] text-white/30 leading-relaxed px-0.5">
+                                💡 Tip: contame de una para quién es, qué le gusta y si lee mucho o recién arranca — así llegamos antes a una buena recomendación (tenés hasta 12 mensajes).
+                            </p>
+                            <div class="flex flex-col gap-1.5">
+                                <button
+                                    v-for="s in sugerencias" :key="s"
+                                    type="button"
+                                    @click="usarSugerencia(s)"
+                                    class="text-left text-[11px] text-white/70 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl px-3 py-2 transition-colors"
+                                >
+                                    {{ s }}
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Input -->
@@ -138,11 +165,17 @@ const enviar = async () => {
             </div>
         </transition>
 
+        <!-- Aviso flotante para invitados: la carnada antes de pedirles login -->
+        <div v-if="!abierto && !estaLogueado()" class="mb-2 mr-1 bg-[#131316] border border-white/10 rounded-xl px-3 py-2 shadow-xl text-[10px] text-white/70 max-w-[170px] text-right">
+            ¡Probá el asistente con IA! 🤖
+        </div>
+
         <!-- Botón flotante -->
         <button
             @click="toggle"
-            class="w-14 h-14 bg-brand-red hover:bg-brand-red/80 text-white rounded-full shadow-[0_0_20px_rgba(230,25,25,0.4)] flex items-center justify-center transition-all active:scale-95"
+            class="relative w-14 h-14 bg-brand-red hover:bg-brand-red/80 text-white rounded-full shadow-[0_0_20px_rgba(230,25,25,0.4)] flex items-center justify-center transition-all active:scale-95"
         >
+            <span v-if="!abierto && !estaLogueado()" class="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-emerald-400 rounded-full border-2 border-[#0A0A0A] animate-pulse"></span>
             <svg v-if="!abierto" class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
             <svg v-else class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
         </button>
