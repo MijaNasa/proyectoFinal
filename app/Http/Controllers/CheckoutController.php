@@ -185,6 +185,16 @@ class CheckoutController extends Controller
             $existingUser = \App\Models\User::where('dni', $request->guest_dni)->first();
 
             if ($existingUser) {
+                // Si ese DNI pertenece a una cuenta real (contraseña propia, no la
+                // generada automáticamente para invitados con hash(dni)), no dejar
+                // que un checkout sin sesión se le adjudique la compra: alguien
+                // podría usar el saldo de cuenta corriente de otra persona con
+                // solo saber su DNI.
+                $esCuentaReal = $existingUser->password && !\Hash::check($existingUser->dni, $existingUser->password);
+                if ($esCuentaReal) {
+                    return back()->withErrors(['guest_dni' => 'Ese DNI ya tiene una cuenta registrada. Iniciá sesión para comprar.']);
+                }
+
                 $userId = $existingUser->id;
                 $cliente = $existingUser->cliente;
                 if (!$cliente) {
