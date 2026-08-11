@@ -6,18 +6,37 @@ use App\Models\LibroMaster;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
 
 class ChatbotController extends Controller
 {
     private const MAX_OBRAS_EN_CONTEXTO = 200;
+    private const LIMITE_MENSAJES = 12;
+    private const LIMITE_HORAS = 12;
 
     public function responder(Request $request)
     {
         $request->validate([
             'mensajes'             => 'required|array|min:1|max:20',
             'mensajes.*.role'      => 'required|in:user,assistant',
-            'mensajes.*.content'   => 'required|string|max:1000',
+            'mensajes.*.content'   => 'required|string|max:200',
         ]);
+
+        // Cada mensaje tiene costo real de API: limite por usuario (no por IP,
+        // ya que la ruta exige login) de 12 mensajes cada 12 horas.
+        $rateLimitKey = 'chatbot:' . $request->user()->id;
+        $limiteMensajes = self::LIMITE_MENSAJES;
+        $limiteHoras    = self::LIMITE_HORAS;
+
+        if (RateLimiter::tooManyAttempts($rateLimitKey, $limiteMensajes)) {
+            $segundosRestantes = RateLimiter::availableIn($rateLimitKey);
+            $horasRestantes = (int) ceil($segundosRestantes / 3600);
+            return response()->json([
+                'reply' => "Llegaste al límite de {$limiteMensajes} mensajes por cada {$limiteHoras} horas. Podés volver a escribirme en aproximadamente {$horasRestantes} hora(s).",
+                'limite_alcanzado' => true,
+            ]);
+        }
+        RateLimiter::hit($rateLimitKey, $limiteHoras * 3600);
 
         $apiKey = config('services.anthropic.api_key');
 
