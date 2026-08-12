@@ -38,10 +38,9 @@ Route::get('/catalogo/buscar-ajax', [PublicCatalogoController::class, 'search'])
 Route::get('/catalogo/{id}', [PublicCatalogoController::class, 'show'])->where('id', '[0-9]+')->name('catalogo.show');
 Route::get('/nosotros', fn() => \Inertia\Inertia::render('Nosotros'))->name('nosotros');
 
-// Chatbot de recomendaciones: exige login (el limite de 12 mensajes/12hs se
-// aplica por usuario, no por IP) y un throttle corto extra contra ráfagas.
+// Chatbot de recomendaciones: accesible para visitantes (5 msg/12h por IP) y usuarios logueados (12 msg/12h).
 Route::post('/chatbot/responder', [ChatbotController::class, 'responder'])
-    ->middleware(['auth', 'throttle:20,1'])
+    ->middleware(['throttle:20,1'])
     ->name('chatbot.responder');
 
 // Carrito (no requiere login)

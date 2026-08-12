@@ -45,7 +45,12 @@ return [
 
     'anthropic' => [
         'api_key' => env('ANTHROPIC_API_KEY'),
-        'model'   => env('ANTHROPIC_MODEL', 'claude-haiku-4-5'),
+        'model'   => env('ANTHROPIC_MODEL', 'claude-3-5-haiku-latest'),
+    ],
+
+    'gemini' => [
+        'api_key' => env('GEMINI_API_KEY'),
+        'model'   => env('GEMINI_MODEL', 'gemini-2.0-flash'),
     ],
 
 ];
