@@ -641,20 +641,22 @@ const confirmarPago = async () => {
     if (!isConfirmed) return;
 
     estadoForm.post(route('ventas.confirmar-pago', selectedVenta.value.id), {
-        onSuccess: () => {
-            router.reload({
-                preserveScroll: true,
-                onSuccess: (newPage) => {
-                    const ventaActualizada = newPage.props.ventas?.data?.find(v => v.id === selectedVenta.value.id);
-                    if (ventaActualizada) {
-                        selectedVenta.value = ventaActualizada;
-                        estadoForm.estado = ventaActualizada.estado;
-                        estadoForm.direccion_envio = ventaActualizada.direccion_envio || '';
-                        estadoForm.latitud = ventaActualizada.latitud || null;
-                        estadoForm.longitud = ventaActualizada.longitud || null;
-                        estadoForm.tracking_code = ventaActualizada.tracking_code || '';
-                    }
-                }
+        onSuccess: (page) => {
+            const ventaActualizada = page.props.ventas?.data?.find(v => v.id === selectedVenta.value.id);
+            if (ventaActualizada) {
+                selectedVenta.value = ventaActualizada;
+                estadoForm.estado = ventaActualizada.estado;
+                estadoForm.direccion_envio = ventaActualizada.direccion_envio || '';
+                estadoForm.latitud = ventaActualizada.latitud || null;
+                estadoForm.longitud = ventaActualizada.longitud || null;
+                estadoForm.tracking_code = ventaActualizada.tracking_code || '';
+            }
+            darkSwal.fire({
+                title: '¡Pago Confirmado!',
+                text: 'El estado del pedido fue actualizado.',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
             });
         }
     });
@@ -1292,9 +1294,16 @@ onMounted(() => {
                                 <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
                                     <div>
                                         <label class="text-xs font-semibold text-zinc-400 mb-1.5 block">Estado de la Venta</label>
-                                        <select v-model="estadoForm.estado" :disabled="!puedeModificarEstadoManual" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed" title="Estado de la Venta">
-                                            <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
-                                        </select>
+                                        <div class="relative">
+                                            <select v-model="estadoForm.estado" :disabled="!puedeModificarEstadoManual" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-3.5 pr-8 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all appearance-none truncate disabled:opacity-80 disabled:cursor-not-allowed" title="Estado de la Venta">
+                                                <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
+                                            </select>
+                                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-400">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </div>
+                                        </div>
                                     </div>
                                     <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="sm:col-span-2 md:col-span-1">
                                         <label class="text-xs font-semibold text-zinc-400 mb-1.5 block">Dirección de Envío</label>

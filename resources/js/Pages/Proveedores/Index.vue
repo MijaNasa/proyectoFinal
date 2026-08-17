@@ -163,15 +163,30 @@ const deleteProveedor = (id) => {
     });
 };
 
+const sortField = ref(props.filters?.sort || 'latest');
+const sortDirection = ref(props.filters?.direction || 'asc');
+
 const handleSearch = () => {
     router.get(route('proveedores.index'), { 
         search: search.value,
-        estado: estadoFiltro.value 
+        estado: estadoFiltro.value,
+        sort: sortField.value,
+        direction: sortDirection.value
     }, {
         preserveState: true,
         preserveScroll: true,
         replace: true
     });
+};
+
+const toggleSort = (field) => {
+    if (sortField.value === field) {
+        sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+    } else {
+        sortField.value = field;
+        sortDirection.value = field === 'deuda' ? 'desc' : 'asc';
+    }
+    handleSearch();
 };
 
 let searchTimeout;
@@ -253,10 +268,20 @@ const setEstado = (estado) => {
                         <table class="w-full text-left border-collapse table-fixed">
                             <thead>
                                 <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
-                                    <th class="p-4 w-[35%]">Proveedor</th>
-                                    <th class="p-4 w-[35%]">Teléfono / Email</th>
-                                    <th class="p-4 w-[15%] text-right">Deuda</th>
-                                    <th class="p-4 w-[15%] text-right">Acciones</th>
+                                    <th class="p-4 w-[32%] cursor-pointer select-none hover:text-white transition-colors" @click="toggleSort('nombre')">
+                                        <div class="flex items-center gap-1.5">
+                                            <span>Proveedor</span>
+                                            <svg v-if="sortField === 'nombre'" class="w-3.5 h-3.5 text-white transition-transform" :class="{'rotate-180': sortDirection === 'desc'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                                        </div>
+                                    </th>
+                                    <th class="p-4 w-[28%]">Teléfono / Email</th>
+                                    <th class="p-4 pr-10 w-[18%] text-right cursor-pointer select-none hover:text-white transition-colors" @click="toggleSort('deuda')">
+                                        <div class="flex items-center justify-end gap-1.5">
+                                            <span>Deuda</span>
+                                            <svg v-if="sortField === 'deuda'" class="w-3.5 h-3.5 text-white transition-transform" :class="{'rotate-180': sortDirection === 'desc'}" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 15l7-7 7 7"/></svg>
+                                        </div>
+                                    </th>
+                                    <th class="p-4 w-[22%] text-right">Acciones</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5 text-sm">
@@ -268,7 +293,7 @@ const setEstado = (estado) => {
                                         <div class="text-sm font-bold text-white">{{ proveedor.telefono || '—' }}</div>
                                         <div class="text-xs text-zinc-400 font-medium mt-0.5">{{ proveedor.email || '—' }}</div>
                                     </td>
-                                    <td class="p-4 text-right font-mono">
+                                    <td class="p-4 pr-10 text-right font-mono">
                                         <span v-if="(proveedor.deuda_actual ?? 0) < 0" class="font-bold text-sm text-emerald-400">
                                             + {{ formatCurrency(Math.abs(proveedor.deuda_actual)) }}
                                         </span>

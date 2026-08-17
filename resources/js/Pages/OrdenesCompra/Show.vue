@@ -69,12 +69,21 @@ const print = () => window.print();
                 </div>
 
                 <!-- Datos -->
-                <div class="grid grid-cols-2 gap-6 mb-6 text-sm">
+                <div class="grid grid-cols-3 gap-6 mb-6 text-sm">
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Proveedor</p>
                         <p class="font-bold text-zinc-900 capitalize">{{ orden.proveedor?.nombre_empresa || orden.proveedor?.nombre }}</p>
                         <p v-if="orden.proveedor?.email" class="text-zinc-600 text-xs font-medium">{{ orden.proveedor.email }}</p>
                         <p v-if="orden.proveedor?.telefono" class="text-zinc-600 text-xs font-medium">Tel: {{ orden.proveedor.telefono }}</p>
+                    </div>
+                    <div>
+                        <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Condición de Pago</p>
+                        <p class="font-bold text-zinc-900">
+                            {{ orden.condicion_pago === 'contado' ? 'Contado' : 'Cuenta Corriente' }}
+                        </p>
+                        <p v-if="orden.condicion_pago === 'contado' && orden.metodo_pago" class="text-zinc-600 text-xs font-medium mt-0.5">
+                            Medio: {{ orden.metodo_pago }}
+                        </p>
                     </div>
                     <div>
                         <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">Generado por</p>

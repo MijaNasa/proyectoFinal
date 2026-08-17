@@ -86,6 +86,16 @@ const eliminarTodas = () => {
         }
     });
 };
+
+const marcarTodasLeidas = () => {
+    router.patch(route('notificaciones.markAllRead'), {}, { preserveScroll: true });
+};
+
+const extractVentaId = (msg) => {
+    if (!msg) return '';
+    const match = msg.match(/#(\d+)/);
+    return match ? match[1] : '';
+};
 </script>
 
 <template>
@@ -108,14 +118,23 @@ const eliminarTodas = () => {
                         <div class="flex items-center gap-3">
                             <h3 class="text-sm font-bold text-white tracking-tight">Avisos Pendientes</h3>
                             <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300">
-                                <span class="w-2 h-2 rounded-full bg-blue-400"></span>
+                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                                 {{ notificaciones.total }} sin leer
                             </span>
                         </div>
-                        <div v-if="notificaciones.data.length > 0" class="flex items-center gap-3">
+                        <div v-if="notificaciones.data.length > 0" class="flex items-center gap-2.5">
+                            <button 
+                                @click="marcarTodasLeidas" 
+                                class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white font-semibold text-xs border border-white/10 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
+                            >
+                                <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>Marcar todas como leídas</span>
+                            </button>
                             <button 
                                 @click="eliminarTodas" 
-                                class="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs border border-rose-500/20 transition-all flex items-center gap-2 active:scale-95"
+                                class="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 font-semibold text-xs border border-rose-500/20 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
                             >
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -142,20 +161,20 @@ const eliminarTodas = () => {
                         >
                             <div class="flex items-start gap-4">
                                 <div class="h-10 w-10 rounded-xl bg-zinc-800 flex items-center justify-center text-zinc-300 border border-white/10 shrink-0 mt-0.5">
-                                    <svg class="w-5 h-5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
                                     </svg>
                                 </div>
                                 <div class="space-y-1">
                                     <template v-if="notif.data.tipo === 'aviso_suscripcion_grupal'">
                                         <p class="text-sm font-bold text-white leading-relaxed">
-                                            Clientes notificados por ingreso de tomo: <span class="text-blue-400 font-semibold">{{ notif.data.libro_titulo }}</span>
+                                            Clientes notificados por ingreso de tomo: <span class="text-white font-semibold">{{ notif.data.libro_titulo }}</span>
                                         </p>
                                         <button 
                                             @click="verDetalles(notif)" 
-                                            class="inline-flex items-center gap-2 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-xl border border-blue-500/20 mt-2"
+                                            class="inline-flex items-center gap-2 text-xs font-semibold text-zinc-200 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 mt-2 cursor-pointer"
                                         >
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <svg class="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                             </svg>
@@ -168,9 +187,9 @@ const eliminarTodas = () => {
                                         </p>
                                         <Link 
                                             :href="notif.data.url" 
-                                            class="inline-flex items-center gap-2 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1.5 rounded-xl border border-emerald-500/20 mt-2"
+                                            class="inline-flex items-center gap-2 text-xs font-semibold text-zinc-200 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 mt-2"
                                         >
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <svg class="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
                                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                             </svg>
@@ -179,17 +198,19 @@ const eliminarTodas = () => {
                                     </template>
                                     <template v-else-if="notif.data.type === 'traslado_pendiente'">
                                         <p class="text-sm font-semibold text-white leading-relaxed">
-                                            {{ notif.data.message }}
+                                            Se requiere traslado de productos para cubrir la 
+                                            <Link :href="route('ventas.index', { search: notif.data.venta_id || extractVentaId(notif.data.message) })" class="text-amber-400 hover:text-amber-300 font-bold hover:underline">
+                                                Venta #{{ notif.data.venta_id || extractVentaId(notif.data.message) }}
+                                            </Link>
                                         </p>
                                         <Link 
                                             :href="notif.data.url" 
-                                            class="inline-flex items-center gap-2 text-xs font-semibold text-blue-400 hover:text-blue-300 transition-colors bg-blue-500/10 hover:bg-blue-500/20 px-3 py-1.5 rounded-xl border border-blue-500/20 mt-2"
+                                            class="inline-flex items-center gap-2 text-xs font-semibold text-zinc-200 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 mt-2"
                                         >
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                            <svg class="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
                                             </svg>
-                                            Ver Detalle de Venta
+                                            Ir a Logística
                                         </Link>
                                     </template>
                                     <template v-else>

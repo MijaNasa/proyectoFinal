@@ -85,6 +85,7 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
 
     // Notificaciones
     Route::get('/notificaciones', [NotificationController::class, 'index'])->name('notificaciones.index');
+    Route::patch('/notificaciones/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notificaciones.markAllRead');
     Route::delete('/notificaciones/all', [NotificationController::class, 'destroyAll'])->name('notificaciones.destroyAll');
     Route::patch('/notificaciones/{id}/read', [NotificationController::class, 'markAsRead'])->name('notificaciones.read');
     Route::delete('/notificaciones/{id}', [NotificationController::class, 'destroy'])->name('notificaciones.destroy');

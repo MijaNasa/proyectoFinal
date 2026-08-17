@@ -54,6 +54,8 @@ class OrdenCompraController extends Controller
         $request->validate([
             'proveedor_id'           => 'required|exists:proveedores,id',
             'sucursal_id'            => 'required|exists:sucursales,id',
+            'condicion_pago'         => 'nullable|in:cuenta_corriente,contado',
+            'metodo_pago'            => 'required_if:condicion_pago,contado|nullable|in:Efectivo,Transferencia,Tarjeta',
             'observaciones'          => 'nullable|string',
             'items'                  => 'required|array|min:1',
             'items.*.libro_id'       => 'required|exists:libros,id',
@@ -67,14 +69,18 @@ class OrdenCompraController extends Controller
         }
 
         $total = collect($request->items)->sum(fn($i) => $i['cantidad'] * $i['precio_unitario']);
+        $condicionPago = $request->input('condicion_pago', 'cuenta_corriente');
+        $metodoPago = $request->input('metodo_pago');
 
-        $orden = \DB::transaction(function () use ($request, $total) {
+        $orden = \DB::transaction(function () use ($request, $total, $condicionPago, $metodoPago) {
             // Crear primero para obtener el ID autoincremental; luego generar el número
             $orden = OrdenCompra::create([
                 'numero_orden'           => 'OC-TEMP',
                 'proveedor_id'           => $request->proveedor_id,
                 'sucursal_id'            => $request->sucursal_id,
                 'estado'                 => 'confirmada',
+                'condicion_pago'         => $condicionPago,
+                'metodo_pago'            => $condicionPago === 'contado' ? $metodoPago : null,
                 'fecha'                  => now()->toDateString(),
                 'total'                  => $total,
                 'observaciones'          => $request->observaciones,
@@ -90,6 +96,26 @@ class OrdenCompraController extends Controller
                     'precio_unitario' => $item['precio_unitario'],
                     'subtotal'        => $item['cantidad'] * $item['precio_unitario'],
                 ]);
+            }
+
+            // Registrar movimiento financiero inmediatamente al crear la orden
+            $proveedor = \App\Models\Proveedor::find($request->proveedor_id);
+            if ($proveedor) {
+                if ($condicionPago === 'contado') {
+                    \App\Models\Transaccion::create([
+                        'tipo'                 => 'egreso',
+                        'monto'                => $total,
+                        'metodo_pago'          => $metodoPago ?: 'Efectivo',
+                        'fecha'                => now(),
+                        'sucursal_id'          => $request->sucursal_id,
+                        'transaccionable_id'   => $proveedor->id,
+                        'transaccionable_type' => \App\Models\Proveedor::class,
+                        'descripcion'          => "Pago al contado por Orden de Compra {$orden->numero_orden}",
+                        'user_id'              => \Auth::id(),
+                    ]);
+                } else {
+                    $proveedor->increment('deuda_actual', $total);
+                }
             }
 
             return $orden;
@@ -185,7 +211,7 @@ class OrdenCompraController extends Controller
             ->with('message', "Orden {$ordenesCompra->numero_orden} confirmada.");
     }
 
-    public function recibir(OrdenCompra $ordenesCompra)
+    public function recibir(Request $request, OrdenCompra $ordenesCompra)
     {
         $user = auth()->user();
         if (!$user->esAdmin() && $ordenesCompra->sucursal_id !== $user->empleado?->sucursal_id) {
@@ -226,14 +252,6 @@ class OrdenCompraController extends Controller
                     $libro->recalcularCostoPPP($item->precio_unitario, $item->cantidad);
                 }
             }
-
-            $proveedor = \App\Models\Proveedor::find($fresh->proveedor_id);
-            if (!$proveedor) {
-                throw \Illuminate\Validation\ValidationException::withMessages([
-                    'proveedor_id' => 'El proveedor asociado ya no existe en el sistema.',
-                ]);
-            }
-            $proveedor->increment('deuda_actual', $fresh->total);
 
             $fresh->update(['estado' => 'recibida']);
 

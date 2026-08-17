@@ -29,13 +29,26 @@ class ProveedorController extends Controller
             $query->where('activo', true); // Default to activos
         }
 
-        $proveedores = $query->latest()->paginate(10)->withQueryString();
+        $sort = $request->get('sort', 'latest');
+        $direction = strtolower($request->get('direction', 'asc')) === 'desc' ? 'desc' : 'asc';
+
+        if ($sort === 'nombre') {
+            $query->orderBy('nombre_empresa', $direction);
+        } elseif ($sort === 'deuda') {
+            $query->orderBy('deuda_actual', $direction);
+        } else {
+            $query->latest();
+        }
+
+        $proveedores = $query->paginate(10)->withQueryString();
 
         return inertia('Proveedores/Index', [
             'proveedores' => $proveedores,
             'filters' => [
                 'search' => $request->search ?? '',
-                'estado' => $request->estado ?? 'activos'
+                'estado' => $request->estado ?? 'activos',
+                'sort' => $sort,
+                'direction' => $direction,
             ]
         ]);
     }
