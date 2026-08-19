@@ -70,6 +70,7 @@ const formatTomoDisplay = (num) => {
 // --- LOGICA DE OBRA (LibroMaster) ---
 const showObraModal = ref(false);
 const isEditingObra = ref(false);
+const obraPortadaPreview = ref(null);
 
 const obraForm = useForm({
     id: null,
@@ -83,6 +84,14 @@ const obraForm = useForm({
     synopsis: '',
     activo: true,
 });
+
+const onObraPortadaChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        obraForm.portada = file;
+        obraPortadaPreview.value = URL.createObjectURL(file);
+    }
+};
 
 const formatosLocal = ref(['Tankobon', 'B6', 'A5', 'Kanzenban', 'Omnibus', 'Pocket', 'Novela Ligera', 'Otro']);
 
@@ -112,6 +121,8 @@ const openObraModal = (obra = null) => {
         obraForm.formato = obra.formato || '';
         obraForm.synopsis = obra.synopsis || '';
         obraForm.activo = !!obra.activo;
+        obraForm.portada = null;
+        obraPortadaPreview.value = obra.portada_url || null;
 
         if (obra.formato && !formatosLocal.value.includes(obra.formato)) {
             formatosLocal.value.unshift(obra.formato);
@@ -127,6 +138,7 @@ const openObraModal = (obra = null) => {
         obraForm.synopsis = '';
         obraForm.activo = true;
         obraForm.portada = null;
+        obraPortadaPreview.value = null;
     }
     obraForm.clearErrors();
     showObraModal.value = true;
@@ -396,7 +408,11 @@ const agregarFormato = () => {
 
 const submitObra = () => {
     if (isEditingObra.value) {
-        obraForm.put(route('obras.update', obraForm.id), {
+        router.post(route('obras.update', obraForm.id), {
+            ...obraForm.data(),
+            _method: 'PUT'
+        }, {
+            forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 showObraModal.value = false;
@@ -409,10 +425,12 @@ const submitObra = () => {
         });
     } else {
         obraForm.post(route('obras.store'), {
+            forceFormData: true,
             preserveScroll: true,
             onSuccess: () => {
                 showObraModal.value = false;
                 obraForm.reset();
+                obraPortadaPreview.value = null;
                 darkSwal.fire({ title: '¡Éxito!', text: 'Producto creado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
             },
             onError: (errors) => {
@@ -442,12 +460,16 @@ const deleteObra = (id) => {
 const showTomoModal = ref(false);
 const isEditingTomo = ref(false);
 const currentStocks = ref({});
+const tomoPortadaPreview = ref(null);
+const masterPortadaFallback = ref(null);
 
 const tomoForm = useForm({
     id: null,
     master_id: null,
     isbn: '',
     numero_tomo: '',
+    portada: null,
+    quitar_portada: false,
     año_edicion: '',
     cantidad_paginas: '',
     activo: true,
@@ -456,8 +478,28 @@ const tomoForm = useForm({
     precio_compra: '',
 });
 
+const onTomoPortadaChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        tomoForm.portada = file;
+        tomoForm.quitar_portada = false;
+        tomoPortadaPreview.value = URL.createObjectURL(file);
+    }
+};
+
+const quitarTomoPortada = () => {
+    tomoForm.portada = null;
+    tomoForm.quitar_portada = true;
+    tomoPortadaPreview.value = null;
+};
+
 const openTomoModal = (tomo = null, masterId = null) => {
     tomoForm.clearErrors();
+    const master = props.obras.find(o => o.id === (tomo ? tomo.master_id : masterId));
+    masterPortadaFallback.value = master ? master.portada_url : null;
+    tomoForm.portada = null;
+    tomoForm.quitar_portada = false;
+
     if (tomo) {
         isEditingTomo.value = true;
         tomoForm.id = tomo.id;
@@ -468,6 +510,7 @@ const openTomoModal = (tomo = null, masterId = null) => {
         tomoForm.cantidad_paginas = tomo.cantidad_paginas || '';
         tomoForm.activo = !!tomo.activo;
         tomoForm.permite_preventa = !!tomo.permite_preventa;
+        tomoPortadaPreview.value = tomo.portada ? tomo.portada_url : null;
         
         const currentPrice = tomo.precios?.find(p => p.activo);
         tomoForm.precio_compra = currentPrice ? currentPrice.precio_compra : '';
@@ -485,32 +528,49 @@ const openTomoModal = (tomo = null, masterId = null) => {
         currentStocks.value = {};
         tomoForm.reset();
         tomoForm.master_id = masterId;
+        tomoPortadaPreview.value = null;
     }
     showTomoModal.value = true;
 };
 
 const submitTomo = () => {
-    tomoForm.transform((data) => ({
-        ...data,
-        isbn: data.isbn && data.isbn.trim() !== '' ? data.isbn.trim() : null,
-        numero_tomo: data.numero_tomo && data.numero_tomo.trim() !== '' ? data.numero_tomo.trim() : null,
-        año_edicion: data.año_edicion || null,
-        cantidad_paginas: data.cantidad_paginas || null,
-    }));
+    const payload = {
+        ...tomoForm.data(),
+        isbn: tomoForm.isbn && tomoForm.isbn.trim() !== '' ? tomoForm.isbn.trim() : null,
+        numero_tomo: tomoForm.numero_tomo && tomoForm.numero_tomo.trim() !== '' ? tomoForm.numero_tomo.trim() : null,
+        año_edicion: tomoForm.año_edicion || null,
+        cantidad_paginas: tomoForm.cantidad_paginas || null,
+    };
 
     if (isEditingTomo.value) {
-        tomoForm.put(route('libros.update', tomoForm.id), {
+        router.post(route('libros.update', tomoForm.id), {
+            ...payload,
+            _method: 'PUT'
+        }, {
+            forceFormData: true,
+            preserveScroll: true,
             onSuccess: () => {
                 showTomoModal.value = false;
                 darkSwal.fire({ title: '¡Éxito!', text: 'Tomo actualizado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+                darkSwal.fire({ title: 'Error de validación', text: firstError || 'Verifique los campos requeridos', icon: 'error' });
             }
         });
     } else {
-        tomoForm.post(route('libros.store'), {
+        router.post(route('libros.store'), payload, {
+            forceFormData: true,
+            preserveScroll: true,
             onSuccess: () => {
                 showTomoModal.value = false;
                 tomoForm.reset();
+                tomoPortadaPreview.value = null;
                 darkSwal.fire({ title: '¡Éxito!', text: 'Nuevo tomo registrado correctamente', icon: 'success', timer: 1500, showConfirmButton: false });
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+                darkSwal.fire({ title: 'Error de validación', text: firstError || 'Verifique los campos requeridos', icon: 'error' });
             }
         });
     }
@@ -891,12 +951,20 @@ const submitBulk = () => {
                                         :class="expandedMasters.includes(obra.id) ? 'bg-black/20' : ''"
                                     >
                                         <td class="p-4">
-                                            <div class="font-bold text-base text-white tracking-tight">{{ obra.titulo }}</div>
-                                            <div class="text-xs text-zinc-400 font-medium mt-1 flex items-center gap-2">
-                                                <template v-for="(tag, idx) in [obra.categoria?.nombre, obra.formato, obra.idioma?.nombre].filter(Boolean)" :key="idx">
-                                                    <span v-if="idx > 0" class="w-1 h-1 rounded-full bg-white/20"></span>
-                                                    <span>{{ tag }}</span>
-                                                </template>
+                                            <div class="flex items-center gap-3">
+                                                <div class="w-10 h-14 bg-zinc-900 border border-white/10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
+                                                    <img v-if="obra.portada_url" :src="obra.portada_url" class="w-full h-full object-cover" />
+                                                    <span v-else class="text-[9px] text-zinc-600 font-semibold text-center">Sin foto</span>
+                                                </div>
+                                                <div>
+                                                    <div class="font-bold text-base text-white tracking-tight">{{ obra.titulo }}</div>
+                                                    <div class="text-xs text-zinc-400 font-medium mt-1 flex items-center gap-2">
+                                                        <template v-for="(tag, idx) in [obra.categoria?.nombre, obra.formato, obra.idioma?.nombre].filter(Boolean)" :key="idx">
+                                                            <span v-if="idx > 0" class="w-1 h-1 rounded-full bg-white/20"></span>
+                                                            <span>{{ tag }}</span>
+                                                        </template>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td class="p-4 text-center">
@@ -950,7 +1018,12 @@ const submitBulk = () => {
                                                     <tbody>
                                                         <tr v-for="libro in obra.libros" :key="libro.id" class="hover:bg-white/[0.02] border-b border-white/5 last:border-0 transition-opacity" :class="[!libro.activo ? 'opacity-40' : '']">
                                                             <td class="py-3 pr-4">
-                                                                <div class="text-xs font-bold text-white tracking-tight">{{ formatTomoDisplay(libro.numero_tomo) }}</div>
+                                                                <div class="flex items-center gap-2.5">
+                                                                    <div class="w-7 h-10 bg-zinc-900 border border-white/10 rounded overflow-hidden shrink-0 flex items-center justify-center">
+                                                                        <img :src="libro.portada_url" class="w-full h-full object-cover" />
+                                                                    </div>
+                                                                    <div class="text-xs font-bold text-white tracking-tight">{{ formatTomoDisplay(libro.numero_tomo) }}</div>
+                                                                </div>
                                                             </td>
                                                             <td class="py-3 pr-4">
                                                                 <span class="font-mono text-xs text-zinc-400">{{ libro.isbn || '-' }}</span>
@@ -1042,6 +1115,22 @@ const submitBulk = () => {
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Nombre / Título del Producto *</label>
                                         <input v-model="obraForm.titulo" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium" placeholder="Nombre del producto" required>
                                     </div>
+
+                                    <!-- Foto Portada General de la Obra -->
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Foto de Portada de la Obra (General)</label>
+                                        <div class="flex items-center gap-4 bg-[#131316] p-3 rounded-xl border border-white/10">
+                                            <div class="w-16 h-20 bg-zinc-900 border border-white/10 rounded-lg overflow-hidden flex items-center justify-center shrink-0 shadow">
+                                                <img v-if="obraPortadaPreview" :src="obraPortadaPreview" class="w-full h-full object-cover" />
+                                                <span v-else class="text-[10px] text-zinc-500 font-semibold text-center px-1">Sin foto</span>
+                                            </div>
+                                            <div class="flex-1 space-y-1">
+                                                <input type="file" accept="image/*" @change="onObraPortadaChange" class="block w-full text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer" />
+                                                <p class="text-[11px] text-zinc-500">JPG, PNG o WEBP. Máximo 5MB.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div>
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Autor</label>
                                         <div class="flex gap-2">
@@ -1118,6 +1207,31 @@ const submitBulk = () => {
                             
                             <form @submit.prevent="submitTomo" class="p-6 space-y-4">
                                 <input type="hidden" v-model="tomoForm.master_id">
+
+                                <!-- Foto de Portada Específica del Tomo -->
+                                <div class="bg-white/[0.02] p-4 rounded-xl border border-white/5 space-y-3">
+                                    <div class="flex items-center justify-between">
+                                        <label class="block text-xs font-semibold text-zinc-300">Foto de Portada del Tomo / Volumen</label>
+                                        <span v-if="tomoPortadaPreview" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Portada Específica</span>
+                                        <span v-else-if="masterPortadaFallback" class="text-[10px] font-semibold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">Hereda de la Obra</span>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-16 h-20 bg-zinc-900 border border-white/10 rounded-lg overflow-hidden flex items-center justify-center shrink-0 shadow-md">
+                                            <img v-if="tomoPortadaPreview" :src="tomoPortadaPreview" class="w-full h-full object-cover" />
+                                            <img v-else-if="masterPortadaFallback" :src="masterPortadaFallback" class="w-full h-full object-cover opacity-70" />
+                                            <span v-else class="text-[10px] text-zinc-500 font-semibold text-center px-1">Sin foto</span>
+                                        </div>
+                                        <div class="flex-1 space-y-2">
+                                            <input type="file" accept="image/*" @change="onTomoPortadaChange" class="block w-full text-xs text-zinc-400 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer" />
+                                            <div class="flex items-center justify-between">
+                                                <p class="text-[11px] text-zinc-500">Opcional: Si no subes foto, usará la de la obra.</p>
+                                                <button v-if="tomoPortadaPreview" type="button" @click="quitarTomoPortada" class="text-[11px] text-rose-400 hover:text-rose-300 font-semibold transition-colors underline">
+                                                    Quitar foto (heredar de obra)
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
 
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>

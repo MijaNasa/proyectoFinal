@@ -54,6 +54,10 @@ class LibroController extends Controller
                 $data['numero_tomo'] = null;
             }
 
+            if ($request->hasFile('portada')) {
+                $data['portada'] = $request->file('portada')->store('portadas', 'public');
+            }
+
             $libro = Libro::create($data);
 
             $libro->precios()->create([
@@ -92,6 +96,20 @@ class LibroController extends Controller
             }
             if (empty($data['numero_tomo']) || trim($data['numero_tomo']) === '') {
                 $data['numero_tomo'] = null;
+            }
+
+            if ($request->hasFile('portada')) {
+                if ($libro->portada && \Illuminate\Support\Facades\Storage::disk('public')->exists($libro->portada)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($libro->portada);
+                }
+                $data['portada'] = $request->file('portada')->store('portadas', 'public');
+            } elseif ($request->boolean('quitar_portada')) {
+                if ($libro->portada && \Illuminate\Support\Facades\Storage::disk('public')->exists($libro->portada)) {
+                    \Illuminate\Support\Facades\Storage::disk('public')->delete($libro->portada);
+                }
+                $data['portada'] = null;
+            } else {
+                unset($data['portada']);
             }
 
             $libro->update($data);
@@ -145,6 +163,10 @@ class LibroController extends Controller
     {
         if ($libro->tiene_historial) {
             return redirect()->back()->with('error', 'No se puede eliminar este libro porque tiene historial de movimientos.');
+        }
+
+        if ($libro->portada && \Illuminate\Support\Facades\Storage::disk('public')->exists($libro->portada)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($libro->portada);
         }
 
         $libro->delete();
