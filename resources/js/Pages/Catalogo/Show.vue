@@ -55,6 +55,7 @@ const getStockTotal = (libro) => {
 };
 
 const getStockStatus = (libro) => {
+    if (libro?.permite_preventa || esPreventa.value) return 'preventa';
     const total = getStockTotal(libro);
     if (total === 0) return 'sin_stock';
     if (total < 5)  return 'pocos';
@@ -192,7 +193,7 @@ const envioSucursalCorreo = computed(() => {
                             :disabled="getStockStatus(libro) === 'sin_stock'"
                             class="py-3 px-8 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 text-center"
                         >
-                            {{ getStockStatus(libro) === 'sin_stock' ? 'AGOTADO' : 'AGREGAR AL CARRITO' }}
+                            {{ getStockStatus(libro) === 'sin_stock' ? 'AGOTADO' : (esPreventa ? 'RESERVAR PREVENTA' : 'AGREGAR AL CARRITO') }}
                         </button>
                     </div>
 

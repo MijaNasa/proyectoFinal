@@ -4,15 +4,10 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
-import ChatbotWidget from '@/Components/ChatbotWidget.vue';
 
 const props = defineProps({
     pedidos: Object,
     usuario: Object,
-    chatMensajes: {
-        type: Array,
-        default: () => [],
-    },
 });
 
 const darkSwal = Swal.mixin({
@@ -148,6 +143,7 @@ const estadoConfig = {
 const getTipoEnvioLabel = (tipo) => {
     if (tipo === 'retiro') return 'Retiro en sucursal';
     if (tipo === 'acumulacion') return 'Acumulación en sucursal';
+    if (tipo === 'correo_sucursal') return 'Envío a Sucursal Correo Argentino';
     return 'Envío a domicilio';
 };
 
@@ -403,6 +399,20 @@ const solicitarEnvioAcumulados = () => {
                                 </div>
                             </div>
 
+                            <!-- Banner Tracking Code para Envíos de Correo -->
+                            <div v-if="['correo_nacional', 'correo_sucursal'].includes(pedido.tipo_envio) && pedido.tracking_code" class="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-start gap-3 mt-4">
+                                <span class="text-xl">📦</span>
+                                <div>
+                                    <p class="text-indigo-400 font-bold text-xs uppercase tracking-wider">Código de Seguimiento / Tracking</p>
+                                    <p class="text-zinc-200 text-xs mt-1 font-mono font-bold tracking-wider">
+                                        {{ pedido.tracking_code }}
+                                    </p>
+                                    <p v-if="pedido.direccion_envio" class="text-zinc-400 text-xs mt-0.5 font-medium">
+                                        Destino: {{ pedido.direccion_envio }}
+                                    </p>
+                                </div>
+                            </div>
+
                             <!-- Subir Comprobante (Transferencia Pendiente) -->
                             <div v-if="pedido.estado === 'pendiente_pago' && pedido.metodo_pago === 'Transferencia'" class="p-4 bg-[#131316] border border-white/5 rounded-2xl mt-4 space-y-3">
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-white">Comprobante de Transferencia</h4>
@@ -453,8 +463,6 @@ const solicitarEnvioAcumulados = () => {
             </div>
 
         </div>
-
-        <ChatbotWidget :mensajes-iniciales="chatMensajes" />
     </PublicLayout>
 </template>
 

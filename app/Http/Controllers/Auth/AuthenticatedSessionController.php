@@ -36,8 +36,9 @@ class AuthenticatedSessionController extends Controller
         $request->authenticate();
 
         $request->session()->regenerate();
+        $request->session()->forget('url.intended');
 
-        return redirect()->intended('/catalogo');
+        return redirect('/catalogo');
     }
 
     /**

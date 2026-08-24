@@ -45,9 +45,13 @@ class CheckoutController extends Controller
             ->whereIn('sucursal_id', $sucursales->pluck('id'))
             ->get();
             
-        // Validar si el carrito entero puede ser cubierto por el stock TOTAL de la empresa
+        // Validar si el carrito entero puede ser cubierto por el stock TOTAL de la empresa (excepto preventas)
         $hayStockTotal = true;
         foreach ($carrito as $item) {
+            $libroModel = \App\Models\Libro::find($item['libro_id']);
+            if ($libroModel && $libroModel->permite_preventa) {
+                continue;
+            }
             $stockTotalParaItem = $stocks->where('libro_id', $item['libro_id'])->sum('cantidad_disponible');
             if ($stockTotalParaItem < $item['cantidad']) {
                 $hayStockTotal = false;
@@ -63,6 +67,10 @@ class CheckoutController extends Controller
         $sucursales = $sucursales->map(function($sucursal) use ($stocks, $carrito) {
             $tieneStockLocal = true;
             foreach ($carrito as $item) {
+                $libroModel = \App\Models\Libro::find($item['libro_id']);
+                if ($libroModel && $libroModel->permite_preventa) {
+                    continue;
+                }
                 $stockItem = $stocks->where('sucursal_id', $sucursal->id)
                                     ->where('libro_id', $item['libro_id'])
                                     ->first();
@@ -92,9 +100,9 @@ class CheckoutController extends Controller
     public function store(Request $request)
     {
         $rules = [
-            'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion,correo_nacional',
+            'tipo_envio'            => 'required|in:retiro,domicilio,acumulacion,correo_nacional,correo_sucursal',
             'sucursal_id'           => 'required|exists:sucursales,id',
-            'direccion_envio'       => 'required_if:tipo_envio,domicilio,correo_nacional|nullable|string|max:255',
+            'direccion_envio'       => 'required_if:tipo_envio,domicilio,correo_nacional,correo_sucursal|nullable|string|max:255',
             'latitud'               => 'nullable|numeric|between:-90,90',
             'longitud'              => 'nullable|numeric|between:-180,180',
             'medio_pago'            => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
@@ -102,7 +110,7 @@ class CheckoutController extends Controller
         
         $messages = [
             'tipo_envio.required'         => 'Seleccioná el tipo de entrega.',
-            'direccion_envio.required_if' => 'Ingresá la dirección de entrega.',
+            'direccion_envio.required_if' => 'Ingresá la dirección o sucursal de entrega.',
             'sucursal_id.required'        => 'Seleccioná la sucursal de destino.',
             'medio_pago.required'         => 'Seleccioná el método de pago.',
             'guest_nombre.required'       => 'El nombre es obligatorio.',
@@ -123,7 +131,7 @@ class CheckoutController extends Controller
 
         $request->validate($rules, $messages);
 
-        if (in_array($request->tipo_envio, ['domicilio', 'acumulacion'])) {
+        if (in_array($request->tipo_envio, ['domicilio', 'acumulacion', 'correo_nacional', 'correo_sucursal'])) {
             if ($request->medio_pago === 'Efectivo') {
                 return back()->withErrors(['medio_pago' => 'El pago en Efectivo solo está disponible para retiro en sucursal.']);
             }
@@ -139,12 +147,12 @@ class CheckoutController extends Controller
         $sucursal_id = $request->sucursal_id;
         
         $costo_envio = 0;
-        if (in_array($request->tipo_envio, ['domicilio', 'correo_nacional'])) {
+        if (in_array($request->tipo_envio, ['domicilio', 'correo_nacional', 'correo_sucursal'])) {
             $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first();
             if ($sucursalPrincipal) {
                 $sucursal_id = $sucursalPrincipal->id;
             }
-            if ($request->tipo_envio === 'correo_nacional') {
+            if (in_array($request->tipo_envio, ['correo_nacional', 'correo_sucursal'])) {
                 $costo_envio = 50000;
             }
         }
@@ -174,30 +182,47 @@ class CheckoutController extends Controller
         $cliente = null;
 
         if (!$userId) {
-            $existingUser = \App\Models\User::where('email', $request->guest_email)->first();
+            $existingUser = \App\Models\User::where('dni', $request->guest_dni)->first();
+
             if ($existingUser) {
-                // Determine if it's a real web account (by checking if password isn't just their DNI)
-                if ($existingUser->password && !\Hash::check($existingUser->dni, $existingUser->password) && !\Hash::check($request->guest_dni, $existingUser->password)) {
-                    return back()->withErrors(['guest_email' => 'Ya tienes una cuenta registrada. Por favor inicia sesión para comprar.']);
+                // Si ese DNI pertenece a una cuenta real (contraseña propia, no la
+                // generada automáticamente para invitados con hash(dni)), no dejar
+                // que un checkout sin sesión se le adjudique la compra: alguien
+                // podría usar el saldo de cuenta corriente de otra persona con
+                // solo saber su DNI.
+                $esCuentaReal = $existingUser->password && !\Hash::check($existingUser->dni, $existingUser->password);
+                if ($esCuentaReal) {
+                    return back()->withErrors(['guest_dni' => 'Ese DNI ya tiene una cuenta registrada. Iniciá sesión para comprar.']);
                 }
-                if ($existingUser->dni && $existingUser->dni !== $request->guest_dni) {
-                    return back()->withErrors(['guest_email' => 'Este correo ya está asociado a otro DNI. Inicia sesión.']);
-                }
+
                 $userId = $existingUser->id;
                 $cliente = $existingUser->cliente;
-            } else {
-                $existingDni = \App\Models\User::where('dni', $request->guest_dni)->first();
-                if ($existingDni) {
-                    return back()->withErrors(['guest_dni' => 'Este DNI ya está registrado con otro correo. Por favor inicia sesión.']);
+                if (!$cliente) {
+                    $tipoCliente = \App\Models\TipoCliente::where('codigo', 'PART')->first();
+                    $cliente = $existingUser->cliente()->create([
+                        'tipo_cliente_id' => $tipoCliente ? $tipoCliente->id : 1,
+                        'saldo_actual'    => 0,
+                    ]);
                 }
-                
-                // Create ghost user for physical/guest profile
+                // Actualizar correo y teléfono si cambiaron o estaban incompletos
+                if ($request->guest_email && $existingUser->email !== $request->guest_email) {
+                    // Si el nuevo correo no pertenece a otro usuario, actualizarlo
+                    $emailUsado = \App\Models\User::where('email', $request->guest_email)->where('id', '!=', $existingUser->id)->exists();
+                    if (!$emailUsado) {
+                        $existingUser->update(['email' => $request->guest_email]);
+                    }
+                }
+                if ($request->guest_telefono && empty($existingUser->telefono)) {
+                    $existingUser->update(['telefono' => $request->guest_telefono]);
+                }
+            } else {
+                // Crear usuario y perfil de cliente para la compra del invitado
                 $newUser = \App\Models\User::create([
-                    'name' => $request->guest_nombre,
+                    'name'     => $request->guest_nombre,
                     'apellido' => $request->guest_apellido,
-                    'dni' => $request->guest_dni,
+                    'dni'      => $request->guest_dni,
                     'telefono' => $request->guest_telefono,
-                    'email' => $request->guest_email,
+                    'email'    => $request->guest_email,
                     'password' => \Hash::make($request->guest_dni),
                 ]);
 
@@ -588,6 +613,8 @@ class CheckoutController extends Controller
                 'metodo_pago'      => $venta->metodo_pago,
                 'estado'           => $venta->estado,
                 'comprobante_path' => $venta->comprobante_path,
+                'guest_dni'        => $venta->user?->dni ?? $venta->cliente?->user?->dni,
+                'guest_email'      => $venta->user?->email ?? $venta->cliente?->user?->email,
             ] : null,
         ]);
     }
@@ -599,7 +626,16 @@ class CheckoutController extends Controller
 
         return Inertia::render('Checkout/Confirmacion', [
             'status' => 'pending',
-            'venta'  => $venta ? ['id' => $venta->id, 'total' => $venta->total] : null,
+            'venta'  => $venta ? [
+                'id'               => $venta->id,
+                'total'            => $venta->total,
+                'tipo_envio'       => $venta->tipo_envio,
+                'metodo_pago'      => $venta->metodo_pago,
+                'estado'           => $venta->estado,
+                'comprobante_path' => $venta->comprobante_path,
+                'guest_dni'        => $venta->user?->dni ?? $venta->cliente?->user?->dni,
+                'guest_email'      => $venta->user?->email ?? $venta->cliente?->user?->email,
+            ] : null,
         ]);
     }
 

@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\ChatConversacion;
 use App\Models\Venta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -27,6 +26,8 @@ class MiCuentaController extends Controller
                 'metodo_pago'     => $v->metodo_pago,
                 'comprobante_path'=> $v->comprobante_path ? Storage::url($v->comprobante_path) : null,
                 'tipo_envio'      => $v->tipo_envio,
+                'direccion_envio' => $v->direccion_envio,
+                'tracking_code'   => $v->tracking_code,
                 'sucursal_nombre' => $v->sucursal->nombre ?? 'N/A',
                 'items'           => $v->detalles->map(fn($d) => [
                     'titulo'   => ($d->libro->master->titulo ?? 'Libro') . ' - Tomo ' . ($d->libro->numero_tomo ?? 'Único'),
@@ -37,12 +38,6 @@ class MiCuentaController extends Controller
 
         $user = Auth::user();
 
-        $conversacion = ChatConversacion::where('user_id', $user->id)->first();
-
-        $chatMensajes = $conversacion
-            ? $conversacion->mensajes()->orderBy('created_at')->limit(50)->get(['role', 'content', 'created_at'])
-            : collect();
-
         return Inertia::render('MiCuenta/Index', [
             'pedidos' => $pedidos,
             'usuario' => [
@@ -51,7 +46,6 @@ class MiCuentaController extends Controller
                 'email'      => $user->email,
                 'created_at' => $user->created_at,
             ],
-            'chatMensajes' => $chatMensajes,
         ]);
     }
 

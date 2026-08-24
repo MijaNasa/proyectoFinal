@@ -13,6 +13,7 @@ class OrdenCompra extends Model
 
     protected $fillable = [
         'numero_orden', 'proveedor_id', 'sucursal_id', 'estado',
+        'condicion_pago', 'metodo_pago',
         'fecha', 'fecha_entrega_estimada', 'total', 'observaciones', 'user_id',
     ];
 

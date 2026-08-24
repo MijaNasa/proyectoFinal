@@ -19,13 +19,30 @@ const puedeEditarEstado = computed(() =>
     page.props.auth?.permisos?.includes('ventas.acceder')
 );
 
+const esAdmin = computed(() =>
+    page.props.auth?.esAdmin || page.props.auth?.esGerente
+);
+
+const esEstadoRestringido = computed(() => {
+    if (!selectedVenta.value) return false;
+    return ['en_preventa', 'esperando_traslado', 'finalizado', 'cancelado'].includes(selectedVenta.value.estado);
+});
+
+const puedeModificarEstadoManual = computed(() => {
+    if (!selectedVenta.value) return true;
+    if (esEstadoRestringido.value && !esAdmin.value) {
+        return false;
+    }
+    return true;
+});
+
 const estadoOpciones = [
     { value: 'en_preventa',        label: 'Esperando preventa', tipos: ['online'] },
     { value: 'pendiente_pago',     label: 'Pendiente de pago',  tipos: ['online', 'presencial'] },
     { value: 'esperando_traslado', label: 'Esperando traslado entre sucursales', tipos: ['online'] },
-    { value: 'en_preparacion',     label: 'Envío en preparación',     tipos: ['online'] },
-    { value: 'listo_para_retiro',  label: 'Listo para retirar', tipos: ['online'] },
     { value: 'acumulado',          label: 'Acumulado',          tipos: ['online'] },
+    { value: 'listo_para_retiro',  label: 'Listo para retirar', tipos: ['online'] },
+    { value: 'en_preparacion',     label: 'Envío en preparación',     tipos: ['online'] },
     { value: 'enviado',            label: 'Enviado',            tipos: ['online'] },
     { value: 'finalizado',         label: 'Finalizado',         tipos: ['online', 'presencial'] },
     { value: 'cancelado',          label: 'Cancelado',          tipos: ['online', 'presencial'] },
@@ -546,6 +563,16 @@ const closeDetailModal = () => {
 const cambiarEstado = async () => {
     if (estadoForm.estado === selectedVenta.value.estado && estadoForm.direccion_envio === (selectedVenta.value.direccion_envio || '') && estadoForm.tracking_code === (selectedVenta.value.tracking_code || '')) return;
 
+    if (!puedeModificarEstadoManual.value) {
+        darkSwal.fire({
+            title: 'Acción Restringida',
+            text: 'Este estado solo puede ser modificado por un Administrador o mediante eventos del sistema (Logística / Preventas).',
+            icon: 'warning'
+        });
+        estadoForm.estado = selectedVenta.value.estado;
+        return;
+    }
+
     if (estadoForm.estado === 'cancelado' && selectedVenta.value.estado !== 'cancelado') {
         const { isConfirmed } = await darkSwal.fire({
             title: '¿Confirmar cancelación?',
@@ -560,12 +587,38 @@ const cambiarEstado = async () => {
             estadoForm.estado = selectedVenta.value.estado;
             return;
         }
+    } else if (estadoForm.estado === 'finalizado' && selectedVenta.value.estado !== 'finalizado') {
+        const { isConfirmed } = await darkSwal.fire({
+            title: '¿Marcar como Finalizado?',
+            text: 'Esta acción dará por concluida la venta y asentará la entrega del pedido.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, finalizar venta',
+            cancelButtonText: 'Cancelar',
+        });
+        
+        if (!isConfirmed) {
+            estadoForm.estado = selectedVenta.value.estado;
+            return;
+        }
     }
 
     estadoForm.patch(route('ventas.estado', selectedVenta.value.id), {
         onSuccess: () => {
-            showDetailModal.value = false;
-            router.reload({ preserveScroll: true });
+            router.reload({
+                preserveScroll: true,
+                onSuccess: (newPage) => {
+                    const ventaActualizada = newPage.props.ventas?.data?.find(v => v.id === selectedVenta.value.id);
+                    if (ventaActualizada) {
+                        selectedVenta.value = ventaActualizada;
+                        estadoForm.estado = ventaActualizada.estado;
+                        estadoForm.direccion_envio = ventaActualizada.direccion_envio || '';
+                        estadoForm.latitud = ventaActualizada.latitud || null;
+                        estadoForm.longitud = ventaActualizada.longitud || null;
+                        estadoForm.tracking_code = ventaActualizada.tracking_code || '';
+                    }
+                }
+            });
         }
     });
 };
@@ -588,9 +641,23 @@ const confirmarPago = async () => {
     if (!isConfirmed) return;
 
     estadoForm.post(route('ventas.confirmar-pago', selectedVenta.value.id), {
-        onSuccess: () => {
-            showDetailModal.value = false;
-            router.reload({ preserveScroll: true });
+        onSuccess: (page) => {
+            const ventaActualizada = page.props.ventas?.data?.find(v => v.id === selectedVenta.value.id);
+            if (ventaActualizada) {
+                selectedVenta.value = ventaActualizada;
+                estadoForm.estado = ventaActualizada.estado;
+                estadoForm.direccion_envio = ventaActualizada.direccion_envio || '';
+                estadoForm.latitud = ventaActualizada.latitud || null;
+                estadoForm.longitud = ventaActualizada.longitud || null;
+                estadoForm.tracking_code = ventaActualizada.tracking_code || '';
+            }
+            darkSwal.fire({
+                title: '¡Pago Confirmado!',
+                text: 'El estado del pedido fue actualizado.',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
+            });
         }
     });
 };
@@ -1199,44 +1266,78 @@ onMounted(() => {
                                 </div>
                             </div>
 
-                            <!-- Footer Actions Bar -->
-                            <div class="pt-4 border-t border-white/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                <div v-if="puedeEditarEstado" class="flex flex-wrap items-center gap-3">
-                                    <div class="w-auto min-w-[220px]">
-                                        <label class="text-xs font-semibold text-zinc-400 mb-1 block">Estado de la Venta</label>
-                                        <select v-model="estadoForm.estado" class="w-full bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30" title="Estado de la Venta">
-                                            <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
-                                        </select>
+                            <!-- Panel de Cambio de Estado y Datos de Envío -->
+                            <div v-if="puedeEditarEstado" class="bg-[#131316] border border-white/10 p-4 rounded-2xl space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <div class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                                        <svg class="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        </svg>
+                                        <span>Gestión de Estado y Envío</span>
                                     </div>
-                                    <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="w-auto min-w-[200px]">
-                                        <label class="text-xs font-semibold text-zinc-400 mb-1 block">Dirección de Envío</label>
-                                        <DireccionAutocomplete v-model="estadoForm.direccion_envio" @select="onSeleccionarDireccionVenta" placeholder="Ej: San Martín 123, Rosario" class="w-full bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30" />
-                                    </div>
-                                    <div v-if="selectedVenta.tipo_envio === 'correo_nacional'" class="w-auto min-w-[200px]">
-                                        <label class="text-xs font-semibold text-zinc-400 mb-1 block">Código de Seguimiento</label>
-                                        <input type="text" v-model="estadoForm.tracking_code" placeholder="Ej: SD321876451AR" class="w-full bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30" />
-                                    </div>
+                                    <span v-if="esEstadoRestringido && esAdmin" class="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-0.5 rounded-full">
+                                        🔓 Modo Administrador (Reapertura activa)
+                                    </span>
                                 </div>
-                                <div v-else></div>
 
-                                <div class="flex items-center gap-3">
-                                    <button 
-                                        v-if="isFormModified" 
-                                        type="button" 
-                                        @click="cambiarEstado" 
-                                        :disabled="estadoForm.processing"
-                                        class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50"
-                                    >
-                                        {{ estadoForm.processing ? 'GUARDANDO...' : 'GUARDAR CAMBIOS' }}
-                                    </button>
-                                    <button 
-                                        type="button" 
-                                        @click="closeDetailModal" 
-                                        class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all"
-                                    >
-                                        Cerrar Detalle
-                                    </button>
+                                <!-- Banner Informativo para Estados Restringidos -->
+                                <div v-if="esEstadoRestringido && !esAdmin" class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-center gap-2 font-medium">
+                                    <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                    </svg>
+                                    <span v-if="selectedVenta.estado === 'en_preventa'">🔒 Pedido a la espera de la recepción del tomo de preventa.</span>
+                                    <span v-else-if="selectedVenta.estado === 'esperando_traslado'">🔒 Pedido a la espera de confirmación de recepción en Logística.</span>
+                                    <span v-else-if="selectedVenta.estado === 'finalizado'">🔒 Venta finalizada. Solo un Administrador puede modificar el estado.</span>
+                                    <span v-else-if="selectedVenta.estado === 'cancelado'">🔒 Venta cancelada. Solo un Administrador puede modificar el estado.</span>
                                 </div>
+
+                                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 items-end">
+                                    <div>
+                                        <label class="text-xs font-semibold text-zinc-400 mb-1.5 block">Estado de la Venta</label>
+                                        <div class="relative">
+                                            <select v-model="estadoForm.estado" :disabled="!puedeModificarEstadoManual" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-3.5 pr-8 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all appearance-none truncate disabled:opacity-80 disabled:cursor-not-allowed" title="Estado de la Venta">
+                                                <option v-for="e in estadoOpcionesFiltradas" :key="e.value" :value="e.value">{{ e.label }}</option>
+                                            </select>
+                                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2.5 text-zinc-400">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="sm:col-span-2 md:col-span-1">
+                                        <label class="text-xs font-semibold text-zinc-400 mb-1.5 block">Dirección de Envío</label>
+                                        <DireccionAutocomplete v-model="estadoForm.direccion_envio" :disabled="estadoForm.estado === 'enviado' || !puedeModificarEstadoManual" @select="onSeleccionarDireccionVenta" placeholder="Ej: San Martín 123, Rosario" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed" />
+                                    </div>
+                                    <div v-if="['correo_nacional', 'correo_sucursal'].includes(selectedVenta.tipo_envio) && estadoForm.estado === 'enviado'" class="sm:col-span-2 md:col-span-1">
+                                        <label class="text-xs font-semibold text-zinc-400 mb-1.5 block">Código de Seguimiento</label>
+                                        <input type="text" v-model="estadoForm.tracking_code" placeholder="Ej: SD321876451AR" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Footer Actions Bar -->
+                            <div class="pt-4 border-t border-white/5 flex items-center justify-end gap-3">
+                                <button 
+                                    v-if="isFormModified" 
+                                    type="button" 
+                                    @click="cambiarEstado" 
+                                    :disabled="estadoForm.processing"
+                                    class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                                >
+                                    <svg v-if="estadoForm.processing" class="animate-spin w-4 h-4 text-black" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                    </svg>
+                                    <span>{{ estadoForm.processing ? 'GUARDANDO...' : 'GUARDAR CAMBIOS' }}</span>
+                                </button>
+                                <button 
+                                    type="button" 
+                                    @click="closeDetailModal" 
+                                    class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs uppercase tracking-wider rounded-xl border border-white/10 transition-all cursor-pointer"
+                                >
+                                    Cerrar Detalle
+                                </button>
                             </div>
                         </div>
                     </div>

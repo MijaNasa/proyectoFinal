@@ -59,8 +59,12 @@ class EmpleadoController extends Controller
                 'activo' => true,
             ]);
 
+            $legajo = $request->filled('legajo') 
+                ? $request->legajo 
+                : ('LEG-' . str_pad($user->id, 4, '0', STR_PAD_LEFT));
+
             $empleado = $user->empleado()->create([
-                'legajo' => $request->legajo,
+                'legajo' => $legajo,
                 'sucursal_id' => $request->sucursal_id,
                 'fecha_ingreso' => $request->fecha_ingreso,
             ]);

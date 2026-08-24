@@ -361,7 +361,7 @@ const formatSucursalHeader = (nombre) => {
                                                     <tbody class="divide-y divide-white/5 text-sm">
                                                         <tr v-for="tomo in obra.libros" :key="tomo.id" class="hover:bg-white/[0.02] transition-colors">
                                                             <td class="py-3 pr-4">
-                                                                <div class="font-bold text-white">Tomo {{ tomo.numero_tomo || 'Único' }}</div>
+                                                                <div class="font-bold text-white">{{ tomo.numero_tomo ? (/^tomo\b/i.test(tomo.numero_tomo) ? tomo.numero_tomo : 'Tomo ' + tomo.numero_tomo) : 'Tomo Único' }}</div>
                                                                 <div class="text-xs text-zinc-500 font-mono mt-0.5">ISBN: {{ tomo.isbn || 'S/I' }}</div>
                                                             </td>
                                                             <td class="py-3 px-4 text-center" v-for="s in sucursales" :key="s.id">

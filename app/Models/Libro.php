@@ -14,7 +14,7 @@ class Libro extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'isbn', 'master_id', 'serie_id', 'numero_tomo',
+        'isbn', 'master_id', 'serie_id', 'numero_tomo', 'portada',
         'año_edicion', 'cantidad_paginas', 'activo', 'permite_preventa',
     ];
 
@@ -22,6 +22,13 @@ class Libro extends Model
 
     public function getPortadaUrlAttribute(): string
     {
+        if ($this->portada && trim((string)$this->portada) !== '' && $this->portada !== 'null') {
+            if (filter_var($this->portada, FILTER_VALIDATE_URL)) {
+                return $this->portada;
+            }
+            return asset('storage/' . ltrim($this->portada, '/'));
+        }
+
         if ($this->relationLoaded('master') && $this->master) {
             return $this->master->portada_url;
         }

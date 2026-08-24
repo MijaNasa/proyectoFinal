@@ -26,7 +26,7 @@ class StoreEmpleadoRequest extends FormRequest
             'telefono' => 'nullable|string|max:50',
 
             // Empleado Data
-            'legajo' => 'required|string|max:20|unique:empleados,legajo' . ($this->empleado ? ',' . $this->empleado->id : ''),
+            'legajo' => 'nullable|string|max:20|unique:empleados,legajo' . ($this->empleado ? ',' . $this->empleado->id : ''),
             'sucursal_id' => 'required|exists:sucursales,id',
             'fecha_ingreso' => 'required|date',
             'fecha_egreso' => 'nullable|date|after_or_equal:fecha_ingreso',

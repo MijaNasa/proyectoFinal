@@ -69,6 +69,14 @@ const updateSearchLabel = () => {
 // Update the search box when the modelValue or options changes
 watch(() => [props.modelValue, props.options], updateSearchLabel, { immediate: true, deep: true });
 
+const normalizeStr = (str) => {
+    return (str || '')
+        .toString()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+};
+
 const filteredOptions = computed(() => {
     if (!props.options) return [];
     if (!search.value) return props.options;
@@ -79,10 +87,10 @@ const filteredOptions = computed(() => {
         return props.options;
     }
     
-    const term = search.value.toLowerCase();
+    const term = normalizeStr(search.value);
     return props.options.filter(opt => {
-        const label = getLabel(opt) || '';
-        return label && label.toLowerCase().includes(term);
+        const label = normalizeStr(getLabel(opt));
+        return label.includes(term);
     });
 });
 
@@ -108,9 +116,13 @@ const handleClickOutside = (event) => {
     if (wrapperRef.value && !wrapperRef.value.contains(event.target)) {
         isOpen.value = false;
         
-        // If the user completely cleared the text, clear the modelValue
+        // If search is empty when clicking outside, restore previous selection if it exists, otherwise clear modelValue
         if (search.value.trim() === '') {
-            emit('update:modelValue', '');
+            if (selectedOption.value) {
+                search.value = getLabel(selectedOption.value);
+            } else {
+                emit('update:modelValue', '');
+            }
             return;
         }
 
@@ -120,7 +132,7 @@ const handleClickOutside = (event) => {
         }
 
         // Auto-select exact match if they typed it perfectly but didn't click
-        const exactMatch = props.options.find(opt => getLabel(opt).toLowerCase() === search.value.toLowerCase());
+        const exactMatch = props.options.find(opt => normalizeStr(getLabel(opt)) === normalizeStr(search.value));
         if (exactMatch) {
             selectOption(exactMatch);
             return;
@@ -153,25 +165,25 @@ onBeforeUnmount(() => {
             @focus="isOpen = true"
             @click="isOpen = true; search = ''" 
             :placeholder="placeholder"
-            class="input-field w-full text-sm font-bold bg-brand-black cursor-pointer pr-14"
+            class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30 transition-all cursor-pointer pr-14"
         />
         
         <!-- Clear Icon -->
         <div v-if="!required && modelValue !== '' && modelValue !== null && modelValue !== undefined" 
              @click.stop="clearSelection" 
-             class="absolute right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-white/10 hover:bg-brand-red rounded-full cursor-pointer text-white transition-colors z-20 shadow-md"
+             class="absolute right-9 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 bg-white/10 hover:bg-white/20 rounded-full cursor-pointer text-zinc-400 hover:text-white transition-colors z-20 shadow-md"
              title="Quitar selección">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"></path></svg>
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"></path></svg>
         </div>
 
         <!-- Arrow Icon -->
-        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-white/40 z-10">
+        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400 z-10 transition-transform duration-200" :class="{ 'rotate-180': isOpen }">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
         </div>
         
         <!-- Dropdown Menu -->
-        <div v-show="isOpen" class="absolute z-50 w-full mt-1 bg-[#1A1A1A] border border-white/10 rounded-xl shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden">
-            <div v-if="filteredOptions.length === 0" class="p-3 text-sm text-white/50 text-center italic">
+        <div v-show="isOpen" class="absolute z-50 w-full mt-1.5 bg-[#131316] border border-white/10 rounded-xl shadow-2xl max-h-60 overflow-y-auto overflow-x-hidden backdrop-blur-md">
+            <div v-if="filteredOptions.length === 0" class="p-3 text-xs text-zinc-400 text-center italic">
                 No se encontraron coincidencias
             </div>
             <ul v-else class="py-1">
@@ -179,10 +191,13 @@ onBeforeUnmount(() => {
                     v-for="opt in filteredOptions" 
                     :key="getOptValue(opt)"
                     @click="selectOption(opt)"
-                    class="px-4 py-2 text-sm font-bold hover:bg-brand-red hover:text-white cursor-pointer transition-colors"
-                    :class="getOptValue(opt) === modelValue ? 'bg-white/10 text-brand-red' : 'text-white/80'"
+                    class="px-4 py-2.5 text-xs cursor-pointer transition-colors flex items-center justify-between hover:bg-white/10 hover:text-white"
+                    :class="getOptValue(opt) === modelValue ? 'bg-white/10 text-white font-bold' : 'text-zinc-300 font-medium'"
                 >
-                    {{ getLabel(opt) }}
+                    <span class="truncate">{{ getLabel(opt) }}</span>
+                    <svg v-if="getOptValue(opt) === modelValue" class="w-4 h-4 text-white shrink-0 ml-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
                 </li>
             </ul>
         </div>

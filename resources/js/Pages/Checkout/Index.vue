@@ -73,9 +73,6 @@ const costoEnvio = computed(() => {
 
 const totalFinal = computed(() => props.total + costoEnvio.value);
 
-// En Santa Fe la calle se busca recien con localidad elegida (lista corta, acota bien la busqueda).
-// En el resto de provincias alcanza con la provincia: la localidad se completa sola con la
-// direccion que devuelve la API, no tiene sentido pedirsela al usuario como texto libre antes.
 const direccionHabilitada = computed(() => {
     if (provincia.value === 'Santa Fe') return !!localidad.value;
     return !!provincia.value;
@@ -142,12 +139,10 @@ const seleccionarSugerencia = (f) => {
     sugerencias.value        = [];
     mostrarSugerencias.value = false;
 
-    // GeoJSON: coordinates viene como [lon, lat]
     const [lon, lat] = f.geometry?.coordinates ?? [];
     latitud.value  = lat ?? null;
     longitud.value = lon ?? null;
 
-    // La localidad y el CP quedan definidos por la direccion validada, no hace falta tipearlos
     if (provincia.value !== 'Santa Fe') {
         localidad.value = p.city || p.district || p.county || provincia.value;
     }
@@ -170,14 +165,13 @@ watch(tipoEnvio, (val) => {
     localidad.value = '';
     sugerencias.value = [];
     mostrarSugerencias.value = false;
-    if (val === 'domicilio') {
-        sucursalId.value = props.sucursal_principal_id;
+    if (['domicilio', 'correo_sucursal'].includes(val)) {
+        sucursalId.value = props.sucursal_principal_id || props.sucursales?.[0]?.id || '';
     } else {
-        sucursalId.value = '';
+        sucursalId.value = props.sucursales?.[0]?.id || '';
     }
 
-    // Si cambia a domicilio o acumulación, remover efectivo
-    if (['domicilio', 'acumulacion'].includes(val)) {
+    if (['domicilio', 'correo_sucursal', 'acumulacion'].includes(val)) {
         if (medioPago.value === 'Efectivo') {
             medioPago.value = 'Tarjeta';
         }
@@ -197,8 +191,6 @@ watch(provincia, () => {
 });
 
 watch(localidad, () => {
-    // En provincias fuera de Santa Fe, la localidad se autocompleta al elegir
-    // la direccion (ver seleccionarSugerencia): no hay que resetear nada ahi.
     if (provincia.value !== 'Santa Fe') return;
     direccionInput.value     = '';
     direccionFormatted.value = '';
@@ -229,40 +221,84 @@ onUnmounted(() => {
 const page = usePage();
 const isAuthenticated = computed(() => !!page.props.auth?.user);
 
+const sucursalCorreoInput = ref('');
+
 const puedeEnviar = computed(() => {
-    let baseValido = !!sucursalId.value;
-    if (tipoEnvio.value === 'domicilio') {
-        baseValido = baseValido && addressSelected.value && provincia.value && localidad.value;
-    }
-    
     if (!isAuthenticated.value) {
-        baseValido = baseValido && guestNombre.value.trim() && guestDni.value.trim() && guestEmail.value.trim() && guestTelefono.value.trim();
+        const guestValido = guestNombre.value.trim() && guestDni.value.trim() && guestEmail.value.trim() && guestTelefono.value.trim();
+        if (!guestValido) return false;
     }
-    
-    return baseValido;
+
+    if (tipoEnvio.value === 'retiro' || tipoEnvio.value === 'acumulacion') {
+        return !!sucursalId.value;
+    }
+
+    if (tipoEnvio.value === 'domicilio') {
+        const calleOk = direccionInput.value.trim().length > 0;
+        const provinciaOk = !!provincia.value;
+        const localidadOk = !!localidad.value;
+        const cpOk = cp.value.trim().length > 0;
+        return calleOk && provinciaOk && localidadOk && cpOk;
+    }
+
+    if (tipoEnvio.value === 'correo_sucursal') {
+        const provinciaOk = !!provincia.value;
+        const localidadOk = !!localidad.value;
+        const sucursalOk = sucursalCorreoInput.value.trim().length > 0;
+        const cpOk = cp.value.trim().length > 0;
+        return provinciaOk && localidadOk && sucursalOk && cpOk;
+    }
+
+    return false;
 });
 
 const confirmar = () => {
     if (!puedeEnviar.value || procesando.value) return;
     procesando.value = true;
 
-    let direccion = direccionFormatted.value;
-    if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
-    if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
-    if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
-    direccion += `, ${localidad.value}, ${provincia.value}`;
-    if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
+    let targetSucursalId = sucursalId.value;
+    if (!targetSucursalId || ['domicilio', 'correo_sucursal'].includes(tipoEnvio.value)) {
+        targetSucursalId = props.sucursal_principal_id || props.sucursales?.[0]?.id;
+    }
 
-    if (tipoEnvio.value === 'domicilio' && !cp.value.trim()) {
-        toast.value = { msg: 'El Código Postal es obligatorio para envíos a domicilio.', type: 'error' };
-        setTimeout(() => toast.value = null, 4000);
-        return;
+    let direccion = '';
+    if (tipoEnvio.value === 'domicilio') {
+        direccion = direccionFormatted.value || direccionInput.value.trim();
+        if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
+        if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
+        if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
+        if (localidad.value)    direccion += `, ${localidad.value}`;
+        if (provincia.value)    direccion += `, ${provincia.value}`;
+        if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
+
+        if (!direccionInput.value.trim()) {
+            alert('La calle y número de la dirección son obligatorios.');
+            procesando.value = false;
+            return;
+        }
+        if (!cp.value.trim()) {
+            alert('El Código Postal es obligatorio para envíos a domicilio.');
+            procesando.value = false;
+            return;
+        }
+    } else if (tipoEnvio.value === 'correo_sucursal') {
+        direccion = `Sucursal Correo Argentino: ${sucursalCorreoInput.value.trim()}`;
+        if (cp.value.trim()) direccion += `, CP ${cp.value.trim()}`;
+        if (localidad.value) direccion += `, ${localidad.value}`;
+        if (provincia.value) direccion += `, ${provincia.value}`;
+        if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
+
+        if (!cp.value.trim() || !sucursalCorreoInput.value.trim()) {
+            alert('Completá el Código Postal y la sucursal de Correo Argentino de destino.');
+            procesando.value = false;
+            return;
+        }
     }
 
     router.post(route('checkout.store'), {
         tipo_envio:            (tipoEnvio.value === 'domicilio' && !esEnvioLocal.value) ? 'correo_nacional' : tipoEnvio.value,
-        sucursal_id:           sucursalId.value,
-        direccion_envio:       tipoEnvio.value === 'domicilio' ? direccion : null,
+        sucursal_id:           targetSucursalId,
+        direccion_envio:       (tipoEnvio.value === 'domicilio' || tipoEnvio.value === 'correo_sucursal') ? direccion : null,
         latitud:               tipoEnvio.value === 'domicilio' ? latitud.value : null,
         longitud:              tipoEnvio.value === 'domicilio' ? longitud.value : null,
         medio_pago:            medioPago.value,
@@ -278,465 +314,587 @@ const confirmar = () => {
 </script>
 
 <template>
-    <Head title="Checkout" />
+    <Head title="Checkout | PuroComic" />
 
     <PublicLayout>
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-            <h1 class="text-5xl font-black uppercase tracking-tighter mb-12">
-                Finalizar <span class="text-brand-red not-italic">Compra</span>
-            </h1>
-
-            <div class="grid grid-cols-1 lg:grid-cols-5 gap-12">
-
-                <!-- Formulario -->
-                <div class="lg:col-span-3 space-y-8">
-
-                    <!-- Datos de Contacto (Solo para Invitados) -->
-                    <div v-if="!isAuthenticated" class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
-                        <div class="flex items-center justify-between mb-6">
-                            <h2 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red underline decoration-2 underline-offset-4">
-                                Datos de Contacto
-                            </h2>
-                            <Link :href="route('login', { redirect: '/checkout' })" class="text-xs text-white/50 hover:text-white transition-colors underline underline-offset-4">
-                                ¿Ya tenés cuenta? Ingresá
-                            </Link>
-                        </div>
-                        
-                        <p class="text-xs text-white/40 mb-6">Completá tus datos para procesar el pedido. Podrás registrarte más adelante usando este mismo DNI y Correo.</p>
-
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Nombre *</label>
-                                <input v-model="guestNombre" type="text" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: Juan">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Apellido</label>
-                                <input v-model="guestApellido" type="text" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: Pérez">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">DNI / Documento *</label>
-                                <input v-model="guestDni" type="text" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: 12345678">
-                            </div>
-                            <div>
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Teléfono Móvil *</label>
-                                <input v-model="guestTelefono" type="text" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: 3415551234">
-                            </div>
-                            <div class="md:col-span-2">
-                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/40 mb-2">Correo Electrónico *</label>
-                                <input v-model="guestEmail" type="email" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors" placeholder="Ej: tu@email.com">
-                            </div>
-                        </div>
+        <div class="page-checkout">
+            <!-- Hero Header -->
+            <div class="relative overflow-hidden py-12 sm:py-16 bg-gradient-to-b from-white/[0.04] to-transparent border-b border-white/5">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-3">
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/5 border border-white/10 text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                        <svg class="w-4 h-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                        </svg>
+                        Checkout Seguro
                     </div>
+                    <h1 class="text-4xl sm:text-6xl font-bold tracking-tight uppercase leading-none text-white">
+                        Finalizar <span class="text-zinc-400 italic">Compra</span>
+                    </h1>
+                    <p class="text-zinc-400 text-xs sm:text-sm font-medium max-w-xl mx-auto">
+                        Completá tus datos de entrega y seleccioná tu método de pago preferido para confirmar tu pedido.
+                    </p>
+                </div>
+            </div>
 
-                    <!-- Tipo de entrega -->
-                    <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
-                        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-6 underline decoration-2 underline-offset-4">
-                            Tipo de Entrega
-                        </h2>
+            <!-- Content Area -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+                <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 sm:gap-12 items-start">
 
-                        <div class="space-y-3">
-                            <label
-                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
-                                :class="tipoEnvio === 'retiro' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
-                            >
-                                <input type="radio" v-model="tipoEnvio" value="retiro" class="mt-1 accent-red-600" />
+                    <!-- Formulario Principal -->
+                    <div class="lg:col-span-3 space-y-6">
+
+                        <!-- Datos de Contacto (Solo para Invitados) -->
+                        <div v-if="!isAuthenticated" class="bg-[#131316] border border-white/5 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                            <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                                <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-400 flex items-center gap-2">
+                                    <svg class="w-4 h-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                    </svg>
+                                    Datos de Contacto
+                                </h2>
+                                <Link :href="route('login', { redirect: '/checkout' })" class="text-xs font-semibold text-zinc-400 hover:text-white transition-colors underline underline-offset-4">
+                                    ¿Ya tenés cuenta? Ingresá
+                                </Link>
+                            </div>
+                            
+                            <div class="bg-[#0d0d0f] border border-white/10 rounded-xl p-3.5 flex items-start gap-3 text-xs text-zinc-300 font-medium">
+                                <span class="text-base shrink-0">💡</span>
+                                <span>
+                                    <strong>Vinculación automática por DNI:</strong> Registraremos tu pedido con tu <strong>DNI</strong>. Al registrar tu cuenta o crear tu contraseña usando tu DNI, accederás automáticamente a todo tu historial de compras.
+                                </span>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
-                                    <p class="font-black uppercase tracking-wider text-sm">Retiro en sucursal</p>
-                                    <p class="text-white/40 text-xs mt-1">Retirás tu pedido en nuestra tienda. Sin costo adicional.</p>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Nombre *</label>
+                                    <input v-model="guestNombre" type="text" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium" placeholder="Ej: Juan">
                                 </div>
-                            </label>
-
-                            <label
-                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
-                                :class="tipoEnvio === 'domicilio' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
-                            >
-                                <input type="radio" v-model="tipoEnvio" value="domicilio" class="mt-1 accent-red-600" />
-                                <div class="flex-1">
-                                    <p class="font-black uppercase tracking-wider text-sm">Envío a domicilio</p>
-                                    <p class="text-white/40 text-xs mt-1">Coordinaremos el envío a tu dirección.</p>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Apellido</label>
+                                    <input v-model="guestApellido" type="text" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium" placeholder="Ej: Pérez">
                                 </div>
-                            </label>
-
-                            <label
-                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
-                                :class="tipoEnvio === 'acumulacion' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
-                            >
-                                <input type="radio" v-model="tipoEnvio" value="acumulacion" class="mt-1 accent-red-600" />
-                                <div class="flex-1">
-                                    <p class="font-black uppercase tracking-wider text-sm">Acumulación de envío</p>
-                                    <p class="text-white/40 text-xs mt-1">Acumulá tu pedido en sucursal para coordinar un solo envío más tarde.</p>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">DNI / Documento *</label>
+                                    <input v-model="guestDni" type="text" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium" placeholder="Ej: 12345678">
                                 </div>
-                            </label>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Teléfono Móvil *</label>
+                                    <input v-model="guestTelefono" type="text" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium" placeholder="Ej: 3415551234">
+                                </div>
+                                <div class="md:col-span-2">
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Correo Electrónico *</label>
+                                    <input v-model="guestEmail" type="email" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium" placeholder="Ej: tu@email.com">
+                                </div>
+                            </div>
                         </div>
 
-                        <!-- Selector de Sucursal -->
-                        <div class="mt-6" v-if="tipoEnvio !== 'domicilio'">
-                            <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
-                                Sucursal para Retiro / Acumulación *
-                            </label>
-                            <select
-                                v-model="sucursalId"
-                                class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider"
-                            >
-                                <option value="" disabled>-- Selecciona una sucursal --</option>
-                                <option v-for="suc in sucursales" :key="suc.id" :value="suc.id">
-                                    📍 {{ suc.nombre }}
-                                </option>
-                            </select>
-                        </div>
-                        
-                        <div v-if="sucursalId && !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="mt-3 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl flex items-start gap-3">
-                                <span class="text-xl">🚚</span>
+                        <!-- Tipo de Entrega -->
+                        <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                            <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5 pb-4 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                Tipo de Entrega
+                            </h2>
+
+                            <div class="space-y-3">
+                                <label
+                                    class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                    :class="tipoEnvio === 'retiro' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
+                                >
+                                    <input type="radio" v-model="tipoEnvio" value="retiro" class="mt-1 accent-white" />
+                                    <div>
+                                        <p class="font-bold text-sm text-white">Retiro en Sucursal (Nuestra Tienda)</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Retirás tu pedido en nuestras sucursales físicas. Sin costo adicional.</p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                    :class="tipoEnvio === 'domicilio' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
+                                >
+                                    <input type="radio" v-model="tipoEnvio" value="domicilio" class="mt-1 accent-white" />
+                                    <div class="flex-1">
+                                        <p class="font-bold text-sm text-white">Envío a Domicilio</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Coordinaremos el envío directo a tu dirección (Reparto local o Correo Nacional).</p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                    :class="tipoEnvio === 'correo_sucursal' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
+                                >
+                                    <input type="radio" v-model="tipoEnvio" value="correo_sucursal" class="mt-1 accent-white" />
+                                    <div class="flex-1">
+                                        <p class="font-bold text-sm text-white">Envío a Sucursal de Correo (Correo Argentino)</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Retirás en la sucursal de Correo Argentino que elijas. Recargo de {{ formatPrecio(50000) }}.</p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                    :class="tipoEnvio === 'acumulacion' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
+                                >
+                                    <input type="radio" v-model="tipoEnvio" value="acumulacion" class="mt-1 accent-white" />
+                                    <div class="flex-1">
+                                        <p class="font-bold text-sm text-white">Acumulación de Envío</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Acumulá tu pedido en sucursal para coordinar un único envío posterior.</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            <!-- Selector de Sucursal -->
+                            <div class="mt-6 pt-4 border-t border-white/5" v-if="tipoEnvio === 'retiro' || tipoEnvio === 'acumulacion'">
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                    Sucursal para Retiro / Acumulación *
+                                </label>
+                                <select
+                                    v-model="sucursalId"
+                                    class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider"
+                                >
+                                    <option value="" disabled>-- Seleccioná una sucursal --</option>
+                                    <option v-for="suc in sucursales" :key="suc.id" :value="suc.id">
+                                        📍 {{ suc.nombre }}
+                                    </option>
+                                </select>
+                            </div>
+                            
+                            <div v-if="(tipoEnvio === 'retiro' || tipoEnvio === 'acumulacion') && sucursalId && !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="mt-3 p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl flex items-start gap-3">
+                                <span class="text-lg shrink-0">🚚</span>
                                 <div>
-                                    <p class="text-yellow-400 font-bold text-xs uppercase tracking-wider">Requiere traslados internos</p>
-                                    <p class="text-white/60 text-[10px] mt-1 font-medium leading-relaxed">
+                                    <p class="text-amber-400 font-bold text-xs uppercase tracking-wider">Requiere traslados internos</p>
+                                    <p class="text-zinc-300 text-xs mt-1 font-medium leading-relaxed">
                                         Esta sucursal no cuenta con todos los libros de tu pedido físicamente en este momento. Los trasladaremos desde otras sucursales. El pedido demorará unos días extra, te avisaremos cuando esté unificado y listo.
                                     </p>
                                 </div>
                             </div>
 
-                        <!-- Dirección (solo si domicilio) -->
-                        <transition name="fade">
-                            <div v-if="tipoEnvio === 'domicilio'" class="mt-6 space-y-4">
-
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div :class="{ 'md:col-span-2': provincia !== 'Santa Fe' }">
-                                        <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
-                                            Provincia *
-                                        </label>
-                                        <select v-model="provincia" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider">
-                                            <option value="" disabled>-- Provincia --</option>
-                                            <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
-                                        </select>
+                            <!-- Formulario de Sucursal de Correo Argentino -->
+                            <transition name="fade">
+                                <div v-if="tipoEnvio === 'correo_sucursal'" class="mt-6 space-y-4 pt-4 border-t border-white/5">
+                                    <div class="p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl text-amber-400 text-xs font-semibold">
+                                        📦 Envío a Sucursal de Correo Argentino con recargo de {{ formatPrecio(50000) }}. Retirás con tu DNI en la sucursal de correo elegida.
                                     </div>
-                                    <div v-if="provincia === 'Santa Fe'">
-                                        <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
-                                            Localidad *
-                                        </label>
-                                        <select v-model="localidad" class="w-full bg-black border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-brand-red transition-colors font-black uppercase tracking-wider">
-                                            <option value="" disabled>-- Localidad --</option>
-                                            <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
-                                        </select>
-                                    </div>
-                                </div>
 
-                                <div v-if="provincia && (provincia !== 'Santa Fe' || localidad) && !esEnvioLocal" class="p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-xl text-yellow-500 text-xs font-bold mt-2">
-                                    ⚠️ El envío{{ localidad ? ' a ' + localidad : '' }} se realiza por Correo Nacional con un recargo de {{ formatPrecio(50000) }}.
-                                </div>
-
-                                <!-- Autocomplete -->
-                                <div>
-                                    <label class="block text-xs font-black uppercase tracking-widest text-white/40 mb-2">
-                                        Calle y Número
-                                    </label>
-                                    <div class="relative">
-                                        <input
-                                            ref="inputRef"
-                                            v-model="direccionInput"
-                                            type="text"
-                                            :disabled="!direccionHabilitada"
-                                            :placeholder="direccionHabilitada ? 'Buscá tu dirección...' : (provincia === 'Santa Fe' ? 'Elegí primero la localidad' : 'Elegí primero la provincia')"
-                                            autocomplete="off"
-                                            @focus="mostrarSugerencias = sugerencias.length > 0"
-                                            @blur="setTimeout(() => mostrarSugerencias = false, 150)"
-                                            class="w-full bg-white/5 border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-white/20 focus:outline-none transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                                            :class="addressSelected
-                                                ? 'border-green-500/60 focus:border-green-500'
-                                                : 'border-white/10 focus:border-brand-red'"
-                                        />
-                                        <svg
-                                            v-if="addressSelected"
-                                            class="absolute right-3 top-3.5 w-4 h-4 text-green-400 pointer-events-none"
-                                            fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
-                                        >
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                                        </svg>
-                                        <svg
-                                            v-else-if="buscandoDireccion"
-                                            class="absolute right-3 top-3.5 w-4 h-4 text-white/30 animate-spin pointer-events-none"
-                                            fill="none" viewBox="0 0 24 24"
-                                        >
-                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                                        </svg>
-
-                                        <ul
-                                            v-if="mostrarSugerencias && sugerencias.length"
-                                            class="absolute z-20 mt-1 w-full bg-[#1a1a1a] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
-                                        >
-                                            <li
-                                                v-for="(f, idx) in sugerencias"
-                                                :key="idx"
-                                                @mousedown.prevent="seleccionarSugerencia(f)"
-                                                class="px-4 py-2.5 text-xs text-white/60 hover:bg-white/5 hover:text-white cursor-pointer border-t border-white/5 first:border-t-0"
-                                            >
-                                                {{ formatearSugerencia(f) }}
-                                            </li>
-                                        </ul>
-                                    </div>
-                                    <p v-if="!addressSelected && direccionInput.length > 2" class="text-yellow-400/70 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
-                                        Seleccioná una dirección de la lista
-                                    </p>
-                                    <p v-if="provincia !== 'Santa Fe' && addressSelected && localidad" class="text-white/30 text-[10px] mt-1.5 font-bold uppercase tracking-wider">
-                                        Localidad: {{ localidad }}
-                                    </p>
-                                </div>
-
-                                <!-- Extras: Piso, Depto, CP y Comentarios -->
-                                <transition name="fade">
-                                    <div class="space-y-4">
-                                        <div class="grid grid-cols-3 gap-3">
-                                            <div>
-                                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
-                                                    Piso <span class="text-white/20">(opc)</span>
-                                                </label>
-                                                <input
-                                                    v-model="piso"
-                                                    type="text"
-                                                    placeholder="Ej: 3"
-                                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
-                                                    Depto <span class="text-white/20">(opc)</span>
-                                                </label>
-                                                <input
-                                                    v-model="depto"
-                                                    type="text"
-                                                    placeholder="Ej: B"
-                                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
-                                                />
-                                            </div>
-                                            <div>
-                                                <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
-                                                    CP <span class="text-brand-red">*</span>
-                                                    <span v-if="cp" class="text-white/20 normal-case">(de la dirección)</span>
-                                                </label>
-                                                <input
-                                                    v-model="cp"
-                                                    type="text"
-                                                    placeholder="Ej: 2000"
-                                                    class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
-                                                />
-                                            </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                                Provincia *
+                                            </label>
+                                            <select v-model="provincia" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
+                                                <option value="" disabled>-- Provincia --</option>
+                                                <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
+                                            </select>
                                         </div>
                                         <div>
-                                            <label class="block text-[10px] font-black uppercase tracking-widest text-white/30 mb-1.5">
-                                                Comentarios y Referencias
+                                            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                                Localidad *
                                             </label>
-                                            <input
-                                                v-model="comentario"
-                                                type="text"
-                                                placeholder="Ej: Tocar timbre fuerte. Dejar en portería"
-                                                class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/20 focus:outline-none focus:border-brand-red transition-colors"
-                                            />
+                                            <select v-if="provincia === 'Santa Fe'" v-model="localidad" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
+                                                <option value="" disabled>-- Localidad --</option>
+                                                <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
+                                            </select>
+                                            <input v-else v-model="localidad" type="text" placeholder="Ej: Córdoba Capital, Mendoza..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
                                         </div>
                                     </div>
-                                </transition>
 
+                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div class="md:col-span-2">
+                                            <div class="flex items-center justify-between mb-2">
+                                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">
+                                                    Dirección de Sucursal *
+                                                </label>
+                                                <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" class="text-[11px] font-semibold text-blue-400 hover:underline flex items-center gap-1">
+                                                    <span>🔍 Buscar Sucursal</span>
+                                                </a>
+                                            </div>
+                                            <input v-model="sucursalCorreoInput" type="text" placeholder="Ej: Sucursal Central / San Martín 750" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium" />
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                                Código Postal *
+                                            </label>
+                                            <input v-model="cp" type="text" placeholder="Ej: 2000" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium uppercase">
+                                        </div>
+                                    </div>
+
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                            Observaciones para el Correo (Opcional)
+                                        </label>
+                                        <input v-model="comentario" type="text" placeholder="Ej: Retira Juan Pérez con DNI..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
+                                    </div>
+                                </div>
+                            </transition>
+
+                            <!-- Dirección (solo si domicilio) -->
+                            <transition name="fade">
+                                <div v-if="tipoEnvio === 'domicilio'" class="mt-6 space-y-4 pt-4 border-t border-white/5">
+
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                                Provincia *
+                                            </label>
+                                            <select v-model="provincia" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
+                                                <option value="" disabled>-- Provincia --</option>
+                                                <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                                Localidad *
+                                            </label>
+                                            <select v-if="provincia === 'Santa Fe'" v-model="localidad" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
+                                                <option value="" disabled>-- Localidad --</option>
+                                                <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
+                                            </select>
+                                            <input v-else v-model="localidad" type="text" placeholder="Ej: Córdoba Capital, Mendoza..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
+                                        </div>
+                                    </div>
+
+                                    <div v-if="provincia && (provincia !== 'Santa Fe' || localidad) && !esEnvioLocal" class="p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl text-amber-400 text-xs font-semibold mt-2">
+                                        ⚠️ El envío se realiza por Correo Nacional con un recargo de {{ formatPrecio(50000) }}.
+                                    </div>
+
+                                    <!-- Autocomplete -->
+                                    <div>
+                                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                            Calle y Número *
+                                        </label>
+                                        <div class="relative">
+                                            <input
+                                                ref="inputRef"
+                                                v-model="direccionInput"
+                                                type="text"
+                                                :disabled="!direccionHabilitada"
+                                                :placeholder="direccionHabilitada ? 'Buscá tu dirección...' : (provincia === 'Santa Fe' ? 'Elegí primero la localidad' : 'Elegí primero la provincia')"
+                                                autocomplete="off"
+                                                @focus="mostrarSugerencias = sugerencias.length > 0"
+                                                @blur="setTimeout(() => mostrarSugerencias = false, 150)"
+                                                class="w-full bg-[#0d0d0f] border rounded-xl px-4 py-3 pr-10 text-sm text-white placeholder-zinc-500 focus:outline-none transition-all disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+                                                :class="addressSelected
+                                                    ? 'border-emerald-500/60 focus:border-emerald-500'
+                                                    : 'border-white/10 focus:border-white/30'"
+                                            />
+                                            <svg
+                                                v-if="addressSelected"
+                                                class="absolute right-3 top-3.5 w-4 h-4 text-emerald-400 pointer-events-none"
+                                                fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"
+                                            >
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                            </svg>
+                                            <svg
+                                                v-else-if="buscandoDireccion"
+                                                class="absolute right-3 top-3.5 w-4 h-4 text-zinc-400 animate-spin pointer-events-none"
+                                                fill="none" viewBox="0 0 24 24"
+                                            >
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                            </svg>
+
+                                            <ul
+                                                v-if="mostrarSugerencias && sugerencias.length"
+                                                class="absolute z-20 mt-1 w-full bg-[#131316] border border-white/10 rounded-xl shadow-2xl overflow-hidden"
+                                            >
+                                                <li
+                                                    v-for="(f, idx) in sugerencias"
+                                                    :key="idx"
+                                                    @mousedown.prevent="seleccionarSugerencia(f)"
+                                                    class="px-4 py-2.5 text-xs text-zinc-300 hover:bg-white/5 hover:text-white cursor-pointer border-t border-white/5 first:border-t-0 font-medium"
+                                                >
+                                                    {{ formatearSugerencia(f) }}
+                                                </li>
+                                            </ul>
+                                        </div>
+                                        <p v-if="!addressSelected && direccionInput.length > 2" class="text-amber-400 text-[10px] mt-1.5 font-semibold uppercase tracking-wider">
+                                            Seleccioná una dirección de la lista emergente
+                                        </p>
+                                        <p v-if="provincia !== 'Santa Fe' && addressSelected && localidad" class="text-zinc-400 text-[10px] mt-1.5 font-semibold uppercase tracking-wider">
+                                            Localidad: {{ localidad }}
+                                        </p>
+                                    </div>
+
+                                    <!-- Extras: Piso, Depto, CP y Comentarios -->
+                                    <transition name="fade">
+                                        <div class="space-y-4">
+                                            <div class="grid grid-cols-3 gap-3">
+                                                <div>
+                                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+                                                        Piso <span class="text-zinc-500 normal-case">(opc)</span>
+                                                    </label>
+                                                    <input
+                                                        v-model="piso"
+                                                        type="text"
+                                                        placeholder="Ej: 3"
+                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+                                                        Depto <span class="text-zinc-500 normal-case">(opc)</span>
+                                                    </label>
+                                                    <input
+                                                        v-model="depto"
+                                                        type="text"
+                                                        placeholder="Ej: B"
+                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+                                                        CP <span class="text-brand-red">*</span>
+                                                    </label>
+                                                    <input
+                                                        v-model="cp"
+                                                        type="text"
+                                                        placeholder="Ej: 2000"
+                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">
+                                                    Comentarios y Referencias
+                                                </label>
+                                                <input
+                                                    v-model="comentario"
+                                                    type="text"
+                                                    placeholder="Ej: Tocar timbre fuerte. Dejar en portería"
+                                                    class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium"
+                                                />
+                                            </div>
+                                        </div>
+                                    </transition>
+
+                                </div>
+                            </transition>
+                        </div>
+
+                        <!-- Método de Pago -->
+                        <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 sm:p-8 shadow-xl space-y-6">
+                            <h2 class="text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5 pb-4 flex items-center gap-2">
+                                <svg class="w-4 h-4 text-brand-red" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                                </svg>
+                                Método de Pago
+                            </h2>
+
+                            <div class="space-y-3">
+                                <label
+                                    class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                    :class="medioPago === 'Tarjeta' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
+                                >
+                                    <input type="radio" v-model="medioPago" value="Tarjeta" class="mt-1 accent-white" />
+                                    <div>
+                                        <p class="font-bold text-sm text-white">💳 Tarjeta (Crédito / Débito)</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Aboná online de manera segura a través de Mercado Pago.</p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
+                                    :class="medioPago === 'Transferencia' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
+                                >
+                                    <input type="radio" v-model="medioPago" value="Transferencia" class="mt-1 accent-white" />
+                                    <div>
+                                        <p class="font-bold text-sm text-white">📱 Transferencia Directa</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Transferencia bancaria directa CBU/CVU.</p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    v-if="tipoEnvio === 'retiro'"
+                                    class="flex items-start gap-4 p-4 rounded-xl border transition-all"
+                                    :class="[
+                                        medioPago === 'Efectivo' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f]',
+                                        (!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-white/20'
+                                    ]"
+                                >
+                                    <input
+                                        type="radio"
+                                        v-model="medioPago"
+                                        value="Efectivo"
+                                        class="mt-1 accent-white"
+                                        :disabled="!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local"
+                                    />
+                                    <div>
+                                        <p class="font-bold text-sm text-white" :class="{ 'text-zinc-400': !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local }">💵 Efectivo Presencial</p>
+                                        <p v-if="!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="text-rose-400 font-semibold text-xs mt-1 leading-tight">
+                                            Para productos que requieren traslado entre sucursales, es necesario confirmar la compra mediante pago online.
+                                        </p>
+                                        <p v-else class="text-zinc-400 text-xs mt-0.5">Abonás en efectivo en el mostrador al retirar en sucursal.</p>
+                                    </div>
+                                </label>
+
+                                <label
+                                    class="flex items-start gap-4 p-4 rounded-xl border transition-all"
+                                    :class="[
+                                        medioPago === 'Cuenta Corriente' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f]',
+                                        (saldo_actual < total) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-white/20'
+                                    ]"
+                                >
+                                    <input
+                                        type="radio"
+                                        v-model="medioPago"
+                                        value="Cuenta Corriente"
+                                        class="mt-1 accent-white"
+                                        :disabled="saldo_actual < total"
+                                    />
+                                    <div class="flex-1">
+                                        <p class="font-bold text-sm text-white" :class="{ 'text-zinc-400': saldo_actual < total }">🏛️ Cuenta Corriente</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">
+                                            Usá tu saldo a favor: <span class="text-emerald-400 font-bold font-mono">{{ formatPrecio(saldo_actual) }}</span>.
+                                        </p>
+                                        <p v-if="saldo_actual < total" class="text-rose-400 font-bold text-xs mt-1 uppercase tracking-wider">
+                                            Saldo insuficiente
+                                        </p>
+                                    </div>
+                                </label>
                             </div>
-                        </transition>
-                    </div>
 
-                    <!-- Método de pago -->
-                    <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8">
-                        <h2 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-6 underline decoration-2 underline-offset-4">
-                            Método de Pago
-                        </h2>
-
-                        <div class="space-y-3">
-                            <label
-                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
-                                :class="medioPago === 'Tarjeta' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
-                            >
-                                <input type="radio" v-model="medioPago" value="Tarjeta" class="mt-1 accent-red-600" />
-                                <div>
-                                    <p class="font-black uppercase tracking-wider text-sm">💳 Tarjeta (Crédito / Débito)</p>
-                                    <p class="text-white/40 text-xs mt-1">Aboná online de manera segura con Mercado Pago.</p>
+                            <!-- Advertencia 12h Efectivo -->
+                            <transition name="fade">
+                                <div v-if="medioPago === 'Efectivo'" class="mt-4 bg-amber-400/10 border border-amber-400/20 p-4 rounded-xl flex items-start gap-3">
+                                    <span class="text-lg shrink-0">⏳</span>
+                                    <div>
+                                        <h4 class="text-amber-400 font-bold text-xs uppercase tracking-wider mb-1">Tu reserva expira en 12hs</h4>
+                                        <p class="text-zinc-300 text-xs font-medium leading-relaxed">
+                                            El stock quedará reservado inmediatamente para tu pedido. Tenés un plazo estricto de 12 horas para acercarte a la sucursal a abonar en efectivo. <strong class="text-white">Si el plazo expira, la reserva se cancelará automáticamente.</strong>
+                                        </p>
+                                    </div>
                                 </div>
-                            </label>
-
-                            <label
-                                class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
-                                :class="medioPago === 'Transferencia' ? 'border-brand-red bg-brand-red/5' : 'border-white/10 hover:border-white/20'"
-                            >
-                                <input type="radio" v-model="medioPago" value="Transferencia" class="mt-1 accent-red-600" />
-                                <div>
-                                    <p class="font-black uppercase tracking-wider text-sm">📱 Transferencia</p>
-                                    <p class="text-white/40 text-xs mt-1">Transferencia bancaria directa.</p>
-                                </div>
-                            </label>
-
-                            <label
-                                v-if="tipoEnvio === 'retiro'"
-                                class="flex items-start gap-4 p-4 rounded-xl border transition-all"
-                                :class="[
-                                    medioPago === 'Efectivo' ? 'border-brand-red bg-brand-red/5' : 'border-white/10',
-                                    (!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local) ? 'opacity-50 cursor-not-allowed bg-black/50' : 'cursor-pointer hover:border-white/20'
-                                ]"
-                            >
-                                <input
-                                    type="radio"
-                                    v-model="medioPago"
-                                    value="Efectivo"
-                                    class="mt-1 accent-red-600"
-                                    :disabled="!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local"
-                                />
-                                <div>
-                                    <p class="font-black uppercase tracking-wider text-sm" :class="{ 'text-white/40': !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local }">💵 Efectivo Cash</p>
-                                    <p v-if="!sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="text-red-400 font-bold text-xs mt-1 leading-tight">
-                                        Para productos que requieren traslado entre sucursales, es necesario confirmar la compra mediante pago online.
-                                    </p>
-                                    <p v-else class="text-white/40 text-xs mt-1">Abonás en efectivo presencialmente al retirar en la sucursal.</p>
-                                </div>
-                            </label>
-
-                            <label
-                                class="flex items-start gap-4 p-4 rounded-xl border transition-all"
-                                :class="[
-                                    medioPago === 'Cuenta Corriente' ? 'border-brand-red bg-brand-red/5' : 'border-white/10',
-                                    (saldo_actual < total) ? 'opacity-50 cursor-not-allowed bg-black/50' : 'cursor-pointer hover:border-white/20'
-                                ]"
-                            >
-                                <input
-                                    type="radio"
-                                    v-model="medioPago"
-                                    value="Cuenta Corriente"
-                                    class="mt-1 accent-red-600"
-                                    :disabled="saldo_actual < total"
-                                />
-                                <div class="flex-1">
-                                    <p class="font-black uppercase tracking-wider text-sm" :class="{ 'text-white/40': saldo_actual < total }">🏛️ Cuenta Corriente</p>
-                                    <p class="text-white/40 text-xs mt-1">
-                                        Usá tu saldo actual a favor: <span class="text-green-400 font-bold font-mono">{{ formatPrecio(saldo_actual) }}</span>.
-                                    </p>
-                                    <p v-if="saldo_actual < total" class="text-red-400 font-bold text-xs mt-1 uppercase tracking-widest">
-                                        Saldo insuficiente
-                                    </p>
-                                </div>
-                            </label>
+                            </transition>
                         </div>
 
-                        <!-- Advertencia 12h Efectivo -->
-                        <transition name="fade">
-                            <div v-if="medioPago === 'Efectivo'" class="mt-6 bg-brand-red/10 border border-brand-red/20 p-4 rounded-xl flex items-start gap-3">
-                                <span class="text-xl">⏳</span>
-                                <div>
-                                    <h4 class="text-brand-red font-black text-xs uppercase tracking-widest mb-1">Tu reserva expira en 12hs</h4>
-                                    <p class="text-white/70 text-[10px] font-medium leading-relaxed">
-                                        El stock quedará reservado inmediatamente para tu pedido. Tenés un límite estricto de 12 horas para acercarte a la sucursal a abonar en efectivo. <strong class="text-white">Si el plazo expira, tu pedido será cancelado automáticamente.</strong>
-                                    </p>
-                                </div>
-                            </div>
-                        </transition>
-                    </div>
-
-                    <!-- Error flash -->
-                    <div v-if="$page.props.errors && Object.keys($page.props.errors).length" class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm font-bold text-red-400 space-y-1">
-                        <div v-for="(err, key) in $page.props.errors" :key="key">
-                            ⚠️ {{ err }}
-                        </div>
-                    </div>
-
-                    <div v-if="$page.props.flash?.error" class="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm font-bold text-red-400">
-                        ⚠️ {{ $page.props.flash.error }}
-                    </div>
-
-                    <!-- Info de contacto -->
-                    <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-6">
-                        <p class="text-xs font-black uppercase tracking-widest text-white/30 mb-1">
-                            {{ (medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta'))) ? 'Mercado Pago Seguro' : 'Confirmación de Compra' }}
-                        </p>
-                        <p class="text-white/50 text-sm">
-                            {{ (medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta'))) ? 'Al confirmar, te redirigimos a la pasarela de pagos segura de Mercado Pago.' : 'Confirmá tu compra para registrarla en nuestro sistema. El pedido se procesará de inmediato.' }}
-                        </p>
-                        <div class="flex items-center gap-2 mt-4">
-                            <svg class="w-4 h-4 text-green-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
-                            </svg>
-                            <span class="text-xs font-bold text-green-400 uppercase tracking-widest">Pago 100% seguro</span>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Resumen -->
-                <div class="lg:col-span-2">
-                    <div class="bg-white/[0.03] border border-white/10 rounded-2xl p-8 sticky top-28">
-                        <h3 class="text-xs font-black uppercase tracking-[0.2em] text-brand-red mb-6 underline decoration-2 underline-offset-4">
-                            Tu Pedido
-                        </h3>
-
-                        <div class="space-y-4 mb-8 max-h-64 overflow-y-auto pr-1">
-                            <div
-                                v-for="item in items"
-                                :key="item.libro_id"
-                                class="flex items-start gap-3"
-                            >
-                                <img
-                                    :src="item.portada_url"
-                                    :alt="item.titulo"
-                                    class="w-10 flex-shrink-0 aspect-[2/3] object-cover rounded-md border border-white/10"
-                                />
-                                <div class="flex-1 min-w-0">
-                                    <p class="text-xs font-black uppercase tracking-tight leading-tight line-clamp-2">{{ item.titulo }}</p>
-                                    <p class="text-[10px] text-white/30 mt-1">x{{ item.cantidad }}</p>
-                                </div>
-                                <p class="text-sm font-black text-white flex-shrink-0">
-                                    {{ formatPrecio(item.precio * item.cantidad) }}
-                                </p>
+                        <!-- Errores Flash -->
+                        <div v-if="$page.props.errors && Object.keys($page.props.errors).length" class="bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 text-xs font-bold text-rose-400 space-y-1">
+                            <div v-for="(err, key) in $page.props.errors" :key="key">
+                                ⚠️ {{ err }}
                             </div>
                         </div>
 
-                        <div class="border-t border-white/10 pt-4 flex justify-between mb-2">
-                            <span class="font-black uppercase tracking-widest text-sm text-white/50">Subtotal</span>
-                            <span class="font-black text-white/50">{{ formatPrecio(total) }}</span>
-                        </div>
-                        
-                        <div v-if="costoEnvio > 0" class="flex justify-between mb-4">
-                            <span class="font-black uppercase tracking-widest text-sm text-white/50">Costo de Envío</span>
-                            <span class="font-black text-white/50">+{{ formatPrecio(costoEnvio) }}</span>
+                        <div v-if="$page.props.flash?.error" class="bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 text-xs font-bold text-rose-400">
+                            ⚠️ {{ $page.props.flash.error }}
                         </div>
 
-                        <div class="border-t border-white/10 pt-4 flex justify-between mb-8">
-                            <span class="font-black uppercase tracking-widest text-sm">Total</span>
-                            <span class="text-2xl font-black text-brand-red italic">{{ formatPrecio(totalFinal) }}</span>
+                        <!-- Info de confirmación y seguridad -->
+                        <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl">
+                            <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                                {{ (medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta'))) ? 'Pasarela de Mercado Pago' : 'Confirmación de Compra' }}
+                            </p>
+                            <p class="text-zinc-400 text-xs leading-relaxed">
+                                {{ (medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta'))) ? 'Al hacer clic en confirmar, serás redirigido a la pasarela oficial de Mercado Pago para procesar tu transacción.' : 'Al hacer clic en confirmar, se registrará el pedido en nuestro sistema y comenzará el procesamiento de despacho.' }}
+                            </p>
+                            <div class="flex items-center gap-2 mt-4">
+                                <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                </svg>
+                                <span class="text-xs font-semibold text-emerald-400 uppercase tracking-wider">Transacción 100% Protegida</span>
+                            </div>
                         </div>
-
-                        <button
-                            @click="confirmar"
-                            :disabled="!puedeEnviar || procesando"
-                            class="w-full bg-brand-red hover:bg-brand-red/80 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black text-sm uppercase tracking-widest py-4 rounded-xl transition-all flex items-center justify-center gap-2"
-                        >
-                            <svg v-if="procesando" class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                            </svg>
-                            <span>
-                                {{
-                                    procesando 
-                                        ? 'Procesando...' 
-                                        : ((medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta')))
-                                            ? 'Pagar con Mercado Pago'
-                                            : 'Confirmar Compra')
-                                }}
-                            </span>
-                        </button>
-
-                        <Link
-                            :href="route('carrito.index')"
-                            class="mt-4 block text-center text-[10px] font-black uppercase tracking-widest text-white/20 hover:text-white transition-colors py-2"
-                        >
-                            ← Volver al carrito
-                        </Link>
                     </div>
+
+                    <!-- Resumen del Pedido (Sidebar Fijo) -->
+                    <div class="lg:col-span-2">
+                        <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 sm:p-8 shadow-2xl sticky top-28 space-y-6">
+                            <div class="flex items-center justify-between border-b border-white/5 pb-4">
+                                <h3 class="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                                    Tu Pedido
+                                </h3>
+                                <span class="text-xs font-semibold text-zinc-400 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full">
+                                    {{ items.length }} ítem{{ items.length !== 1 ? 's' : '' }}
+                                </span>
+                            </div>
+
+                            <!-- Lista compacta de items -->
+                            <div class="space-y-4 max-h-72 overflow-y-auto pr-1">
+                                <div
+                                    v-for="item in items"
+                                    :key="item.libro_id"
+                                    class="flex items-center gap-3 bg-[#0d0d0f] border border-white/5 p-2.5 rounded-xl"
+                                >
+                                    <img
+                                        :src="item.portada_url"
+                                        :alt="item.titulo"
+                                        @error="$event.target.src = '/images/no-cover.png'"
+                                        class="w-10 aspect-[2/3] object-cover rounded-lg border border-white/10 shrink-0"
+                                    />
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-xs font-bold text-white leading-tight line-clamp-2">{{ item.titulo }}</p>
+                                        <p class="text-[10px] font-mono text-zinc-400 mt-0.5">Cant: {{ item.cantidad }}</p>
+                                    </div>
+                                    <p class="text-sm font-bold font-mono text-white shrink-0">
+                                        {{ formatPrecio(item.precio * item.cantidad) }}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Desglose de Totales -->
+                            <div class="space-y-3 pt-2">
+                                <div class="flex justify-between items-center text-xs">
+                                    <span class="text-zinc-400 font-medium">Subtotal</span>
+                                    <span class="font-mono font-bold text-white text-sm">{{ formatPrecio(total) }}</span>
+                                </div>
+                                
+                                <div v-if="costoEnvio > 0" class="flex justify-between items-center text-xs">
+                                    <span class="text-zinc-400 font-medium">Costo de Envío</span>
+                                    <span class="font-mono font-bold text-white text-sm">+{{ formatPrecio(costoEnvio) }}</span>
+                                </div>
+
+                                <div class="border-t border-white/5 pt-4 flex justify-between items-baseline">
+                                    <span class="text-sm font-bold uppercase tracking-wider text-white">Total Final</span>
+                                    <span class="text-2xl sm:text-3xl font-bold font-mono text-white">{{ formatPrecio(totalFinal) }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Botón de Confirmación -->
+                            <div class="space-y-3 pt-2">
+                                <button
+                                    @click="confirmar"
+                                    :disabled="!puedeEnviar || procesando"
+                                    class="w-full py-4 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    <svg v-if="procesando" class="animate-spin w-4 h-4 text-black" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                    </svg>
+                                    <span>
+                                        {{
+                                            procesando 
+                                                ? 'Procesando...' 
+                                                : ((medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta')))
+                                                    ? 'Pagar con Mercado Pago'
+                                                    : 'Confirmar Compra')
+                                        }}
+                                    </span>
+                                </button>
+
+                                <Link
+                                    :href="route('carrito.index')"
+                                    class="w-full py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-zinc-300 font-semibold text-xs uppercase tracking-wider rounded-xl transition-all text-center block"
+                                >
+                                    ← Volver al Carrito
+                                </Link>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </div>
     </PublicLayout>
 </template>
 
-<style scoped>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+.page-checkout,
+.page-checkout * {
+    font-family: 'Montserrat', sans-serif !important;
+}
+
 .fade-enter-active, .fade-leave-active { transition: opacity 0.2s ease, transform 0.2s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; transform: translateY(-6px); }
 </style>

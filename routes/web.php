@@ -16,6 +16,7 @@ use App\Http\Controllers\ProveedorController;
 use App\Http\Controllers\CargoController;
 use App\Http\Controllers\RutaRepartoController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\PrediccionDemandaController;
 use App\Http\Controllers\PrecioController;
 use App\Http\Controllers\GastoController;
 use App\Http\Controllers\LogisticaController;
@@ -36,6 +37,11 @@ Route::get('/catalogo', [PublicCatalogoController::class, 'index'])->name('catal
 Route::get('/catalogo/buscar-ajax', [PublicCatalogoController::class, 'search'])->name('catalogo.buscar-ajax');
 Route::get('/catalogo/{id}', [PublicCatalogoController::class, 'show'])->where('id', '[0-9]+')->name('catalogo.show');
 Route::get('/nosotros', fn() => \Inertia\Inertia::render('Nosotros'))->name('nosotros');
+
+// Chatbot de recomendaciones: accesible para visitantes (5 msg/12h por IP) y usuarios logueados (12 msg/12h).
+Route::post('/chatbot/responder', [ChatbotController::class, 'responder'])
+    ->middleware(['throttle:20,1'])
+    ->name('chatbot.responder');
 
 // Carrito (no requiere login)
 Route::get('/carrito', [CarritoController::class, 'index'])->name('carrito.index');
@@ -59,9 +65,6 @@ Route::middleware('auth')->group(function () {
     Route::get('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'viewComprobante'])->name('mi-cuenta.comprobante.ver');
     Route::post('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'uploadComprobante'])->name('mi-cuenta.comprobante');
     Route::delete('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'deleteComprobante'])->name('mi-cuenta.comprobante.delete');
-    Route::post('/mi-cuenta/chatbot/mensajes', [ChatbotController::class, 'send'])
-        ->middleware('throttle:30,60')
-        ->name('mi-cuenta.chatbot.send');
 });
 
 Route::get('/', function () {
@@ -82,13 +85,14 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
 
     // Notificaciones
     Route::get('/notificaciones', [NotificationController::class, 'index'])->name('notificaciones.index');
+    Route::patch('/notificaciones/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notificaciones.markAllRead');
     Route::delete('/notificaciones/all', [NotificationController::class, 'destroyAll'])->name('notificaciones.destroyAll');
     Route::patch('/notificaciones/{id}/read', [NotificationController::class, 'markAsRead'])->name('notificaciones.read');
     Route::delete('/notificaciones/{id}', [NotificationController::class, 'destroy'])->name('notificaciones.destroy');
 
     // Colecciones
     Route::middleware('permiso:colecciones.acceder')->group(function () {
-        Route::resource('libro-masters', LibroMasterController::class)->except(['index', 'show', 'create', 'edit']);
+        Route::resource('libro-masters', LibroMasterController::class)->names('obras')->except(['index', 'show', 'create', 'edit']);
         Route::post('libros/deshabilitar-preventas', [LibroController::class, 'deshabilitarPreventas'])->name('libros.deshabilitar-preventas');
         Route::resource('libros', LibroController::class)->except(['show', 'create', 'edit']);
         Route::post('precios/bulk', [PrecioController::class, 'bulkUpdate'])->name('precios.bulk');
@@ -201,6 +205,9 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
     // Reportes
     Route::middleware('permiso:reportes.acceder')->group(function () {
         Route::get('reportes', [ReporteController::class, 'index'])->name('reportes.index');
+        Route::get('reportes/prediccion', [PrediccionDemandaController::class, 'index'])->name('reportes.prediccion');
+        Route::get('reportes/prediccion/buscar', [PrediccionDemandaController::class, 'buscar'])->name('reportes.prediccion.buscar');
+        Route::get('reportes/prediccion/datos', [PrediccionDemandaController::class, 'datos'])->name('reportes.prediccion.datos');
     });
 });
 

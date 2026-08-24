@@ -60,6 +60,15 @@ watch([search, estadoFiltro], () => {
 // ── Dropdowns auxiliares ──────────────────────────────────────────────────────
 const estadoLabels = { '': 'Todos', borrador: 'Borrador', confirmada: 'Confirmada', recibida: 'Recibida', cancelada: 'Cancelada' };
 
+// ── Modal ver detalle orden ───────────────────────────────────────────────────
+const showDetailModal = ref(false);
+const ordenDetalle     = ref(null);
+
+function verDetalle(orden) {
+    ordenDetalle.value = orden;
+    showDetailModal.value = true;
+}
+
 // ── Modal crear orden ─────────────────────────────────────────────────────────
 const showModal  = ref(false);
 const isEditing  = ref(false);
@@ -69,8 +78,14 @@ const modalError = ref('');
 const form = useForm({
     proveedor_id:           '',
     sucursal_id:            '',
+    condicion_pago:         '',
+    metodo_pago:            'Efectivo',
     observaciones:          '',
     items:                  [],
+});
+
+const canConfigureItems = computed(() => {
+    return Boolean(form.proveedor_id && form.sucursal_id && form.condicion_pago);
 });
 
 let prevProvId = null;
@@ -83,6 +98,8 @@ function openModal() {
     prevSucId        = null;
     modalError.value = '';
     form.reset();
+    form.condicion_pago = '';
+    form.metodo_pago    = 'Efectivo';
     form.items = [];
     itemDdOpen.value = [];
     itemSearches.value = [];
@@ -102,9 +119,11 @@ async function editOrden(orden) {
     form.reset();
     
     // Configurar form
-    form.proveedor_id  = orden.proveedor_id;
-    form.sucursal_id   = orden.sucursal_id;
-    form.observaciones = orden.observaciones || '';
+    form.proveedor_id   = orden.proveedor_id;
+    form.sucursal_id    = orden.sucursal_id;
+    form.condicion_pago  = orden.condicion_pago || 'cuenta_corriente';
+    form.metodo_pago     = orden.metodo_pago || 'Efectivo';
+    form.observaciones  = orden.observaciones || '';
 
     // Usar los ítems pre-cargados
     if (orden.items) {
@@ -233,6 +252,13 @@ watch([() => form.proveedor_id, () => form.sucursal_id], ([newProv, newSuc]) => 
                     itemResults.value = preventas.map(() => []);
                     itemLoadings.value = preventas.map(() => false);
                     itemLabels.value = preventas.map(p => p.titulo);
+                } else {
+                    form.items = [{ libro_id: '', cantidad: 1, precio_unitario: 0, stock: 0, reservas: 0 }];
+                    itemDdOpen.value = [false];
+                    itemSearches.value = [''];
+                    itemResults.value = [[]];
+                    itemLoadings.value = [false];
+                    itemLabels.value = [''];
                 }
             })
             .catch(error => console.error("Error fetching preventas:", error));
@@ -306,26 +332,30 @@ function confirmar(orden) {
 
 function recibir(orden) {
     darkSwal.fire({
-        title: '¿Marcar como recibida?',
-        text: `Esto actualizará el stock y registrará la deuda con el proveedor para la orden ${orden.numero_orden}.`,
-        icon: 'warning',
+        title: '¿Recibir Orden de Compra?',
+        text: `¿Deseas confirmar la recepción de la orden ${orden.numero_orden}? Se actualizará el stock e ingresará la mercadería.`,
+        icon: 'question',
         showCancelButton: true,
         confirmButtonText: 'Sí, recibir',
         cancelButtonText: 'Cancelar'
     }).then(result => {
         if (result.isConfirmed) {
-            router.post(route('ordenes-compra.recibir', orden.id), {}, {
-                onSuccess: () => {
-                    darkSwal.fire({
-                        title: 'Orden Recibida',
-                        text: 'El stock y la deuda han sido actualizados.',
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
-                },
-            });
+            ejecutarRecibir(orden.id);
         }
+    });
+}
+
+function ejecutarRecibir(ordenId) {
+    router.post(route('ordenes-compra.recibir', ordenId), {}, {
+        onSuccess: () => {
+            darkSwal.fire({
+                title: 'Orden Recibida',
+                text: 'El stock y las preventas se han procesado correctamente.',
+                icon: 'success',
+                timer: 1800,
+                showConfirmButton: false
+            });
+        },
     });
 }
 
@@ -468,6 +498,13 @@ const decodeLabel = (l) => {
                                     </td>
                                     <td class="p-4 text-right">
                                         <div class="flex items-center justify-end gap-1">
+                                            <button @click="verDetalle(o)"
+                                                class="p-2 text-zinc-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-xl transition-all" title="Ver detalle de la orden">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                                                </svg>
+                                            </button>
                                             <a :href="route('ordenes-compra.show', o.id)" target="_blank"
                                                 class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Ver / Imprimir orden">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -577,6 +614,31 @@ const decodeLabel = (l) => {
                                 </div>
                             </div>
 
+                            <!-- Condición de Pago & Medio de Pago -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">CONDICIÓN DE PAGO *</label>
+                                    <select v-model="form.condicion_pago"
+                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
+                                        <option value="" disabled>-- Seleccionar Condición de Pago --</option>
+                                        <option value="cuenta_corriente">Cuenta Corriente</option>
+                                        <option value="contado">Contado</option>
+                                    </select>
+                                    <p v-if="form.errors.condicion_pago" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.condicion_pago }}</p>
+                                </div>
+
+                                <div v-if="form.condicion_pago === 'contado'">
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">MEDIO DE PAGO *</label>
+                                    <select v-model="form.metodo_pago"
+                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
+                                        <option value="Efectivo">Efectivo</option>
+                                        <option value="Transferencia">Transferencia</option>
+                                        <option value="Tarjeta">Tarjeta</option>
+                                    </select>
+                                    <p v-if="form.errors.metodo_pago" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.metodo_pago }}</p>
+                                </div>
+                            </div>
+
                             <!-- Observaciones -->
                             <div>
                                 <label class="block text-xs font-semibold text-zinc-400 mb-1">OBSERVACIONES</label>
@@ -585,7 +647,7 @@ const decodeLabel = (l) => {
                             </div>
 
                             <!-- Items -->
-                            <div>
+                            <div :class="{ 'opacity-30 pointer-events-none select-none': !canConfigureItems }" class="transition-opacity duration-200">
                                 <div class="flex items-center justify-between mb-2">
                                     <label class="block text-xs font-semibold text-zinc-400">ÍTEMS DE LA ORDEN *</label>
                                 </div>
@@ -700,13 +762,148 @@ const decodeLabel = (l) => {
                                     <button type="button" @click="showModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">
                                         Cancelar
                                     </button>
-                                    <button type="submit" :disabled="form.processing || form.items.length === 0" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                    <button type="submit" :disabled="form.processing || !canConfigureItems || form.items.length === 0" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
                                         <span>{{ isEditing ? 'Guardar cambios' : 'Crear orden' }}</span>
                                     </button>
                                 </div>
                             </div>
 
                         </form>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Modal Ver Detalle de Orden -->
+        <Teleport to="body">
+            <div v-if="showDetailModal && ordenDetalle" class="page-ordenes-compra">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showDetailModal = false" />
+                <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
+                    <div class="relative w-full max-w-3xl bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
+
+                        <!-- Header -->
+                        <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                            <div>
+                                <div class="flex items-center gap-3">
+                                    <h3 class="text-base font-bold text-white uppercase tracking-wider font-mono">
+                                        {{ ordenDetalle.numero_orden }}
+                                    </h3>
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold"
+                                        :class="{
+                                            'bg-amber-500/10 text-amber-400 border border-amber-500/20': ordenDetalle.estado === 'borrador',
+                                            'bg-sky-500/10 text-sky-400 border border-sky-500/20': ordenDetalle.estado === 'confirmada',
+                                            'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20': ordenDetalle.estado === 'recibida',
+                                            'bg-rose-500/10 text-rose-400 border border-rose-500/20': ordenDetalle.estado === 'cancelada'
+                                        }">
+                                        <span>{{ estadoLabels[ordenDetalle.estado] || ordenDetalle.estado }}</span>
+                                    </span>
+                                </div>
+                                <p class="text-xs text-zinc-400 mt-0.5">Fecha: {{ fmtDate(ordenDetalle.fecha) }}</p>
+                            </div>
+                            <button @click="showDetailModal = false" class="text-zinc-400 hover:text-white transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <!-- Content -->
+                        <div class="p-6 space-y-6">
+
+                            <!-- Resumen Información Grid -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#131316] p-4 rounded-xl border border-white/5 text-xs">
+                                <div>
+                                    <p class="font-semibold text-zinc-500 uppercase tracking-wider mb-1">PROVEEDOR</p>
+                                    <p class="font-bold text-white text-sm capitalize">{{ ordenDetalle.proveedor?.nombre_empresa || '—' }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-zinc-500 uppercase tracking-wider mb-1">SUCURSAL DESTINO</p>
+                                    <p class="font-bold text-white text-sm">{{ ordenDetalle.sucursal?.nombre || '—' }}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-zinc-500 uppercase tracking-wider mb-1">GENERADO POR</p>
+                                    <p class="font-bold text-white text-sm">{{ ordenDetalle.user?.name }} {{ ordenDetalle.user?.apellido || '' }}</p>
+                                </div>
+                            </div>
+
+                            <!-- Condición y Medio de Pago -->
+                            <div class="bg-[#131316] p-4 rounded-xl border border-white/5 text-xs flex flex-wrap items-center justify-between gap-4">
+                                <div>
+                                    <p class="font-semibold text-zinc-500 uppercase tracking-wider mb-1">CONDICIÓN DE PAGO</p>
+                                    <div class="flex items-center gap-2">
+                                        <span v-if="ordenDetalle.condicion_pago === 'contado'" class="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white font-bold">
+                                            Contado
+                                        </span>
+                                        <span v-else class="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white font-bold">
+                                            Cuenta Corriente
+                                        </span>
+                                    </div>
+                                </div>
+                                <div v-if="ordenDetalle.condicion_pago === 'contado'">
+                                    <p class="font-semibold text-zinc-500 uppercase tracking-wider mb-1">MEDIO DE PAGO</p>
+                                    <span class="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white font-bold">
+                                        {{ ordenDetalle.metodo_pago || 'Efectivo' }}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Observaciones si hay -->
+                            <div v-if="ordenDetalle.observaciones" class="text-xs text-zinc-300 italic bg-white/5 p-3 rounded-xl border border-white/5">
+                                <span class="font-bold not-italic text-zinc-400">Observaciones: </span>{{ ordenDetalle.observaciones }}
+                            </div>
+
+                            <!-- Tabla de Ítems del Pedido -->
+                            <div>
+                                <h4 class="text-xs font-bold text-zinc-400 uppercase tracking-wider mb-3">Ítems del Pedido</h4>
+                                <div class="bg-[#131316] border border-white/5 rounded-xl overflow-hidden shadow-inner">
+                                    <table class="w-full text-left text-xs border-collapse">
+                                        <thead>
+                                            <tr class="bg-white/[0.02] text-zinc-400 uppercase font-semibold border-b border-white/5">
+                                                <th class="p-3">Libro / Descripción</th>
+                                                <th class="p-3 text-center">Cantidad</th>
+                                                <th class="p-3 text-right">Precio Unit.</th>
+                                                <th class="p-3 text-right">Subtotal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="divide-y divide-white/5">
+                                            <tr v-for="item in ordenDetalle.items" :key="item.id" class="hover:bg-white/[0.02]">
+                                                <td class="p-3">
+                                                    <p class="font-bold text-white">
+                                                        {{ item.libro?.master?.titulo || 'Libro sin título' }}
+                                                        <span v-if="item.libro?.numero_tomo" class="text-zinc-400 font-normal"> - Tomo {{ item.libro.numero_tomo }}</span>
+                                                    </p>
+                                                    <p v-if="item.libro?.isbn" class="text-[11px] font-mono text-zinc-500">ISBN: {{ item.libro.isbn }}</p>
+                                                </td>
+                                                <td class="p-3 text-center font-bold text-white">{{ item.cantidad }}</td>
+                                                <td class="p-3 text-right font-mono text-zinc-300">{{ fmt(item.precio_unitario) }}</td>
+                                                <td class="p-3 text-right font-mono font-bold text-white">{{ fmt(item.subtotal || (item.cantidad * item.precio_unitario)) }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- Footer Total & Actions -->
+                        <div class="mt-4 flex justify-between items-center border-t border-white/5 pt-4 bg-[#131316] p-6">
+                            <div>
+                                <p class="text-xs uppercase font-semibold text-zinc-400">TOTAL PEDIDO</p>
+                                <p class="text-2xl font-bold text-white font-mono tracking-tight mt-0.5">{{ fmt(ordenDetalle.total) }}</p>
+                            </div>
+                            <div class="flex gap-3">
+                                <a :href="route('ordenes-compra.show', ordenDetalle.id)" target="_blank"
+                                    class="flex items-center gap-2 px-5 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+                                    </svg>
+                                    <span>Imprimir Orden</span>
+                                </a>
+                                <button type="button" @click="showDetailModal = false"
+                                    class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">
+                                    Cerrar
+                                </button>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
             </div>

@@ -44,6 +44,7 @@ class UpdateLibroRequest extends FormRequest
             'cantidad_paginas' => 'nullable|integer|min:1',
             'activo' => 'boolean',
             'permite_preventa' => 'boolean',
+            'portada'          => $this->hasFile('portada') ? 'image|mimes:jpg,jpeg,png,gif,webp|max:5120' : 'nullable',
             'precio_compra' => 'nullable|numeric|min:0',
             'precio_venta' => 'required|numeric|min:0',
         ];

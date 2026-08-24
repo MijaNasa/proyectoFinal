@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, router } from '@inertiajs/vue3';
+import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import VueApexCharts from 'vue3-apexcharts';
 
@@ -229,7 +229,7 @@ const balanceSucursalChart = computed(() => {
                 <!-- Tabs Container -->
                 <div class="bg-[#131316] border border-white/5 rounded-2xl p-2 shadow-xl">
                     <div class="flex items-center gap-2">
-                        <button 
+                        <button
                             v-for="t in [{id:'ventas',label:'Ventas'},{id:'stock',label:'Stock'},{id:'balance',label:'Balance'}]"
                             :key="t.id"
                             @click="switchTab(t.id)"
@@ -238,6 +238,13 @@ const balanceSucursalChart = computed(() => {
                         >
                             {{ t.label }}
                         </button>
+                        <Link
+                            :href="route('reportes.prediccion')"
+                            class="px-5 py-2.5 rounded-xl text-xs font-bold transition-all text-zinc-400 hover:text-white bg-transparent flex items-center gap-1.5"
+                        >
+                            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                            Predicción de Demanda
+                        </Link>
                     </div>
                 </div>
 

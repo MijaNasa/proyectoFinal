@@ -38,4 +38,11 @@ class NotificationController extends Controller
 
         return redirect()->back()->with('message', 'Todas las notificaciones fueron eliminadas.');
     }
+
+    public function markAllAsRead(Request $request)
+    {
+        $request->user()->unreadNotifications->markAsRead();
+
+        return redirect()->back()->with('message', 'Todas las notificaciones fueron marcadas como leídas.');
+    }
 }

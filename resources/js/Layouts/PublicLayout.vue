@@ -2,6 +2,7 @@
 import { Link, usePage, router } from '@inertiajs/vue3';
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import AgentSidebar from '@/Components/AgentSidebar.vue';
+import ChatbotWidget from '@/Components/ChatbotWidget.vue';
 
 const logout = () => router.post(route('logout'));
 
@@ -431,6 +432,8 @@ watch(() => page.props.flash, (flash) => {
                 <span>{{ toast.msg }}</span>
             </div>
         </transition>
+
+        <ChatbotWidget />
     </div>
 </template>
 
