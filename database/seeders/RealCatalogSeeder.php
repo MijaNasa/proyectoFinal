@@ -256,24 +256,22 @@ class RealCatalogSeeder extends Seeder
                 ['descripcion' => 'Serie oficial de ' . $item['serie']]
             );
 
+            // Master: una sola obra por serie, con todos sus tomos adentro
+            $master = LibroMaster::firstOrCreate(
+                ['titulo' => $item['serie']],
+                [
+                    'autor_id' => $autor->id,
+                    'categoria_id' => $item['categoria']->id,
+                    'proveedor_id' => $item['proveedor']->id,
+                    'idioma_id' => $idiomaEsp->id,
+                    'formato' => $item['formato'],
+                    'synopsis' => $item['synopsis'],
+                    'portada' => $item['portada'],
+                    'activo' => true,
+                ]
+            );
+
             foreach ($item['tomos'] as $tomoData) {
-                $tituloMaster = $item['serie'] . ' #' . str_pad($tomoData['tomo'], 2, '0', STR_PAD_LEFT);
-
-                // Master
-                $master = LibroMaster::firstOrCreate(
-                    ['titulo' => $tituloMaster],
-                    [
-                        'autor_id' => $autor->id,
-                        'categoria_id' => $item['categoria']->id,
-                        'proveedor_id' => $item['proveedor']->id,
-                        'idioma_id' => $idiomaEsp->id,
-                        'formato' => $item['formato'],
-                        'synopsis' => $item['synopsis'],
-                        'portada' => $item['portada'],
-                        'activo' => true,
-                    ]
-                );
-
                 // Libro (Edición)
                 $libro = Libro::firstOrCreate(
                     [
