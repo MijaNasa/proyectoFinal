@@ -95,11 +95,11 @@ class PublicCatalogoController extends Controller
         return Inertia::render('Catalogo/Index', [
             'libros'      => $libros,
             'preventas'   => $preventas,
-            'categorias'  => Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-            'autores'     => Autor::where('activo', true)->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
+            'categorias'  => Categoria::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre')->get(['id', 'nombre']),
+            'autores'     => Autor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'series'      => [], // Removido por desuso
-            'proveedores' => Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
-            'idiomas'     => Idioma::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'proveedores' => Proveedor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
+            'idiomas'     => Idioma::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre')->get(['id', 'nombre']),
             'filters'     => $request->only(['search', 'categoria', 'autor', 'serie', 'proveedor', 'idioma']),
         ]);
     }
