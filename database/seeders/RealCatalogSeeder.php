@@ -71,7 +71,7 @@ class RealCatalogSeeder extends Seeder
             ]);
         }
 
-        $sucursalExpress = Sucursal::where('nombre', 'like', '%Express%')->first();
+        $sucursalExpress = Sucursal::where('nombre', 'Sucursal Peatonal Córdoba')->first();
         if (!$sucursalExpress) {
             $sucursalExpress = Sucursal::create([
                 'nombre' => 'Sucursal Peatonal Córdoba',
