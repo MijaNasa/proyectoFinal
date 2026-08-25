@@ -30,28 +30,28 @@ class RealCatalogSeeder extends Seeder
         $catNovelaGrafica = Categoria::firstOrCreate(['nombre' => 'Novela Gráfica'], ['descripcion' => 'Obras autoconclusivas y cómics de colección en edición especial.']);
 
         // 3. Proveedores / Editoriales reales
-        $ivrea = Proveedor::firstOrCreate(
-            ['nombre_empresa' => 'Editorial Ivrea Argentina'],
+        $ivrea = $this->buscarOCrearProveedor(
+            'Editorial Ivrea Argentina',
             ['email' => 'ventas@ivrea.com.ar', 'telefono' => '11 4567-8900', 'activo' => true, 'deuda_actual' => 0]
         );
 
-        $panini = Proveedor::firstOrCreate(
-            ['nombre_empresa' => 'Panini Comics Argentina'],
+        $panini = $this->buscarOCrearProveedor(
+            'Panini Comics Argentina',
             ['email' => 'contacto@panini.com.ar', 'telefono' => '11 5234-9900', 'activo' => true, 'deuda_actual' => 0]
         );
 
-        $ovni = Proveedor::firstOrCreate(
-            ['nombre_empresa' => 'Ovni Press'],
+        $ovni = $this->buscarOCrearProveedor(
+            'Ovni Press',
             ['email' => 'pedidos@ovnipress.com.ar', 'telefono' => '11 4890-1122', 'activo' => true, 'deuda_actual' => 0]
         );
 
-        $ecc = Proveedor::firstOrCreate(
-            ['nombre_empresa' => 'ECC Ediciones'],
+        $ecc = $this->buscarOCrearProveedor(
+            'ECC Ediciones',
             ['email' => 'distribucion@eccediciones.com', 'telefono' => '11 4333-2211', 'activo' => true, 'deuda_actual' => 0]
         );
 
-        $planeta = Proveedor::firstOrCreate(
-            ['nombre_empresa' => 'Planeta Cómic'],
+        $planeta = $this->buscarOCrearProveedor(
+            'Planeta Cómic',
             ['email' => 'ventas@planetacomic.com.ar', 'telefono' => '11 4111-0099', 'activo' => true, 'deuda_actual' => 0]
         );
 
@@ -317,5 +317,22 @@ class RealCatalogSeeder extends Seeder
                 }
             }
         }
+    }
+
+    /**
+     * nombre_empresa tiene un mutator que lo normaliza a Str::title(strtolower(...))
+     * al guardarlo, asi que un firstOrCreate con "ECC Ediciones" nunca vuelve a
+     * matchear lo que quedo guardado ("Ecc Ediciones") y se crea de nuevo en cada
+     * corrida del seeder. Se busca ignorando mayusculas/minusculas para evitarlo.
+     */
+    private function buscarOCrearProveedor(string $nombreEmpresa, array $datos): Proveedor
+    {
+        $proveedor = Proveedor::whereRaw('LOWER(nombre_empresa) = ?', [mb_strtolower($nombreEmpresa, 'UTF-8')])->first();
+
+        if (!$proveedor) {
+            $proveedor = Proveedor::create(array_merge(['nombre_empresa' => $nombreEmpresa], $datos));
+        }
+
+        return $proveedor;
     }
 }
