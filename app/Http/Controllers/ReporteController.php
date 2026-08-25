@@ -212,23 +212,27 @@ class ReporteController extends Controller
         $baseWithDetalles = (clone $base)
             ->join('venta_detalles', 'venta_detalles.venta_id', '=', 'ventas.id');
 
-        $costoExpr = 'SUM(venta_detalles.cantidad * CASE 
+        $costoExpr = 'SUM(venta_detalles.cantidad * CASE
             WHEN COALESCE(venta_detalles.costo_unitario, 0) > 0 THEN venta_detalles.costo_unitario
-            WHEN (SELECT precio_compra FROM precios_libros WHERE libro_id = venta_detalles.libro_id AND activo = 1 AND precio_compra > 0 AND precio_compra < venta_detalles.precio_unitario ORDER BY fecha_desde DESC LIMIT 1) IS NOT NULL 
-            THEN (SELECT precio_compra FROM precios_libros WHERE libro_id = venta_detalles.libro_id AND activo = 1 AND precio_compra > 0 AND precio_compra < venta_detalles.precio_unitario ORDER BY fecha_desde DESC LIMIT 1)
+            WHEN (SELECT precio_compra FROM precios_libros WHERE libro_id = venta_detalles.libro_id AND activo = true AND precio_compra > 0 AND precio_compra < venta_detalles.precio_unitario ORDER BY fecha_desde DESC LIMIT 1) IS NOT NULL
+            THEN (SELECT precio_compra FROM precios_libros WHERE libro_id = venta_detalles.libro_id AND activo = true AND precio_compra > 0 AND precio_compra < venta_detalles.precio_unitario ORDER BY fecha_desde DESC LIMIT 1)
             ELSE (venta_detalles.precio_unitario * 0.6)
         END)';
+
+        $mesExpr = DB::connection()->getDriverName() === 'pgsql'
+            ? "TO_CHAR(ventas.fecha, 'YYYY-MM')"
+            : "strftime('%Y-%m', ventas.fecha)";
 
         // Ingresos por mes
         $porMes = (clone $baseWithDetalles)
             ->select(
-                DB::raw("strftime('%Y-%m', ventas.fecha) as mes"),
+                DB::raw("{$mesExpr} as mes"),
                 DB::raw('SUM(venta_detalles.subtotal) as ingresos'),
                 DB::raw("{$costoExpr} as cogs"),
                 DB::raw('COUNT(DISTINCT ventas.id) as ventas')
             )
-            ->groupBy(DB::raw("strftime('%Y-%m', ventas.fecha)"))
-            ->orderBy(DB::raw("strftime('%Y-%m', ventas.fecha)"))
+            ->groupBy(DB::raw($mesExpr))
+            ->orderBy(DB::raw($mesExpr))
             ->get()
             ->map(fn($r) => [
                 'mes' => $r->mes, 
