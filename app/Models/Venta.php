@@ -17,6 +17,8 @@ class Venta extends Model
     public const TRANSICIONES = [
         'pendiente_pago' => [
             'en_preparacion',
+            'listo_para_retiro',
+            'finalizado',
             'en_preventa',
             'acumulado',
             'cancelado'
