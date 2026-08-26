@@ -37,8 +37,8 @@ class Venta extends Model
             'cancelado'
         ],
         'esperando_traslado' => [
+            'en_preparacion',
             'listo_para_retiro',
-            'enviado',
             'cancelado'
         ],
         'acumulado' => [
