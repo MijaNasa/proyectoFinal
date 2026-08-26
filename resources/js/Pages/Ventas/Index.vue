@@ -50,7 +50,7 @@ const estadoOpciones = [
 
 const transicionesMap = {
     pendiente_pago:     ['en_preparacion', 'listo_para_retiro', 'finalizado', 'en_preventa', 'acumulado', 'cancelado'],
-    en_preventa:        ['en_preparacion', 'listo_para_retiro', 'cancelado'],
+    en_preventa:        ['en_preparacion', 'listo_para_retiro', 'acumulado', 'cancelado'],
     en_preparacion:     ['listo_para_retiro', 'enviado', 'esperando_traslado', 'cancelado'],
     esperando_traslado: ['listo_para_retiro', 'enviado', 'cancelado'],
     acumulado:          ['en_preparacion', 'cancelado'],

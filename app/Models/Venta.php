@@ -26,6 +26,7 @@ class Venta extends Model
         'en_preventa' => [
             'en_preparacion',
             'listo_para_retiro',
+            'acumulado',
             'cancelado'
         ],
         'en_preparacion' => [
