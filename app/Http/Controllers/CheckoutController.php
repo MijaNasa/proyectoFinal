@@ -131,6 +131,10 @@ class CheckoutController extends Controller
 
         $request->validate($rules, $messages);
 
+        if (!Auth::check() && $request->tipo_envio === 'acumulacion') {
+            return back()->withErrors(['tipo_envio' => 'La acumulación de envíos está disponible únicamente para clientes registrados. Iniciá sesión para continuar.']);
+        }
+
         if (in_array($request->tipo_envio, ['domicilio', 'acumulacion', 'correo_nacional', 'correo_sucursal'])) {
             if ($request->medio_pago === 'Efectivo') {
                 return back()->withErrors(['medio_pago' => 'El pago en Efectivo solo está disponible para retiro en sucursal.']);
@@ -506,6 +510,18 @@ class CheckoutController extends Controller
             return redirect()->route('checkout.success', ['external_reference' => $venta->id]);
         }
 
+        $mpToken = config('services.mercadopago.access_token');
+        if (empty($mpToken)) {
+            if (config('app.env') === 'local' || config('app.debug')) {
+                \Log::info("Checkout: MP_ACCESS_TOKEN no configurado en entorno local. Simulando checkout exitoso para venta #{$venta->id}");
+                return redirect()->route('checkout.success', ['external_reference' => $venta->id]);
+            }
+            $venta->update(['estado' => 'cancelado']);
+            return back()->withErrors([
+                'medio_pago' => 'El pago con Mercado Pago no está disponible temporalmente. Por favor seleccioná Transferencia Bancaria.'
+            ]);
+        }
+
         try {
             if ($montoMercadoPago == $total) {
                 $items = collect($processedItems)->map(function($item) use ($librosModels) {
@@ -545,7 +561,7 @@ class CheckoutController extends Controller
             ];
 
             $response = Http::timeout(15)
-                ->withToken(config('services.mercadopago.access_token'))
+                ->withToken($mpToken)
                 ->post('https://api.mercadopago.com/checkout/preferences', $preferenceData);
 
             if (!$response->successful()) {
@@ -568,8 +584,9 @@ class CheckoutController extends Controller
                 'venta_id' => $venta->id,
                 'error'    => $e->getMessage(),
             ]);
-            return redirect()->route('checkout.index')
-                ->with('error', 'Error al conectar con Mercado Pago. Intentá nuevamente.');
+            return back()->withErrors([
+                'medio_pago' => 'Error al conectar con la pasarela de Mercado Pago. Por favor intentá nuevamente o seleccioná Transferencia Bancaria.'
+            ]);
         }
     }
 

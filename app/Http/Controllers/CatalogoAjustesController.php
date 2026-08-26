@@ -26,10 +26,27 @@ class CatalogoAjustesController extends Controller
         $categorias = Categoria::withCount('libroMasters')->orderBy('nombre')->get();
         $idiomas = Idioma::withCount('libroMasters')->orderBy('nombre')->get();
 
+        $formatos = \App\Models\LibroMaster::whereNotNull('formato')
+            ->where('formato', '!=', '')
+            ->select('formato as nombre')
+            ->selectRaw('count(*) as libro_masters_count')
+            ->groupBy('formato')
+            ->orderBy('formato')
+            ->get()
+            ->map(function ($item) {
+                return [
+                    'id' => $item->nombre,
+                    'nombre' => $item->nombre,
+                    'libro_masters_count' => (int)$item->libro_masters_count,
+                ];
+            })
+            ->values();
+
         return inertia('Catalogo/Ajustes', [
-            'autores' => $autores,
+            'autores'    => $autores,
             'categorias' => $categorias,
-            'idiomas' => $idiomas,
+            'idiomas'    => $idiomas,
+            'formatos'   => $formatos,
         ]);
     }
 
@@ -136,6 +153,12 @@ class CatalogoAjustesController extends Controller
                 }
                 break;
 
+            case 'formatos':
+                $request->validate([
+                    'nombre' => 'required|string|max:100',
+                ], $messages);
+                break;
+
             default:
                 abort(400, 'Tipo de ajuste no válido.');
         }
@@ -151,7 +174,7 @@ class CatalogoAjustesController extends Controller
         return redirect()->back()->with('message', 'Registro creado con éxito.');
     }
 
-    public function update(Request $request, string $type, int $id)
+    public function update(Request $request, string $type, $id)
     {
         $this->checkAdmin($request);
 
@@ -214,6 +237,18 @@ class CatalogoAjustesController extends Controller
                 $model->update(array_filter($validated, fn($val) => !is_null($val)));
                 break;
 
+            case 'formatos':
+                $validated = $request->validate([
+                    'nombre' => 'required|string|max:100',
+                ], $messages);
+                $newNombre = trim($validated['nombre']);
+                $oldNombre = $request->input('old_nombre', $id);
+                if ($oldNombre && $oldNombre !== $newNombre) {
+                    \App\Models\LibroMaster::where('formato', $oldNombre)
+                        ->update(['formato' => $newNombre]);
+                }
+                return redirect()->back()->with('message', 'Formato actualizado con éxito.');
+
             default:
                 abort(400, 'Tipo de ajuste no válido.');
         }
@@ -221,37 +256,54 @@ class CatalogoAjustesController extends Controller
         return redirect()->back()->with('message', 'Registro actualizado con éxito.');
     }
 
-    public function destroy(Request $request, string $type, int $id)
+    public function destroy(Request $request, string $type, $id)
     {
         $this->checkAdmin($request);
 
         switch ($type) {
             case 'autores':
                 $model = Autor::findOrFail($id);
+                if ($model->libroMasters()->exists()) {
+                    return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
+                }
+                $model->delete();
                 break;
 
             case 'categorias':
                 $model = Categoria::findOrFail($id);
+                if ($model->libroMasters()->exists()) {
+                    return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
+                }
+                $model->delete();
                 break;
 
             case 'proveedores':
                 $model = \App\Models\Proveedor::findOrFail($id);
+                if ($model->libroMasters()->exists()) {
+                    return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
+                }
+                $model->delete();
                 break;
 
             case 'idiomas':
                 $model = Idioma::findOrFail($id);
+                if ($model->libroMasters()->exists()) {
+                    return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
+                }
+                $model->delete();
+                break;
+
+            case 'formatos':
+                $nombre = urldecode((string)$id);
+                $count = \App\Models\LibroMaster::where('formato', $nombre)->count();
+                if ($count > 0) {
+                    return redirect()->back()->with('error', 'No se puede eliminar el formato porque tiene ' . $count . ' obra(s) asociada(s).');
+                }
                 break;
 
             default:
                 abort(400, 'Tipo de ajuste no válido.');
         }
-
-        // Backend double-check for safety: block deletion if it has associated works
-        if ($model->libroMasters()->exists()) {
-            return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
-        }
-
-        $model->delete();
 
         return redirect()->back()->with('message', 'Registro eliminado con éxito.');
     }

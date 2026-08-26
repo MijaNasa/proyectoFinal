@@ -20,12 +20,34 @@ const deleteComprobante = () => {
     }
 };
 
+const handleFileChange = (event) => {
+    uploadForm.clearErrors('comprobante');
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const MAX_SIZE_MB = 7;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+    if (file.size > MAX_SIZE_BYTES) {
+        event.target.value = '';
+        uploadForm.comprobante = null;
+        uploadForm.setError('comprobante', `El archivo es demasiado grande (${(file.size / (1024 * 1024)).toFixed(1)} MB). El límite máximo permitido es de ${MAX_SIZE_MB} MB. Por favor elegí una captura o foto más liviana.`);
+        return;
+    }
+
+    uploadForm.comprobante = file;
+};
+
 const uploadComprobante = () => {
     uploadForm.post(route('mi-cuenta.comprobante', props.venta.id), {
         preserveScroll: true,
         onSuccess: () => {
             uploadForm.reset();
         },
+        onError: (errs) => {
+            if (errs.comprobante) return;
+            uploadForm.setError('comprobante', 'No se pudo subir el archivo. Verificá el tamaño e intentá nuevamente.');
+        }
     });
 };
 
@@ -168,34 +190,50 @@ const config = computed(() => {
                     </div>
 
                     <!-- Subir Comprobante Inmediato -->
-                    <div v-if="venta.metodo_pago === 'Transferencia' && venta.estado === 'pendiente_pago'" class="pt-4 border-t border-white/5">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-3">
-                            ¿Ya realizaste la transferencia? Subí tu comprobante
+                    <div v-if="venta.metodo_pago === 'Transferencia' && venta.estado === 'pendiente_pago'" class="pt-4 border-t border-white/5 space-y-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                            Comprobante de Transferencia
                         </h4>
                         
-                        <div v-if="venta.comprobante_path" class="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                            <span class="text-emerald-400 text-lg">✅</span>
-                            <p class="text-xs font-semibold text-zinc-200">Comprobante enviado exitosamente. Pendiente de verificación.</p>
+                        <!-- Si el comprobante ya fue subido y no se ha seleccionado un nuevo archivo -->
+                        <div v-if="venta.comprobante_path && !uploadForm.comprobante" class="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                            <div class="flex items-center gap-2.5">
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    Enviado
+                                </span>
+                                <p class="text-xs text-zinc-200 font-medium">Comprobante en verificación.</p>
+                            </div>
                             <div class="ml-auto flex items-center gap-3 shrink-0">
                                 <a :href="route('mi-cuenta.comprobante.ver', venta.id)" target="_blank" class="text-xs font-bold text-emerald-400 uppercase hover:underline">Ver</a>
+                                <label class="text-xs font-semibold text-zinc-400 hover:text-white cursor-pointer underline">
+                                    Cambiar
+                                    <input type="file" accept="image/*,.pdf" @change="handleFileChange" class="hidden" />
+                                </label>
                                 <button @click="deleteComprobante" class="text-zinc-400 hover:text-rose-400 transition-colors" title="Eliminar comprobante">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
                             </div>
                         </div>
                         
+                        <!-- Formulario si no hay comprobante o si seleccionó un nuevo archivo -->
                         <form v-else @submit.prevent="uploadComprobante" class="flex flex-col sm:flex-row items-center gap-3 p-4 bg-[#0d0d0f] border border-white/10 rounded-xl">
-                            <input 
-                                type="file" 
-                                accept="image/*"
-                                @input="uploadForm.comprobante = $event.target.files[0]"
-                                class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:uppercase file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
-                                required
-                            >
+                            <div class="flex-1 w-full min-w-0">
+                                <input 
+                                    type="file" 
+                                    accept="image/*,.pdf"
+                                    @change="handleFileChange"
+                                    class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:uppercase file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
+                                >
+                                <p v-if="venta.comprobante_path" class="text-[11px] text-amber-400 mt-1 font-medium">
+                                    Seleccionaste un nuevo archivo para reemplazar el anterior.
+                                </p>
+                            </div>
                             <button 
+                                v-if="uploadForm.comprobante"
                                 type="submit"
-                                :disabled="uploadForm.processing || !uploadForm.comprobante"
-                                class="w-full sm:w-auto px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-40 cursor-pointer"
+                                :disabled="uploadForm.processing"
+                                class="w-full sm:w-auto px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-40 cursor-pointer shrink-0"
                             >
                                 {{ uploadForm.processing ? 'Enviando...' : 'Enviar' }}
                             </button>

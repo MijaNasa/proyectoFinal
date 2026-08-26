@@ -25,7 +25,7 @@ const esAdmin = computed(() =>
 
 const esEstadoRestringido = computed(() => {
     if (!selectedVenta.value) return false;
-    return ['en_preventa', 'esperando_traslado', 'finalizado', 'cancelado'].includes(selectedVenta.value.estado);
+    return ['finalizado', 'cancelado'].includes(selectedVenta.value.estado);
 });
 
 const puedeModificarEstadoManual = computed(() => {
@@ -48,11 +48,28 @@ const estadoOpciones = [
     { value: 'cancelado',          label: 'Cancelado',          tipos: ['online', 'presencial'] },
 ];
 
+const transicionesMap = {
+    pendiente_pago:     ['en_preparacion', 'en_preventa', 'acumulado', 'cancelado'],
+    en_preventa:        ['en_preparacion', 'cancelado'],
+    en_preparacion:     ['listo_para_retiro', 'enviado', 'esperando_traslado', 'cancelado'],
+    esperando_traslado: ['listo_para_retiro', 'enviado', 'cancelado'],
+    acumulado:          ['en_preparacion', 'cancelado'],
+    listo_para_retiro:  ['finalizado'],
+    enviado:            ['finalizado', 'en_preparacion'],
+    finalizado:         [],
+    cancelado:          []
+};
+
 const estadoOpcionesFiltradas = computed(() => {
     if (!selectedVenta.value) return estadoOpciones;
+
+    const estadoActual = selectedVenta.value.estado;
+    const permitidos = transicionesMap[estadoActual] || [];
+
     return estadoOpciones.filter(e => {
         if (!e.tipos.includes(selectedVenta.value.tipo)) return false;
-        return true;
+        if (e.value === estadoActual) return true;
+        return permitidos.includes(e.value);
     });
 });
 
@@ -700,7 +717,7 @@ const formatSucursalName = (name) => {
 onMounted(() => {
     if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('open') === 'pos') {
+        if (urlParams.get('open') === 'pos' || urlParams.get('nueva') === '1') {
             openPos();
         }
         if (urlParams.get('view') && props.ventas?.data) {

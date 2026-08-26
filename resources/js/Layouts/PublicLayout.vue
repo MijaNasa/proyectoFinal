@@ -236,40 +236,63 @@ watch(() => page.props.flash, (flash) => {
 
                             <!-- Mangas Dropdown -->
                             <div class="relative" @mouseenter="activeDropdown = 'mangas'" @mouseleave="activeDropdown = null">
-                                <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
+                                <Link :href="route('catalogo.index', { tipo: 'manga' })" class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
                                     <span>MANGAS</span>
                                     <svg class="w-3 h-3 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                     </svg>
-                                </button>
+                                </Link>
                                 <transition name="fade">
-                                    <div v-if="activeDropdown === 'mangas'" class="absolute left-0 top-full mt-1 w-48 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50">
-                                        <button
-                                            v-for="item in menuMangas"
-                                            :key="item.nombre"
-                                            @click="filterBySearch(item.search)"
-                                            class="w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
-                                        >{{ item.nombre }}</button>
+                                    <div v-if="activeDropdown === 'mangas'" class="absolute left-0 top-full mt-1 w-56 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                        <Link
+                                            v-for="item in $page.props.globalMangaEditoriales"
+                                            :key="'manga-' + item.id"
+                                            :href="route('catalogo.index', { proveedor: item.id, tipo: 'manga' })"
+                                            @click="activeDropdown = null"
+                                            class="block w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold truncate"
+                                        >{{ item.nombre_empresa }}</Link>
                                     </div>
                                 </transition>
                             </div>
 
                             <!-- Comics Dropdown -->
                             <div class="relative" @mouseenter="activeDropdown = 'comics'" @mouseleave="activeDropdown = null">
-                                <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
+                                <Link :href="route('catalogo.index', { tipo: 'comic' })" class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
                                     <span>COMICS</span>
+                                    <svg class="w-3 h-3 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </Link>
+                                <transition name="fade">
+                                    <div v-if="activeDropdown === 'comics'" class="absolute left-0 top-full mt-1 w-56 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                        <Link
+                                            v-for="item in $page.props.globalComicEditoriales"
+                                            :key="'comic-' + item.id"
+                                            :href="route('catalogo.index', { proveedor: item.id, tipo: 'comic' })"
+                                            @click="activeDropdown = null"
+                                            class="block w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold truncate"
+                                        >{{ item.nombre_empresa }}</Link>
+                                    </div>
+                                </transition>
+                            </div>
+
+                            <!-- Editoriales Dropdown -->
+                            <div class="relative" @mouseenter="activeDropdown = 'editoriales'" @mouseleave="activeDropdown = null">
+                                <button class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
+                                    <span>EDITORIALES</span>
                                     <svg class="w-3 h-3 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                     </svg>
                                 </button>
                                 <transition name="fade">
-                                    <div v-if="activeDropdown === 'comics'" class="absolute left-0 top-full mt-1 w-48 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50">
-                                        <button
-                                            v-for="item in menuComics"
-                                            :key="item.nombre"
-                                            @click="filterBySearch(item.search)"
-                                            class="w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
-                                        >{{ item.nombre }}</button>
+                                    <div v-if="activeDropdown === 'editoriales'" class="absolute left-0 top-full mt-1 w-56 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                        <Link
+                                            v-for="item in $page.props.globalEditoriales"
+                                            :key="'editorial-' + item.id"
+                                            :href="route('catalogo.index', { proveedor: item.id })"
+                                            @click="activeDropdown = null"
+                                            class="block w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold truncate"
+                                        >{{ item.nombre_empresa }}</Link>
                                     </div>
                                 </transition>
                             </div>
@@ -283,18 +306,19 @@ watch(() => page.props.flash, (flash) => {
                                     </svg>
                                 </button>
                                 <transition name="fade">
-                                    <div v-if="activeDropdown === 'categorias'" class="absolute left-0 top-full mt-1 w-48 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50 max-h-[60vh] overflow-y-auto custom-scrollbar">
+                                    <div v-if="activeDropdown === 'categorias'" class="absolute left-0 top-full mt-1 w-56 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50 max-h-[60vh] overflow-y-auto custom-scrollbar">
                                         <Link
                                             v-for="cat in $page.props.globalCategorias"
                                             :key="cat.id"
                                             :href="route('catalogo.index', { categoria: cat.id })"
-                                            class="block w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold"
+                                            @click="activeDropdown = null"
+                                            class="block w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold truncate"
                                         >{{ cat.nombre }}</Link>
                                     </div>
                                 </transition>
                             </div>
 
-                            <Link :href="route('catalogo.index')" class="px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">PREVENTAS</Link>
+                            <Link :href="route('catalogo.index', { preventa: 1 })" class="px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">PREVENTAS</Link>
                             <Link :href="route('nosotros')" class="px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">NOSOTROS</Link>
                         </nav>
 
@@ -373,19 +397,33 @@ watch(() => page.props.flash, (flash) => {
                     <div v-if="isMenuOpen" class="md:hidden bg-[#1A1A1A] border-b border-white/10 p-4 space-y-4 text-xs font-bold uppercase tracking-wider">
                         <Link :href="route('catalogo.index')" class="block py-1 text-white/70 hover:text-white">Inicio</Link>
 
-                        <div class="space-y-1 pl-2 border-l border-white/10">
-                            <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Editoriales (Mangas)</div>
-                            <button v-for="item in menuMangas" :key="item.nombre" @click="filterBySearch(item.search); isMenuOpen = false" class="block py-1 text-white/40 hover:text-white">
-                                {{ item.nombre }}
-                            </button>
+                        <div class="space-y-1 pl-2 border-l border-white/10 max-h-48 overflow-y-auto">
+                            <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Editoriales</div>
+                            <Link 
+                                v-for="item in $page.props.globalEditoriales" 
+                                :key="item.id" 
+                                :href="route('catalogo.index', { proveedor: item.id })" 
+                                @click="isMenuOpen = false" 
+                                class="block py-1 text-white/60 hover:text-white"
+                            >
+                                {{ item.nombre_empresa }}
+                            </Link>
                         </div>
 
-                        <div class="space-y-1 pl-2 border-l border-white/10">
-                            <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Editoriales (Comics)</div>
-                            <button v-for="item in menuComics" :key="item.nombre" @click="filterBySearch(item.search); isMenuOpen = false" class="block py-1 text-white/40 hover:text-white">
-                                {{ item.nombre }}
-                            </button>
+                        <div class="space-y-1 pl-2 border-l border-white/10 max-h-48 overflow-y-auto">
+                            <div class="text-brand-red text-[10px] font-bold tracking-widest uppercase">Categorías</div>
+                            <Link 
+                                v-for="cat in $page.props.globalCategorias" 
+                                :key="cat.id" 
+                                :href="route('catalogo.index', { categoria: cat.id })" 
+                                @click="isMenuOpen = false" 
+                                class="block py-1 text-white/60 hover:text-white"
+                            >
+                                {{ cat.nombre }}
+                            </Link>
                         </div>
+
+                        <Link :href="route('catalogo.index', { preventa: 1 })" @click="isMenuOpen = false" class="block py-1 text-emerald-400 hover:text-emerald-300 font-bold">Preventas Activas</Link>
 
                         <template v-if="user">
                             <Link :href="route('mi-cuenta.index')" class="block py-1 text-white/70 hover:text-white">Mi Cuenta</Link>

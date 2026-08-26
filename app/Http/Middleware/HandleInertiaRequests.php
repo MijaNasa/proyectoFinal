@@ -55,6 +55,9 @@ class HandleInertiaRequests extends Middleware
             'carritoCount' => CarritoController::getCount(),
             'carritoTotal' => CarritoController::getTotal(),
             'globalCategorias' => \App\Models\Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
+            'globalEditoriales' => \App\Models\Proveedor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
+            'globalMangaEditoriales' => \App\Models\Proveedor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true)->whereHas('categoria', fn($c) => $c->whereRaw('LOWER(nombre) LIKE ?', ['%manga%'])))->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
+            'globalComicEditoriales' => \App\Models\Proveedor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true)->whereHas('categoria', fn($c) => $c->whereRaw('LOWER(nombre) NOT LIKE ?', ['%manga%'])))->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
             'flash' => [
                 'success' => session('success') ?? session('message'),
                 'warning' => session('warning'),

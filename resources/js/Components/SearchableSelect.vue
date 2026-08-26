@@ -25,6 +25,10 @@ const props = defineProps({
     required: {
         type: Boolean,
         default: false
+    },
+    disabled: {
+        type: Boolean,
+        default: false
     }
 });
 
@@ -158,14 +162,15 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-    <div class="relative w-full" ref="wrapperRef">
+    <div class="relative w-full" :class="[disabled ? 'opacity-40 cursor-not-allowed pointer-events-none' : '']" ref="wrapperRef">
         <input 
             type="text" 
             v-model="search"
-            @focus="isOpen = true"
-            @click="isOpen = true; search = ''" 
+            :disabled="disabled"
+            @focus="!disabled && (isOpen = true)"
+            @click="!disabled && (isOpen = true, $event.target.select())" 
             :placeholder="placeholder"
-            class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30 transition-all cursor-pointer pr-14"
+            class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30 transition-all cursor-pointer pr-14 disabled:cursor-not-allowed"
         />
         
         <!-- Clear Icon -->

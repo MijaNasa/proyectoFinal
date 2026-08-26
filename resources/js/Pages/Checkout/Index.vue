@@ -428,11 +428,12 @@ const confirmar = () => {
                                     <input type="radio" v-model="tipoEnvio" value="correo_sucursal" class="mt-1 accent-white" />
                                     <div class="flex-1">
                                         <p class="font-bold text-sm text-white">Envío a Sucursal de Correo (Correo Argentino)</p>
-                                        <p class="text-zinc-400 text-xs mt-0.5">Retirás en la sucursal de Correo Argentino que elijas. Recargo de {{ formatPrecio(50000) }}.</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5">Retirás en la sucursal de Correo Argentino que elijas.</p>
                                     </div>
                                 </label>
 
                                 <label
+                                    v-if="$page.props.auth?.user"
                                     class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
                                     :class="tipoEnvio === 'acumulacion' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
                                 >
@@ -442,6 +443,23 @@ const confirmar = () => {
                                         <p class="text-zinc-400 text-xs mt-0.5">Acumulá tu pedido en sucursal para coordinar un único envío posterior.</p>
                                     </div>
                                 </label>
+
+                                <div
+                                    v-else
+                                    class="flex items-start gap-4 p-4 rounded-xl border border-white/10 bg-[#0d0d0f]/60 opacity-80"
+                                >
+                                    <div class="mt-0.5 text-base">📦</div>
+                                    <div class="flex-1">
+                                        <p class="font-bold text-sm text-zinc-300">Acumulación de Envío <span class="text-zinc-500 font-normal text-xs">(Solo clientes registrados)</span></p>
+                                        <p class="text-zinc-400 text-xs mt-0.5 leading-relaxed">
+                                            Guardá tus pedidos en sucursal y coordiná un único envío posterior. 
+                                            <Link :href="route('login')" class="text-blue-400 hover:text-blue-300 underline font-semibold ml-1">
+                                                Ingresá a tu cuenta
+                                            </Link> 
+                                            para utilizar la acumulación.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Selector de Sucursal -->
@@ -552,10 +570,6 @@ const confirmar = () => {
                                             </select>
                                             <input v-else v-model="localidad" type="text" placeholder="Ej: Córdoba Capital, Mendoza..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
                                         </div>
-                                    </div>
-
-                                    <div v-if="provincia && (provincia !== 'Santa Fe' || localidad) && !esEnvioLocal" class="p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl text-amber-400 text-xs font-semibold mt-2">
-                                        ⚠️ El envío se realiza por Correo Nacional con un recargo de {{ formatPrecio(50000) }}.
                                     </div>
 
                                     <!-- Autocomplete -->
@@ -729,6 +743,7 @@ const confirmar = () => {
                                 </label>
 
                                 <label
+                                    v-if="$page.props.auth?.user"
                                     class="flex items-start gap-4 p-4 rounded-xl border transition-all"
                                     :class="[
                                         medioPago === 'Cuenta Corriente' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f]',
@@ -752,6 +767,23 @@ const confirmar = () => {
                                         </p>
                                     </div>
                                 </label>
+
+                                <div
+                                    v-else
+                                    class="flex items-start gap-4 p-4 rounded-xl border border-white/10 bg-[#0d0d0f]/60 opacity-80"
+                                >
+                                    <div class="mt-0.5 text-base">🏛️</div>
+                                    <div class="flex-1">
+                                        <p class="font-bold text-sm text-zinc-300">Cuenta Corriente</p>
+                                        <p class="text-zinc-400 text-xs mt-0.5 leading-relaxed">
+                                            ¿Tenés saldo a favor? 
+                                            <Link :href="route('login')" class="text-blue-400 hover:text-blue-300 underline font-semibold ml-1">
+                                                Ingresá a tu cuenta
+                                            </Link> 
+                                            para utilizarlo en tu compra.
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Advertencia 12h Efectivo -->

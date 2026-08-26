@@ -22,7 +22,9 @@ class Libro extends Model
 
     public function getPortadaUrlAttribute(): string
     {
-        if ($this->portada && trim((string)$this->portada) !== '' && $this->portada !== 'null') {
+        $portada = strtolower(trim((string)$this->portada));
+
+        if ($this->portada && $portada !== '' && $portada !== 'null' && !str_contains($portada, 'no-cover') && !str_contains($portada, 'default') && !str_contains($portada, 'generico') && !str_contains($portada, 'generica')) {
             if (filter_var($this->portada, FILTER_VALIDATE_URL)) {
                 return $this->portada;
             }

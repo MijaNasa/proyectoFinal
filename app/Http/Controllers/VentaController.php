@@ -549,15 +549,21 @@ class VentaController extends Controller
         }
 
         $request->validate([
-            'estado' => 'sometimes|required|in:pendiente_pago,esperando_traslado,en_preparacion,listo_para_retiro,acumulado,enviado,finalizado,cancelado',
+            'estado' => 'sometimes|required|in:pendiente_pago,en_preventa,esperando_traslado,en_preparacion,listo_para_retiro,acumulado,enviado,finalizado,cancelado',
             'direccion_envio' => 'nullable|string|max:500',
             'latitud' => 'nullable|numeric|between:-90,90',
             'longitud' => 'nullable|numeric|between:-180,180',
         ]);
 
-        $user = auth()->user();
-        $esAdminOManager = $user && ($user->esAdmin() || $user->esGerente());
-        $estadosRestringidos = ['en_preventa', 'esperando_traslado', 'finalizado', 'cancelado'];
+        $nuevoEstado = $request->estado;
+        $estadoActual = $venta->estado;
+
+        if ($nuevoEstado && $nuevoEstado !== $estadoActual) {
+            $permitidos = Venta::TRANSICIONES[$estadoActual] ?? [];
+            if (!in_array($nuevoEstado, $permitidos)) {
+                return back()->with('error', 'No es posible pasar del estado ' . strtoupper(str_replace('_', ' ', $estadoActual)) . ' a ' . strtoupper(str_replace('_', ' ', $nuevoEstado)) . '.');
+            }
+        }
 
         if ($request->estado === 'cancelado' && $venta->estado !== 'cancelado') {
             \DB::transaction(function () use ($venta) {
@@ -565,10 +571,6 @@ class VentaController extends Controller
                 $fresh->cancelarConRestitucionDeStock();
             });
             return back()->with('message', 'Venta cancelada y stock revertido.');
-        }
-
-        if (in_array($venta->estado, $estadosRestringidos) && $request->has('estado') && $request->estado !== $venta->estado && !$esAdminOManager) {
-            return back()->with('error', 'Este estado solo puede ser modificado por un Administrador o mediante eventos del sistema (Logística / Preventas).');
         }
 
         $updates = [];

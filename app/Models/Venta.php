@@ -14,6 +14,43 @@ class Venta extends Model
 {
     use HasFactory, SoftDeletes;
 
+    public const TRANSICIONES = [
+        'pendiente_pago' => [
+            'en_preparacion',
+            'en_preventa',
+            'acumulado',
+            'cancelado'
+        ],
+        'en_preventa' => [
+            'en_preparacion',
+            'cancelado'
+        ],
+        'en_preparacion' => [
+            'listo_para_retiro',
+            'enviado',
+            'esperando_traslado',
+            'cancelado'
+        ],
+        'esperando_traslado' => [
+            'listo_para_retiro',
+            'enviado',
+            'cancelado'
+        ],
+        'acumulado' => [
+            'en_preparacion',
+            'cancelado'
+        ],
+        'listo_para_retiro' => [
+            'finalizado'
+        ],
+        'enviado' => [
+            'finalizado',
+            'en_preparacion'
+        ],
+        'finalizado' => [],
+        'cancelado'  => [],
+    ];
+
     protected $fillable = [
         'fecha', 'cliente_id', 'user_id',
         'sucursal_id', 'tipo', 'total',

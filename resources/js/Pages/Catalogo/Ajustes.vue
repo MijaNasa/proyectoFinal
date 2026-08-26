@@ -8,7 +8,8 @@ import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 const props = defineProps({
     autores: Array,
     categorias: Array,
-    idiomas: Array
+    idiomas: Array,
+    formatos: Array
 });
 
 const currentTab = ref('autores');
@@ -17,6 +18,7 @@ const searchQuery = ref('');
 const tabs = [
     { id: 'autores', name: 'Autores' },
     { id: 'categorias', name: 'Categorías' },
+    { id: 'formatos', name: 'Formatos' },
     { id: 'idiomas', name: 'Idiomas' }
 ];
 
@@ -29,6 +31,7 @@ const filteredItems = computed(() => {
     let list = [];
     if (currentTab.value === 'autores') list = props.autores;
     else if (currentTab.value === 'categorias') list = props.categorias;
+    else if (currentTab.value === 'formatos') list = props.formatos;
     else if (currentTab.value === 'idiomas') list = props.idiomas;
 
     if (!searchQuery.value) return list;
@@ -68,6 +71,7 @@ const editForm = useForm({
     nombre: '',
     apellido: '',
     codigo: '',
+    old_nombre: '',
     
     // Campos Proveedor
     nombre_empresa: '',
@@ -84,6 +88,7 @@ const openCreateModal = () => {
     editForm.nombre = '';
     editForm.apellido = '';
     editForm.codigo = '';
+    editForm.old_nombre = '';
     editForm.nombre_empresa = '';
     editForm.telefono = '';
     editForm.email = '';
@@ -102,6 +107,7 @@ const openEditModal = (item) => {
     editForm.nombre = item.nombre || '';
     editForm.apellido = item.apellido || '';
     editForm.codigo = item.codigo || '';
+    editForm.old_nombre = item.nombre || '';
     editForm.nombre_empresa = item.nombre_empresa || '';
     editForm.telefono = item.telefono || '';
     editForm.email = item.email || '';
@@ -183,6 +189,7 @@ const confirmDelete = (item) => {
 const itemName = computed(() => {
     if (editingType.value === 'autores') return 'Autor';
     if (editingType.value === 'categorias') return 'Categoría';
+    if (editingType.value === 'formatos') return 'Formato';
     if (editingType.value === 'proveedores') return 'Proveedor';
     if (editingType.value === 'idiomas') return 'Idioma';
     return 'Metadato';
@@ -255,6 +262,7 @@ const itemName = computed(() => {
                                 <tr class="border-b border-white/5 bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400">
                                     <th class="p-4" v-if="currentTab === 'autores'">Autor</th>
                                     <th class="p-4" v-else-if="currentTab === 'categorias'">Categoría</th>
+                                    <th class="p-4" v-else-if="currentTab === 'formatos'">Formato</th>
                                     <th class="p-4" v-else-if="currentTab === 'proveedores'">Proveedor</th>
                                     <th class="p-4" v-else-if="currentTab === 'idiomas'">Idioma</th>
 
@@ -382,6 +390,14 @@ const itemName = computed(() => {
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Dirección</label>
                                     <DireccionAutocomplete v-model="editForm.direccion" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" />
                                     <span v-if="editForm.errors.direccion" class="text-rose-400 text-xs mt-1 block font-semibold">{{ editForm.errors.direccion }}</span>
+                                </div>
+                            </div>
+
+                            <div v-if="editingType === 'formatos'" class="space-y-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Nombre del Formato *</label>
+                                    <input v-model="editForm.nombre" type="text" placeholder="ej. Tankoubon (11.5x17 cm)" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" required />
+                                    <span v-if="editForm.errors.nombre" class="text-rose-400 text-xs mt-1 block font-semibold">{{ editForm.errors.nombre }}</span>
                                 </div>
                             </div>
 

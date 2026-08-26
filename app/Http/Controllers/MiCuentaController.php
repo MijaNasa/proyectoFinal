@@ -72,12 +72,19 @@ class MiCuentaController extends Controller
 
     public function uploadComprobante(Request $request, Venta $venta)
     {
-        if ($venta->user_id !== Auth::id()) {
-            abort(403);
+        if (Auth::check()) {
+            if ($venta->user_id !== Auth::id() && $venta->cliente?->user_id !== Auth::id() && !Auth::user()->empleado) {
+                abort(403);
+            }
         }
 
         $request->validate([
-            'comprobante' => 'required|image|mimes:jpeg,png,jpg|max:5120', // Max 5MB
+            'comprobante' => 'required|file|mimes:jpeg,png,jpg,webp,pdf|max:7168', // Max 7MB
+        ], [
+            'comprobante.required' => 'Seleccioná un archivo de comprobante.',
+            'comprobante.file'     => 'El archivo seleccionado no es válido.',
+            'comprobante.mimes'    => 'El comprobante debe ser una imagen (JPG, PNG, WEBP) o un documento PDF.',
+            'comprobante.max'      => 'El archivo es demasiado grande (máximo 7 MB). Por favor elegí una imagen o captura más liviana.',
         ]);
 
         if ($request->hasFile('comprobante')) {

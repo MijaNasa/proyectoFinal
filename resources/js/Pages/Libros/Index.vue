@@ -655,6 +655,10 @@ const quickEditPrice = async (libro) => {
                 Swal.showValidationMessage('El precio debe ser mayor a 0');
                 return false;
             }
+            if (currentPrice && Math.abs(parseFloat(val) - parseFloat(currentPrice.precio_venta)) < 0.01) {
+                Swal.showValidationMessage(`El nuevo precio no puede ser igual al precio actual (${formatCurrency(currentPrice.precio_venta)}).`);
+                return false;
+            }
             return parseFloat(val).toFixed(2);
         }
     }).then((result) => {
@@ -776,14 +780,12 @@ const proveedoresFormatosMap = computed(() => {
     return opcionesMasivasLocal.value?.proveedores_formatos || opcionesMasivasLocal.value?.proveedoresFormatos || {};
 });
 
-const proveedoresFiltrados = computed(() => {
+const proveedoresLista = computed(() => {
     let lista = Object.keys(proveedoresFormatosMap.value);
     if (lista.length === 0 && opcionesMasivasLocal.value?.proveedores) {
         lista = opcionesMasivasLocal.value.proveedores;
     }
-    if (!searchProveedorQuery.value) return lista;
-    const q = searchProveedorQuery.value.toLowerCase();
-    return lista.filter(p => p && p.toLowerCase().includes(q));
+    return lista;
 });
 
 const formatosDisponibles = computed(() => {
@@ -817,11 +819,6 @@ watch(() => bulkForm.proveedor, () => {
 });
 
 const submitBulk = () => {
-    if (bulkForm.criterio === 'proveedor_formato') {
-        bulkForm.proveedor = bulkForm.proveedor || searchProveedorQuery.value;
-    } else if (bulkForm.criterio === 'serie') {
-        bulkForm.serie = bulkForm.serie || searchSerieQuery.value;
-    }
 
     if (bulkForm.criterio === 'categoria' && !bulkForm.categoria_id) {
         darkSwal.fire({ title: 'Atención', text: 'Seleccioná una categoría', icon: 'warning' });
@@ -953,7 +950,7 @@ const submitBulk = () => {
                                         <td class="p-4">
                                             <div class="flex items-center gap-3">
                                                 <div class="w-10 h-14 bg-zinc-900 border border-white/10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center shadow-sm">
-                                                    <img v-if="obra.portada_url" :src="obra.portada_url" class="w-full h-full object-cover" />
+                                                    <img v-if="obra.portada_url" :src="obra.portada_url" @error="$event.target.src = '/images/no-cover.png'" class="w-full h-full object-cover" />
                                                     <span v-else class="text-[9px] text-zinc-600 font-semibold text-center">Sin foto</span>
                                                 </div>
                                                 <div>
@@ -1020,7 +1017,7 @@ const submitBulk = () => {
                                                             <td class="py-3 pr-4">
                                                                 <div class="flex items-center gap-2.5">
                                                                     <div class="w-7 h-10 bg-zinc-900 border border-white/10 rounded overflow-hidden shrink-0 flex items-center justify-center">
-                                                                        <img :src="libro.portada_url" class="w-full h-full object-cover" />
+                                                                        <img :src="libro.portada_url" @error="$event.target.src = '/images/no-cover.png'" class="w-full h-full object-cover" />
                                                                     </div>
                                                                     <div class="text-xs font-bold text-white tracking-tight">{{ formatTomoDisplay(libro.numero_tomo) }}</div>
                                                                 </div>
@@ -1121,7 +1118,7 @@ const submitBulk = () => {
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Foto de Portada de la Obra (General)</label>
                                         <div class="flex items-center gap-4 bg-[#131316] p-3 rounded-xl border border-white/10">
                                             <div class="w-16 h-20 bg-zinc-900 border border-white/10 rounded-lg overflow-hidden flex items-center justify-center shrink-0 shadow">
-                                                <img v-if="obraPortadaPreview" :src="obraPortadaPreview" class="w-full h-full object-cover" />
+                                                <img v-if="obraPortadaPreview" :src="obraPortadaPreview" @error="$event.target.src = '/images/no-cover.png'" class="w-full h-full object-cover" />
                                                 <span v-else class="text-[10px] text-zinc-500 font-semibold text-center px-1">Sin foto</span>
                                             </div>
                                             <div class="flex-1 space-y-1">
@@ -1213,12 +1210,11 @@ const submitBulk = () => {
                                     <div class="flex items-center justify-between">
                                         <label class="block text-xs font-semibold text-zinc-300">Foto de Portada del Tomo / Volumen</label>
                                         <span v-if="tomoPortadaPreview" class="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">Portada Específica</span>
-                                        <span v-else-if="masterPortadaFallback" class="text-[10px] font-semibold text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded-full border border-sky-500/20">Hereda de la Obra</span>
                                     </div>
                                     <div class="flex items-center gap-4">
                                         <div class="w-16 h-20 bg-zinc-900 border border-white/10 rounded-lg overflow-hidden flex items-center justify-center shrink-0 shadow-md">
-                                            <img v-if="tomoPortadaPreview" :src="tomoPortadaPreview" class="w-full h-full object-cover" />
-                                            <img v-else-if="masterPortadaFallback" :src="masterPortadaFallback" class="w-full h-full object-cover opacity-70" />
+                                            <img v-if="tomoPortadaPreview" :src="tomoPortadaPreview" @error="$event.target.src = '/images/no-cover.png'" class="w-full h-full object-cover" />
+                                            <img v-else-if="masterPortadaFallback" :src="masterPortadaFallback" @error="$event.target.src = '/images/no-cover.png'" class="w-full h-full object-cover opacity-70" />
                                             <span v-else class="text-[10px] text-zinc-500 font-semibold text-center px-1">Sin foto</span>
                                         </div>
                                         <div class="flex-1 space-y-2">
@@ -1226,7 +1222,7 @@ const submitBulk = () => {
                                             <div class="flex items-center justify-between">
                                                 <p class="text-[11px] text-zinc-500">Opcional: Si no subes foto, usará la de la obra.</p>
                                                 <button v-if="tomoPortadaPreview" type="button" @click="quitarTomoPortada" class="text-[11px] text-rose-400 hover:text-rose-300 font-semibold transition-colors underline">
-                                                    Quitar foto (heredar de obra)
+                                                    Quitar foto
                                                 </button>
                                             </div>
                                         </div>
@@ -1340,61 +1336,25 @@ const submitBulk = () => {
                                     </select>
                                 </div>
 
-                                <div v-if="bulkForm.criterio === 'proveedor_formato'" class="grid grid-cols-2 gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5">
-                                    <div class="relative">
+                                <div v-if="bulkForm.criterio === 'proveedor_formato'" class="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                                    <div>
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">1. Proveedor *</label>
-                                        <div class="relative">
-                                            <input v-model="searchProveedorQuery" @focus="showProveedorDropdown = true" type="text" placeholder="Buscar" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium relative z-50" />
-                                            <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                        </div>
-                                        
-                                        <div v-if="showProveedorDropdown" class="absolute z-50 w-full mt-1 bg-[#131316] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
-                                            <div v-for="e in proveedoresFiltrados" :key="e" @mousedown.prevent="bulkForm.proveedor = e; searchProveedorQuery = e; showProveedorDropdown = false" class="px-4 py-2.5 text-xs text-zinc-300 cursor-pointer hover:bg-white/10 hover:text-white transition-colors border-b border-white/5 last:border-0 font-medium" :class="bulkForm.proveedor === e ? 'bg-white/10 text-white font-bold' : ''">
-                                                {{ e }}
-                                            </div>
-                                            <div v-if="proveedoresFiltrados.length === 0" class="px-4 py-3 text-xs text-zinc-500 italic text-center">No hay resultados</div>
-                                        </div>
-                                        <div v-if="showProveedorDropdown" class="fixed inset-0 z-40" @click="showProveedorDropdown = false"></div>
+                                        <SearchableSelect v-model="bulkForm.proveedor" :options="proveedoresLista" placeholder="Seleccionar proveedor" :required="true" />
                                     </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">2. Formato</label>
-                                        <select v-model="bulkForm.formato" :disabled="!bulkForm.proveedor" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium transition-opacity" :class="!bulkForm.proveedor ? 'opacity-40 cursor-not-allowed pointer-events-none' : ''">
-                                            <option value="">Todos los formatos</option>
-                                            <option v-for="f in formatosDisponibles" :key="f" :value="f">{{ f }}</option>
-                                        </select>
+                                        <SearchableSelect v-model="bulkForm.formato" :options="formatosDisponibles" placeholder="Todos los formatos (opcional)" :required="false" :disabled="!bulkForm.proveedor" />
                                     </div>
                                 </div>
 
-                                <div v-if="bulkForm.criterio === 'serie'" class="relative bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                                <div v-if="bulkForm.criterio === 'serie'" class="bg-white/[0.02] p-4 rounded-xl border border-white/5">
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Seleccionar Producto / Serie *</label>
-                                    <div class="relative">
-                                        <input v-model="searchSerieQuery" @focus="showSerieDropdown = true" type="text" placeholder="Buscar producto o serie" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium relative z-50" />
-                                        <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                    </div>
-                                    
-                                    <div v-if="showSerieDropdown" class="absolute z-50 w-full mt-1 bg-[#131316] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
-                                        <div v-for="s in seriesFiltradas" :key="s" @mousedown.prevent="bulkForm.serie = s; searchSerieQuery = s; showSerieDropdown = false" class="px-4 py-2.5 text-xs text-zinc-300 cursor-pointer hover:bg-white/10 hover:text-white transition-colors border-b border-white/5 last:border-0 font-medium" :class="bulkForm.serie === s ? 'bg-white/10 text-white font-bold' : ''">
-                                            {{ s }}
-                                        </div>
-                                        <div v-if="seriesFiltradas.length === 0" class="px-4 py-3 text-xs text-zinc-500 italic text-center">No hay resultados</div>
-                                    </div>
-                                    <div v-if="showSerieDropdown" class="fixed inset-0 z-40" @click="showSerieDropdown = false"></div>
+                                    <SearchableSelect v-model="bulkForm.serie" :options="opcionesMasivasLocal?.series || []" placeholder="Seleccionar producto o serie" :required="true" />
                                 </div>
 
-                                <div v-if="bulkForm.criterio === 'libro_individual'" class="relative bg-white/[0.02] p-4 rounded-xl border border-white/5">
+                                <div v-if="bulkForm.criterio === 'libro_individual'" class="bg-white/[0.02] p-4 rounded-xl border border-white/5">
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Seleccionar Ítem Individual *</label>
-                                    <div class="relative">
-                                        <input v-model="searchLibroQuery" @focus="showLibroDropdown = true" type="text" placeholder="Buscar ítem por título o ISBN" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-4 pr-10 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium relative z-50" />
-                                        <svg class="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 pointer-events-none z-[51]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
-                                    </div>
-                                    
-                                    <div v-if="showLibroDropdown" class="absolute z-50 w-full mt-1 bg-[#131316] border border-white/10 rounded-xl max-h-48 overflow-y-auto shadow-2xl">
-                                        <div v-for="l in librosFiltrados" :key="l.id" @mousedown.prevent="bulkForm.libro_id = l.id; searchLibroQuery = l.titulo; showLibroDropdown = false" class="px-4 py-2.5 text-xs text-zinc-300 cursor-pointer hover:bg-white/10 hover:text-white transition-colors border-b border-white/5 last:border-0 font-medium" :class="bulkForm.libro_id === l.id ? 'bg-white/10 text-white font-bold' : ''">
-                                            {{ l.titulo }}
-                                        </div>
-                                        <div v-if="librosFiltrados.length === 0" class="px-4 py-3 text-xs text-zinc-500 italic text-center">No hay resultados</div>
-                                    </div>
-                                    <div v-if="showLibroDropdown" class="fixed inset-0 z-40" @click="showLibroDropdown = false"></div>
+                                    <SearchableSelect v-model="bulkForm.libro_id" :options="opcionesMasivasLocal?.libros || []" labelKey="titulo" valueKey="id" placeholder="Seleccionar ítem por título o ISBN" :required="true" />
                                 </div>
                                 
                                 <div>
