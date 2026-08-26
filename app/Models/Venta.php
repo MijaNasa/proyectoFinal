@@ -18,6 +18,7 @@ class Venta extends Model
         'pendiente_pago' => [
             'en_preparacion',
             'listo_para_retiro',
+            'esperando_traslado',
             'finalizado',
             'en_preventa',
             'acumulado',
