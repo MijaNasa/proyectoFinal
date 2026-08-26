@@ -42,6 +42,7 @@ class Venta extends Model
         ],
         'acumulado' => [
             'en_preparacion',
+            'listo_para_retiro',
             'cancelado'
         ],
         'listo_para_retiro' => [
