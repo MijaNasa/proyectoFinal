@@ -57,7 +57,7 @@ const categorias = [
     { value: 'otros',         label: 'Otros' },
 ];
 const catMap = Object.fromEntries(categorias.map(c => [c.value, c]));
-const metodosPago = ['Efectivo', 'Transferencia', 'Tarjeta de débito', 'Tarjeta de crédito', 'Cheque'];
+const metodosPago = ['Efectivo', 'Transferencia', 'Tarjeta'];
 
 // ── Formato ───────────────────────────────────────────────
 const fmt = (n) => new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 }).format(n || 0);
@@ -387,10 +387,13 @@ const eliminar = (gasto) => {
                                 <!-- Monto -->
                                 <div>
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Monto *</label>
-                                    <input v-model="form.monto" type="number" step="0.01" min="0.01"
-                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-bold text-right font-mono focus:outline-none focus:border-white/30"
-                                        :class="{ 'border-rose-500': form.errors.monto }"
-                                        placeholder="0.00" />
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-sm font-bold text-white">$</span>
+                                        <input v-model="form.monto" type="number" step="0.01" min="0.01"
+                                            class="w-full bg-[#131316] border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-sm text-white font-bold text-right font-mono focus:outline-none focus:border-white/30"
+                                            :class="{ 'border-rose-500': form.errors.monto }"
+                                            placeholder="0.00" />
+                                    </div>
                                     <p v-if="form.errors.monto" class="text-rose-400 text-xs font-semibold mt-1 block">{{ form.errors.monto }}</p>
                                 </div>
                             </div>

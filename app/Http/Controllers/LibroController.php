@@ -35,6 +35,7 @@ class LibroController extends Controller
             'categorias'  => \App\Models\Categoria::orderBy('nombre')->get(['id', 'nombre']),
             'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
             'idiomas'     => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
+            'formatos'    => \App\Models\Formato::where('activo', true)->orderBy('nombre')->pluck('nombre'),
             'sucursales'  => \App\Models\Sucursal::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'filters'     => $request->only(['search']),
         ]);

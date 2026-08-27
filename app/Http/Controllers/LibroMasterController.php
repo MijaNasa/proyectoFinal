@@ -9,6 +9,11 @@ use Illuminate\Http\Request;
 
 class LibroMasterController extends Controller
 {
+    private function removeAccents(string $value): string
+    {
+        return mb_strtolower(trim(\Illuminate\Support\Str::ascii($value)), 'UTF-8');
+    }
+
     private function processRelations(&$data)
     {
         if (empty($data['autor_id'])) {
@@ -25,9 +30,11 @@ class LibroMasterController extends Controller
                 }
 
                 if (!empty($nombre)) {
-                    $autor = \App\Models\Autor::where('nombre', $nombre)
-                        ->where('apellido', $apellido)
-                        ->first();
+                    $normNombre = $this->removeAccents($nombre);
+                    $normApellido = $apellido ? $this->removeAccents($apellido) : '';
+                    $autor = \App\Models\Autor::all()->first(function ($a) use ($normNombre, $normApellido) {
+                        return $this->removeAccents($a->nombre) === $normNombre && $this->removeAccents($a->apellido ?? '') === $normApellido;
+                    });
 
                     if (!$autor) {
                         $autor = \App\Models\Autor::create(['nombre' => $nombre, 'apellido' => $apellido]);
@@ -46,7 +53,10 @@ class LibroMasterController extends Controller
         } else if (!is_numeric($data['categoria_id'])) {
             $catStr = trim((string)$data['categoria_id']);
             if ($catStr !== '') {
-                $categoria = \App\Models\Categoria::where('nombre', $catStr)->first();
+                $normCat = $this->removeAccents($catStr);
+                $categoria = \App\Models\Categoria::all()->first(function ($c) use ($normCat) {
+                    return $this->removeAccents($c->nombre) === $normCat;
+                });
                 if (!$categoria) {
                     $categoria = \App\Models\Categoria::create(['nombre' => $catStr]);
                 }
@@ -61,7 +71,10 @@ class LibroMasterController extends Controller
         } else if (!is_numeric($data['proveedor_id'])) {
             $provStr = trim((string)$data['proveedor_id']);
             if ($provStr !== '') {
-                $proveedor = \App\Models\Proveedor::where('nombre_empresa', $provStr)->first();
+                $normProv = $this->removeAccents($provStr);
+                $proveedor = \App\Models\Proveedor::all()->first(function ($p) use ($normProv) {
+                    return $this->removeAccents($p->nombre_empresa) === $normProv;
+                });
                 if (!$proveedor) {
                     $proveedor = \App\Models\Proveedor::create(['nombre_empresa' => $provStr]);
                 }
@@ -76,9 +89,13 @@ class LibroMasterController extends Controller
         } else if (!is_numeric($data['idioma_id'])) {
             $idStr = trim((string)$data['idioma_id']);
             if ($idStr !== '') {
-                $idioma = \App\Models\Idioma::where('nombre', $idStr)->first();
+                $normId = $this->removeAccents($idStr);
+                $idioma = \App\Models\Idioma::all()->first(function ($i) use ($normId) {
+                    return $this->removeAccents($i->nombre) === $normId;
+                });
                 if (!$idioma) {
-                    $codigo = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $idStr), 0, 3));
+                    $codigo = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $this->removeAccents($idStr)), 0, 3));
+                    if (empty($codigo)) $codigo = 'IDI';
                     if (\App\Models\Idioma::where('codigo', $codigo)->exists()) {
                         $codigo = substr(md5(uniqid()), 0, 5);
                     }
@@ -92,6 +109,22 @@ class LibroMasterController extends Controller
 
         if (empty($data['formato'])) {
             $data['formato'] = null;
+        } else {
+            $fmtStr = trim((string)$data['formato']);
+            if ($fmtStr !== '') {
+                $normFmt = $this->removeAccents($fmtStr);
+                $formatoObj = \App\Models\Formato::all()->first(function ($f) use ($normFmt) {
+                    return $this->removeAccents($f->nombre) === $normFmt;
+                });
+                if ($formatoObj) {
+                    $data['formato'] = $formatoObj->nombre;
+                } else {
+                    $formatoObj = \App\Models\Formato::create(['nombre' => $fmtStr]);
+                    $data['formato'] = $formatoObj->nombre;
+                }
+            } else {
+                $data['formato'] = null;
+            }
         }
     }
 
@@ -121,6 +154,7 @@ class LibroMasterController extends Controller
             'categorias' => \App\Models\Categoria::orderBy('nombre')->get(['id', 'nombre']),
             'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
             'idiomas' => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
+            'formatos' => \App\Models\Formato::where('activo', true)->orderBy('nombre')->pluck('nombre'),
             'filters' => $request->only(['search'])
         ]);
     }

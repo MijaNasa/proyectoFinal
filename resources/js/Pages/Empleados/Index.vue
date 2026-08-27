@@ -422,11 +422,6 @@ const colorCargo = (nombre) => {
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Nro. de Legajo</label>
                                         <input v-model="form.legajo" type="text" disabled class="w-full bg-[#131316]/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-zinc-400 font-mono font-bold cursor-not-allowed">
                                     </div>
-                                    <div v-else>
-                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Nro. de Legajo <span class="text-zinc-500 font-normal">(Autogenerado)</span></label>
-                                        <input v-model="form.legajo" type="text" placeholder="Autogenerado al guardar" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-mono focus:outline-none focus:border-white/30" :class="{'border-rose-500': form.errors.legajo}">
-                                        <p v-if="form.errors.legajo" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.legajo }}</p>
-                                    </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Sucursal Destino *</label>
                                         <select v-model="form.sucursal_id" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer" :class="{'border-rose-500': form.errors.sucursal_id}">

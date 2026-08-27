@@ -168,7 +168,7 @@ onBeforeUnmount(() => {
             v-model="search"
             :disabled="disabled"
             @focus="!disabled && (isOpen = true)"
-            @click="!disabled && (isOpen = true, $event.target.select())" 
+            @click="!disabled && (isOpen = true)" 
             :placeholder="placeholder"
             class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30 transition-all cursor-pointer pr-14 disabled:cursor-not-allowed"
         />

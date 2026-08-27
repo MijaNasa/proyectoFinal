@@ -16,7 +16,7 @@ class SuscripcionController extends Controller
             ->groupBy('libro_master_id')
             ->orderByDesc('total')
             ->limit(5)
-            ->with('serie:id,titulo,portada_url')
+            ->with('serie:id,titulo,portada')
             ->get();
 
         // Listado de suscripciones

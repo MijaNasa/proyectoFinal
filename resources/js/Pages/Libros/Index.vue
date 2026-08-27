@@ -11,6 +11,7 @@ const props = defineProps({
     categorias: Array,
     proveedores: Array,
     idiomas: Array,
+    formatos: Array,
     sucursales: Array,
     filters: Object
 });
@@ -93,13 +94,14 @@ const onObraPortadaChange = (e) => {
     }
 };
 
-const formatosLocal = ref(['Tankobon', 'B6', 'A5', 'Kanzenban', 'Omnibus', 'Pocket', 'Novela Ligera', 'Otro']);
+const formatosLocal = ref(props.formatos?.length ? [...props.formatos] : ['Tankobon', 'B6', 'A5', 'Kanzenban', 'Omnibus', 'Pocket', 'Novela Ligera', 'Otro']);
 
 const autoresLocal = ref(props.autores ? [...props.autores] : []);
 const categoriasLocal = ref(props.categorias ? [...props.categorias] : []);
 const proveedoresLocal = ref(props.proveedores ? [...props.proveedores] : []);
 const idiomasLocal = ref(props.idiomas ? [...props.idiomas] : []);
 
+watch(() => props.formatos, (newVal) => { if (newVal?.length) formatosLocal.value = [...newVal]; }, { deep: true });
 watch(() => props.autores, (newVal) => { autoresLocal.value = newVal ? [...newVal] : []; }, { deep: true });
 watch(() => props.categorias, (newVal) => { categoriasLocal.value = newVal ? [...newVal] : []; }, { deep: true });
 watch(() => props.proveedores, (newVal) => { proveedoresLocal.value = newVal ? [...newVal] : []; }, { deep: true });

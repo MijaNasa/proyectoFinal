@@ -226,14 +226,9 @@ class VentaController extends Controller
                 
                 if ($request->cliente_id) {
                     $suscripciones = \App\Models\Suscripcion::where('cliente_id', $request->cliente_id)
-                        ->where('sucursal_id', $sucursal_id)
                         ->where('estado', 'activa')
                         ->get()
                         ->keyBy('libro_master_id');
-
-                    $historialCompras = \App\Models\VentaDetalle::whereHas('venta', function($q) use ($request) {
-                        $q->where('cliente_id', $request->cliente_id)->where('estado', '!=', 'cancelado');
-                    })->pluck('libro_id')->unique();
                 }
 
                 $processedItems = [];
@@ -248,17 +243,9 @@ class VentaController extends Controller
 
                     $hasDiscount = false;
                     
-                    // Verificar si aplica el descuento por suscripción
+                    // Verificar si aplica el descuento por suscripción (5% adicional para suscriptores de la serie)
                     if ($request->cliente_id && $suscripciones->has($libroModel->master_id)) {
-                        $sub = $suscripciones->get($libroModel->master_id);
-                        // Aplicable solo si el tomo salió después de la suscripción
-                        if ($libroModel->created_at > $sub->created_at) {
-                            // Aplicable solo si nunca compró este tomo
-                            if (!$historialCompras->contains($libroId)) {
-                                $hasDiscount = true;
-                                $historialCompras->push($libroId); // Evitar doble descuento si envía el mismo item dos veces
-                            }
-                        }
+                        $hasDiscount = true;
                     }
 
                     if ($hasDiscount) {

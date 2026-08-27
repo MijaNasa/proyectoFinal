@@ -225,19 +225,19 @@ const crearClienteRapido = () => {
             <div class="space-y-4 text-left">
                 <div>
                     <label class="text-xs font-semibold text-zinc-400 block mb-1">Nombre *</label>
-                    <input id="swal-cli-nombre" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Juan">
+                    <input id="swal-cli-nombre" name="cli_nombre_off" autocomplete="off" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Juan">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-zinc-400 block mb-1">Apellido *</label>
-                    <input id="swal-cli-apellido" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Pérez">
+                    <input id="swal-cli-apellido" name="cli_apellido_off" autocomplete="off" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Pérez">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-zinc-400 block mb-1">Email *</label>
-                    <input id="swal-cli-email" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="email" placeholder="Ej: cliente@email.com">
+                    <input id="swal-cli-email" name="cli_email_off" autocomplete="off" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="email" placeholder="Ej: cliente@email.com">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-zinc-400 block mb-1">DNI / CUIT *</label>
-                    <input id="swal-cli-dni" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: 38123456">
+                    <input id="swal-cli-dni" name="cli_dni_off" autocomplete="off" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: 38123456">
                 </div>
             </div>
         `,
@@ -779,6 +779,10 @@ onMounted(() => {
                         <input 
                             v-model="search" 
                             type="text" 
+                            name="ventas_search_no_autofill"
+                            autocomplete="off"
+                            spellcheck="false"
+                            aria-autocomplete="none"
                             placeholder="Buscar por cliente o #TK..." 
                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium"
                         >
@@ -992,6 +996,10 @@ onMounted(() => {
                                                 @input="buscarClientes(clienteSearch)" 
                                                 @focus="showClienteDropdown = true" 
                                                 type="text" 
+                                                name="cliente_search_pos_no_autofill"
+                                                autocomplete="off"
+                                                spellcheck="false"
+                                                aria-autocomplete="none"
                                                 placeholder="Buscar por nombre, DNI o email..." 
                                                 class="w-full bg-[#131316] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium"
                                             >
@@ -1039,6 +1047,10 @@ onMounted(() => {
                                         @input="buscarLibros(libroSearch)" 
                                         @focus="showLibroDropdown = true" 
                                         type="text" 
+                                        name="libro_search_pos_no_autofill"
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                        aria-autocomplete="none"
                                         placeholder="Buscar por título o ISBN..." 
                                         class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium" 
                                         :disabled="!posForm.sucursal_id"
@@ -1133,7 +1145,7 @@ onMounted(() => {
                                     <div>
                                         <label class="text-xs font-semibold text-zinc-400 block mb-2">Método de Cobro</label>
                                         <select v-model="posForm.medio_pago" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
-                                            <option value="Efectivo">💵 Efectivo Cash</option>
+                                            <option value="Efectivo">💵 Efectivo</option>
                                             <option value="Tarjeta">💳 Tarjeta / Posnet</option>
                                             <option value="Transferencia">📱 Transferencia</option>
                                             <option value="Cuenta Corriente">🏛️ Cuenta Corriente</option>

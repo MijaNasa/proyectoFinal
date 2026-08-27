@@ -246,18 +246,12 @@ class CheckoutController extends Controller
 
         // Procesar Descuentos por Suscripción
         $suscripciones = collect();
-        $historialCompras = collect();
         
         if ($clienteId) {
             $suscripciones = \App\Models\Suscripcion::where('cliente_id', $clienteId)
-                ->where('sucursal_id', $sucursal_id) // Descuento se basa en sucursal destino
                 ->where('estado', 'activa')
                 ->get()
                 ->keyBy('libro_master_id');
-
-            $historialCompras = \App\Models\VentaDetalle::whereHas('venta', function($q) use ($clienteId) {
-                $q->where('cliente_id', $clienteId)->where('estado', '!=', 'cancelado');
-            })->pluck('libro_id')->unique();
         }
 
         $processedItems = [];
@@ -273,13 +267,7 @@ class CheckoutController extends Controller
             $hasDiscount = false;
             
             if ($clienteId && $suscripciones->has($libroModel->master_id)) {
-                $sub = $suscripciones->get($libroModel->master_id);
-                if ($libroModel->created_at > $sub->created_at) {
-                    if (!$historialCompras->contains($libroId)) {
-                        $hasDiscount = true;
-                        $historialCompras->push($libroId);
-                    }
-                }
+                $hasDiscount = true;
             }
 
             if ($hasDiscount) {
