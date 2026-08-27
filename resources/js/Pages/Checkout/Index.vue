@@ -309,6 +309,7 @@ const confirmar = () => {
         guest_telefono:        isAuthenticated.value ? null : guestTelefono.value,
     }, {
         onError: () => { procesando.value = false; },
+        onFinish: () => { procesando.value = false; },
     });
 };
 </script>
