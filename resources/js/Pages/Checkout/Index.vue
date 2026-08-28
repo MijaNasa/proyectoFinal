@@ -313,7 +313,10 @@ const confirmar = () => {
         guest_email:           isAuthenticated.value ? null : guestEmail.value,
         guest_telefono:        isAuthenticated.value ? null : guestTelefono.value,
     }, {
-        onError: () => { procesando.value = false; },
+        onError: () => {
+            procesando.value = false;
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        },
         onFinish: () => { procesando.value = false; },
     });
 };
@@ -344,6 +347,45 @@ const confirmar = () => {
 
             <!-- Content Area -->
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+
+                <!-- Alerta de Errores Arriba de Todo -->
+                <transition name="fade">
+                    <div
+                        v-if="($page.props.errors && Object.keys($page.props.errors).length) || $page.props.flash?.error"
+                        class="mb-8 bg-rose-500/10 border border-rose-500/30 rounded-2xl p-5 sm:p-6 shadow-2xl space-y-3"
+                    >
+                        <div class="flex items-start gap-3.5">
+                            <div class="w-10 h-10 rounded-xl bg-rose-500/20 text-rose-400 border border-rose-500/30 flex items-center justify-center shrink-0 mt-0.5 text-lg">
+                                ⚠️
+                            </div>
+                            <div class="space-y-1.5 flex-1">
+                                <h3 class="text-sm font-bold text-rose-400 uppercase tracking-wider">
+                                    No pudimos procesar tu pedido
+                                </h3>
+                                <div v-for="(err, key) in $page.props.errors" :key="key" class="text-xs sm:text-sm text-zinc-200 font-medium leading-relaxed">
+                                    {{ err }}
+                                </div>
+                                <div v-if="$page.props.flash?.error" class="text-xs sm:text-sm text-zinc-200 font-medium leading-relaxed">
+                                    {{ $page.props.flash.error }}
+                                </div>
+
+                                <!-- Botón directo a Iniciar Sesión si el error es de cuenta registrada -->
+                                <div v-if="$page.props.errors?.guest_dni || ($page.props.errors && Object.values($page.props.errors).some(e => typeof e === 'string' && (e.includes('cuenta registrada') || e.includes('iniciá sesión') || e.includes('Iniciá sesión'))))" class="pt-2">
+                                    <Link
+                                        :href="route('login', { redirect: '/checkout' })"
+                                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider shadow-lg hover:shadow-rose-500/25 transition-all"
+                                    >
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                                        </svg>
+                                        Iniciar Sesión para Continuar
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </transition>
+
                 <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 sm:gap-12 items-start">
 
                     <!-- Formulario Principal -->
@@ -381,7 +423,16 @@ const confirmar = () => {
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">DNI / Documento *</label>
-                                    <input v-model="guestDni" type="text" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium" placeholder="Ej: 12345678">
+                                    <input
+                                        v-model="guestDni"
+                                        type="text"
+                                        class="w-full bg-[#0d0d0f] border rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none transition-all font-medium"
+                                        :class="$page.props.errors?.guest_dni ? 'border-rose-500 focus:border-rose-500 bg-rose-500/5' : 'border-white/10 focus:border-white/30'"
+                                        placeholder="Ej: 12345678"
+                                    >
+                                    <p v-if="$page.props.errors?.guest_dni" class="text-rose-400 text-xs mt-1.5 font-semibold">
+                                        {{ $page.props.errors.guest_dni }}
+                                    </p>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Teléfono Móvil *</label>
@@ -806,16 +857,7 @@ const confirmar = () => {
                             </transition>
                         </div>
 
-                        <!-- Errores Flash -->
-                        <div v-if="$page.props.errors && Object.keys($page.props.errors).length" class="bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 text-xs font-bold text-rose-400 space-y-1">
-                            <div v-for="(err, key) in $page.props.errors" :key="key">
-                                ⚠️ {{ err }}
-                            </div>
-                        </div>
 
-                        <div v-if="$page.props.flash?.error" class="bg-rose-500/10 border border-rose-500/30 rounded-xl px-4 py-3 text-xs font-bold text-rose-400">
-                            ⚠️ {{ $page.props.flash.error }}
-                        </div>
 
                         <!-- Info de confirmación y seguridad -->
                         <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl">
