@@ -94,12 +94,18 @@ class VentaController extends Controller
                 ->orWhereRaw('LOWER(email) LIKE ?', [$like])
             )
             ->select('id', 'user_id', 'saldo_actual')
+            ->with(['suscripciones' => fn($q) => $q->where('estado', 'activa')])
             ->limit(10)
             ->get()
             ->map(fn($c) => [
-                'id'           => $c->id,
-                'saldo_actual' => $c->saldo_actual,
-                'user'         => [
+                'id'               => $c->id,
+                'saldo_actual'     => $c->saldo_actual,
+                'suscripciones'    => $c->suscripciones->map(fn($s) => [
+                    'libro_master_id' => $s->libro_master_id,
+                    'tomo_inicio'     => $s->tomo_inicio ?? 1,
+                ])->toArray(),
+                'libros_comprados' => \App\Models\DetalleVenta::whereHas('venta', fn($q) => $q->where('cliente_id', $c->id)->where('estado', '!=', 'cancelado'))->pluck('libro_id')->unique()->values()->toArray(),
+                'user'             => [
                     'name'     => $c->user->name,
                     'apellido' => $c->user->apellido,
                     'email'    => $c->user->email,
@@ -181,7 +187,7 @@ class VentaController extends Controller
         $libroIds = collect($request->items)->pluck('libro_id');
 
         try {
-            \DB::transaction(function () use ($request, $libroIds, $sucursal_id) {
+            $venta = \DB::transaction(function () use ($request, $libroIds, $sucursal_id) {
                 // Read prices inside the transaction so no stale-price sale is possible
                 $precios = PrecioLibro::whereIn('libro_id', $libroIds)
                     ->where('activo', true)
@@ -222,13 +228,18 @@ class VentaController extends Controller
 
                 // 2. Procesar Descuentos por Suscripción y Calcular Total
                 $suscripciones = collect();
-                $historialCompras = collect();
+                $compradosIds = [];
                 
                 if ($request->cliente_id) {
                     $suscripciones = \App\Models\Suscripcion::where('cliente_id', $request->cliente_id)
                         ->where('estado', 'activa')
                         ->get()
                         ->keyBy('libro_master_id');
+
+                    $compradosIds = \App\Models\DetalleVenta::whereHas('venta', function ($q) use ($request) {
+                        $q->where('cliente_id', $request->cliente_id)
+                          ->where('estado', '!=', 'cancelado');
+                    })->whereIn('libro_id', $libroIds)->pluck('libro_id')->toArray();
                 }
 
                 $processedItems = [];
@@ -244,12 +255,18 @@ class VentaController extends Controller
                     $hasDiscount = false;
                     
                     // Verificar si aplica el descuento por suscripción (5% adicional para suscriptores de la serie)
-                    if ($request->cliente_id && $suscripciones->has($libroModel->master_id)) {
-                        $hasDiscount = true;
+                    $sub = $suscripciones->get($libroModel->master_id);
+                    if ($request->cliente_id && $sub && !in_array($libroId, $compradosIds)) {
+                        $rawTomo = (string) ($libroModel->numero_tomo ?? '1');
+                        $numTomo = (int) preg_replace('/\D/', '', $rawTomo) ?: 1;
+                        $tomoInicio = $sub->tomo_inicio ?? 1;
+                        if ($numTomo >= $tomoInicio) {
+                            $hasDiscount = true;
+                        }
                     }
 
                     if ($hasDiscount) {
-                        $precioDescuento = $precioOriginal * 0.95;
+                        $precioDescuento = round($precioOriginal * 0.95, 2);
                         
                         $processedItems[] = [
                             'libro_id' => $libroId,
@@ -437,10 +454,25 @@ class VentaController extends Controller
                         ]);
                     }
                 }
+
+                return $venta;
             });
         } catch (\RuntimeException $e) {
             return redirect()->route('ventas.index')
                 ->with('error', $e->getMessage());
+        }
+
+        if (isset($venta) && $venta) {
+            try {
+                $usuariosNotificar = \App\Models\User::where('activo', true)
+                    ->get()
+                    ->filter(fn($u) => $u->esAdmin() || $u->esGerente() || ($u->empleado && $u->empleado->sucursal_id == $venta->sucursal_id));
+                if ($usuariosNotificar->isNotEmpty()) {
+                    \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\NuevaVentaNotification($venta));
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Error enviando notificacion de nueva venta presencial: ' . $e->getMessage());
+            }
         }
 
         return redirect()->route('ventas.index')

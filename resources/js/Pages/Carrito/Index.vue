@@ -24,6 +24,11 @@ const darkSwal = Swal.mixin({
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
 
+const getLimiteItem = (item) => {
+    if (item.permite_preventa) return 5;
+    return (item.stock_total && item.stock_total > 0) ? Math.min(5, item.stock_total) : 5;
+};
+
 const actualizarCantidad = (libroId, cantidad) => {
     if (cantidad < 1) return;
     router.patch(route('carrito.actualizar', libroId), { cantidad }, {
@@ -185,7 +190,7 @@ const irACheckout = () => {
                                             <span class="w-6 text-center text-sm font-bold font-mono text-white">{{ item.cantidad }}</span>
                                             <button
                                                 @click="actualizarCantidad(item.libro_id, item.cantidad + 1)"
-                                                :disabled="item.cantidad >= Math.min(5, item.stock_total ?? 5)"
+                                                :disabled="item.cantidad >= getLimiteItem(item)"
                                                 class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center font-bold text-sm transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
                                             >+</button>
                                         </div>
@@ -201,7 +206,7 @@ const irACheckout = () => {
                                         </button>
                                     </div>
 
-                                    <div v-if="item.cantidad >= Math.min(5, item.stock_total ?? 5)" class="mt-2 text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5">
+                                    <div v-if="item.cantidad >= getLimiteItem(item)" class="mt-2 text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                         </svg>
@@ -209,17 +214,14 @@ const irACheckout = () => {
                                     </div>
                                 </div>
 
-                                <!-- Subtotal y Precio Unitario -->
-                                <div class="shrink-0 text-left sm:text-right flex flex-col justify-between self-stretch pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                                <!-- Precio Unitario -->
+                                <div class="shrink-0 text-left sm:text-right flex flex-col justify-center self-stretch pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
                                     <div class="space-y-1">
                                         <div class="text-xl font-bold font-mono text-white" :class="{ 'text-cyan-400': item.permite_preventa }">
-                                            {{ formatPrecio(item.precio * item.cantidad) }}
+                                            {{ formatPrecio(item.precio) }}
                                         </div>
                                         <div v-if="item.permite_preventa" class="text-xs font-mono text-zinc-500 line-through">
-                                            {{ formatPrecio((item.precio_original || item.precio) * item.cantidad) }}
-                                        </div>
-                                        <div class="text-xs font-mono text-zinc-400">
-                                            {{ formatPrecio(item.precio) }} c/u
+                                            {{ formatPrecio(item.precio_original || item.precio) }}
                                         </div>
                                     </div>
                                 </div>
@@ -243,8 +245,17 @@ const irACheckout = () => {
                             <div class="space-y-3">
                                 <div class="flex justify-between items-center text-xs">
                                     <span class="text-zinc-400 font-medium">Subtotal</span>
-                                    <span class="font-mono font-bold text-white text-sm">{{ formatPrecio(items.total) }}</span>
+                                    <span class="font-mono font-bold text-white text-sm">{{ formatPrecio(items.subtotal || items.total) }}</span>
                                 </div>
+                                
+                                <div v-if="items.descuento_suscripcion > 0" class="flex justify-between items-center text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                                    <span class="flex items-center gap-1.5">
+                                        <span>⭐</span>
+                                        <span>Descuento Suscriptor (5%)</span>
+                                    </span>
+                                    <span class="font-mono font-bold">-{{ formatPrecio(items.descuento_suscripcion) }}</span>
+                                </div>
+
                                 <div class="flex justify-between items-center text-xs">
                                     <span class="text-zinc-400 font-medium">Envío</span>
                                     <span class="text-zinc-500 font-medium text-[11px]">Calculado en el checkout</span>

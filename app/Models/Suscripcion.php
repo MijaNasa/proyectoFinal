@@ -10,7 +10,12 @@ class Suscripcion extends Model
         'cliente_id',
         'libro_master_id',
         'sucursal_id',
+        'tomo_inicio',
         'estado'
+    ];
+
+    protected $casts = [
+        'tomo_inicio' => 'integer',
     ];
 
     public function cliente()

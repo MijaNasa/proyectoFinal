@@ -385,6 +385,8 @@ const confirmarAgregarAlCarrito = () => {
     } else {
         posForm.items.push({
             libro_id: l.id,
+            master_id: l.master_id || l.master?.id,
+            numero_tomo: l.numero_tomo,
             cantidad: cant,
             precio: precioUnitario,
             titulo: tituloCompleto,
@@ -482,6 +484,31 @@ const removeItem = (index) => {
 
 const subtotalPos = computed(() => {
     return posForm.items.reduce((acc, item) => acc + (item.cantidad * item.precio), 0);
+});
+
+const descuentoSuscripcionPos = computed(() => {
+    if (!clienteSeleccionado.value || !clienteSeleccionado.value.suscripciones?.length) return 0;
+    const subs = clienteSeleccionado.value.suscripciones;
+    const comprados = clienteSeleccionado.value.libros_comprados || [];
+    let desc = 0;
+    for (const item of posForm.items) {
+        if (item.master_id && !comprados.includes(item.libro_id)) {
+            const sub = subs.find(s => s.libro_master_id === item.master_id);
+            if (sub) {
+                const rawTomo = String(item.numero_tomo || item.titulo || '1');
+                const numTomo = parseInt(rawTomo.replace(/\D/g, '')) || 1;
+                const tomoInicio = sub.tomo_inicio || 1;
+                if (numTomo >= tomoInicio) {
+                    desc += Math.round(item.precio * 0.05);
+                }
+            }
+        }
+    }
+    return desc;
+});
+
+const totalPos = computed(() => {
+    return Math.max(0, subtotalPos.value - descuentoSuscripcionPos.value);
 });
 
 const openPos = () => {
@@ -1156,21 +1183,34 @@ onMounted(() => {
 
                             <div class="mt-8 space-y-5 pt-6 border-t border-white/5">
                                 <div class="space-y-3">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Total:</span>
-                                        <span class="text-3xl font-bold text-white tracking-tight">{{ formatCurrency(subtotalPos) }}</span>
+                                    <div class="flex justify-between items-center text-xs">
+                                        <span class="text-zinc-400 font-medium">Subtotal:</span>
+                                        <span class="font-mono font-bold text-white text-sm">{{ formatCurrency(subtotalPos) }}</span>
+                                    </div>
+
+                                    <div v-if="descuentoSuscripcionPos > 0" class="flex justify-between items-center text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                                        <span class="flex items-center gap-1.5">
+                                            <span>⭐</span>
+                                            <span>Descuento Suscriptor (5%)</span>
+                                        </span>
+                                        <span class="font-mono font-bold">-{{ formatCurrency(descuentoSuscripcionPos) }}</span>
+                                    </div>
+
+                                    <div class="flex justify-between items-center border-t border-white/5 pt-2">
+                                        <span class="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Total a Cobrar:</span>
+                                        <span class="text-3xl font-bold text-white tracking-tight">{{ formatCurrency(totalPos) }}</span>
                                     </div>
 
                                     <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado" class="flex justify-between items-center border-t border-white/5 pt-3">
                                         <span class="text-xs text-zinc-400 font-medium">Saldo restante en cuenta:</span>
-                                        <span class="text-lg font-bold tracking-tight" :class="(clienteSeleccionado.saldo_actual - subtotalPos) < 0 ? 'text-rose-400' : 'text-emerald-400'">
-                                            {{ formatCurrency(clienteSeleccionado.saldo_actual - subtotalPos) }}
+                                        <span class="text-lg font-bold tracking-tight" :class="(clienteSeleccionado.saldo_actual - totalPos) < 0 ? 'text-rose-400' : 'text-emerald-400'">
+                                            {{ formatCurrency(clienteSeleccionado.saldo_actual - totalPos) }}
                                         </span>
                                     </div>
 
-                                    <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado && (clienteSeleccionado.saldo_actual - subtotalPos) < 0" class="mt-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2.5">
+                                    <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado && (clienteSeleccionado.saldo_actual - totalPos) < 0" class="mt-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2.5">
                                         <label class="text-xs font-medium text-zinc-300 block leading-relaxed">
-                                            El saldo restante ({{ formatCurrency(Math.abs(clienteSeleccionado.saldo_actual - subtotalPos)) }}) dejará la cuenta en negativo. ¿Desea abonar el excedente ahora?
+                                            El saldo restante ({{ formatCurrency(Math.abs(clienteSeleccionado.saldo_actual - totalPos)) }}) dejará la cuenta en negativo. ¿Desea abonar el excedente ahora?
                                         </label>
                                         <select v-model="posForm.metodo_pago_excedente" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30">
                                             <option :value="null">Dejar como deuda en Cuenta Corriente</option>

@@ -35,10 +35,44 @@ class CheckoutController extends Controller
                 ->with('error', 'Tu carrito está vacío.');
         }
 
-        $total = collect($carrito)->sum(fn($i) => $i['precio'] * $i['cantidad']);
+        $subtotal = (float) collect($carrito)->sum(fn($i) => ($i['precio'] ?? 0) * ($i['cantidad'] ?? 0));
         
         $cliente = \App\Models\Cliente::where('user_id', Auth::user()?->id)->first();
         $sucursales = \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']);
+
+        $descuentoSuscripcion = 0;
+        if ($cliente) {
+            $suscripciones = \App\Models\Suscripcion::where('cliente_id', $cliente->id)
+                ->where('estado', 'activa')
+                ->get()
+                ->keyBy('libro_master_id');
+
+            if ($suscripciones->isNotEmpty()) {
+                $libroIds = collect($carrito)->pluck('libro_id')->filter()->all();
+                $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
+
+                $compradosIds = \App\Models\DetalleVenta::whereHas('venta', function ($q) use ($cliente) {
+                    $q->where('cliente_id', $cliente->id)
+                      ->where('estado', '!=', 'cancelado');
+                })->whereIn('libro_id', $libroIds)->pluck('libro_id')->toArray();
+
+                foreach ($carrito as $it) {
+                    $lModel = $librosModels->get($it['libro_id']);
+                    $mId = $it['master_id'] ?? $lModel?->master_id;
+                    $rawTomo = (string) ($it['numero_tomo'] ?? $lModel?->numero_tomo ?? '1');
+                    $numTomo = (int) preg_replace('/\D/', '', $rawTomo) ?: 1;
+
+                    $sub = $suscripciones->get($mId);
+                    if ($sub && !in_array($it['libro_id'], $compradosIds)) {
+                        $tomoInicio = $sub->tomo_inicio ?? 1;
+                        if ($numTomo >= $tomoInicio) {
+                            $descuentoSuscripcion += round(($it['precio'] ?? 0) * 0.05, 2);
+                        }
+                    }
+                }
+            }
+        }
+        $total = max(0, $subtotal - $descuentoSuscripcion);
 
         $libroIds = collect($carrito)->pluck('libro_id');
         $stocks = \App\Models\Stock::whereIn('libro_id', $libroIds)
@@ -89,10 +123,12 @@ class CheckoutController extends Controller
         }
 
         return Inertia::render('Checkout/Index', [
-            'items'        => array_values($carrito),
-            'total'        => $total,
-            'saldo_actual' => $cliente ? $cliente->saldo_actual : 0,
-            'sucursales'   => $sucursales,
+            'items'                 => array_values($carrito),
+            'subtotal'              => $subtotal,
+            'descuento_suscripcion' => $descuentoSuscripcion,
+            'total'                 => $total,
+            'saldo_actual'          => $cliente ? $cliente->saldo_actual : 0,
+            'sucursales'            => $sucursales,
             'sucursal_principal_id' => $sucursalPrincipal ? $sucursalPrincipal->id : null,
         ]);
     }
@@ -246,12 +282,18 @@ class CheckoutController extends Controller
 
         // Procesar Descuentos por Suscripción
         $suscripciones = collect();
+        $compradosIds = [];
         
         if ($clienteId) {
             $suscripciones = \App\Models\Suscripcion::where('cliente_id', $clienteId)
                 ->where('estado', 'activa')
                 ->get()
                 ->keyBy('libro_master_id');
+
+            $compradosIds = \App\Models\DetalleVenta::whereHas('venta', function ($q) use ($clienteId) {
+                $q->where('cliente_id', $clienteId)
+                  ->where('estado', '!=', 'cancelado');
+            })->whereIn('libro_id', array_keys($carrito))->pluck('libro_id')->toArray();
         }
 
         $processedItems = [];
@@ -266,12 +308,18 @@ class CheckoutController extends Controller
 
             $hasDiscount = false;
             
-            if ($clienteId && $suscripciones->has($libroModel->master_id)) {
-                $hasDiscount = true;
+            $sub = $suscripciones->get($libroModel->master_id);
+            if ($clienteId && $sub && !in_array($libroId, $compradosIds)) {
+                $rawTomo = (string) ($libroModel->numero_tomo ?? '1');
+                $numTomo = (int) preg_replace('/\D/', '', $rawTomo) ?: 1;
+                $tomoInicio = $sub->tomo_inicio ?? 1;
+                if ($numTomo >= $tomoInicio) {
+                    $hasDiscount = true;
+                }
             }
 
             if ($hasDiscount) {
-                $precioDescuento = $precioOriginal * 0.95;
+                $precioDescuento = round($precioOriginal * 0.95, 2);
                 $processedItems[] = [
                     'libro_id' => $libroId,
                     'cantidad' => 1,
@@ -493,6 +541,18 @@ class CheckoutController extends Controller
 
         $venta = $result['venta'];
         $montoMercadoPago = $result['montoMercadoPago'];
+
+        // Notificar al personal sobre la nueva venta
+        try {
+            $usuariosNotificar = \App\Models\User::where('activo', true)
+                ->get()
+                ->filter(fn($u) => $u->esAdmin() || $u->esGerente() || ($u->empleado && $u->empleado->sucursal_id == $venta->sucursal_id));
+            if ($usuariosNotificar->isNotEmpty()) {
+                \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\NuevaVentaNotification($venta));
+            }
+        } catch (\Throwable $e) {
+            \Log::warning('Error enviando notificacion de nueva venta online: ' . $e->getMessage());
+        }
 
         if ($montoMercadoPago <= 0) {
             return redirect()->route('checkout.success', ['external_reference' => $venta->id]);

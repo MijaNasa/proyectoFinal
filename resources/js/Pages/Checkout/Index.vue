@@ -5,6 +5,8 @@ import { ref, computed, watch, onUnmounted } from 'vue';
 
 const props = defineProps({
     items: Array,
+    subtotal: Number,
+    descuento_suscripcion: Number,
     total: Number,
     saldo_actual: Number,
     sucursales: Array,
@@ -71,7 +73,10 @@ const costoEnvio = computed(() => {
     return 0;
 });
 
-const totalFinal = computed(() => props.total + costoEnvio.value);
+const totalFinal = computed(() => {
+    const base = (props.subtotal ?? props.total) - (props.descuento_suscripcion ?? 0);
+    return Math.max(0, base) + costoEnvio.value;
+});
 
 const direccionHabilitada = computed(() => {
     if (provincia.value === 'Santa Fe') return !!localidad.value;
@@ -868,7 +873,15 @@ const confirmar = () => {
                             <div class="space-y-3 pt-2">
                                 <div class="flex justify-between items-center text-xs">
                                     <span class="text-zinc-400 font-medium">Subtotal</span>
-                                    <span class="font-mono font-bold text-white text-sm">{{ formatPrecio(total) }}</span>
+                                    <span class="font-mono font-bold text-white text-sm">{{ formatPrecio(subtotal || total) }}</span>
+                                </div>
+
+                                <div v-if="descuento_suscripcion > 0" class="flex justify-between items-center text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                                    <span class="flex items-center gap-1.5">
+                                        <span>⭐</span>
+                                        <span>Descuento Suscriptor (5%)</span>
+                                    </span>
+                                    <span class="font-mono font-bold">-{{ formatPrecio(descuento_suscripcion) }}</span>
                                 </div>
                                 
                                 <div v-if="costoEnvio > 0" class="flex justify-between items-center text-xs">

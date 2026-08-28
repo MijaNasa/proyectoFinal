@@ -47,6 +47,7 @@ const suscripcionForm = useForm({
     cliente_id: props.cliente.id,
     libro_master_id: '',
     sucursal_id: '',
+    tomo_inicio: 1,
 });
 
 const showPagoModal = ref(false);
@@ -657,13 +658,19 @@ const estadoConfig = {
                         </div>
 
                         <form @submit.prevent="suscribir" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                            <div class="md:col-span-6 space-y-1 text-left">
+                            <div class="md:col-span-4 space-y-1 text-left">
                                 <label class="block text-xs font-semibold text-zinc-400">SELECCIONE SERIE *</label>
                                 <select v-model="suscripcionForm.libro_master_id" required class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 cursor-pointer" :class="{'border-rose-500': suscripcionForm.errors.libro_master_id}">
                                     <option value="" disabled class="bg-[#131316]">-- Selecciona Serie --</option>
                                     <option v-for="lm in libro_masters" :key="lm.id" :value="lm.id" class="bg-[#131316]">{{ lm.titulo }}</option>
                                 </select>
                                 <p v-if="suscripcionForm.errors.libro_master_id" class="text-rose-400 text-xs font-semibold mt-1">{{ suscripcionForm.errors.libro_master_id }}</p>
+                            </div>
+
+                            <div class="md:col-span-2 space-y-1 text-left">
+                                <label class="block text-xs font-semibold text-zinc-400">TOMO INICIO *</label>
+                                <input v-model.number="suscripcionForm.tomo_inicio" type="number" min="1" required class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold font-mono text-white focus:outline-none focus:border-white/30" placeholder="Ej: 5" />
+                                <p v-if="suscripcionForm.errors.tomo_inicio" class="text-rose-400 text-xs font-semibold mt-1">{{ suscripcionForm.errors.tomo_inicio }}</p>
                             </div>
 
                             <div class="md:col-span-4 space-y-1 text-left">
@@ -694,6 +701,7 @@ const estadoConfig = {
                                 <thead>
                                     <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
                                         <th class="p-4">Serie</th>
+                                        <th class="p-4">Tomo Inicio</th>
                                         <th class="p-4">Sucursal de Retiro</th>
                                         <th class="p-4">Fecha de Alta</th>
                                         <th class="p-4 text-center">Estado</th>
@@ -706,6 +714,11 @@ const estadoConfig = {
                                             <div class="font-bold text-white capitalize">
                                                 {{ susc.serie?.titulo || 'Serie' }}
                                             </div>
+                                        </td>
+                                        <td class="p-4">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-mono font-bold text-white">
+                                                Desde Tomo #{{ susc.tomo_inicio || 1 }}
+                                            </span>
                                         </td>
                                         <td class="p-4 text-zinc-300 font-semibold text-xs">
                                             {{ susc.sucursal?.nombre || 'Todas' }}
