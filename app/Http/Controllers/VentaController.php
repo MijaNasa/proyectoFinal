@@ -104,7 +104,7 @@ class VentaController extends Controller
                     'libro_master_id' => $s->libro_master_id,
                     'tomo_inicio'     => $s->tomo_inicio ?? 1,
                 ])->toArray(),
-                'libros_comprados' => \App\Models\DetalleVenta::whereHas('venta', fn($q) => $q->where('cliente_id', $c->id)->where('estado', '!=', 'cancelado'))->pluck('libro_id')->unique()->values()->toArray(),
+                'libros_comprados' => \App\Models\VentaDetalle::whereHas('venta', fn($q) => $q->where('cliente_id', $c->id)->where('estado', '!=', 'cancelado'))->pluck('libro_id')->unique()->values()->toArray(),
                 'user'             => [
                     'name'     => $c->user->name,
                     'apellido' => $c->user->apellido,
@@ -236,7 +236,7 @@ class VentaController extends Controller
                         ->get()
                         ->keyBy('libro_master_id');
 
-                    $compradosIds = \App\Models\DetalleVenta::whereHas('venta', function ($q) use ($request) {
+                    $compradosIds = \App\Models\VentaDetalle::whereHas('venta', function ($q) use ($request) {
                         $q->where('cliente_id', $request->cliente_id)
                           ->where('estado', '!=', 'cancelado');
                     })->whereIn('libro_id', $libroIds)->pluck('libro_id')->toArray();

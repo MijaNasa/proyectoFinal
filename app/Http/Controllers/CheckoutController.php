@@ -51,7 +51,7 @@ class CheckoutController extends Controller
                 $libroIds = collect($carrito)->pluck('libro_id')->filter()->all();
                 $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
 
-                $compradosIds = \App\Models\DetalleVenta::whereHas('venta', function ($q) use ($cliente) {
+                $compradosIds = \App\Models\VentaDetalle::whereHas('venta', function ($q) use ($cliente) {
                     $q->where('cliente_id', $cliente->id)
                       ->where('estado', '!=', 'cancelado');
                 })->whereIn('libro_id', $libroIds)->pluck('libro_id')->toArray();
@@ -290,7 +290,7 @@ class CheckoutController extends Controller
                 ->get()
                 ->keyBy('libro_master_id');
 
-            $compradosIds = \App\Models\DetalleVenta::whereHas('venta', function ($q) use ($clienteId) {
+            $compradosIds = \App\Models\VentaDetalle::whereHas('venta', function ($q) use ($clienteId) {
                 $q->where('cliente_id', $clienteId)
                   ->where('estado', '!=', 'cancelado');
             })->whereIn('libro_id', array_keys($carrito))->pluck('libro_id')->toArray();

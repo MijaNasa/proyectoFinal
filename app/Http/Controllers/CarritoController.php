@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Cliente;
-use App\Models\DetalleVenta;
+use App\Models\VentaDetalle;
 use App\Models\Libro;
 use App\Models\Stock;
 use App\Models\Suscripcion;
@@ -133,7 +133,7 @@ class CarritoController extends Controller
                     $librosModels = Libro::whereIn('id', $libroIds)->get()->keyBy('id');
 
                     // Libros ya comprados por este cliente en compras previas finalizadas/activas
-                    $compradosIds = DetalleVenta::whereHas('venta', function ($q) use ($cliente) {
+                    $compradosIds = VentaDetalle::whereHas('venta', function ($q) use ($cliente) {
                         $q->where('cliente_id', $cliente->id)
                           ->where('estado', '!=', 'cancelado');
                     })->whereIn('libro_id', $libroIds)->pluck('libro_id')->toArray();
@@ -205,7 +205,7 @@ class CarritoController extends Controller
                     $libroIds = collect($carrito)->pluck('libro_id')->filter()->all();
                     $librosModels = Libro::whereIn('id', $libroIds)->get()->keyBy('id');
 
-                    $compradosIds = DetalleVenta::whereHas('venta', function ($q) use ($cliente) {
+                    $compradosIds = VentaDetalle::whereHas('venta', function ($q) use ($cliente) {
                         $q->where('cliente_id', $cliente->id)
                           ->where('estado', '!=', 'cancelado');
                     })->whereIn('libro_id', $libroIds)->pluck('libro_id')->toArray();
