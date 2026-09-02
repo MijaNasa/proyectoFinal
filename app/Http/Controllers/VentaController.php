@@ -506,19 +506,22 @@ class VentaController extends Controller
         }
 
         $venta->load([
-            'cliente.user:id,name,apellido,email',
+            'cliente.user:id,name,apellido,email,dni,telefono',
             'user:id,name,apellido',
             'sucursal:id,nombre,calle,numero,telefono',
             'detalles.libro.master:id,titulo',
             'detalles.libro:id,master_id,isbn,numero_tomo',
-            'transacciones',
+            'transacciones' => fn($q) => $q->orderBy('fecha', 'asc'),
         ]);
 
-        $metodoPago = $venta->transacciones->first()->metodo_pago ?? '—';
+        $pagos = $venta->transacciones->where('tipo', 'ingreso');
+        $totalAbonado = (float) $pagos->sum('monto');
+        $saldoPendiente = max(0, (float) $venta->total - $totalAbonado);
+        $metodoPago = $venta->metodo_pago ?? ($pagos->first()->metodo_pago ?? '—');
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.comprobante_venta', compact('venta', 'metodoPago'));
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.comprobante_venta', compact('venta', 'metodoPago', 'pagos', 'totalAbonado', 'saldoPendiente'));
 
-        return $pdf->stream('Comprobante_Venta_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf', ['Attachment' => false]);
+        return $pdf->stream('Reporte_Pedido_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf', ['Attachment' => false]);
     }
 
     public function destroy(Venta $venta)

@@ -367,8 +367,11 @@ const estadoConfig = {
                                 </div>
                             </div>
                             <div class="flex flex-wrap md:flex-nowrap gap-2">
-                                <a :href="route('clientes.pdf', cliente.id)" target="_blank" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold border border-white/10 transition-all">
-                                    Informe de balance
+                                <a :href="route('clientes.pdf', cliente.id)" target="_blank" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold border border-white/10 transition-all flex items-center gap-1.5 shadow-sm">
+                                    <svg class="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    <span>Estado de Cuenta (PDF)</span>
                                 </a>
                                 <button @click="openEditModal" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold border border-white/10 transition-all">
                                     Editar Datos
@@ -457,7 +460,14 @@ const estadoConfig = {
                                     <span class="text-xs text-zinc-400 font-semibold">{{ formatFecha(venta.fecha) }}</span>
                                     <span v-if="venta.sucursal" class="text-xs text-zinc-500 font-semibold">{{ venta.sucursal.nombre }}</span>
                                 </div>
-                                <p class="text-base font-bold text-white">{{ formatCurrency(venta.total) }}</p>
+                                <div class="flex items-center gap-3">
+                                    <p class="text-base font-bold text-white">{{ formatCurrency(venta.total) }}</p>
+                                    <a :href="route('ventas.comprobante-pdf', venta.id)" target="_blank" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg border border-white/5 transition-all" title="Descargar Reporte / Seña en PDF">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                    </a>
+                                </div>
                             </div>
                             <div class="p-4 space-y-2 text-sm">
                                 <div
@@ -589,6 +599,15 @@ const estadoConfig = {
 
                 <!-- Tab: Pagos -->
                 <div v-if="tabActiva === 'pagos'">
+                    <div class="flex justify-end mb-3">
+                        <a :href="route('clientes.pdf', cliente.id)" target="_blank" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold border border-white/10 transition-all flex items-center gap-1.5 shadow-sm">
+                            <svg class="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span>Descargar Reporte de Pagos (PDF)</span>
+                        </a>
+                    </div>
+
                     <div v-if="pagos.length === 0" class="bg-[#131316] border border-white/5 rounded-2xl p-12 text-center text-zinc-500 italic">
                         Este cliente no tiene pagos registrados.
                     </div>
