@@ -364,16 +364,34 @@ class ClienteController extends Controller
             return redirect()->route('clientes.index')->with('error_modal', $msg);
         }
 
-        \DB::transaction(function() use ($cliente) {
-            $user = $cliente->user;
-            $cliente->delete();
-            if ($user) {
-                $user->update(['activo' => false]);
-                $user->delete();
-            }
-        });
+        // Verificar si tiene pedidos activos en curso
+        $pedidosActivos = $cliente->ventas()->whereNotIn('estado', ['finalizado', 'cancelado'])->pluck('id')->toArray();
+        if (!empty($pedidosActivos)) {
+            return back()->with('error', 'No se puede eliminar el cliente porque posee pedidos activos en curso (#' . implode(', #', $pedidosActivos) . ').');
+        }
 
-        return redirect()->route('clientes.index')
-            ->with('message', 'Cliente eliminado con éxito. Las compras históricas conservan sus datos intactos.');
+        try {
+            \DB::transaction(function() use ($cliente) {
+                // Cancelar/eliminar suscripciones asociadas
+                $cliente->suscripciones()->delete();
+
+                $user = $cliente->user;
+                // Soft-delete del cliente
+                $cliente->delete();
+
+                // Desactivamos la cuenta de usuario si existe (no hard-delete para mantener integridad de ventas)
+                if ($user) {
+                    $user->update(['activo' => false]);
+                }
+            });
+
+            return redirect()->route('clientes.index')
+                ->with('message', 'Cliente eliminado con éxito. Las compras históricas conservan sus datos intactos.');
+        } catch (\Throwable $e) {
+            \Log::error('Error al eliminar cliente: ' . $e->getMessage(), [
+                'cliente_id' => $cliente->id,
+            ]);
+            return back()->with('error', 'No se pudo eliminar el cliente: ' . $e->getMessage());
+        }
     }
 }

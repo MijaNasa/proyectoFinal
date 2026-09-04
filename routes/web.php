@@ -58,13 +58,16 @@ Route::get('/checkout/pending', [CheckoutController::class, 'pending'])->name('c
 Route::get('/checkout/failure', [CheckoutController::class, 'failure'])->name('checkout.failure');
 Route::post('/checkout/webhook', [CheckoutController::class, 'webhook'])->name('checkout.webhook');
 
+// Comprobantes de Pago (accesibles para el comprador autenticado o invitado con sesión, y personal)
+Route::get('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'viewComprobante'])->name('mi-cuenta.comprobante.ver');
+Route::post('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'uploadComprobante'])->name('mi-cuenta.comprobante');
+Route::delete('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'deleteComprobante'])->name('mi-cuenta.comprobante.delete');
+Route::get('/pedidos/{venta}/comprobante-pdf', [VentaController::class, 'generarComprobanteClientePdf'])->name('pedidos.comprobante-pdf');
+
 // Mi Cuenta (requiere login)
 Route::middleware('auth')->group(function () {
     Route::get('/mi-cuenta', [MiCuentaController::class, 'index'])->name('mi-cuenta.index');
     Route::put('/mi-cuenta/password', [MiCuentaController::class, 'updatePassword'])->name('mi-cuenta.password');
-    Route::get('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'viewComprobante'])->name('mi-cuenta.comprobante.ver');
-    Route::post('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'uploadComprobante'])->name('mi-cuenta.comprobante');
-    Route::delete('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'deleteComprobante'])->name('mi-cuenta.comprobante.delete');
 });
 
 Route::get('/', function () {

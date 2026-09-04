@@ -50,6 +50,7 @@ const darkSwal = Swal.mixin({
     background: '#131316',
     color: '#ffffff',
     buttonsStyling: false,
+    reverseButtons: true,
     customClass: {
         popup: 'border border-white/10 rounded-2xl p-6 shadow-2xl bg-[#131316] page-catalogo',
         title: 'text-xl font-bold text-white tracking-tight',
@@ -651,6 +652,7 @@ const quickEditPrice = async (libro) => {
         showCancelButton: true,
         confirmButtonText: 'Guardar',
         cancelButtonText: 'Cancelar',
+        reverseButtons: true,
         preConfirm: () => {
             const val = Swal.getPopup().querySelector('#swal-quick-precio').value;
             if (!val || val <= 0) {

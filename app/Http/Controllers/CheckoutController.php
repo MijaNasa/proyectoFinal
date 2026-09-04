@@ -554,6 +554,8 @@ class CheckoutController extends Controller
             \Log::warning('Error enviando notificacion de nueva venta online: ' . $e->getMessage());
         }
 
+        session(['checkout_venta_id' => $venta->id]);
+
         if ($montoMercadoPago <= 0) {
             return redirect()->route('checkout.success', ['external_reference' => $venta->id]);
         }
@@ -644,6 +646,8 @@ class CheckoutController extends Controller
         $venta   = $ventaId ? Venta::find($ventaId) : null;
 
         if ($venta) {
+            session(['checkout_venta_id' => $venta->id]);
+
             // Limpiar carrito siempre que el pago haya avanzado,
             // independientemente de si el webhook ya llegó o no
             session()->forget('carrito');
@@ -669,8 +673,11 @@ class CheckoutController extends Controller
             }
         }
 
+        $whatsappNumber = config('services.whatsapp.phone', '5493414245566');
+
         return Inertia::render('Checkout/Confirmacion', [
             'status' => 'success',
+            'whatsappNumber' => $whatsappNumber,
             'venta'  => $venta ? [
                 'id'               => $venta->id,
                 'total'            => $venta->total,
@@ -678,6 +685,7 @@ class CheckoutController extends Controller
                 'metodo_pago'      => $venta->metodo_pago,
                 'estado'           => $venta->estado,
                 'comprobante_path' => $venta->comprobante_path,
+                'cliente_nombre'   => trim(($venta->user?->name ?? $venta->cliente?->user?->name ?? '') . ' ' . ($venta->user?->apellido ?? $venta->cliente?->user?->apellido ?? '')),
                 'guest_dni'        => $venta->user?->dni ?? $venta->cliente?->user?->dni,
                 'guest_email'      => $venta->user?->email ?? $venta->cliente?->user?->email,
             ] : null,
@@ -688,9 +696,15 @@ class CheckoutController extends Controller
     {
         $ventaId = $request->query('external_reference');
         $venta   = $ventaId ? Venta::find($ventaId) : null;
+        if ($venta) {
+            session(['checkout_venta_id' => $venta->id]);
+        }
+
+        $whatsappNumber = config('services.whatsapp.phone', '5493414245566');
 
         return Inertia::render('Checkout/Confirmacion', [
             'status' => 'pending',
+            'whatsappNumber' => $whatsappNumber,
             'venta'  => $venta ? [
                 'id'               => $venta->id,
                 'total'            => $venta->total,
@@ -698,6 +712,7 @@ class CheckoutController extends Controller
                 'metodo_pago'      => $venta->metodo_pago,
                 'estado'           => $venta->estado,
                 'comprobante_path' => $venta->comprobante_path,
+                'cliente_nombre'   => trim(($venta->user?->name ?? $venta->cliente?->user?->name ?? '') . ' ' . ($venta->user?->apellido ?? $venta->cliente?->user?->apellido ?? '')),
                 'guest_dni'        => $venta->user?->dni ?? $venta->cliente?->user?->dni,
                 'guest_email'      => $venta->user?->email ?? $venta->cliente?->user?->email,
             ] : null,

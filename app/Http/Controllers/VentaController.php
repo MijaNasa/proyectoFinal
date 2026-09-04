@@ -544,6 +544,44 @@ class VentaController extends Controller
         return $pdf->stream('Reporte_Pedido_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf', ['Attachment' => false]);
     }
 
+    public function generarComprobanteClientePdf(Request $request, Venta $venta)
+    {
+        $user = \Auth::user();
+        $autorizado = false;
+
+        if ($user) {
+            if ($user->esAdmin() || $user->esGerente() || $user->empleado || $venta->user_id === $user->id || $venta->cliente?->user_id === $user->id) {
+                $autorizado = true;
+            }
+        } else {
+            if (session('checkout_venta_id') == $venta->id || $request->query('ref') == $venta->id) {
+                $autorizado = true;
+            }
+        }
+
+        if (!$autorizado) {
+            return redirect()->route('catalogo.index')->with('error', 'No tienes acceso a este comprobante.');
+        }
+
+        $venta->load([
+            'cliente.user:id,name,apellido,email,dni,telefono',
+            'user:id,name,apellido',
+            'sucursal:id,nombre,calle,numero,telefono',
+            'detalles.libro.master:id,titulo',
+            'detalles.libro:id,master_id,isbn,numero_tomo',
+            'transacciones' => fn($q) => $q->orderBy('fecha', 'asc'),
+        ]);
+
+        $pagos = $venta->transacciones->where('tipo', 'ingreso');
+        $totalAbonado = (float) $pagos->sum('monto');
+        $saldoPendiente = max(0, (float) $venta->total - $totalAbonado);
+        $metodoPago = $venta->metodo_pago ?? ($pagos->first()->metodo_pago ?? '—');
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.comprobante_venta', compact('venta', 'metodoPago', 'pagos', 'totalAbonado', 'saldoPendiente'));
+
+        return $pdf->stream('Comprobante_Pedido_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf', ['Attachment' => false]);
+    }
+
     public function destroy(Venta $venta)
     {
         $user = \Auth::user();
@@ -583,11 +621,14 @@ class VentaController extends Controller
     {
         $user = \Auth::user();
 
-        if (!$user->esAdmin() && !$user->esGerente()) {
-            abort(403);
+        // Si la venta ya está finalizada o cancelada, solo un Administrador puede alterarla
+        if (in_array($venta->estado, ['finalizado', 'cancelado']) && !$user->esAdmin()) {
+            return back()->with('error', 'Solo un Administrador puede modificar una venta concluida o cancelada.');
         }
-        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
-            abort(403);
+
+        // Si no es admin, solo puede modificar ventas de su propia sucursal
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id && $user->empleado->sucursal_id !== $venta->sucursal_id) {
+            return back()->with('error', 'No tienes permiso para modificar ventas de otra sucursal.');
         }
 
         $request->validate([
@@ -683,11 +724,8 @@ class VentaController extends Controller
     {
         $user = \Auth::user();
 
-        if (!$user->esAdmin() && !$user->esGerente()) {
-            abort(403);
-        }
-        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
-            abort(403);
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id && $user->empleado->sucursal_id !== $venta->sucursal_id) {
+            return back()->with('error', 'No tienes permiso para confirmar pagos de otra sucursal.');
         }
 
         if ($venta->estado !== 'pendiente_pago') {

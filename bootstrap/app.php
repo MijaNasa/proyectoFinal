@@ -26,5 +26,20 @@ return Application::configure(basePath: dirname(__DIR__))
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        //
+        $exceptions->respond(function ($response, Throwable $e, \Illuminate\Http\Request $request) {
+            if ($request->header('X-Inertia')) {
+                $status = $response->getStatusCode();
+                if ($status === 403) {
+                    return back()->with('error', $e->getMessage() ?: 'Acceso denegado: no tienes permisos para realizar esta acción.');
+                }
+                if ($status === 500) {
+                    \Log::error('Error 500 en petición Inertia: ' . $e->getMessage(), [
+                        'url' => $request->fullUrl(),
+                    ]);
+                    $msg = config('app.debug') ? $e->getMessage() : 'Ocurrió un inconveniente al procesar la solicitud. Por favor intenta nuevamente.';
+                    return back()->with('error', $msg);
+                }
+            }
+            return $response;
+        });
     })->create();
