@@ -185,7 +185,7 @@ const formatTipoMovimiento = (tipo) => {
                                         <div>
                                             <div class="flex items-center gap-2">
                                                 <Link 
-                                                    :href="route('ventas.index', { view: venta.id })" 
+                                                    :href="route('ventas.index', { view: venta.id, tab: venta.estado === 'finalizado' ? 'finalizadas' : (venta.estado === 'cancelado' ? 'canceladas' : 'activas') })" 
                                                     class="text-xs font-mono font-bold text-white hover:underline"
                                                 >
                                                     #TK-{{ String(venta.id).padStart(6, '0') }}

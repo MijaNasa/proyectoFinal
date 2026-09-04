@@ -28,15 +28,30 @@ class LibroMaster extends Model
     {
         $portada = strtolower(trim((string)$this->portada));
 
-        if (!$this->portada || $portada === '' || $portada === 'null' || str_contains($portada, 'no-cover') || str_contains($portada, 'default') || str_contains($portada, 'generico') || str_contains($portada, 'generica')) {
-            return asset('images/no-cover.png');
+        if ($this->portada && $portada !== '' && $portada !== 'null' && !str_contains($portada, 'no-cover') && !str_contains($portada, 'default') && !str_contains($portada, 'generico') && !str_contains($portada, 'generica')) {
+            if (filter_var($this->portada, FILTER_VALIDATE_URL)) {
+                return $this->portada;
+            }
+            return asset('storage/' . ltrim($this->portada, '/'));
         }
 
-        if (filter_var($this->portada, FILTER_VALIDATE_URL)) {
-            return $this->portada;
+        // Si la obra/serie no tiene portada propia, intentar heredar la portada de su primer tomo disponible
+        if ($this->relationLoaded('libros')) {
+            $primerLibro = $this->libros->first(function ($l) {
+                $lp = strtolower(trim((string)$l->portada));
+                return $l->portada && $lp !== '' && $lp !== 'null' && !str_contains($lp, 'no-cover') && !str_contains($lp, 'default') && !str_contains($lp, 'generico');
+            });
+            if ($primerLibro) {
+                return $primerLibro->portada_url;
+            }
+        } else {
+            $primerLibro = $this->libros()->whereNotNull('portada')->where('portada', '!=', '')->first();
+            if ($primerLibro && $primerLibro->portada) {
+                return $primerLibro->portada_url;
+            }
         }
 
-        return asset('storage/' . ltrim($this->portada, '/'));
+        return asset('images/no-cover.png');
     }
 
     public function autor(): BelongsTo

@@ -16,7 +16,7 @@ class SuscripcionController extends Controller
             ->groupBy('libro_master_id')
             ->orderByDesc('total')
             ->limit(5)
-            ->with('serie:id,titulo,portada')
+            ->with(['serie' => fn($q) => $q->select('id', 'titulo', 'portada')->with(['libros' => fn($l) => $l->select('id', 'master_id', 'portada', 'numero_tomo')->whereNotNull('portada')->where('portada', '!=', '')])])
             ->get();
 
         // Listado de suscripciones

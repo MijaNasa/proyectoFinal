@@ -15,6 +15,28 @@ class VentaController extends Controller
     {
         $sucursalId = $request->user()->sucursalRestringidaId();
 
+        $ventaView = null;
+        $tab = $request->get('tab', 'activas');
+
+        if ($request->filled('view')) {
+            $targetVenta = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones'])
+                ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
+                ->find($request->view);
+
+            if ($targetVenta) {
+                $ventaView = $targetVenta;
+                if (!$request->filled('tab') && !$request->filled('estados')) {
+                    if ($targetVenta->estado === 'finalizado') {
+                        $tab = 'finalizadas';
+                    } elseif ($targetVenta->estado === 'cancelado') {
+                        $tab = 'canceladas';
+                    } else {
+                        $tab = 'activas';
+                    }
+                }
+            }
+        }
+
         $query = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones'])
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId));
 
@@ -34,13 +56,10 @@ class VentaController extends Controller
             });
         }
 
-
-
         if ($request->filled('estados')) {
             $estados = is_array($request->estados) ? $request->estados : [$request->estados];
             $query->whereIn('estado', $estados);
         } else {
-            $tab = $request->get('tab', 'activas');
             if ($tab === 'canceladas') {
                 $query->where('estado', 'cancelado');
             } elseif ($tab === 'finalizadas') {
@@ -72,7 +91,8 @@ class VentaController extends Controller
             'ventas'     => $ventas,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
             'stats'      => $stats,
-            'filters'    => $request->only(['search', 'tab', 'estados']),
+            'ventaView'  => $ventaView,
+            'filters'    => array_merge($request->only(['search', 'tab', 'estados']), ['tab' => $tab]),
         ]);
     }
 

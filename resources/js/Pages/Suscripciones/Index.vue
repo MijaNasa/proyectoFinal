@@ -63,8 +63,8 @@ const formatDate = (dateString) => {
                             
                             <div class="w-full flex flex-col items-center text-center">
                                 <div class="text-xs font-bold text-zinc-500 mb-2">#{{ index + 1 }}</div>
-                                <img :src="top.serie.portada_url || '/images/no-cover.png'" class="w-20 h-28 object-cover rounded-xl shadow-md mb-3 border border-white/5 mx-auto" />
-                                <div class="font-bold text-xs leading-tight line-clamp-2 text-white group-hover:text-zinc-200 transition-colors min-h-[2.5rem] text-center w-full">{{ top.serie.titulo }}</div>
+                                <img :src="top.serie?.portada_url || '/images/no-cover.png'" @error="$event.target.src = '/images/no-cover.png'" class="w-20 h-28 object-cover rounded-xl shadow-md mb-3 border border-white/5 mx-auto" :alt="top.serie?.titulo || 'Serie'" />
+                                <div class="font-bold text-xs leading-tight line-clamp-2 text-white group-hover:text-zinc-200 transition-colors min-h-[2.5rem] text-center w-full">{{ top.serie?.titulo }}</div>
                             </div>
 
                             <div class="mt-3 flex items-baseline justify-center gap-1.5 w-full">

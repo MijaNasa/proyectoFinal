@@ -10,7 +10,8 @@ const props = defineProps({
     ventas: Object,
     sucursales: Array,
     stats: Object,
-    filters: Object
+    filters: Object,
+    ventaView: Object
 });
 
 const page = usePage();
@@ -143,7 +144,7 @@ const selectedVenta = ref(null);
 const expandedVentas = ref([]);
 
 const urlParams = new URLSearchParams(window.location.search);
-const currentTab = ref(urlParams.get('tab') || 'activas');
+const currentTab = ref(props.filters?.tab || urlParams.get('tab') || 'activas');
 
 const toggleExpand = (id) => {
     if (expandedVentas.value.includes(id)) {
@@ -747,8 +748,9 @@ onMounted(() => {
         if (urlParams.get('open') === 'pos' || urlParams.get('nueva') === '1') {
             openPos();
         }
-        if (urlParams.get('view') && props.ventas?.data) {
-            const ventaToView = props.ventas.data.find(v => v.id == urlParams.get('view'));
+        if (urlParams.get('view')) {
+            const viewId = urlParams.get('view');
+            const ventaToView = props.ventas?.data?.find(v => v.id == viewId) || (props.ventaView && props.ventaView.id == viewId ? props.ventaView : null);
             if (ventaToView) {
                 viewVenta(ventaToView);
             }
