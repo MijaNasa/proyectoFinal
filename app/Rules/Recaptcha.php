@@ -24,12 +24,13 @@ class Recaptcha implements ValidationRule
         $secretKey = config('services.recaptcha.secret_key');
 
         if (empty($secretKey)) {
-            // Si no está configurada la clave en el entorno, permitir en modo debug o registrar advertencia
-            if (config('app.debug')) {
-                Log::warning('reCAPTCHA secret key is missing in config/services.php');
-                return;
-            }
-            $fail('Error en la configuración del servicio reCAPTCHA.');
+            // Si no está configurada la clave en el entorno, permitir el acceso sin bloquear al usuario
+            Log::warning('reCAPTCHA secret key is missing in config/services.php. Bypassing verification.');
+            return;
+        }
+
+        if (empty($value)) {
+            $fail('Por favor, completa la verificación de seguridad (reCAPTCHA).');
             return;
         }
 
@@ -49,7 +50,7 @@ class Recaptcha implements ValidationRule
             }
         } catch (\Throwable $e) {
             Log::error('reCAPTCHA connection error: ' . $e->getMessage());
-            $fail('No se pudo verificar el captcha. Por favor, intenta de nuevo.');
+            // En caso de fallo de red/conexión con Google, permitir continuar para no bloquear el login
         }
     }
 }

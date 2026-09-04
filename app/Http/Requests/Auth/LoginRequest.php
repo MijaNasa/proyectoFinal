@@ -28,10 +28,14 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
+        $hasSecretKey = !empty(config('services.recaptcha.secret_key'));
+
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
-            'recaptcha_token' => ['required', 'string', new Recaptcha],
+            'recaptcha_token' => $hasSecretKey
+                ? ['required', 'string', new Recaptcha]
+                : ['nullable', 'string', new Recaptcha],
         ];
     }
 
