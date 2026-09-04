@@ -14,12 +14,12 @@ use Illuminate\Support\Facades\DB;
 class RutaRepartoController extends Controller
 {
     /**
-     * Un repartidor solo puede ver/operar sus propias rutas. Admin y gerente ven todo.
+     * Un repartidor solo puede ver/operar sus propias rutas. Admin, gerente y personal con permiso ven todo.
      */
     private function autorizarVista(RutaReparto $ruta): void
     {
         $user = \Auth::user();
-        if ($user->esAdmin() || $user->esGerente()) return;
+        if ($user->esAdmin() || $user->esGerente() || $user->hasPermiso('repartos.acceder')) return;
         if ($ruta->repartidor_id && $ruta->repartidor_id === $user->empleado?->id) return;
 
         abort(403, 'No tenés permiso para ver esta ruta.');
@@ -27,12 +27,13 @@ class RutaRepartoController extends Controller
 
     /**
      * Crear, reasignar, reordenar u optimizar una ruta son acciones de despacho:
-     * solo admin/gerente, un repartidor no gestiona su propia ruta, solo entrega.
+     * Permitido para Admin, Gerente y personal con permiso de gestión (Vendedores). Un repartidor chofer solo entrega.
      */
     private function autorizarGestion(): void
     {
         $user = \Auth::user();
         if ($user->esAdmin() || $user->esGerente()) return;
+        if ($user->hasPermiso('repartos.acceder') && !$user->esRepartidor()) return;
 
         abort(403, 'No tenés permiso para gestionar rutas de reparto.');
     }
@@ -40,9 +41,10 @@ class RutaRepartoController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
+        $esDespachador = $user->esAdmin() || $user->esGerente() || ($user->hasPermiso('repartos.acceder') && !$user->esRepartidor());
 
         $query = RutaReparto::with(['repartidor.user', 'paradas'])
-            ->when(!$user->esAdmin() && !$user->esGerente(), fn($q) => $q->where('repartidor_id', $user->empleado?->id));
+            ->when(!$esDespachador, fn($q) => $q->where('repartidor_id', $user->empleado?->id));
 
         if ($request->filled('search')) {
             $like = '%' . mb_strtolower($request->search) . '%';

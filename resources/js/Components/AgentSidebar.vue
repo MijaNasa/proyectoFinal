@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 import ApplicationLogo from '@/Components/ApplicationLogo.vue';
 
@@ -17,6 +17,9 @@ const expandedGroups = ref({
 
 const page = usePage();
 const hasPermiso = (codigo) => page.props.auth.esAdmin || (page.props.auth.permisos?.includes(codigo) ?? false);
+const unreadNotificationsCount = computed(() => {
+    return page.props.unreadNotificationsCount ?? page.props.auth?.unreadNotificationsCount ?? 0;
+});
 
 const toggleGroup = (group) => {
     expandedGroups.value[group] = !expandedGroups.value[group];
@@ -49,13 +52,21 @@ const toggleGroup = (group) => {
             <!-- Notificaciones -->
             <Link 
                 :href="route('notificaciones.index')" 
-                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
+                class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold group"
                 :class="route().current('notificaciones.index') ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
             >
-                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                </svg>
-                <span>Notificaciones</span>
+                <div class="flex items-center gap-3">
+                    <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <span>Notificaciones</span>
+                </div>
+                <span 
+                    v-if="unreadNotificationsCount > 0" 
+                    class="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[11px] font-extrabold text-white bg-brand-red rounded-full shadow-sm shadow-brand-red/40"
+                >
+                    {{ unreadNotificationsCount > 99 ? '99+' : unreadNotificationsCount }}
+                </span>
             </Link>
 
             <!-- Group: Catálogo -->

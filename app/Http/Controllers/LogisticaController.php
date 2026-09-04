@@ -106,8 +106,8 @@ class LogisticaController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'tipo' => 'required|in:ingreso_proveedor,ingreso_manual,egreso_manual,ajuste',
-            'sucursal_destino_id' => 'required_if:tipo,ingreso_proveedor,ingreso_manual,egreso_manual,ajuste|nullable|exists:sucursales,id',
+            'tipo' => 'required|in:ingreso_proveedor,ingreso_manual,egreso_manual',
+            'sucursal_destino_id' => 'required_if:tipo,ingreso_proveedor,ingreso_manual,egreso_manual|nullable|exists:sucursales,id',
             'motivo' => 'nullable|string|max:1000',
             'items' => 'required|array|min:1',
             'items.*.libro_id' => 'required|exists:libros,id',
@@ -141,10 +141,7 @@ class LogisticaController extends Controller
                 $cantidad = (int) $item['cantidad'];
                 $costo_unitario = isset($item['costo_unitario']) ? (float) $item['costo_unitario'] : null;
 
-                if ($tipo === 'ajuste' && $cantidad === 0) {
-                    throw new \Exception('La cantidad en un ajuste no puede ser 0 para el libro ' . $libro->master->titulo);
-                }
-                if ($tipo !== 'ajuste' && $cantidad <= 0) {
+                if ($cantidad <= 0) {
                     throw new \Exception('La cantidad debe ser mayor a 0 para el libro ' . $libro->master->titulo);
                 }
 
@@ -159,11 +156,8 @@ class LogisticaController extends Controller
                         throw new \Exception('Stock insuficiente para el egreso manual del libro ' . $libro->master->titulo);
                     }
                     $stock->cantidad_disponible -= $cantidad;
-                } else if ($tipo === 'ingreso_manual' || $tipo === 'ingreso_proveedor' || $tipo === 'ajuste') {
+                } else if ($tipo === 'ingreso_manual' || $tipo === 'ingreso_proveedor') {
                     $stock->cantidad_disponible += $cantidad;
-                    if ($stock->cantidad_disponible < 0) {
-                        throw new \Exception('El ajuste resultaría en stock negativo para ' . $libro->master->titulo);
-                    }
                 }
                 
                 $stock->save();

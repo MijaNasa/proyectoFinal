@@ -63,15 +63,38 @@ const passwordForm = useForm({
     password_confirmation: '',
 });
 
+const activeUploadPedidoId = ref(null);
+
 const uploadForm = useForm({
     comprobante: null,
 });
+
+const handleFileChange = (event, pedidoId) => {
+    uploadForm.clearErrors('comprobante');
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const MAX_SIZE_MB = 7;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+    if (file.size > MAX_SIZE_BYTES) {
+        event.target.value = '';
+        uploadForm.comprobante = null;
+        activeUploadPedidoId.value = null;
+        uploadForm.setError('comprobante', `El archivo es demasiado grande (${(file.size / (1024 * 1024)).toFixed(1)} MB). El límite máximo permitido es de ${MAX_SIZE_MB} MB. Por favor elegí una captura o foto más liviana.`);
+        return;
+    }
+
+    activeUploadPedidoId.value = pedidoId;
+    uploadForm.comprobante = file;
+};
 
 const uploadComprobante = (pedidoId) => {
     uploadForm.post(route('mi-cuenta.comprobante', pedidoId), {
         preserveScroll: true,
         onSuccess: () => {
             uploadForm.reset();
+            activeUploadPedidoId.value = null;
             darkSwal.fire({
                 title: 'Comprobante Enviado',
                 text: 'El comprobante ha sido subido con éxito y está pendiente de verificación.',
@@ -80,6 +103,10 @@ const uploadComprobante = (pedidoId) => {
                 showConfirmButton: false
             });
         },
+        onError: (errs) => {
+            if (errs.comprobante) return;
+            uploadForm.setError('comprobante', 'No se pudo subir el archivo. Verificá el tamaño e intentá nuevamente.');
+        }
     });
 };
 
@@ -417,34 +444,64 @@ const solicitarEnvioAcumulados = () => {
                             <div v-if="pedido.estado === 'pendiente_pago' && pedido.metodo_pago === 'Transferencia'" class="p-4 bg-[#131316] border border-white/5 rounded-2xl mt-4 space-y-3">
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-white">Comprobante de Transferencia</h4>
                                 
-                                <div v-if="pedido.comprobante_path" class="flex items-center gap-3">
-                                    <span class="text-emerald-400">✅</span>
-                                    <p class="text-xs text-zinc-300 font-medium">Comprobante enviado. Esperando verificación.</p>
+                                <!-- Si ya tiene comprobante subido y no se ha seleccionado un nuevo archivo para este pedido -->
+                                <div v-if="pedido.comprobante_path && (activeUploadPedidoId !== pedido.id || !uploadForm.comprobante)" class="flex flex-col sm:flex-row items-center justify-between gap-3">
+                                    <div class="flex items-center gap-2.5">
+                                        <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                            Enviado
+                                        </span>
+                                        <p class="text-xs text-zinc-300 font-medium">Comprobante en verificación.</p>
+                                    </div>
                                     <div class="ml-auto flex items-center gap-3">
                                         <a :href="route('mi-cuenta.comprobante.ver', pedido.id)" target="_blank" class="text-xs font-semibold text-white hover:underline">Ver adjunto</a>
-                                        <button @click.stop="deleteComprobante(pedido.id)" class="text-zinc-500 hover:text-rose-400 transition-colors" title="Eliminar comprobante">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                        <button @click.stop="deleteComprobante(pedido.id)" class="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-colors" title="Eliminar comprobante">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                            </svg>
                                         </button>
                                     </div>
                                 </div>
                                 
+                                <!-- Formulario si no hay comprobante o si eligió nuevo archivo -->
                                 <form v-else @submit.prevent="uploadComprobante(pedido.id)" class="flex flex-col sm:flex-row items-center gap-3">
-                                    <input 
-                                        type="file" 
-                                        accept="image/*"
-                                        @input="uploadForm.comprobante = $event.target.files[0]"
-                                        class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
-                                        required
-                                    >
+                                    <div class="flex-1 w-full min-w-0">
+                                        <input 
+                                            type="file" 
+                                            accept="image/*,.pdf"
+                                            @change="handleFileChange($event, pedido.id)"
+                                            class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
+                                        >
+                                        <p v-if="pedido.comprobante_path" class="text-[11px] text-amber-400 mt-1 font-medium">
+                                            Seleccionaste un nuevo archivo para reemplazar el anterior.
+                                        </p>
+                                    </div>
+                                    
                                     <button 
+                                        v-if="uploadForm.comprobante && activeUploadPedidoId === pedido.id"
                                         type="submit"
-                                        :disabled="uploadForm.processing || !uploadForm.comprobante"
-                                        class="w-full sm:w-auto px-5 py-2 bg-white hover:bg-zinc-200 text-black text-xs font-bold uppercase rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 shrink-0"
+                                        :disabled="uploadForm.processing"
+                                        class="w-full sm:w-auto px-5 py-2 bg-white hover:bg-zinc-200 text-black text-xs font-bold uppercase rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 shrink-0 cursor-pointer"
                                     >
                                         {{ uploadForm.processing ? 'Enviando...' : 'Enviar comprobante' }}
                                     </button>
                                 </form>
                                 <p v-if="uploadForm.errors.comprobante" class="text-rose-400 text-xs font-semibold mt-1">{{ uploadForm.errors.comprobante }}</p>
+                            </div>
+
+                            <!-- Acciones del pedido: Descargar Comprobante PDF -->
+                            <div class="pt-3 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <span class="text-xs text-zinc-500 font-medium">Constancia de reserva y compra</span>
+                                <a 
+                                    :href="route('pedidos.comprobante-pdf', pedido.id)" 
+                                    target="_blank" 
+                                    class="px-4 py-2 bg-white/10 hover:bg-white/15 text-white font-semibold text-xs rounded-xl border border-white/10 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
+                                >
+                                    <svg class="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    <span>Descargar Comprobante PDF</span>
+                                </a>
                             </div>
                         </div>
                     </div>

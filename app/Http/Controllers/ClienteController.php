@@ -266,41 +266,44 @@ class ClienteController extends Controller
 
     public function generarResumenPdf(Cliente $cliente)
     {
-        $cliente->load('user');
+        $cliente->load(['user', 'tipoCliente']);
 
-        $ventas = Venta::with('sucursal')
-            ->where('cliente_id', $cliente->id)
-            ->where('estado', '!=', 'cancelado')
-            ->get()
-            ->map(function ($venta) {
-                return (object)[
-                    'fecha'       => $venta->fecha,
-                    'tipo_mov'    => 'Compra',
-                    'descripcion' => 'Venta #TK-' . str_pad($venta->id, 6, '0', STR_PAD_LEFT),
-                    'sucursal'    => $venta->sucursal->nombre ?? 'Online',
-                    'monto'       => -$venta->total,
-                ];
-            });
+        $ventas = Venta::with([
+            'sucursal:id,nombre',
+            'detalles.libro.master:id,titulo',
+            'detalles.libro:id,numero_tomo',
+            'transacciones' => fn($q) => $q->orderBy('fecha', 'asc')
+        ])
+        ->where('cliente_id', $cliente->id)
+        ->where('estado', '!=', 'cancelado')
+        ->orderByDesc('fecha')
+        ->get();
 
         $pagos = $cliente->transacciones()
-            ->with('sucursal')
+            ->with('sucursal:id,nombre')
             ->where('tipo', 'ingreso')
-            ->get()
-            ->map(function ($pago) {
-                return (object)[
-                    'fecha'       => $pago->fecha,
-                    'tipo_mov'    => 'Pago',
-                    'descripcion' => $pago->descripcion ?: 'Pago en ' . $pago->metodo_pago,
-                    'sucursal'    => $pago->sucursal->nombre ?? '-',
-                    'monto'       => $pago->monto,
-                ];
-            });
+            ->orderByDesc('fecha')
+            ->get();
 
-        $historial = $ventas->concat($pagos)->sortBy('fecha')->values();
+        $acumulados = $ventas->where('motivo_pendiente', 'Acumulación');
 
-        $pdf = Pdf::loadView('pdf.resumen_cliente', compact('cliente', 'historial'));
+        $totalComprado = (float) $ventas->sum('total');
+        $totalPagado = (float) $pagos->sum('monto');
+        $saldoActual = (float) $cliente->saldo_actual;
 
-        return $pdf->stream('Resumen_Cuenta_' . $cliente->user->apellido . '.pdf', ['Attachment' => false]);
+        $pdf = Pdf::loadView('pdf.resumen_cliente', compact(
+            'cliente',
+            'ventas',
+            'pagos',
+            'acumulados',
+            'totalComprado',
+            'totalPagado',
+            'saldoActual'
+        ));
+
+        $fileName = 'Estado_Cuenta_' . \Illuminate\Support\Str::slug($cliente->user->apellido . '_' . $cliente->user->name) . '.pdf';
+
+        return $pdf->stream($fileName, ['Attachment' => false]);
     }
 
     public function consolidarPedidos(Request $request, Cliente $cliente)
@@ -361,16 +364,34 @@ class ClienteController extends Controller
             return redirect()->route('clientes.index')->with('error_modal', $msg);
         }
 
-        \DB::transaction(function() use ($cliente) {
-            $user = $cliente->user;
-            $cliente->delete();
-            if ($user) {
-                $user->update(['activo' => false]);
-                $user->delete();
-            }
-        });
+        // Verificar si tiene pedidos activos en curso
+        $pedidosActivos = $cliente->ventas()->whereNotIn('estado', ['finalizado', 'cancelado'])->pluck('id')->toArray();
+        if (!empty($pedidosActivos)) {
+            return back()->with('error', 'No se puede eliminar el cliente porque posee pedidos activos en curso (#' . implode(', #', $pedidosActivos) . ').');
+        }
 
-        return redirect()->route('clientes.index')
-            ->with('message', 'Cliente eliminado con éxito. Las compras históricas conservan sus datos intactos.');
+        try {
+            \DB::transaction(function() use ($cliente) {
+                // Cancelar/eliminar suscripciones asociadas
+                $cliente->suscripciones()->delete();
+
+                $user = $cliente->user;
+                // Soft-delete del cliente
+                $cliente->delete();
+
+                // Desactivamos la cuenta de usuario si existe (no hard-delete para mantener integridad de ventas)
+                if ($user) {
+                    $user->update(['activo' => false]);
+                }
+            });
+
+            return redirect()->route('clientes.index')
+                ->with('message', 'Cliente eliminado con éxito. Las compras históricas conservan sus datos intactos.');
+        } catch (\Throwable $e) {
+            \Log::error('Error al eliminar cliente: ' . $e->getMessage(), [
+                'cliente_id' => $cliente->id,
+            ]);
+            return back()->with('error', 'No se pudo eliminar el cliente: ' . $e->getMessage());
+        }
     }
 }

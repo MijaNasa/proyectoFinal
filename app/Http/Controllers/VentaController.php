@@ -15,6 +15,28 @@ class VentaController extends Controller
     {
         $sucursalId = $request->user()->sucursalRestringidaId();
 
+        $ventaView = null;
+        $tab = $request->get('tab', 'activas');
+
+        if ($request->filled('view')) {
+            $targetVenta = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones'])
+                ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
+                ->find($request->view);
+
+            if ($targetVenta) {
+                $ventaView = $targetVenta;
+                if (!$request->filled('tab') && !$request->filled('estados')) {
+                    if ($targetVenta->estado === 'finalizado') {
+                        $tab = 'finalizadas';
+                    } elseif ($targetVenta->estado === 'cancelado') {
+                        $tab = 'canceladas';
+                    } else {
+                        $tab = 'activas';
+                    }
+                }
+            }
+        }
+
         $query = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones'])
             ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId));
 
@@ -34,13 +56,10 @@ class VentaController extends Controller
             });
         }
 
-
-
         if ($request->filled('estados')) {
             $estados = is_array($request->estados) ? $request->estados : [$request->estados];
             $query->whereIn('estado', $estados);
         } else {
-            $tab = $request->get('tab', 'activas');
             if ($tab === 'canceladas') {
                 $query->where('estado', 'cancelado');
             } elseif ($tab === 'finalizadas') {
@@ -72,7 +91,8 @@ class VentaController extends Controller
             'ventas'     => $ventas,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
             'stats'      => $stats,
-            'filters'    => $request->only(['search', 'tab', 'estados']),
+            'ventaView'  => $ventaView,
+            'filters'    => array_merge($request->only(['search', 'tab', 'estados']), ['tab' => $tab]),
         ]);
     }
 
@@ -94,12 +114,18 @@ class VentaController extends Controller
                 ->orWhereRaw('LOWER(email) LIKE ?', [$like])
             )
             ->select('id', 'user_id', 'saldo_actual')
+            ->with(['suscripciones' => fn($q) => $q->where('estado', 'activa')])
             ->limit(10)
             ->get()
             ->map(fn($c) => [
-                'id'           => $c->id,
-                'saldo_actual' => $c->saldo_actual,
-                'user'         => [
+                'id'               => $c->id,
+                'saldo_actual'     => $c->saldo_actual,
+                'suscripciones'    => $c->suscripciones->map(fn($s) => [
+                    'libro_master_id' => $s->libro_master_id,
+                    'tomo_inicio'     => $s->tomo_inicio ?? 1,
+                ])->toArray(),
+                'libros_comprados' => \App\Models\VentaDetalle::whereHas('venta', fn($q) => $q->where('cliente_id', $c->id)->where('estado', '!=', 'cancelado'))->pluck('libro_id')->unique()->values()->toArray(),
+                'user'             => [
                     'name'     => $c->user->name,
                     'apellido' => $c->user->apellido,
                     'email'    => $c->user->email,
@@ -181,7 +207,7 @@ class VentaController extends Controller
         $libroIds = collect($request->items)->pluck('libro_id');
 
         try {
-            \DB::transaction(function () use ($request, $libroIds, $sucursal_id) {
+            $venta = \DB::transaction(function () use ($request, $libroIds, $sucursal_id) {
                 // Read prices inside the transaction so no stale-price sale is possible
                 $precios = PrecioLibro::whereIn('libro_id', $libroIds)
                     ->where('activo', true)
@@ -222,18 +248,18 @@ class VentaController extends Controller
 
                 // 2. Procesar Descuentos por Suscripción y Calcular Total
                 $suscripciones = collect();
-                $historialCompras = collect();
+                $compradosIds = [];
                 
                 if ($request->cliente_id) {
                     $suscripciones = \App\Models\Suscripcion::where('cliente_id', $request->cliente_id)
-                        ->where('sucursal_id', $sucursal_id)
                         ->where('estado', 'activa')
                         ->get()
                         ->keyBy('libro_master_id');
 
-                    $historialCompras = \App\Models\VentaDetalle::whereHas('venta', function($q) use ($request) {
-                        $q->where('cliente_id', $request->cliente_id)->where('estado', '!=', 'cancelado');
-                    })->pluck('libro_id')->unique();
+                    $compradosIds = \App\Models\VentaDetalle::whereHas('venta', function ($q) use ($request) {
+                        $q->where('cliente_id', $request->cliente_id)
+                          ->where('estado', '!=', 'cancelado');
+                    })->whereIn('libro_id', $libroIds)->pluck('libro_id')->toArray();
                 }
 
                 $processedItems = [];
@@ -248,21 +274,19 @@ class VentaController extends Controller
 
                     $hasDiscount = false;
                     
-                    // Verificar si aplica el descuento por suscripción
-                    if ($request->cliente_id && $suscripciones->has($libroModel->master_id)) {
-                        $sub = $suscripciones->get($libroModel->master_id);
-                        // Aplicable solo si el tomo salió después de la suscripción
-                        if ($libroModel->created_at > $sub->created_at) {
-                            // Aplicable solo si nunca compró este tomo
-                            if (!$historialCompras->contains($libroId)) {
-                                $hasDiscount = true;
-                                $historialCompras->push($libroId); // Evitar doble descuento si envía el mismo item dos veces
-                            }
+                    // Verificar si aplica el descuento por suscripción (5% adicional para suscriptores de la serie)
+                    $sub = $suscripciones->get($libroModel->master_id);
+                    if ($request->cliente_id && $sub && !in_array($libroId, $compradosIds)) {
+                        $rawTomo = (string) ($libroModel->numero_tomo ?? '1');
+                        $numTomo = (int) preg_replace('/\D/', '', $rawTomo) ?: 1;
+                        $tomoInicio = $sub->tomo_inicio ?? 1;
+                        if ($numTomo >= $tomoInicio) {
+                            $hasDiscount = true;
                         }
                     }
 
                     if ($hasDiscount) {
-                        $precioDescuento = $precioOriginal * 0.95;
+                        $precioDescuento = round($precioOriginal * 0.95, 2);
                         
                         $processedItems[] = [
                             'libro_id' => $libroId,
@@ -450,10 +474,25 @@ class VentaController extends Controller
                         ]);
                     }
                 }
+
+                return $venta;
             });
         } catch (\RuntimeException $e) {
             return redirect()->route('ventas.index')
                 ->with('error', $e->getMessage());
+        }
+
+        if (isset($venta) && $venta) {
+            try {
+                $usuariosNotificar = \App\Models\User::where('activo', true)
+                    ->get()
+                    ->filter(fn($u) => $u->esAdmin() || $u->esGerente() || ($u->empleado && $u->empleado->sucursal_id == $venta->sucursal_id));
+                if ($usuariosNotificar->isNotEmpty()) {
+                    \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\NuevaVentaNotification($venta));
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('Error enviando notificacion de nueva venta presencial: ' . $e->getMessage());
+            }
         }
 
         return redirect()->route('ventas.index')
@@ -487,19 +526,60 @@ class VentaController extends Controller
         }
 
         $venta->load([
-            'cliente.user:id,name,apellido,email',
+            'cliente.user:id,name,apellido,email,dni,telefono',
             'user:id,name,apellido',
             'sucursal:id,nombre,calle,numero,telefono',
             'detalles.libro.master:id,titulo',
             'detalles.libro:id,master_id,isbn,numero_tomo',
-            'transacciones',
+            'transacciones' => fn($q) => $q->orderBy('fecha', 'asc'),
         ]);
 
-        $metodoPago = $venta->transacciones->first()->metodo_pago ?? '—';
+        $pagos = $venta->transacciones->where('tipo', 'ingreso');
+        $totalAbonado = (float) $pagos->sum('monto');
+        $saldoPendiente = max(0, (float) $venta->total - $totalAbonado);
+        $metodoPago = $venta->metodo_pago ?? ($pagos->first()->metodo_pago ?? '—');
 
-        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.comprobante_venta', compact('venta', 'metodoPago'));
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.comprobante_venta', compact('venta', 'metodoPago', 'pagos', 'totalAbonado', 'saldoPendiente'));
 
-        return $pdf->stream('Comprobante_Venta_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf', ['Attachment' => false]);
+        return $pdf->stream('Reporte_Pedido_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf', ['Attachment' => false]);
+    }
+
+    public function generarComprobanteClientePdf(Request $request, Venta $venta)
+    {
+        $user = \Auth::user();
+        $autorizado = false;
+
+        if ($user) {
+            if ($user->esAdmin() || $user->esGerente() || $user->empleado || $venta->user_id === $user->id || $venta->cliente?->user_id === $user->id) {
+                $autorizado = true;
+            }
+        } else {
+            if (session('checkout_venta_id') == $venta->id || $request->query('ref') == $venta->id) {
+                $autorizado = true;
+            }
+        }
+
+        if (!$autorizado) {
+            return redirect()->route('catalogo.index')->with('error', 'No tienes acceso a este comprobante.');
+        }
+
+        $venta->load([
+            'cliente.user:id,name,apellido,email,dni,telefono',
+            'user:id,name,apellido',
+            'sucursal:id,nombre,calle,numero,telefono',
+            'detalles.libro.master:id,titulo',
+            'detalles.libro:id,master_id,isbn,numero_tomo',
+            'transacciones' => fn($q) => $q->orderBy('fecha', 'asc'),
+        ]);
+
+        $pagos = $venta->transacciones->where('tipo', 'ingreso');
+        $totalAbonado = (float) $pagos->sum('monto');
+        $saldoPendiente = max(0, (float) $venta->total - $totalAbonado);
+        $metodoPago = $venta->metodo_pago ?? ($pagos->first()->metodo_pago ?? '—');
+
+        $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('pdf.comprobante_venta', compact('venta', 'metodoPago', 'pagos', 'totalAbonado', 'saldoPendiente'));
+
+        return $pdf->stream('Comprobante_Pedido_' . str_pad($venta->id, 6, '0', STR_PAD_LEFT) . '.pdf', ['Attachment' => false]);
     }
 
     public function destroy(Venta $venta)
@@ -541,23 +621,32 @@ class VentaController extends Controller
     {
         $user = \Auth::user();
 
-        if (!$user->esAdmin() && !$user->esGerente()) {
-            abort(403);
+        // Si la venta ya está finalizada o cancelada, solo un Administrador puede alterarla
+        if (in_array($venta->estado, ['finalizado', 'cancelado']) && !$user->esAdmin()) {
+            return back()->with('error', 'Solo un Administrador puede modificar una venta concluida o cancelada.');
         }
-        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
-            abort(403);
+
+        // Si no es admin, solo puede modificar ventas de su propia sucursal
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id && $user->empleado->sucursal_id !== $venta->sucursal_id) {
+            return back()->with('error', 'No tienes permiso para modificar ventas de otra sucursal.');
         }
 
         $request->validate([
-            'estado' => 'sometimes|required|in:pendiente_pago,esperando_traslado,en_preparacion,listo_para_retiro,acumulado,enviado,finalizado,cancelado',
+            'estado' => 'sometimes|required|in:pendiente_pago,en_preventa,esperando_traslado,en_preparacion,listo_para_retiro,acumulado,enviado,finalizado,cancelado',
             'direccion_envio' => 'nullable|string|max:500',
             'latitud' => 'nullable|numeric|between:-90,90',
             'longitud' => 'nullable|numeric|between:-180,180',
         ]);
 
-        $user = auth()->user();
-        $esAdminOManager = $user && ($user->esAdmin() || $user->esGerente());
-        $estadosRestringidos = ['en_preventa', 'esperando_traslado', 'finalizado', 'cancelado'];
+        $nuevoEstado = $request->estado;
+        $estadoActual = $venta->estado;
+
+        if ($nuevoEstado && $nuevoEstado !== $estadoActual) {
+            $permitidos = Venta::TRANSICIONES[$estadoActual] ?? [];
+            if (!in_array($nuevoEstado, $permitidos)) {
+                return back()->with('error', 'No es posible pasar del estado ' . strtoupper(str_replace('_', ' ', $estadoActual)) . ' a ' . strtoupper(str_replace('_', ' ', $nuevoEstado)) . '.');
+            }
+        }
 
         if ($request->estado === 'cancelado' && $venta->estado !== 'cancelado') {
             \DB::transaction(function () use ($venta) {
@@ -565,10 +654,6 @@ class VentaController extends Controller
                 $fresh->cancelarConRestitucionDeStock();
             });
             return back()->with('message', 'Venta cancelada y stock revertido.');
-        }
-
-        if (in_array($venta->estado, $estadosRestringidos) && $request->has('estado') && $request->estado !== $venta->estado && !$esAdminOManager) {
-            return back()->with('error', 'Este estado solo puede ser modificado por un Administrador o mediante eventos del sistema (Logística / Preventas).');
         }
 
         $updates = [];
@@ -639,11 +724,8 @@ class VentaController extends Controller
     {
         $user = \Auth::user();
 
-        if (!$user->esAdmin() && !$user->esGerente()) {
-            abort(403);
-        }
-        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
-            abort(403);
+        if (!$user->esAdmin() && $user->empleado?->sucursal_id && $user->empleado->sucursal_id !== $venta->sucursal_id) {
+            return back()->with('error', 'No tienes permiso para confirmar pagos de otra sucursal.');
         }
 
         if ($venta->estado !== 'pendiente_pago') {

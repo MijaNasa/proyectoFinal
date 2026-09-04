@@ -5,7 +5,7 @@ php artisan config:cache
 php artisan route:cache
 php artisan view:cache
 php artisan migrate --force
-php artisan db:seed --class=AdminSeeder --force
+php artisan db:seed --force
 php artisan storage:link 2>/dev/null || true
 
 # Worker de colas en background: en el plan free de Render no hay un servicio

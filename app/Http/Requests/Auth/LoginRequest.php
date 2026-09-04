@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Auth;
 
+use App\Rules\Recaptcha;
 use Illuminate\Auth\Events\Lockout;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
@@ -27,9 +28,26 @@ class LoginRequest extends FormRequest
      */
     public function rules(): array
     {
+        $hasSecretKey = !empty(config('services.recaptcha.secret_key'));
+
         return [
             'email' => ['required', 'string', 'email'],
             'password' => ['required', 'string'],
+            'recaptcha_token' => $hasSecretKey
+                ? ['required', 'string', new Recaptcha]
+                : ['nullable', 'string', new Recaptcha],
+        ];
+    }
+
+    /**
+     * Custom validation messages.
+     *
+     * @return array<string, string>
+     */
+    public function messages(): array
+    {
+        return [
+            'recaptcha_token.required' => 'Por favor, marca la casilla "No soy un robot" antes de continuar.',
         ];
     }
 

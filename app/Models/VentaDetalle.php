@@ -14,8 +14,8 @@ class VentaDetalle extends Model
     protected $table = 'venta_detalles';
 
     protected $fillable = [
-        'venta_id', 'libro_id', 'cantidad', 
-        'precio_unitario', 'subtotal'
+        'venta_id', 'libro_id', 'cantidad',
+        'precio_unitario', 'subtotal', 'costo_unitario'
     ];
 
     public function venta(): BelongsTo

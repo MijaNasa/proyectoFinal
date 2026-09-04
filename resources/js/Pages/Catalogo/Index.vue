@@ -22,6 +22,8 @@ const selected = reactive({
     serie:      props.filters?.serie      || null,
     proveedor:  props.filters?.proveedor  || null,
     idioma:     props.filters?.idioma     || null,
+    tipo:       props.filters?.tipo       || null,
+    preventa:   props.filters?.preventa   || null,
 });
 
 const applyFilters = () => {
@@ -32,6 +34,8 @@ const applyFilters = () => {
         serie:     selected.serie     || undefined,
         proveedor: selected.proveedor || undefined,
         idioma:    selected.idioma    || undefined,
+        tipo:       selected.tipo      || undefined,
+        preventa:   selected.preventa  || undefined,
     }, { preserveState: false });
 };
 
@@ -48,24 +52,30 @@ const limpiarFiltros = () => {
 
 const activeChips = computed(() => {
     const chips = [];
+    if (selected.preventa) {
+        chips.push({ label: 'Sección: Preventas', key: 'preventa' });
+    }
+    if (selected.tipo) {
+        chips.push({ label: selected.tipo === 'manga' ? 'Sección: Mangas' : 'Sección: Cómics', key: 'tipo' });
+    }
     if (selected.categoria) {
-        const item = props.categorias.find(x => x.id === selected.categoria);
+        const item = props.categorias.find(x => x.id == selected.categoria);
         if (item) chips.push({ label: item.nombre, key: 'categoria' });
     }
     if (selected.autor) {
-        const item = props.autores.find(x => x.id === selected.autor);
+        const item = props.autores.find(x => x.id == selected.autor);
         if (item) chips.push({ label: `${item.apellido}, ${item.nombre}`, key: 'autor' });
     }
     if (selected.serie) {
-        const item = props.series.find(x => x.id === selected.serie);
+        const item = props.series.find(x => x.id == selected.serie);
         if (item) chips.push({ label: item.nombre, key: 'serie' });
     }
     if (selected.proveedor) {
-        const item = props.proveedores.find(x => x.id === selected.proveedor);
+        const item = props.proveedores.find(x => x.id == selected.proveedor);
         if (item) chips.push({ label: item.nombre_empresa, key: 'proveedor' });
     }
     if (selected.idioma) {
-        const item = props.idiomas.find(x => x.id === selected.idioma);
+        const item = props.idiomas.find(x => x.id == selected.idioma);
         if (item) chips.push({ label: item.nombre, key: 'idioma' });
     }
     return chips;
@@ -368,12 +378,23 @@ const onMouseMove = (e) => {
                 </div>
 
                 <!-- Sin resultados -->
-                <div v-if="libros.data.length === 0" class="py-24 text-center">
-                    <svg class="h-16 w-16 mx-auto text-zinc-600 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
-                    </svg>
-                    <h3 class="text-xl font-bold uppercase text-zinc-400">Sin resultados</h3>
-                    <button @click="limpiarFiltros" class="mt-4 text-xs font-semibold uppercase tracking-wider text-zinc-300 hover:text-white transition-colors">Limpiar filtros</button>
+                <div v-if="libros.data.length === 0" class="py-20 text-center max-w-md mx-auto">
+                    <div class="w-16 h-16 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto mb-4 text-emerald-400">
+                        <svg class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+                        </svg>
+                    </div>
+                    <h3 class="text-xl font-bold uppercase text-white">
+                        {{ selected.preventa ? 'No hay preventas activas' : 'Sin resultados' }}
+                    </h3>
+                    <p class="text-xs text-zinc-400 mt-2 font-medium leading-relaxed">
+                        {{ selected.preventa 
+                            ? 'Actualmente no disponemos de productos en preventa. ¡Volvé a consultar pronto para enterarte de los próximos lanzamientos!' 
+                            : 'No encontramos tomos que coincidan con los filtros seleccionados.' }}
+                    </p>
+                    <button @click="limpiarFiltros" class="mt-6 inline-flex items-center gap-2 px-5 py-2.5 bg-white text-black font-bold text-xs uppercase tracking-wider rounded-xl hover:bg-zinc-200 transition-colors shadow-lg active:scale-95">
+                        Ver todo el catálogo
+                    </button>
                 </div>
 
                 <!-- Paginación -->

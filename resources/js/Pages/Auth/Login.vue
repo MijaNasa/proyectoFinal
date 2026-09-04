@@ -3,14 +3,18 @@ import Checkbox from '@/Components/Checkbox.vue';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import InputError from '@/Components/InputError.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, onMounted } from 'vue';
 
-defineProps({
+const props = defineProps({
     canResetPassword: {
         type: Boolean,
     },
     status: {
         type: String,
+    },
+    recaptchaSiteKey: {
+        type: String,
+        default: '',
     },
 });
 
@@ -18,13 +22,79 @@ const form = useForm({
     email: '',
     password: '',
     remember: false,
+    recaptcha_token: '',
 });
 
 const showPassword = ref(false);
+const recaptchaContainer = ref(null);
+const widgetId = ref(null);
+
+const siteKey = props.recaptchaSiteKey || import.meta.env.VITE_RECAPTCHA_SITE_KEY || '6LewxaUtAAAAAGv1T4X70rGOP2VSy-gOeLC8RFAr';
+
+const renderRecaptcha = () => {
+    if (window.grecaptcha && window.grecaptcha.render && recaptchaContainer.value && widgetId.value === null) {
+        try {
+            widgetId.value = window.grecaptcha.render(recaptchaContainer.value, {
+                sitekey: siteKey,
+                theme: 'dark',
+                callback: (token) => {
+                    form.recaptcha_token = token;
+                    form.clearErrors('recaptcha_token');
+                },
+                'expired-callback': () => {
+                    form.recaptcha_token = '';
+                },
+                'error-callback': () => {
+                    form.recaptcha_token = '';
+                },
+            });
+        } catch (e) {
+            console.error('Error al inicializar Google reCAPTCHA:', e);
+        }
+    }
+};
+
+onMounted(() => {
+    if (!siteKey) return;
+
+    if (window.grecaptcha && window.grecaptcha.render) {
+        renderRecaptcha();
+    } else {
+        const scriptId = 'google-recaptcha-script';
+        if (!document.getElementById(scriptId)) {
+            const script = document.createElement('script');
+            script.id = scriptId;
+            script.src = 'https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoaded&render=explicit';
+            script.async = true;
+            script.defer = true;
+            window.onRecaptchaLoaded = () => {
+                renderRecaptcha();
+            };
+            document.head.appendChild(script);
+        } else {
+            const interval = setInterval(() => {
+                if (window.grecaptcha && window.grecaptcha.render) {
+                    clearInterval(interval);
+                    renderRecaptcha();
+                }
+            }, 100);
+        }
+    }
+});
 
 const submit = () => {
     form.post(route('login'), {
-        onFinish: () => form.reset('password'),
+        onFinish: () => {
+            form.reset('password');
+            if (window.grecaptcha && widgetId.value !== null) {
+                try {
+                    window.grecaptcha.reset(widgetId.value);
+                } catch (e) {
+                    // ignorar
+                }
+            }
+            form.recaptcha_token = '';
+        },
     });
 };
 </script>
@@ -129,6 +199,12 @@ const submit = () => {
                             >
                                 ¿Olvidaste tu contraseña?
                             </Link>
+                        </div>
+
+                        <!-- Google reCAPTCHA v2 -->
+                        <div class="pt-2 flex flex-col items-center justify-center">
+                            <div ref="recaptchaContainer" class="flex justify-center my-1"></div>
+                            <InputError class="mt-1 text-xs text-rose-400 font-semibold text-center" :message="form.errors.recaptcha_token" />
                         </div>
 
                         <!-- Botón Submit -->

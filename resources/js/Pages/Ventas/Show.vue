@@ -1,127 +1,9 @@
 <script setup>
-import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
-import { ref } from 'vue';
-import Swal from 'sweetalert2';
-import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
+import { Head, Link } from '@inertiajs/vue3';
 
 const props = defineProps({
     venta: Object,
 });
-
-const page = usePage();
-const puedeEditarEstado = page.props.auth?.esAdmin || page.props.auth?.esGerente;
-
-const estados = [
-    { value: 'en_preventa',        label: 'Esperando preventa' },
-    { value: 'pendiente_pago',     label: 'Pendiente de pago' },
-    { value: 'esperando_traslado', label: 'Esperando traslado entre sucursales' },
-    { value: 'acumulado',          label: 'Acumulado' },
-    { value: 'listo_para_retiro',  label: 'Listo para retirar' },
-    { value: 'en_preparacion',     label: 'Envío en preparación' },
-    { value: 'enviado',            label: 'Enviado' },
-    { value: 'finalizado',         label: 'Finalizado' },
-    { value: 'cancelado',          label: 'Cancelado' },
-];
-
-const darkSwal = Swal.mixin({
-    background: '#131316',
-    color: '#ffffff',
-    buttonsStyling: false,
-    customClass: {
-        popup: 'border border-white/10 rounded-2xl p-6 shadow-2xl bg-[#131316] page-ventas',
-        title: 'text-xl font-bold text-white tracking-tight',
-        htmlContainer: 'text-sm text-zinc-300 font-medium mt-2 leading-relaxed',
-        confirmButton: 'px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md active:scale-95 mx-1 cursor-pointer',
-        cancelButton: 'px-6 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-sm border border-white/10 transition-all active:scale-95 mx-1 cursor-pointer',
-        actions: 'mt-6 flex items-center justify-end gap-2'
-    }
-});
-
-const estadoForm = useForm({
-    estado: props.venta.estado,
-    direccion_envio: props.venta.direccion_envio || '',
-    latitud: props.venta.latitud || null,
-    longitud: props.venta.longitud || null,
-    tracking_code: props.venta.tracking_code || ''
-});
-
-const onSeleccionarDireccion = (f) => {
-    const [lon, lat] = f.geometry?.coordinates ?? [];
-    estadoForm.latitud  = lat ?? null;
-    estadoForm.longitud = lon ?? null;
-};
-
-import { computed } from 'vue';
-
-const esAdmin = computed(() =>
-    page.props.auth?.esAdmin || page.props.auth?.esGerente
-);
-
-const esEstadoRestringido = computed(() =>
-    ['en_preventa', 'esperando_traslado', 'finalizado', 'cancelado'].includes(props.venta.estado)
-);
-
-const puedeModificarEstadoManual = computed(() => {
-    if (esEstadoRestringido.value && !esAdmin.value) {
-        return false;
-    }
-    return true;
-});
-
-const guardarEstado = async () => {
-    if (!puedeModificarEstadoManual.value) {
-        darkSwal.fire({
-            title: 'Acción Restringida',
-            text: 'Este estado solo puede ser modificado por un Administrador o mediante eventos del sistema (Logística / Preventas).',
-            icon: 'warning'
-        });
-        estadoForm.estado = props.venta.estado;
-        return;
-    }
-
-    if (estadoForm.estado === 'cancelado' && props.venta.estado !== 'cancelado') {
-        const { isConfirmed } = await darkSwal.fire({
-            title: '¿Confirmar cancelación?',
-            text: 'Esta acción anulará la venta y devolverá el stock de todos los artículos.',
-            icon: 'warning',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, cancelar',
-            cancelButtonText: 'No, mantener',
-        });
-        
-        if (!isConfirmed) {
-            estadoForm.estado = props.venta.estado;
-            return;
-        }
-    } else if (estadoForm.estado === 'finalizado' && props.venta.estado !== 'finalizado') {
-        const { isConfirmed } = await darkSwal.fire({
-            title: '¿Marcar como Finalizado?',
-            text: 'Esta acción dará por concluida la venta y asentará la entrega del pedido.',
-            icon: 'question',
-            showCancelButton: true,
-            confirmButtonText: 'Sí, finalizar venta',
-            cancelButtonText: 'Cancelar',
-        });
-        
-        if (!isConfirmed) {
-            estadoForm.estado = props.venta.estado;
-            return;
-        }
-    }
-
-    estadoForm.patch(route('ventas.estado', props.venta.id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            darkSwal.fire({
-                title: '¡Actualizado!',
-                text: 'El estado se ha actualizado correctamente.',
-                icon: 'success',
-                timer: 1500,
-                showConfirmButton: false
-            });
-        }
-    });
-};
 
 const fmt = (n) => {
     const formatted = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
@@ -134,6 +16,21 @@ const fmtDate = (d) => {
         day: '2-digit', month: 'long', year: 'numeric',
         hour: '2-digit', minute: '2-digit'
     });
+};
+
+const estadoLabel = (estado) => {
+    const map = {
+        en_preventa:        'Esperando preventa',
+        pendiente_pago:     'Pendiente de pago',
+        esperando_traslado: 'Esperando traslado',
+        acumulado:          'Acumulado',
+        listo_para_retiro:  'Listo para retirar',
+        en_preparacion:     'Envío en preparación',
+        enviado:            'Enviado',
+        finalizado:         'Finalizado',
+        cancelado:          'Cancelado',
+    };
+    return map[estado] || estado;
 };
 
 const metodoPago = props.venta.transacciones?.[0]?.metodo_pago ?? '—';
@@ -154,46 +51,22 @@ const print = () => window.print();
                 </svg>
                 <span>Volver</span>
             </Link>
+
             <div class="flex items-center gap-3">
-                <!-- Cambiar estado (solo admin/gerente) -->
-                <div v-if="puedeEditarEstado" class="flex flex-col sm:flex-row items-center gap-3">
-                    <div class="w-auto min-w-[180px]">
-                        <select
-                            v-model="estadoForm.estado"
-                            :disabled="!puedeModificarEstadoManual"
-                            title="Estado de la Venta"
-                            class="bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold uppercase text-white focus:outline-none focus:border-white/30 transition-colors w-full disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                            <option v-for="e in estados" :key="e.value" :value="e.value" class="bg-[#131316]">{{ e.label }}</option>
-                        </select>
-                    </div>
-                    <div v-if="estadoForm.estado === 'en_preparacion' || estadoForm.estado === 'enviado'" class="w-auto min-w-[220px]">
-                        <DireccionAutocomplete
-                            v-model="estadoForm.direccion_envio"
-                            :disabled="estadoForm.estado === 'enviado' || !puedeModificarEstadoManual"
-                            @select="onSeleccionarDireccion"
-                            placeholder="Ej: San Martín 123, Rosario"
-                            class="bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-colors w-full disabled:opacity-40 disabled:cursor-not-allowed"
-                        />
-                    </div>
-                    <div v-if="['correo_nacional', 'correo_sucursal'].includes(venta.tipo_envio) && estadoForm.estado === 'enviado'" class="w-auto min-w-[180px]">
-                        <input
-                            type="text"
-                            v-model="estadoForm.tracking_code"
-                            placeholder="Tracking (Ej: SD123456789AR)"
-                            class="bg-[#131316] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-colors w-full"
-                        />
-                    </div>
-                    <button
-                        @click="guardarEstado"
-                        :disabled="estadoForm.processing || (estadoForm.estado === venta.estado && estadoForm.direccion_envio === (venta.direccion_envio || '') && estadoForm.tracking_code === (venta.tracking_code || ''))"
-                        class="px-4 py-2 rounded-xl text-xs font-bold bg-white hover:bg-zinc-200 text-black disabled:opacity-30 disabled:cursor-not-allowed transition-all w-full sm:w-auto h-[38px] shadow-md cursor-pointer"
-                    >
-                        Guardar
-                    </button>
-                </div>
+                <!-- Estado actual (solo informativo / lectura) -->
+                <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300 uppercase tracking-wider">
+                    <span class="w-2 h-2 rounded-full shrink-0" :class="{
+                        'bg-emerald-400': ['finalizado', 'listo_para_retiro'].includes(venta.estado),
+                        'bg-amber-400': ['pendiente_pago', 'en_preventa'].includes(venta.estado),
+                        'bg-blue-400': ['en_preparacion', 'enviado'].includes(venta.estado),
+                        'bg-rose-500': venta.estado === 'cancelado',
+                        'bg-zinc-400': !['finalizado', 'listo_para_retiro', 'pendiente_pago', 'en_preventa', 'en_preparacion', 'enviado', 'cancelado'].includes(venta.estado)
+                    }"></span>
+                    <span>Estado: {{ estadoLabel(venta.estado) }}</span>
+                </span>
 
                 <a :href="route('ventas.comprobante-pdf', venta.id)"
+                    target="_blank"
                     class="no-print flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs border border-white/10 px-4 py-2 rounded-xl transition-all">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -202,7 +75,7 @@ const print = () => window.print();
                 </a>
 
                 <button @click="print"
-                    class="flex items-center gap-2 bg-white hover:bg-zinc-200 text-black font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md active:scale-95">
+                    class="flex items-center gap-2 bg-white hover:bg-zinc-200 text-black font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md active:scale-95 cursor-pointer">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
                     </svg>

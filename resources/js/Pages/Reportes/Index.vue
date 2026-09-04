@@ -298,7 +298,7 @@ const balanceSucursalChart = computed(() => {
                     <!-- Top Productos + Top Clientes -->
                     <div class="grid lg:grid-cols-2 gap-4">
                         <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl">
-                            <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-4">Top 8 Productos</p>
+                            <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-4">Top 8 Productos Vendidos</p>
                             <template v-if="topProductosChart && reporteVentas.topProductos?.length">
                                 <VueApexCharts type="bar" height="240"
                                     :options="topProductosChart.options"

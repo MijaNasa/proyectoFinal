@@ -1,4 +1,5 @@
 <script setup>
+import { ref, computed, watch } from 'vue';
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import Swal from 'sweetalert2';
@@ -22,20 +23,80 @@ const darkSwal = Swal.mixin({
 });
 
 const formatPrecio = (valor) =>
-    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
+    new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor || 0);
 
-const actualizarCantidad = (libroId, cantidad) => {
-    if (cantidad < 1) return;
-    router.patch(route('carrito.actualizar', libroId), { cantidad }, {
-        preserveScroll: true,
-        preserveState: true,
-    });
+const localItems = ref(JSON.parse(JSON.stringify(props.items?.items || [])));
+
+watch(() => props.items?.items, (newVal) => {
+    if (newVal) {
+        localItems.value = JSON.parse(JSON.stringify(newVal));
+    }
+}, { deep: true });
+
+const getLimiteItem = (item) => {
+    if (item.permite_preventa) return 5;
+    return (item.stock_total && item.stock_total > 0) ? Math.min(5, item.stock_total) : 5;
+};
+
+const localCount = computed(() => {
+    return localItems.value.reduce((acc, item) => acc + (parseInt(item.cantidad) || 0), 0);
+});
+
+const localSubtotal = computed(() => {
+    return localItems.value.reduce((acc, item) => acc + ((parseFloat(item.precio) || 0) * (parseInt(item.cantidad) || 0)), 0);
+});
+
+const localDescuentoSuscripcion = computed(() => {
+    return localItems.value.reduce((acc, item) => {
+        if (item.tiene_descuento_suscripcion) {
+            const descUnit = item.descuento_suscripcion_unitario !== undefined 
+                ? parseFloat(item.descuento_suscripcion_unitario) 
+                : Math.round((parseFloat(item.precio) || 0) * 0.05);
+            return acc + descUnit;
+        }
+        return acc;
+    }, 0);
+});
+
+const localTotal = computed(() => {
+    return Math.max(0, localSubtotal.value - localDescuentoSuscripcion.value);
+});
+
+const timers = {};
+
+const enviarActualizacionAlServidor = (libroId, cantidad) => {
+    if (timers[libroId]) clearTimeout(timers[libroId]);
+    timers[libroId] = setTimeout(() => {
+        router.patch(route('carrito.actualizar', libroId), { cantidad }, {
+            preserveScroll: true,
+            preserveState: true,
+            only: ['items', 'carritoCount', 'carritoTotal', 'flash'],
+        });
+    }, 250);
+};
+
+const incrementar = (item) => {
+    const limite = getLimiteItem(item);
+    if (item.cantidad < limite) {
+        item.cantidad++;
+        enviarActualizacionAlServidor(item.libro_id, item.cantidad);
+    }
+};
+
+const decrementar = (item) => {
+    if (item.cantidad > 1) {
+        item.cantidad--;
+        enviarActualizacionAlServidor(item.libro_id, item.cantidad);
+    }
 };
 
 const quitar = (libroId) => {
+    if (timers[libroId]) clearTimeout(timers[libroId]);
+    localItems.value = localItems.value.filter(i => i.libro_id !== libroId);
     router.delete(route('carrito.quitar', libroId), {
         preserveScroll: true,
         preserveState: true,
+        only: ['items', 'carritoCount', 'carritoTotal', 'flash'],
     });
 };
 
@@ -49,6 +110,7 @@ const vaciar = () => {
         cancelButtonText: 'Cancelar',
     }).then((result) => {
         if (result.isConfirmed) {
+            localItems.value = [];
             router.delete(route('carrito.vaciar'), {
                 preserveScroll: true,
             });
@@ -87,7 +149,7 @@ const irACheckout = () => {
             <!-- Content Area -->
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
                 <!-- Carrito vacío -->
-                <div v-if="!items.items.length" class="max-w-lg mx-auto py-12 sm:py-16">
+                <div v-if="!localItems.length" class="max-w-lg mx-auto py-12 sm:py-16">
                     <div class="bg-[#131316] border border-white/5 rounded-2xl p-8 sm:p-12 text-center shadow-2xl">
                         <div class="w-20 h-20 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center mx-auto mb-6 text-zinc-400 shadow-inner">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -116,7 +178,7 @@ const irACheckout = () => {
                         <div class="flex items-center justify-between gap-4 pb-2 border-b border-white/5">
                             <div class="flex items-center gap-3">
                                 <h2 class="text-xs font-semibold uppercase tracking-wider text-zinc-400">
-                                    Productos ({{ items.count }})
+                                    Productos ({{ localCount }})
                                 </h2>
                             </div>
                             <button
@@ -133,7 +195,7 @@ const irACheckout = () => {
                         <!-- Item cards -->
                         <div class="space-y-4">
                             <div
-                                v-for="item in items.items"
+                                v-for="item in localItems"
                                 :key="item.libro_id"
                                 class="bg-[#131316] border border-white/5 hover:border-white/10 rounded-2xl p-5 sm:p-6 shadow-xl transition-all duration-300 flex flex-col sm:flex-row gap-5 items-start sm:items-center"
                             >
@@ -174,19 +236,19 @@ const irACheckout = () => {
                                         </div>
                                     </div>
 
-                                    <!-- Selector de Cantidad -->
+                                    <!-- Selector de Cantidad Instantáneo -->
                                     <div class="pt-2 flex flex-wrap items-center gap-4">
                                         <div class="bg-[#0d0d0f] border border-white/10 rounded-xl px-3 py-1.5 flex items-center gap-3">
                                             <button
-                                                @click="actualizarCantidad(item.libro_id, item.cantidad - 1)"
+                                                @click="decrementar(item)"
                                                 :disabled="item.cantidad <= 1"
-                                                class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center font-bold text-sm transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                                class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center font-bold text-sm transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none"
                                             >−</button>
-                                            <span class="w-6 text-center text-sm font-bold font-mono text-white">{{ item.cantidad }}</span>
+                                            <span class="w-6 text-center text-sm font-bold font-mono text-white select-none">{{ item.cantidad }}</span>
                                             <button
-                                                @click="actualizarCantidad(item.libro_id, item.cantidad + 1)"
-                                                :disabled="item.cantidad >= Math.min(5, item.stock_total ?? 5)"
-                                                class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center font-bold text-sm transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                                                @click="incrementar(item)"
+                                                :disabled="item.cantidad >= getLimiteItem(item)"
+                                                class="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-white flex items-center justify-center font-bold text-sm transition-all active:scale-90 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer select-none"
                                             >+</button>
                                         </div>
 
@@ -201,7 +263,7 @@ const irACheckout = () => {
                                         </button>
                                     </div>
 
-                                    <div v-if="item.cantidad >= Math.min(5, item.stock_total ?? 5)" class="mt-2 text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5">
+                                    <div v-if="item.cantidad >= getLimiteItem(item)" class="mt-2 text-[11px] font-semibold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2.5 py-1 rounded-lg inline-flex items-center gap-1.5">
                                         <svg class="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                                         </svg>
@@ -209,17 +271,14 @@ const irACheckout = () => {
                                     </div>
                                 </div>
 
-                                <!-- Subtotal y Precio Unitario -->
-                                <div class="shrink-0 text-left sm:text-right flex flex-col justify-between self-stretch pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                                <!-- Precio Unitario -->
+                                <div class="shrink-0 text-left sm:text-right flex flex-col justify-center self-stretch pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
                                     <div class="space-y-1">
                                         <div class="text-xl font-bold font-mono text-white" :class="{ 'text-cyan-400': item.permite_preventa }">
-                                            {{ formatPrecio(item.precio * item.cantidad) }}
+                                            {{ formatPrecio(item.precio) }}
                                         </div>
                                         <div v-if="item.permite_preventa" class="text-xs font-mono text-zinc-500 line-through">
-                                            {{ formatPrecio((item.precio_original || item.precio) * item.cantidad) }}
-                                        </div>
-                                        <div class="text-xs font-mono text-zinc-400">
-                                            {{ formatPrecio(item.precio) }} c/u
+                                            {{ formatPrecio(item.precio_original || item.precio) }}
                                         </div>
                                     </div>
                                 </div>
@@ -235,16 +294,25 @@ const irACheckout = () => {
                                     Resumen del Pedido
                                 </h3>
                                 <span class="text-xs font-semibold text-zinc-400 bg-white/5 border border-white/10 px-2.5 py-0.5 rounded-full">
-                                    {{ items.count }} item{{ items.count !== 1 ? 's' : '' }}
+                                    {{ localCount }} item{{ localCount !== 1 ? 's' : '' }}
                                 </span>
                             </div>
 
-                            <!-- Desglose de totales -->
+                            <!-- Desglose de totales instantáneo -->
                             <div class="space-y-3">
                                 <div class="flex justify-between items-center text-xs">
                                     <span class="text-zinc-400 font-medium">Subtotal</span>
-                                    <span class="font-mono font-bold text-white text-sm">{{ formatPrecio(items.total) }}</span>
+                                    <span class="font-mono font-bold text-white text-sm">{{ formatPrecio(localSubtotal) }}</span>
                                 </div>
+                                
+                                <div v-if="localDescuentoSuscripcion > 0" class="flex justify-between items-center text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                                    <span class="flex items-center gap-1.5">
+                                        <span>⭐</span>
+                                        <span>Descuento Suscriptor (5%)</span>
+                                    </span>
+                                    <span class="font-mono font-bold">-{{ formatPrecio(localDescuentoSuscripcion) }}</span>
+                                </div>
+
                                 <div class="flex justify-between items-center text-xs">
                                     <span class="text-zinc-400 font-medium">Envío</span>
                                     <span class="text-zinc-500 font-medium text-[11px]">Calculado en el checkout</span>
@@ -252,7 +320,7 @@ const irACheckout = () => {
 
                                 <div class="border-t border-white/5 pt-4 flex justify-between items-baseline">
                                     <span class="text-sm font-bold uppercase tracking-wider text-white">Total</span>
-                                    <span class="text-2xl sm:text-3xl font-bold font-mono text-white">{{ formatPrecio(items.total) }}</span>
+                                    <span class="text-2xl sm:text-3xl font-bold font-mono text-white">{{ formatPrecio(localTotal) }}</span>
                                 </div>
                             </div>
 
@@ -314,4 +382,3 @@ const irACheckout = () => {
     font-family: 'Montserrat', sans-serif !important;
 }
 </style>
-

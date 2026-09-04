@@ -10,7 +10,8 @@ const props = defineProps({
     ventas: Object,
     sucursales: Array,
     stats: Object,
-    filters: Object
+    filters: Object,
+    ventaView: Object
 });
 
 const page = usePage();
@@ -25,7 +26,7 @@ const esAdmin = computed(() =>
 
 const esEstadoRestringido = computed(() => {
     if (!selectedVenta.value) return false;
-    return ['en_preventa', 'esperando_traslado', 'finalizado', 'cancelado'].includes(selectedVenta.value.estado);
+    return ['finalizado', 'cancelado'].includes(selectedVenta.value.estado);
 });
 
 const puedeModificarEstadoManual = computed(() => {
@@ -48,11 +49,28 @@ const estadoOpciones = [
     { value: 'cancelado',          label: 'Cancelado',          tipos: ['online', 'presencial'] },
 ];
 
+const transicionesMap = {
+    pendiente_pago:     ['en_preparacion', 'listo_para_retiro', 'esperando_traslado', 'finalizado', 'en_preventa', 'acumulado', 'cancelado'],
+    en_preventa:        ['en_preparacion', 'listo_para_retiro', 'acumulado', 'cancelado'],
+    en_preparacion:     ['listo_para_retiro', 'enviado', 'esperando_traslado', 'cancelado'],
+    esperando_traslado: ['en_preparacion', 'listo_para_retiro', 'cancelado'],
+    acumulado:          ['en_preparacion', 'listo_para_retiro', 'cancelado'],
+    listo_para_retiro:  ['finalizado'],
+    enviado:            ['finalizado', 'en_preparacion'],
+    finalizado:         [],
+    cancelado:          []
+};
+
 const estadoOpcionesFiltradas = computed(() => {
     if (!selectedVenta.value) return estadoOpciones;
+
+    const estadoActual = selectedVenta.value.estado;
+    const permitidos = transicionesMap[estadoActual] || [];
+
     return estadoOpciones.filter(e => {
         if (!e.tipos.includes(selectedVenta.value.tipo)) return false;
-        return true;
+        if (e.value === estadoActual) return true;
+        return permitidos.includes(e.value);
     });
 });
 
@@ -126,7 +144,7 @@ const selectedVenta = ref(null);
 const expandedVentas = ref([]);
 
 const urlParams = new URLSearchParams(window.location.search);
-const currentTab = ref(urlParams.get('tab') || 'activas');
+const currentTab = ref(props.filters?.tab || urlParams.get('tab') || 'activas');
 
 const toggleExpand = (id) => {
     if (expandedVentas.value.includes(id)) {
@@ -208,19 +226,19 @@ const crearClienteRapido = () => {
             <div class="space-y-4 text-left">
                 <div>
                     <label class="text-xs font-semibold text-zinc-400 block mb-1">Nombre *</label>
-                    <input id="swal-cli-nombre" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Juan">
+                    <input id="swal-cli-nombre" name="cli_nombre_off" autocomplete="off" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Juan">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-zinc-400 block mb-1">Apellido *</label>
-                    <input id="swal-cli-apellido" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Pérez">
+                    <input id="swal-cli-apellido" name="cli_apellido_off" autocomplete="off" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: Pérez">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-zinc-400 block mb-1">Email *</label>
-                    <input id="swal-cli-email" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="email" placeholder="Ej: cliente@email.com">
+                    <input id="swal-cli-email" name="cli_email_off" autocomplete="off" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="email" placeholder="Ej: cliente@email.com">
                 </div>
                 <div>
                     <label class="text-xs font-semibold text-zinc-400 block mb-1">DNI / CUIT *</label>
-                    <input id="swal-cli-dni" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: 38123456">
+                    <input id="swal-cli-dni" name="cli_dni_off" autocomplete="off" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" type="text" placeholder="Ej: 38123456">
                 </div>
             </div>
         `,
@@ -368,6 +386,8 @@ const confirmarAgregarAlCarrito = () => {
     } else {
         posForm.items.push({
             libro_id: l.id,
+            master_id: l.master_id || l.master?.id,
+            numero_tomo: l.numero_tomo,
             cantidad: cant,
             precio: precioUnitario,
             titulo: tituloCompleto,
@@ -465,6 +485,31 @@ const removeItem = (index) => {
 
 const subtotalPos = computed(() => {
     return posForm.items.reduce((acc, item) => acc + (item.cantidad * item.precio), 0);
+});
+
+const descuentoSuscripcionPos = computed(() => {
+    if (!clienteSeleccionado.value || !clienteSeleccionado.value.suscripciones?.length) return 0;
+    const subs = clienteSeleccionado.value.suscripciones;
+    const comprados = clienteSeleccionado.value.libros_comprados || [];
+    let desc = 0;
+    for (const item of posForm.items) {
+        if (item.master_id && !comprados.includes(item.libro_id)) {
+            const sub = subs.find(s => s.libro_master_id === item.master_id);
+            if (sub) {
+                const rawTomo = String(item.numero_tomo || item.titulo || '1');
+                const numTomo = parseInt(rawTomo.replace(/\D/g, '')) || 1;
+                const tomoInicio = sub.tomo_inicio || 1;
+                if (numTomo >= tomoInicio) {
+                    desc += Math.round(item.precio * 0.05);
+                }
+            }
+        }
+    }
+    return desc;
+});
+
+const totalPos = computed(() => {
+    return Math.max(0, subtotalPos.value - descuentoSuscripcionPos.value);
 });
 
 const openPos = () => {
@@ -700,11 +745,12 @@ const formatSucursalName = (name) => {
 onMounted(() => {
     if (typeof window !== 'undefined') {
         const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.get('open') === 'pos') {
+        if (urlParams.get('open') === 'pos' || urlParams.get('nueva') === '1') {
             openPos();
         }
-        if (urlParams.get('view') && props.ventas?.data) {
-            const ventaToView = props.ventas.data.find(v => v.id == urlParams.get('view'));
+        if (urlParams.get('view')) {
+            const viewId = urlParams.get('view');
+            const ventaToView = props.ventas?.data?.find(v => v.id == viewId) || (props.ventaView && props.ventaView.id == viewId ? props.ventaView : null);
             if (ventaToView) {
                 viewVenta(ventaToView);
             }
@@ -762,6 +808,10 @@ onMounted(() => {
                         <input 
                             v-model="search" 
                             type="text" 
+                            name="ventas_search_no_autofill"
+                            autocomplete="off"
+                            spellcheck="false"
+                            aria-autocomplete="none"
                             placeholder="Buscar por cliente o #TK..." 
                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium"
                         >
@@ -896,15 +946,17 @@ onMounted(() => {
                                         </td>
                                         <td class="p-4 text-center">
                                             <div class="flex items-center justify-center gap-1">
-                                                <a v-if="venta.comprobante_path" :href="route('mi-cuenta.comprobante.ver', venta.id)" @click.stop target="_blank" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Ver comprobante del cliente">
-                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>
-                                                </a>
                                                 <button @click.stop="viewVenta(venta)" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Ver detalle">
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                                 </button>
-                                                <Link :href="route('ventas.show', venta.id)" @click.stop class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Comprobante">
+                                                <a :href="route('ventas.comprobante-pdf', venta.id)" target="_blank" @click.stop class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Descargar Reporte / Seña PDF">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                                                </a>
+                                                <!-- Impresora oculta por redundancia con el nuevo comprobante PDF
+                                                <Link :href="route('ventas.show', venta.id)" @click.stop class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Comprobante Web">
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/></svg>
                                                 </Link>
+                                                -->
                                             </div>
                                         </td>
                                     </tr>
@@ -975,6 +1027,10 @@ onMounted(() => {
                                                 @input="buscarClientes(clienteSearch)" 
                                                 @focus="showClienteDropdown = true" 
                                                 type="text" 
+                                                name="cliente_search_pos_no_autofill"
+                                                autocomplete="off"
+                                                spellcheck="false"
+                                                aria-autocomplete="none"
                                                 placeholder="Buscar por nombre, DNI o email..." 
                                                 class="w-full bg-[#131316] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium"
                                             >
@@ -1022,6 +1078,10 @@ onMounted(() => {
                                         @input="buscarLibros(libroSearch)" 
                                         @focus="showLibroDropdown = true" 
                                         type="text" 
+                                        name="libro_search_pos_no_autofill"
+                                        autocomplete="off"
+                                        spellcheck="false"
+                                        aria-autocomplete="none"
                                         placeholder="Buscar por título o ISBN..." 
                                         class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium" 
                                         :disabled="!posForm.sucursal_id"
@@ -1116,7 +1176,7 @@ onMounted(() => {
                                     <div>
                                         <label class="text-xs font-semibold text-zinc-400 block mb-2">Método de Cobro</label>
                                         <select v-model="posForm.medio_pago" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
-                                            <option value="Efectivo">💵 Efectivo Cash</option>
+                                            <option value="Efectivo">💵 Efectivo</option>
                                             <option value="Tarjeta">💳 Tarjeta / Posnet</option>
                                             <option value="Transferencia">📱 Transferencia</option>
                                             <option value="Cuenta Corriente">🏛️ Cuenta Corriente</option>
@@ -1127,21 +1187,34 @@ onMounted(() => {
 
                             <div class="mt-8 space-y-5 pt-6 border-t border-white/5">
                                 <div class="space-y-3">
-                                    <div class="flex justify-between items-center">
-                                        <span class="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Total:</span>
-                                        <span class="text-3xl font-bold text-white tracking-tight">{{ formatCurrency(subtotalPos) }}</span>
+                                    <div class="flex justify-between items-center text-xs">
+                                        <span class="text-zinc-400 font-medium">Subtotal:</span>
+                                        <span class="font-mono font-bold text-white text-sm">{{ formatCurrency(subtotalPos) }}</span>
+                                    </div>
+
+                                    <div v-if="descuentoSuscripcionPos > 0" class="flex justify-between items-center text-xs text-emerald-400 font-semibold bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1.5 rounded-lg">
+                                        <span class="flex items-center gap-1.5">
+                                            <span>⭐</span>
+                                            <span>Descuento Suscriptor (5%)</span>
+                                        </span>
+                                        <span class="font-mono font-bold">-{{ formatCurrency(descuentoSuscripcionPos) }}</span>
+                                    </div>
+
+                                    <div class="flex justify-between items-center border-t border-white/5 pt-2">
+                                        <span class="text-sm font-semibold text-zinc-400 uppercase tracking-wider">Total a Cobrar:</span>
+                                        <span class="text-3xl font-bold text-white tracking-tight">{{ formatCurrency(totalPos) }}</span>
                                     </div>
 
                                     <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado" class="flex justify-between items-center border-t border-white/5 pt-3">
                                         <span class="text-xs text-zinc-400 font-medium">Saldo restante en cuenta:</span>
-                                        <span class="text-lg font-bold tracking-tight" :class="(clienteSeleccionado.saldo_actual - subtotalPos) < 0 ? 'text-rose-400' : 'text-emerald-400'">
-                                            {{ formatCurrency(clienteSeleccionado.saldo_actual - subtotalPos) }}
+                                        <span class="text-lg font-bold tracking-tight" :class="(clienteSeleccionado.saldo_actual - totalPos) < 0 ? 'text-rose-400' : 'text-emerald-400'">
+                                            {{ formatCurrency(clienteSeleccionado.saldo_actual - totalPos) }}
                                         </span>
                                     </div>
 
-                                    <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado && (clienteSeleccionado.saldo_actual - subtotalPos) < 0" class="mt-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2.5">
+                                    <div v-if="posForm.medio_pago === 'Cuenta Corriente' && clienteSeleccionado && (clienteSeleccionado.saldo_actual - totalPos) < 0" class="mt-3 bg-white/[0.02] border border-white/5 p-4 rounded-xl space-y-2.5">
                                         <label class="text-xs font-medium text-zinc-300 block leading-relaxed">
-                                            El saldo restante ({{ formatCurrency(Math.abs(clienteSeleccionado.saldo_actual - subtotalPos)) }}) dejará la cuenta en negativo. ¿Desea abonar el excedente ahora?
+                                            El saldo restante ({{ formatCurrency(Math.abs(clienteSeleccionado.saldo_actual - totalPos)) }}) dejará la cuenta en negativo. ¿Desea abonar el excedente ahora?
                                         </label>
                                         <select v-model="posForm.metodo_pago_excedente" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30">
                                             <option :value="null">Dejar como deuda en Cuenta Corriente</option>
@@ -1317,27 +1390,40 @@ onMounted(() => {
                             </div>
 
                             <!-- Footer Actions Bar -->
-                            <div class="pt-4 border-t border-white/5 flex items-center justify-end gap-3">
-                                <button 
-                                    v-if="isFormModified" 
-                                    type="button" 
-                                    @click="cambiarEstado" 
-                                    :disabled="estadoForm.processing"
-                                    class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                            <div class="pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3">
+                                <a 
+                                    :href="route('ventas.comprobante-pdf', selectedVenta.id)" 
+                                    target="_blank" 
+                                    class="px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-semibold text-xs uppercase tracking-wider rounded-xl border border-white/10 transition-all flex items-center gap-2 cursor-pointer shadow-sm"
                                 >
-                                    <svg v-if="estadoForm.processing" class="animate-spin w-4 h-4 text-black" fill="none" viewBox="0 0 24 24">
-                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                    <svg class="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                     </svg>
-                                    <span>{{ estadoForm.processing ? 'GUARDANDO...' : 'GUARDAR CAMBIOS' }}</span>
-                                </button>
-                                <button 
-                                    type="button" 
-                                    @click="closeDetailModal" 
-                                    class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs uppercase tracking-wider rounded-xl border border-white/10 transition-all cursor-pointer"
-                                >
-                                    Cerrar Detalle
-                                </button>
+                                    <span>Descargar Reporte PDF</span>
+                                </a>
+
+                                <div class="flex items-center gap-3">
+                                    <button 
+                                        v-if="isFormModified" 
+                                        type="button" 
+                                        @click="cambiarEstado" 
+                                        :disabled="estadoForm.processing"
+                                        class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                                    >
+                                        <svg v-if="estadoForm.processing" class="animate-spin w-4 h-4 text-black" fill="none" viewBox="0 0 24 24">
+                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                        </svg>
+                                        <span>{{ estadoForm.processing ? 'GUARDANDO...' : 'GUARDAR CAMBIOS' }}</span>
+                                    </button>
+                                    <button 
+                                        type="button" 
+                                        @click="closeDetailModal" 
+                                        class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs uppercase tracking-wider rounded-xl border border-white/10 transition-all cursor-pointer"
+                                    >
+                                        Cerrar Detalle
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>

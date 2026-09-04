@@ -58,13 +58,16 @@ Route::get('/checkout/pending', [CheckoutController::class, 'pending'])->name('c
 Route::get('/checkout/failure', [CheckoutController::class, 'failure'])->name('checkout.failure');
 Route::post('/checkout/webhook', [CheckoutController::class, 'webhook'])->name('checkout.webhook');
 
+// Comprobantes de Pago (accesibles para el comprador autenticado o invitado con sesión, y personal)
+Route::get('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'viewComprobante'])->name('mi-cuenta.comprobante.ver');
+Route::post('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'uploadComprobante'])->name('mi-cuenta.comprobante');
+Route::delete('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'deleteComprobante'])->name('mi-cuenta.comprobante.delete');
+Route::get('/pedidos/{venta}/comprobante-pdf', [VentaController::class, 'generarComprobanteClientePdf'])->name('pedidos.comprobante-pdf');
+
 // Mi Cuenta (requiere login)
 Route::middleware('auth')->group(function () {
     Route::get('/mi-cuenta', [MiCuentaController::class, 'index'])->name('mi-cuenta.index');
     Route::put('/mi-cuenta/password', [MiCuentaController::class, 'updatePassword'])->name('mi-cuenta.password');
-    Route::get('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'viewComprobante'])->name('mi-cuenta.comprobante.ver');
-    Route::post('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'uploadComprobante'])->name('mi-cuenta.comprobante');
-    Route::delete('/mi-cuenta/pedidos/{venta}/comprobante', [MiCuentaController::class, 'deleteComprobante'])->name('mi-cuenta.comprobante.delete');
 });
 
 Route::get('/', function () {
@@ -209,6 +212,24 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         Route::get('reportes/prediccion/buscar', [PrediccionDemandaController::class, 'buscar'])->name('reportes.prediccion.buscar');
         Route::get('reportes/prediccion/datos', [PrediccionDemandaController::class, 'datos'])->name('reportes.prediccion.datos');
     });
+
+    // Utilidad temporal: correr el seeder de ventas de prueba sin acceso a la Shell de Render.
+    // Se puede borrar despues de usarla una vez; es segura de visitar de nuevo (no hace nada
+    // si ya hay ventas cargadas).
+    Route::get('admin/seed-ventas-demo', function (\Illuminate\Http\Request $request) {
+        if (!$request->user()->esAdmin()) {
+            abort(403);
+        }
+
+        \App\Models\Venta::where('estado', 'cancelado')->get()->each(function ($venta) {
+            $venta->detalles()->delete();
+            $venta->delete();
+        });
+
+        (new \Database\Seeders\VentasSeeder())->run();
+
+        return 'Listo. Ventas totales ahora: ' . \App\Models\Venta::count();
+    })->name('admin.seed-ventas-demo');
 });
 
 require __DIR__.'/auth.php';

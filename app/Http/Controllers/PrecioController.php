@@ -59,6 +59,12 @@ class PrecioController extends Controller
         foreach ($libros as $libro) {
             // Capturamos el precio viejo para no perder el dato del costo original
             $precioViejo = $libro->precios()->where('activo', true)->first();
+            
+            // Si el producto ya tiene exactamente ese precio activo, se omite para evitar duplicados en el historial
+            if ($precioViejo && abs((float)$precioViejo->precio_venta - (float)$request->nuevo_precio) < 0.01) {
+                continue;
+            }
+
             $costoActual = $precioViejo ? $precioViejo->precio_compra : 0;
 
             // Desactivamos el historial viejo
@@ -130,6 +136,12 @@ class PrecioController extends Controller
             $costoActual = $request->precio_compra ?? ($precioAnterior ? $precioAnterior->precio_compra : null);
 
             if ($precioAnterior) {
+                if (abs((float)$precioAnterior->precio_venta - (float)$request->precio_venta) < 0.01) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'precio_venta' => 'El nuevo precio no puede ser igual al precio actual ($' . number_format($precioAnterior->precio_venta, 2, ',', '.') . ').'
+                    ]);
+                }
+
                 $precioAnterior->update([
                     'activo'      => false,
                     'fecha_hasta' => now(),

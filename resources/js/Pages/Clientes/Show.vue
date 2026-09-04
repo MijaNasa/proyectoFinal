@@ -47,6 +47,7 @@ const suscripcionForm = useForm({
     cliente_id: props.cliente.id,
     libro_master_id: '',
     sucursal_id: '',
+    tomo_inicio: 1,
 });
 
 const showPagoModal = ref(false);
@@ -366,8 +367,11 @@ const estadoConfig = {
                                 </div>
                             </div>
                             <div class="flex flex-wrap md:flex-nowrap gap-2">
-                                <a :href="route('clientes.pdf', cliente.id)" target="_blank" class="px-4 py-2 bg-white/5 hover:bg-white/10 text-white rounded-xl text-xs font-semibold border border-white/10 transition-all">
-                                    Informe de balance
+                                <a :href="route('clientes.pdf', cliente.id)" target="_blank" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold border border-white/10 transition-all flex items-center gap-1.5 shadow-sm">
+                                    <svg class="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                    </svg>
+                                    <span>Estado de Cuenta (PDF)</span>
                                 </a>
                                 <button @click="openEditModal" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-xl text-xs font-semibold border border-white/10 transition-all">
                                     Editar Datos
@@ -456,7 +460,14 @@ const estadoConfig = {
                                     <span class="text-xs text-zinc-400 font-semibold">{{ formatFecha(venta.fecha) }}</span>
                                     <span v-if="venta.sucursal" class="text-xs text-zinc-500 font-semibold">{{ venta.sucursal.nombre }}</span>
                                 </div>
-                                <p class="text-base font-bold text-white">{{ formatCurrency(venta.total) }}</p>
+                                <div class="flex items-center gap-3">
+                                    <p class="text-base font-bold text-white">{{ formatCurrency(venta.total) }}</p>
+                                    <a :href="route('ventas.comprobante-pdf', venta.id)" target="_blank" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg border border-white/5 transition-all" title="Descargar Reporte / Seña en PDF">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                                        </svg>
+                                    </a>
+                                </div>
                             </div>
                             <div class="p-4 space-y-2 text-sm">
                                 <div
@@ -588,6 +599,15 @@ const estadoConfig = {
 
                 <!-- Tab: Pagos -->
                 <div v-if="tabActiva === 'pagos'">
+                    <div class="flex justify-end mb-3">
+                        <a :href="route('clientes.pdf', cliente.id)" target="_blank" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold border border-white/10 transition-all flex items-center gap-1.5 shadow-sm">
+                            <svg class="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                            </svg>
+                            <span>Descargar Reporte de Pagos (PDF)</span>
+                        </a>
+                    </div>
+
                     <div v-if="pagos.length === 0" class="bg-[#131316] border border-white/5 rounded-2xl p-12 text-center text-zinc-500 italic">
                         Este cliente no tiene pagos registrados.
                     </div>
@@ -657,13 +677,19 @@ const estadoConfig = {
                         </div>
 
                         <form @submit.prevent="suscribir" class="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
-                            <div class="md:col-span-6 space-y-1 text-left">
+                            <div class="md:col-span-4 space-y-1 text-left">
                                 <label class="block text-xs font-semibold text-zinc-400">SELECCIONE SERIE *</label>
                                 <select v-model="suscripcionForm.libro_master_id" required class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 cursor-pointer" :class="{'border-rose-500': suscripcionForm.errors.libro_master_id}">
                                     <option value="" disabled class="bg-[#131316]">-- Selecciona Serie --</option>
                                     <option v-for="lm in libro_masters" :key="lm.id" :value="lm.id" class="bg-[#131316]">{{ lm.titulo }}</option>
                                 </select>
                                 <p v-if="suscripcionForm.errors.libro_master_id" class="text-rose-400 text-xs font-semibold mt-1">{{ suscripcionForm.errors.libro_master_id }}</p>
+                            </div>
+
+                            <div class="md:col-span-2 space-y-1 text-left">
+                                <label class="block text-xs font-semibold text-zinc-400">TOMO INICIO *</label>
+                                <input v-model.number="suscripcionForm.tomo_inicio" type="number" min="1" required class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold font-mono text-white focus:outline-none focus:border-white/30" placeholder="Ej: 5" />
+                                <p v-if="suscripcionForm.errors.tomo_inicio" class="text-rose-400 text-xs font-semibold mt-1">{{ suscripcionForm.errors.tomo_inicio }}</p>
                             </div>
 
                             <div class="md:col-span-4 space-y-1 text-left">
@@ -694,6 +720,7 @@ const estadoConfig = {
                                 <thead>
                                     <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
                                         <th class="p-4">Serie</th>
+                                        <th class="p-4">Tomo Inicio</th>
                                         <th class="p-4">Sucursal de Retiro</th>
                                         <th class="p-4">Fecha de Alta</th>
                                         <th class="p-4 text-center">Estado</th>
@@ -706,6 +733,11 @@ const estadoConfig = {
                                             <div class="font-bold text-white capitalize">
                                                 {{ susc.serie?.titulo || 'Serie' }}
                                             </div>
+                                        </td>
+                                        <td class="p-4">
+                                            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-mono font-bold text-white">
+                                                Desde Tomo #{{ susc.tomo_inicio || 1 }}
+                                            </span>
                                         </td>
                                         <td class="p-4 text-zinc-300 font-semibold text-xs">
                                             {{ susc.sucursal?.nombre || 'Todas' }}

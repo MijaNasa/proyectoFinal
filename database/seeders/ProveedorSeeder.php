@@ -36,14 +36,21 @@ class ProveedorSeeder extends Seeder
         ];
 
         foreach ($proveedores as $proveedor) {
-            Proveedor::firstOrCreate(
-                ['nombre_empresa' => $proveedor['nombre_empresa']],
-                [
+            // nombre_empresa tiene un mutator que lo normaliza a Str::title(strtolower(...))
+            // al guardarlo. firstOrCreate compara el string tal cual se pasa (sin pasar por el
+            // mutator), asi que un nombre como "ECC Ediciones" o "Siglo XXI" nunca vuelve a
+            // matchear lo que quedo guardado ("Ecc Ediciones", "Siglo Xxi") y se duplica en
+            // cada corrida. Se busca ignorando mayusculas/minusculas para evitar eso.
+            $existe = Proveedor::whereRaw('LOWER(nombre_empresa) = ?', [mb_strtolower($proveedor['nombre_empresa'], 'UTF-8')])->first();
+
+            if (!$existe) {
+                Proveedor::create([
+                    'nombre_empresa' => $proveedor['nombre_empresa'],
                     'email'  => $proveedor['email'],
                     'activo' => true,
                     'deuda_actual' => 0,
-                ]
-            );
+                ]);
+            }
         }
     }
 }

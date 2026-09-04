@@ -35,7 +35,9 @@ class PublicCatalogoController extends Controller
                 $q->whereRaw('LOWER(isbn) LIKE ?', [$like])
                   ->orWhereHas('master', function ($q2) use ($like) {
                       $q2->whereRaw('LOWER(titulo) LIKE ?', [$like])
-                         ->orWhereRaw('LOWER(titulo_original) LIKE ?', [$like]);
+                         ->orWhereRaw('LOWER(titulo_original) LIKE ?', [$like])
+                         ->orWhereHas('proveedor', fn($p) => $p->whereRaw('LOWER(nombre_empresa) LIKE ?', [$like]))
+                         ->orWhereHas('autor', fn($a) => $a->whereRaw('LOWER(nombre) LIKE ? OR LOWER(apellido) LIKE ?', [$like, $like]));
                   });
             });
         }
@@ -66,12 +68,28 @@ class PublicCatalogoController extends Controller
             });
         }
 
+        if ($request->filled('tipo')) {
+            $tipo = mb_strtolower($request->tipo);
+            $query->whereHas('master.categoria', function ($q) use ($tipo) {
+                if ($tipo === 'manga') {
+                    $q->whereRaw('LOWER(nombre) LIKE ?', ['%manga%']);
+                } elseif ($tipo === 'comic') {
+                    $q->whereRaw('LOWER(nombre) NOT LIKE ?', ['%manga%']);
+                }
+            });
+        }
+
+        if ($request->filled('preventa')) {
+            $query->where('permite_preventa', true);
+        }
+
         $query->withSum('stocks', 'cantidad_disponible');
 
         // Check if there are any search filters applied
         $hasFilters = $request->filled('search') || $request->filled('categoria') || 
                       $request->filled('autor') || $request->filled('proveedor') || 
-                      $request->filled('idioma');
+                      $request->filled('idioma') || $request->filled('tipo') ||
+                      $request->filled('preventa');
 
         $preventas = collect();
 
@@ -95,12 +113,12 @@ class PublicCatalogoController extends Controller
         return Inertia::render('Catalogo/Index', [
             'libros'      => $libros,
             'preventas'   => $preventas,
-            'categorias'  => Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-            'autores'     => Autor::where('activo', true)->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
+            'categorias'  => Categoria::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre')->get(['id', 'nombre']),
+            'autores'     => Autor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
             'series'      => [], // Removido por desuso
-            'proveedores' => Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
-            'idiomas'     => Idioma::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-            'filters'     => $request->only(['search', 'categoria', 'autor', 'serie', 'proveedor', 'idioma']),
+            'proveedores' => Proveedor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
+            'idiomas'     => Idioma::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre')->get(['id', 'nombre']),
+            'filters'     => $request->only(['search', 'categoria', 'autor', 'serie', 'proveedor', 'idioma', 'tipo', 'preventa']),
         ]);
     }
 

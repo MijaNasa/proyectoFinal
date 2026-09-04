@@ -363,11 +363,17 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
                             <div class="space-y-4 pt-4 border-t border-white/5">
                                 <div>
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Monto Esperado (Solo Efectivo) — Automático</label>
-                                    <input v-model="form.monto_esperado" type="number" step="0.01" readonly class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold text-zinc-400 text-right font-mono cursor-not-allowed">
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-sm font-bold text-zinc-400">$</span>
+                                        <input :value="form.monto_esperado" type="number" step="0.01" readonly class="w-full bg-[#131316] border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-sm font-bold text-zinc-400 text-right font-mono cursor-not-allowed">
+                                    </div>
                                 </div>
                                 <div>
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Efectivo Real en Caja ($) *</label>
-                                    <input v-model="form.monto_real" type="number" step="0.01" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-base font-bold text-white text-right font-mono focus:outline-none focus:border-white/30">
+                                    <div class="relative">
+                                        <span class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-sm font-bold text-white">$</span>
+                                        <input v-model="form.monto_real" type="number" step="0.01" class="w-full bg-[#131316] border border-white/10 rounded-xl pl-8 pr-4 py-2.5 text-base font-bold text-white text-right font-mono focus:outline-none focus:border-white/30">
+                                    </div>
                                     <p v-if="form.errors.monto_real" class="text-xs text-rose-400 font-semibold mt-1 block">{{ form.errors.monto_real }}</p>
                                 </div>
                             </div>

@@ -16,7 +16,7 @@ class SuscripcionController extends Controller
             ->groupBy('libro_master_id')
             ->orderByDesc('total')
             ->limit(5)
-            ->with('serie:id,titulo,portada_url')
+            ->with(['serie' => fn($q) => $q->select('id', 'titulo', 'portada')->with(['libros' => fn($l) => $l->select('id', 'master_id', 'portada', 'numero_tomo')->whereNotNull('portada')->where('portada', '!=', '')])])
             ->get();
 
         // Listado de suscripciones
@@ -47,9 +47,10 @@ class SuscripcionController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'cliente_id' => 'required|exists:clientes,id',
+            'cliente_id'      => 'required|exists:clientes,id',
             'libro_master_id' => 'required|exists:libro_masters,id',
-            'sucursal_id' => 'required|exists:sucursales,id',
+            'sucursal_id'     => 'required|exists:sucursales,id',
+            'tomo_inicio'     => 'nullable|integer|min:1',
         ]);
 
         $exists = Suscripcion::where('cliente_id', $request->cliente_id)
@@ -62,10 +63,11 @@ class SuscripcionController extends Controller
         }
 
         Suscripcion::create([
-            'cliente_id' => $request->cliente_id,
+            'cliente_id'      => $request->cliente_id,
             'libro_master_id' => $request->libro_master_id,
-            'sucursal_id' => $request->sucursal_id,
-            'estado' => 'activa'
+            'sucursal_id'     => $request->sucursal_id,
+            'tomo_inicio'     => $request->input('tomo_inicio', 1) ?: 1,
+            'estado'          => 'activa'
         ]);
 
         return back()->with('success', 'Suscripción registrada exitosamente.');
@@ -74,12 +76,11 @@ class SuscripcionController extends Controller
     public function update(Request $request, Suscripcion $suscripcion)
     {
         $request->validate([
-            'estado' => ['required', Rule::in(['activa', 'pausada'])]
+            'estado'      => ['sometimes', Rule::in(['activa', 'pausada'])],
+            'tomo_inicio' => ['nullable', 'integer', 'min:1'],
         ]);
 
-        $suscripcion->update([
-            'estado' => $request->estado
-        ]);
+        $suscripcion->update($request->only(['estado', 'tomo_inicio']));
 
         return back()->with('success', 'Suscripción actualizada exitosamente.');
     }

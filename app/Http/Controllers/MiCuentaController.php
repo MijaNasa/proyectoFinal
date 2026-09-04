@@ -72,12 +72,27 @@ class MiCuentaController extends Controller
 
     public function uploadComprobante(Request $request, Venta $venta)
     {
-        if ($venta->user_id !== Auth::id()) {
-            abort(403);
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($venta->user_id !== $user->id && $venta->cliente?->user_id !== $user->id && !$user->empleado) {
+                return back()->with('error', 'No tienes permisos para modificar este pedido.');
+            }
+        } else {
+            if ($venta->estado !== 'pendiente_pago') {
+                return back()->with('error', 'No se puede subir comprobante a un pedido que no está pendiente de pago.');
+            }
+            if (session('checkout_venta_id') && session('checkout_venta_id') != $venta->id) {
+                return back()->with('error', 'Sesión de pedido inválida.');
+            }
         }
 
         $request->validate([
-            'comprobante' => 'required|image|mimes:jpeg,png,jpg|max:5120', // Max 5MB
+            'comprobante' => 'required|file|mimes:jpeg,png,jpg,webp,pdf|max:7168', // Max 7MB
+        ], [
+            'comprobante.required' => 'Seleccioná un archivo de comprobante.',
+            'comprobante.file'     => 'El archivo seleccionado no es válido.',
+            'comprobante.mimes'    => 'El comprobante debe ser una imagen (JPG, PNG, WEBP) o un documento PDF.',
+            'comprobante.max'      => 'El archivo es demasiado grande (máximo 7 MB). Por favor elegí una imagen o captura más liviana.',
         ]);
 
         if ($request->hasFile('comprobante')) {
@@ -103,10 +118,23 @@ class MiCuentaController extends Controller
         return back()->with('message', 'Comprobante subido exitosamente. Un empleado verificará el pago a la brevedad.');
     }
 
-    public function viewComprobante(Venta $venta)
+    public function viewComprobante(Request $request, Venta $venta)
     {
-        if ($venta->user_id !== Auth::id() && !Auth::user()->esAdmin() && !Auth::user()->esGerente()) {
-            abort(403);
+        $autorizado = false;
+
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->esAdmin() || $user->esGerente() || $user->empleado || $venta->user_id === $user->id || $venta->cliente?->user_id === $user->id) {
+                $autorizado = true;
+            }
+        } else {
+            if (session('checkout_venta_id') == $venta->id || $request->query('ref') == $venta->id) {
+                $autorizado = true;
+            }
+        }
+
+        if (!$autorizado) {
+            abort(403, 'No tienes permisos para ver este comprobante.');
         }
 
         if (!$venta->comprobante_path || !Storage::disk('public')->exists($venta->comprobante_path)) {
@@ -116,10 +144,23 @@ class MiCuentaController extends Controller
         return response()->file(Storage::disk('public')->path($venta->comprobante_path));
     }
 
-    public function deleteComprobante(Venta $venta)
+    public function deleteComprobante(Request $request, Venta $venta)
     {
-        if ($venta->user_id !== Auth::id()) {
-            abort(403);
+        $autorizado = false;
+
+        if (Auth::check()) {
+            $user = Auth::user();
+            if ($user->esAdmin() || $user->esGerente() || $user->empleado || $venta->user_id === $user->id || $venta->cliente?->user_id === $user->id) {
+                $autorizado = true;
+            }
+        } else {
+            if (session('checkout_venta_id') == $venta->id || $request->query('ref') == $venta->id) {
+                $autorizado = true;
+            }
+        }
+
+        if (!$autorizado) {
+            return back()->with('error', 'No tienes permisos para eliminar este comprobante.');
         }
 
         if ($venta->comprobante_path) {

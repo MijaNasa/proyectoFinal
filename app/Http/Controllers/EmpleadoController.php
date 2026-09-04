@@ -37,7 +37,7 @@ class EmpleadoController extends Controller
 
         return inertia('Empleados/Index', [
             'empleados' => $empleados,
-            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre', 'es_principal']),
             'cargos'     => Cargo::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'filters'    => $request->only(['search']),
         ]);
@@ -63,9 +63,20 @@ class EmpleadoController extends Controller
                 ? $request->legajo 
                 : ('LEG-' . str_pad($user->id, 4, '0', STR_PAD_LEFT));
 
+            $sucursalId = $request->sucursal_id;
+            if ($request->filled('cargo_id')) {
+                $cargo = Cargo::find($request->cargo_id);
+                if ($cargo && $cargo->nombre === 'REPARTIDOR') {
+                    $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first();
+                    if ($sucursalPrincipal) {
+                        $sucursalId = $sucursalPrincipal->id;
+                    }
+                }
+            }
+
             $empleado = $user->empleado()->create([
                 'legajo' => $legajo,
-                'sucursal_id' => $request->sucursal_id,
+                'sucursal_id' => $sucursalId,
                 'fecha_ingreso' => $request->fecha_ingreso,
             ]);
 
@@ -92,7 +103,23 @@ class EmpleadoController extends Controller
                 'telefono' => $request->telefono,
             ]);
 
-            $empleado->update($request->only(['legajo', 'sucursal_id', 'fecha_ingreso', 'fecha_egreso']));
+            $sucursalId = $request->sucursal_id;
+            if ($request->filled('cargo_id')) {
+                $cargo = Cargo::find($request->cargo_id);
+                if ($cargo && $cargo->nombre === 'REPARTIDOR') {
+                    $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first();
+                    if ($sucursalPrincipal) {
+                        $sucursalId = $sucursalPrincipal->id;
+                    }
+                }
+            }
+
+            $empleado->update([
+                'legajo' => $request->legajo,
+                'sucursal_id' => $sucursalId,
+                'fecha_ingreso' => $request->fecha_ingreso,
+                'fecha_egreso' => $request->fecha_egreso,
+            ]);
 
             if ($request->has('cargo_id')) {
                 $currentCargoIds = $empleado->cargos()->pluck('cargos.id')->toArray();
@@ -164,6 +191,13 @@ class EmpleadoController extends Controller
         $cargo = Cargo::findOrFail($request->cargo_id);
         if (!$user->esAdmin() && $cargo->nombre === 'ADMIN') {
             abort(403, 'Solo un administrador puede asignar el cargo ADMIN.');
+        }
+
+        if ($cargo->nombre === 'REPARTIDOR') {
+            $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first();
+            if ($sucursalPrincipal && $empleado->sucursal_id !== $sucursalPrincipal->id) {
+                $empleado->update(['sucursal_id' => $sucursalPrincipal->id]);
+            }
         }
 
         if ($empleado->cargos()->where('cargo_id', $request->cargo_id)->whereNull('empleados_cargos.fecha_hasta')->exists()) {

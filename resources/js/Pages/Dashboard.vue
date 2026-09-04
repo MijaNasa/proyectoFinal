@@ -75,7 +75,7 @@ const formatTipoMovimiento = (tipo) => {
                     
                     <div v-if="stats.puede_ver_ventas" class="flex items-center gap-3 w-full md:w-auto relative z-10">
                         <Link
-                            :href="route('ventas.index', { nueva: 1 })"
+                            :href="route('ventas.index', { open: 'pos' })"
                             class="flex-1 md:flex-initial px-8 py-3.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md text-center active:scale-95"
                         >
                             + Nueva Venta
@@ -185,7 +185,7 @@ const formatTipoMovimiento = (tipo) => {
                                         <div>
                                             <div class="flex items-center gap-2">
                                                 <Link 
-                                                    :href="route('ventas.index', { view: venta.id })" 
+                                                    :href="route('ventas.index', { view: venta.id, tab: venta.estado === 'finalizado' ? 'finalizadas' : (venta.estado === 'cancelado' ? 'canceladas' : 'activas') })" 
                                                     class="text-xs font-mono font-bold text-white hover:underline"
                                                 >
                                                     #TK-{{ String(venta.id).padStart(6, '0') }}

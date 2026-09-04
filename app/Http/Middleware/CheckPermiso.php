@@ -14,7 +14,7 @@ class CheckPermiso
 
         if (!$user || !$user->hasPermiso($permiso)) {
             if ($request->header('X-Inertia')) {
-                abort(403, 'No tenés permisos para acceder a esta sección.');
+                return back()->with('error', 'Acceso denegado: no tenés permisos para realizar esta acción.');
             }
             return redirect()->route('dashboard')->with('error', 'Acceso denegado: no tenés permisos para esa sección.');
         }

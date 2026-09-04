@@ -284,7 +284,7 @@ const envioSucursalCorreo = computed(() => {
                     <div class="space-y-2">
                         <h3 class="text-xs font-bold uppercase tracking-wider text-white">DESCRIPCIÓN</h3>
                         <div class="text-xs text-zinc-300 leading-relaxed space-y-2">
-                            <p v-if="libro.synopsis">{{ libro.synopsis }}</p>
+                            <p v-if="libro.master?.synopsis">{{ libro.master.synopsis }}</p>
                             <p v-else>
                                 Disfruta del tomo {{ libro.numero_tomo ?? '01' }} de {{ libro.master?.titulo }}. Editado originalmente por {{ libro.master?.proveedor?.nombre_empresa ?? 'la editorial' }}. Incluye páginas a color y sobrecubierta de alta calidad.
                             </p>

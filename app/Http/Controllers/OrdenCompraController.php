@@ -250,6 +250,22 @@ class OrdenCompraController extends Controller
                 $libro = \App\Models\Libro::find($item->libro_id);
                 if ($libro) {
                     $libro->recalcularCostoPPP($item->precio_unitario, $item->cantidad);
+
+                    // Notificar a los suscriptores activos de la serie en esta sucursal
+                    if ($libro->libro_master_id) {
+                        $subscripciones = \App\Models\Suscripcion::where('libro_master_id', $libro->libro_master_id)
+                            ->where('sucursal_id', $fresh->sucursal_id)
+                            ->where('estado', 'activa')
+                            ->with('cliente.user')
+                            ->get();
+
+                        if ($subscripciones->isNotEmpty()) {
+                            $clientes = $subscripciones->pluck('cliente')->filter();
+                            if ($clientes->isNotEmpty()) {
+                                auth()->user()->notify(new \App\Notifications\ClientesNotificadosIngresoNotification($libro, $fresh->sucursal_id, $clientes));
+                            }
+                        }
+                    }
                 }
             }
 

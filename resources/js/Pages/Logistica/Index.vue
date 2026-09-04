@@ -28,7 +28,6 @@ const showTipoDrop     = ref(false);
 const tiposMovimiento = [
     { value: 'ingreso_manual',    label: 'Ingreso Manual' },
     { value: 'egreso_manual',     label: 'Egreso Manual' },
-    { value: 'ajuste',            label: 'Ajuste de Inventario' },
     { value: 'TRANSFERENCIA_SALIDA', label: 'Envío por Venta' },
     { value: 'TRANSFERENCIA_ENTRADA', label: 'Recepción por Venta' },
 ];
@@ -105,6 +104,18 @@ const librosFiltrados = computed(() => {
 });
 
 const selectLibro = (libro) => {
+    if (form.tipo === 'egreso_manual') {
+        const stock = libro.stocks?.find(s => s.sucursal_id === form.sucursal_destino_id);
+        const disponible = stock ? stock.disponible : 0;
+        if (disponible <= 0) {
+            darkSwal.fire({
+                title: 'Sin stock disponible',
+                text: `El libro "${libro.titulo}" no cuenta con stock disponible en la sucursal seleccionada.`,
+                icon: 'warning'
+            });
+            return;
+        }
+    }
     if (!form.items.find(i => i.libro_id === libro.id)) {
         form.items.push({
             libro_id: libro.id,
@@ -158,8 +169,15 @@ const getMaxStock = (libro_id) => {
 
 const validateMaxStock = (item) => {
     const max = getMaxStock(item.libro_id);
-    if (max !== null && item.cantidad > max) {
-        item.cantidad = max;
+    if (max !== null) {
+        if (item.cantidad > max) {
+            item.cantidad = max;
+        }
+        if (item.cantidad < 1) {
+            item.cantidad = max > 0 ? 1 : 0;
+        }
+    } else {
+        if (item.cantidad < 1) item.cantidad = 1;
     }
 };
 
@@ -182,13 +200,6 @@ const scanIsbn = async () => {
         const libroEncontrado = props.libros.find(l => l.isbn === isbn);
         if (libroEncontrado) {
             selectLibro(libroEncontrado);
-            darkSwal.fire({
-                title: 'Agregado',
-                text: `${libroEncontrado.titulo} agregado al movimiento.`,
-                icon: 'success',
-                timer: 1500,
-                showConfirmButton: false
-            });
         } else {
             darkSwal.fire({
                 title: 'No encontrado',
@@ -203,6 +214,20 @@ const submit = () => {
     if (form.items.length === 0) {
         darkSwal.fire({ icon: 'error', title: 'Error', text: 'Debe agregar al menos un libro.' });
         return;
+    }
+
+    if (form.tipo === 'egreso_manual') {
+        for (const item of form.items) {
+            const max = getMaxStock(item.libro_id);
+            if (max !== null && (max <= 0 || item.cantidad > max || item.cantidad <= 0)) {
+                darkSwal.fire({
+                    title: 'Stock insuficiente',
+                    text: `El libro "${item.label}" no tiene stock suficiente para egresar (Disponible: ${max || 0}).`,
+                    icon: 'error'
+                });
+                return;
+            }
+        }
     }
 
     form.post(route('logistica.store'), {
@@ -552,7 +577,6 @@ const editarCosto = async (detalle) => {
                                     <select v-model="form.tipo" @change="form.clearErrors()" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30 cursor-pointer">
                                         <option value="ingreso_manual">Ingreso Manual</option>
                                         <option value="egreso_manual">Egreso Manual</option>
-                                        <option value="ajuste">Ajuste de Inventario</option>
                                     </select>
                                 </div>
 

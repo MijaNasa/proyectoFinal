@@ -63,8 +63,8 @@ const formatDate = (dateString) => {
                             
                             <div class="w-full flex flex-col items-center text-center">
                                 <div class="text-xs font-bold text-zinc-500 mb-2">#{{ index + 1 }}</div>
-                                <img :src="top.serie.portada_url || '/images/no-cover.png'" class="w-20 h-28 object-cover rounded-xl shadow-md mb-3 border border-white/5 mx-auto" />
-                                <div class="font-bold text-xs leading-tight line-clamp-2 text-white group-hover:text-zinc-200 transition-colors min-h-[2.5rem] text-center w-full">{{ top.serie.titulo }}</div>
+                                <img :src="top.serie?.portada_url || '/images/no-cover.png'" @error="$event.target.src = '/images/no-cover.png'" class="w-20 h-28 object-cover rounded-xl shadow-md mb-3 border border-white/5 mx-auto" :alt="top.serie?.titulo || 'Serie'" />
+                                <div class="font-bold text-xs leading-tight line-clamp-2 text-white group-hover:text-zinc-200 transition-colors min-h-[2.5rem] text-center w-full">{{ top.serie?.titulo }}</div>
                             </div>
 
                             <div class="mt-3 flex items-baseline justify-center gap-1.5 w-full">
@@ -112,6 +112,7 @@ const formatDate = (dateString) => {
                                 <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
                                     <th class="p-4">Cliente</th>
                                     <th class="p-4">Obra Suscripta</th>
+                                    <th class="p-4">Tomo Inicio</th>
                                     <th class="p-4">Sucursal</th>
                                     <th class="p-4">Alta</th>
                                     <th class="p-4 text-center">Estado</th>
@@ -119,7 +120,7 @@ const formatDate = (dateString) => {
                             </thead>
                             <tbody class="divide-y divide-white/5 text-sm">
                                 <tr v-if="!suscripciones.data.length">
-                                    <td colspan="5" class="p-12 text-center text-zinc-500 italic">
+                                    <td colspan="6" class="p-12 text-center text-zinc-500 italic">
                                         No se encontraron suscripciones.
                                     </td>
                                 </tr>
@@ -132,6 +133,11 @@ const formatDate = (dateString) => {
                                     </td>
                                     <td class="p-4">
                                         <div class="font-bold text-white capitalize">{{ sub.serie.titulo }}</div>
+                                    </td>
+                                    <td class="p-4">
+                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-mono font-bold text-white">
+                                            Desde Tomo #{{ sub.tomo_inicio || 1 }}
+                                        </span>
                                     </td>
                                     <td class="p-4">
                                         <div class="text-xs font-semibold text-zinc-300">{{ sub.sucursal.nombre }}</div>

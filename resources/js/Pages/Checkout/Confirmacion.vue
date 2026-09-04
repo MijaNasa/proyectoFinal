@@ -6,6 +6,16 @@ import { computed } from 'vue';
 const props = defineProps({
     status: String, // 'success' | 'pending' | 'failure'
     venta:  Object,
+    whatsappNumber: String,
+});
+
+const whatsappUrl = computed(() => {
+    if (!props.venta) return null;
+    const phone = props.whatsappNumber || '5493414245566';
+    const cleanPhone = phone.replace(/\D/g, '');
+    const clientName = props.venta.cliente_nombre ? ` de ${props.venta.cliente_nombre}` : '';
+    const text = encodeURIComponent(`¡Hola Puro Cómic! Te adjunto el comprobante de transferencia para mi pedido #${props.venta.id}${clientName} por ${formatPrecio(props.venta.total)}.`);
+    return `https://wa.me/${cleanPhone}?text=${text}`;
 });
 
 const uploadForm = useForm({
@@ -20,12 +30,34 @@ const deleteComprobante = () => {
     }
 };
 
+const handleFileChange = (event) => {
+    uploadForm.clearErrors('comprobante');
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const MAX_SIZE_MB = 7;
+    const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
+
+    if (file.size > MAX_SIZE_BYTES) {
+        event.target.value = '';
+        uploadForm.comprobante = null;
+        uploadForm.setError('comprobante', `El archivo es demasiado grande (${(file.size / (1024 * 1024)).toFixed(1)} MB). El límite máximo permitido es de ${MAX_SIZE_MB} MB. Por favor elegí una captura o foto más liviana.`);
+        return;
+    }
+
+    uploadForm.comprobante = file;
+};
+
 const uploadComprobante = () => {
     uploadForm.post(route('mi-cuenta.comprobante', props.venta.id), {
         preserveScroll: true,
         onSuccess: () => {
             uploadForm.reset();
         },
+        onError: (errs) => {
+            if (errs.comprobante) return;
+            uploadForm.setError('comprobante', 'No se pudo subir el archivo. Verificá el tamaño e intentá nuevamente.');
+        }
     });
 };
 
@@ -168,54 +200,101 @@ const config = computed(() => {
                     </div>
 
                     <!-- Subir Comprobante Inmediato -->
-                    <div v-if="venta.metodo_pago === 'Transferencia' && venta.estado === 'pendiente_pago'" class="pt-4 border-t border-white/5">
-                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-300 mb-3">
-                            ¿Ya realizaste la transferencia? Subí tu comprobante
+                    <div v-if="venta.metodo_pago === 'Transferencia' && venta.estado === 'pendiente_pago'" class="pt-4 border-t border-white/5 space-y-3">
+                        <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-300">
+                            Comprobante de Transferencia
                         </h4>
                         
-                        <div v-if="venta.comprobante_path" class="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                            <span class="text-emerald-400 text-lg">✅</span>
-                            <p class="text-xs font-semibold text-zinc-200">Comprobante enviado exitosamente. Pendiente de verificación.</p>
+                        <!-- Si el comprobante ya fue subido y no se ha seleccionado un nuevo archivo -->
+                        <div v-if="venta.comprobante_path && !uploadForm.comprobante" class="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
+                            <div class="flex items-center gap-2.5">
+                                <span class="px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1.5">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                    Enviado
+                                </span>
+                                <p class="text-xs text-zinc-200 font-medium">Comprobante en verificación.</p>
+                            </div>
                             <div class="ml-auto flex items-center gap-3 shrink-0">
                                 <a :href="route('mi-cuenta.comprobante.ver', venta.id)" target="_blank" class="text-xs font-bold text-emerald-400 uppercase hover:underline">Ver</a>
-                                <button @click="deleteComprobante" class="text-zinc-400 hover:text-rose-400 transition-colors" title="Eliminar comprobante">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                                <button @click="deleteComprobante" class="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-white/5 rounded-lg transition-colors" title="Eliminar comprobante">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
                                 </button>
                             </div>
                         </div>
                         
+                        <!-- Formulario si no hay comprobante o si seleccionó un nuevo archivo -->
                         <form v-else @submit.prevent="uploadComprobante" class="flex flex-col sm:flex-row items-center gap-3 p-4 bg-[#0d0d0f] border border-white/10 rounded-xl">
-                            <input 
-                                type="file" 
-                                accept="image/*"
-                                @input="uploadForm.comprobante = $event.target.files[0]"
-                                class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:uppercase file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
-                                required
-                            >
+                            <div class="flex-1 w-full min-w-0">
+                                <input 
+                                    type="file" 
+                                    accept="image/*,.pdf"
+                                    @change="handleFileChange"
+                                    class="w-full text-xs text-zinc-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[11px] file:font-semibold file:uppercase file:bg-white/10 file:text-white hover:file:bg-white/20 cursor-pointer"
+                                >
+                                <p v-if="venta.comprobante_path" class="text-[11px] text-amber-400 mt-1 font-medium">
+                                    Seleccionaste un nuevo archivo para reemplazar el anterior.
+                                </p>
+                            </div>
                             <button 
+                                v-if="uploadForm.comprobante"
                                 type="submit"
-                                :disabled="uploadForm.processing || !uploadForm.comprobante"
-                                class="w-full sm:w-auto px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-40 cursor-pointer"
+                                :disabled="uploadForm.processing"
+                                class="w-full sm:w-auto px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-40 cursor-pointer shrink-0"
                             >
                                 {{ uploadForm.processing ? 'Enviando...' : 'Enviar' }}
                             </button>
                         </form>
                         <p v-if="uploadForm.errors.comprobante" class="text-rose-400 text-xs mt-2 font-semibold">{{ uploadForm.errors.comprobante }}</p>
+
+                        <!-- WhatsApp contingency button -->
+                        <div class="pt-4 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/20">
+                            <div class="flex items-center gap-3 text-left">
+                                <span class="text-2xl">💬</span>
+                                <div>
+                                    <p class="text-xs font-bold text-emerald-400">¿Preferís enviarlo por WhatsApp o se te cerró la ventana?</p>
+                                    <p class="text-[11px] text-zinc-400">Podés enviar el comprobante directamente a nuestro chat oficial indicando tu número de pedido.</p>
+                                </div>
+                            </div>
+                            <a 
+                                v-if="whatsappUrl"
+                                :href="whatsappUrl" 
+                                target="_blank" 
+                                class="w-full sm:w-auto px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer active:scale-95"
+                            >
+                                <span>Enviar por WhatsApp</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Invitación a Registrarse (Solo para compras de invitados sin sesión activa) -->
+                <!-- Botón de Descarga del Comprobante PDF -->
+                <div v-if="venta" class="flex justify-center">
+                    <a 
+                        :href="route('pedidos.comprobante-pdf', venta.id)" 
+                        target="_blank" 
+                        class="w-full py-3.5 px-6 bg-white/10 hover:bg-white/15 text-white font-bold text-xs uppercase tracking-wider rounded-2xl border border-white/10 transition-all flex items-center justify-center gap-2.5 shadow-md cursor-pointer active:scale-95"
+                    >
+                        <svg class="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                        </svg>
+                        <span>Descargar Comprobante / Resumen del Pedido (PDF)</span>
+                    </a>
+                </div>
+
+                <!-- Información de Acceso por DNI (Solo para compras de invitados sin sesión activa) -->
                 <div v-if="!$page.props.auth?.user && venta" class="bg-[#131316] border border-white/10 rounded-2xl p-6 sm:p-8 shadow-xl text-left">
                     <div class="flex items-start gap-4">
                         <div class="w-12 h-12 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center shrink-0 text-xl">
-                            🎁
+                            🔑
                         </div>
                         <div class="space-y-1">
                             <h3 class="text-sm font-bold uppercase tracking-wider text-white">
-                                ¿Querés hacer seguimiento a tus pedidos?
+                                ¿Se te cerró esta pestaña o querés hacer seguimiento?
                             </h3>
                             <p class="text-xs text-zinc-400 leading-relaxed font-medium">
-                                Vinculamos esta compra a tu DNI <strong v-if="venta.guest_dni" class="text-white font-mono">{{ venta.guest_dni }}</strong><span v-else>ingresado</span>. Podés registrarte con tu DNI en cualquier momento para ingresar a tu cuenta y ver el seguimiento en tiempo real.
+                                Tu cuenta fue generada automáticamente con tu DNI <strong v-if="venta.guest_dni" class="text-white font-mono">{{ venta.guest_dni }}</strong>. Si cerrás el navegador, podés entrar en cualquier momento a <Link :href="route('login')" class="text-white underline font-semibold hover:text-zinc-300">Iniciar Sesión</Link> con tu correo y tu <strong>DNI como contraseña</strong> para ver tus pedidos o cargar tu comprobante.
                             </p>
                         </div>
                     </div>

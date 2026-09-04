@@ -505,12 +505,6 @@ const decodeLabel = (l) => {
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                                 </svg>
                                             </button>
-                                            <a :href="route('ordenes-compra.show', o.id)" target="_blank"
-                                                class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Ver / Imprimir orden">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
-                                                </svg>
-                                            </a>
                                             <button v-if="['borrador', 'confirmada'].includes(o.estado)" @click="editOrden(o)"
                                                 class="p-2 text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-xl transition-all" title="Editar orden">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -659,9 +653,9 @@ const decodeLabel = (l) => {
                                 <div v-else class="bg-[#131316] border border-white/5 rounded-2xl p-4 shadow-xl space-y-3">
                                     <!-- Items Header Grid -->
                                     <div class="hidden sm:grid grid-cols-12 gap-3 text-xs font-semibold uppercase tracking-wider text-zinc-400 pb-2 border-b border-white/5 px-1">
-                                        <div class="col-span-5">LIBRO A PEDIR</div>
-                                        <div class="col-span-2">CANTIDAD</div>
-                                        <div class="col-span-2">PRECIO UNIT.</div>
+                                        <div class="col-span-6">LIBRO A PEDIR</div>
+                                        <div class="col-span-1 text-center">CANT.</div>
+                                        <div class="col-span-2 text-center">PRECIO UNIT.</div>
                                         <div class="col-span-2 text-right">SUBTOTAL</div>
                                         <div class="col-span-1"></div>
                                     </div>
@@ -669,35 +663,33 @@ const decodeLabel = (l) => {
                                     <div class="divide-y divide-white/5 space-y-3 sm:space-y-0">
                                         <div v-for="(item, i) in form.items" :key="i" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center pt-3 first:pt-0 pb-3 last:pb-0 px-1">
 
-                                            <!-- Libro dropdown -->
-                                            <div class="col-span-1 sm:col-span-5 relative">
-                                                <button type="button" @click="openItemDd(i)"
-                                                    class="w-full flex items-center justify-between bg-[#0d0d0f] border border-white/10 text-white text-xs font-bold rounded-xl px-4 py-2.5">
-                                                    <span class="truncate">{{ itemLabels[i] || 'Seleccionar libro' }}</span>
-                                                    <svg class="w-4 h-4 text-zinc-500 flex-shrink-0 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                                                </button>
-                                                <p v-if="item.reservas > 0" class="text-xs text-amber-400 mt-1 font-semibold">
+                                            <!-- Libro direct search input & dropdown -->
+                                            <div class="col-span-1 sm:col-span-6 relative">
+                                                <div class="relative">
+                                                    <input 
+                                                        type="text" 
+                                                        v-model="itemLabels[i]"
+                                                        @focus="openItemDd(i)"
+                                                        @input="openItemDd(i); searchLibros(i, $event.target.value)"
+                                                        placeholder="Escribir título o ISBN..." 
+                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-semibold focus:outline-none focus:border-white/30 truncate"
+                                                    />
+                                                    <div v-if="itemLabels[i]" @click.stop="itemLabels[i] = ''; form.items[i].libro_id = ''; openItemDd(i); searchLibros(i, '')" class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-500 hover:text-white text-xs">✕</div>
+                                                </div>
+                                                <p v-if="item.reservas > 0" class="text-[11px] text-amber-400 mt-1 font-semibold">
                                                     ⚡ ¡Hay {{ item.reservas }} tomo(s) en preventa!
                                                 </p>
-                                                <div v-if="itemDdOpen[i]" @click.stop class="absolute z-50 mt-1 w-full bg-[#131316] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
-                                                    <div class="p-2 border-b border-white/5">
-                                                        <input
-                                                            :value="itemSearches[i]"
-                                                            @input="itemSearches[i] = $event.target.value; searchLibros(i, $event.target.value)"
-                                                            type="text" placeholder="Buscar por título o ISBN…"
-                                                            class="w-full bg-[#0d0d0f] text-white placeholder-zinc-500 text-xs font-medium rounded-xl px-3 py-2 focus:outline-none"
-                                                        />
-                                                    </div>
-                                                    <div class="max-h-40 overflow-y-auto">
+                                                <div v-if="itemDdOpen[i]" @click.stop class="absolute z-50 mt-1 w-full bg-[#131316] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+                                                    <div class="max-h-48 overflow-y-auto">
                                                         <div v-if="itemLoadings[i]" class="px-3 py-3 text-zinc-500 text-xs text-center">Cargando libros…</div>
                                                         <div v-else-if="!itemResults[i] || itemResults[i].length === 0" class="px-3 py-3 text-zinc-500 text-xs text-center">No hay libros para este proveedor.</div>
                                                         <template v-else>
                                                             <button v-for="l in itemResults[i]" :key="l.id" type="button"
                                                                 @click="selectItemLibro(i, l)"
-                                                                class="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 transition-colors flex justify-between items-center"
-                                                                :class="{ 'text-white font-bold': item.libro_id == l.id }">
+                                                                class="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-white/10 transition-colors flex justify-between items-center"
+                                                                :class="{ 'text-white font-bold bg-white/10': item.libro_id == l.id }">
                                                                 <span class="truncate pr-2">{{ l.titulo }}</span>
-                                                                <div class="flex items-center gap-2 text-xs font-semibold shrink-0">
+                                                                <div class="flex items-center gap-2 text-[11px] font-semibold shrink-0">
                                                                     <span class="text-zinc-500">Stock: {{ l.stock }}</span>
                                                                     <span v-if="l.reservas > 0" class="bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded-lg border border-amber-400/30">
                                                                         Reservas: {{ l.reservas }}
@@ -710,17 +702,17 @@ const decodeLabel = (l) => {
                                             </div>
 
                                             <!-- Cantidad -->
-                                            <div class="col-span-1 sm:col-span-2">
-                                                <input v-model.number="item.cantidad" type="number" min="1" placeholder="Ej: 10"
-                                                    class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 text-center" />
+                                            <div class="col-span-1 sm:col-span-1">
+                                                <input v-model.number="item.cantidad" type="number" min="1" placeholder="1"
+                                                    class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-1.5 py-2 text-xs font-bold text-white focus:outline-none focus:border-white/30 text-center" />
                                             </div>
 
                                             <!-- Precio unitario -->
                                             <div class="col-span-1 sm:col-span-2">
                                                 <div class="relative flex items-center">
-                                                    <span class="absolute left-3 text-xs font-bold text-zinc-500 pointer-events-none">$</span>
-                                                    <input v-model.number="item.precio_unitario" type="number" min="0" step="0.01" placeholder="0.00"
-                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-6 pr-3 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 font-mono" />
+                                                    <span class="absolute left-2.5 text-xs font-bold text-zinc-500 pointer-events-none">$</span>
+                                                    <input v-model.number="item.precio_unitario" type="number" min="0" step="0.01" placeholder="0"
+                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-5 pr-2 py-2 text-xs font-bold text-white focus:outline-none focus:border-white/30 font-mono" />
                                                 </div>
                                             </div>
 
