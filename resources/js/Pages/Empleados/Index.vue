@@ -233,11 +233,36 @@ const resetearPassword = () => {
     });
 };
 
+const sucursalPrincipal = computed(() => {
+    return props.sucursales?.find(s => s.es_principal) || props.sucursales?.[0];
+});
+
+const isRepartidorCargo = computed(() => {
+    if (!form.cargo_id) return false;
+    const c = props.cargos?.find(item => item.id === Number(form.cargo_id));
+    return c?.nombre === 'REPARTIDOR';
+});
+
+watch(() => form.cargo_id, (newCargoId) => {
+    if (!newCargoId) return;
+    const c = props.cargos?.find(item => item.id === Number(newCargoId));
+    if (c?.nombre === 'REPARTIDOR' && sucursalPrincipal.value) {
+        form.sucursal_id = sucursalPrincipal.value.id;
+    }
+});
+
+const isAsignandoRepartidor = computed(() => {
+    if (!asignarForm.cargo_id) return false;
+    const c = props.cargos?.find(item => item.id === Number(asignarForm.cargo_id));
+    return c?.nombre === 'REPARTIDOR';
+});
+
 const colorCargo = (nombre) => {
     const map = { 
         ADMIN: 'bg-rose-400', 
         GERENTE: 'bg-sky-400', 
-        VENDEDOR: 'bg-emerald-400' 
+        VENDEDOR: 'bg-emerald-400',
+        REPARTIDOR: 'bg-amber-400'
     };
     return map[nombre] || 'bg-zinc-400';
 };
@@ -423,20 +448,26 @@ const colorCargo = (nombre) => {
                                         <input v-model="form.legajo" type="text" disabled class="w-full bg-[#131316]/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-zinc-400 font-mono font-bold cursor-not-allowed">
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Sucursal Destino *</label>
-                                        <select v-model="form.sucursal_id" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer" :class="{'border-rose-500': form.errors.sucursal_id}">
-                                            <option value="" disabled class="bg-[#131316] text-zinc-400">Seleccionar Sucursal</option>
-                                            <option v-for="s in sucursales" :key="s.id" :value="s.id" class="bg-[#131316] text-white">{{ s.nombre }}</option>
-                                        </select>
-                                        <p v-if="form.errors.sucursal_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.sucursal_id }}</p>
-                                    </div>
-                                    <div>
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Cargo Principal</label>
                                         <select v-model="form.cargo_id" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer" :class="{'border-rose-500': form.errors.cargo_id}">
                                             <option value="" class="bg-[#131316] text-zinc-400">Sin cargo asignado</option>
                                             <option v-for="c in cargos" :key="c.id" :value="c.id" class="bg-[#131316] text-white">{{ c.nombre }}</option>
                                         </select>
                                         <p v-if="form.errors.cargo_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.cargo_id }}</p>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Sucursal Destino *</label>
+                                        <select v-model="form.sucursal_id" :disabled="isRepartidorCargo" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30" :class="{'border-rose-500': form.errors.sucursal_id, 'opacity-60 cursor-not-allowed bg-[#131316]/50': isRepartidorCargo, 'cursor-pointer': !isRepartidorCargo}">
+                                            <option value="" disabled class="bg-[#131316] text-zinc-400">Seleccionar Sucursal</option>
+                                            <option v-for="s in sucursales" :key="s.id" :value="s.id" class="bg-[#131316] text-white">
+                                                {{ s.nombre }}{{ s.es_principal ? ' (Central)' : '' }}
+                                            </option>
+                                        </select>
+                                        <p v-if="isRepartidorCargo" class="text-amber-400/90 text-[11px] font-medium mt-1.5 flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            Los repartidores operan exclusivamente desde la Sucursal Central.
+                                        </p>
+                                        <p v-if="form.errors.sucursal_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.sucursal_id }}</p>
                                     </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Fecha Ingreso *</label>
@@ -514,6 +545,10 @@ const colorCargo = (nombre) => {
                                         Asignar
                                     </button>
                                 </div>
+                                <p v-if="isAsignandoRepartidor && empleadoSeleccionado?.sucursal_id !== sucursalPrincipal?.id" class="text-amber-400/90 text-[11px] font-medium mt-2 flex items-center gap-1.5">
+                                    <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                    Al asignar REPARTIDOR, la sucursal del empleado se asignará a la Sucursal Central.
+                                </p>
                                 <p v-if="asignarForm.errors.cargo_id" class="text-rose-400 text-xs font-semibold mt-1">{{ asignarForm.errors.cargo_id }}</p>
                             </div>
 
