@@ -272,21 +272,32 @@ class RealCatalogSeeder extends Seeder
             );
 
             foreach ($item['tomos'] as $tomoData) {
-                // Libro (Edición)
+                // Libro (Edición). Se busca por ISBN (unico global) en vez de
+                // por master_id/serie_id/numero_tomo: las migraciones de
+                // fusion de duplicados pueden reasignar a que master/serie
+                // resuelve un titulo entre un deploy y otro, y ese combo ya
+                // no matchearia el Libro existente, causando un intento de
+                // insert duplicado sobre el mismo ISBN.
                 $libro = Libro::firstOrCreate(
+                    ['isbn' => $tomoData['isbn']],
                     [
                         'master_id' => $master->id,
                         'serie_id' => $serie->id,
                         'numero_tomo' => $tomoData['tomo'],
-                    ],
-                    [
-                        'isbn' => $tomoData['isbn'],
                         'año_edicion' => $tomoData['año'],
                         'cantidad_paginas' => $tomoData['paginas'],
                         'activo' => true,
                         'permite_preventa' => false,
                     ]
                 );
+
+                if ($libro->master_id !== $master->id || $libro->serie_id !== $serie->id || $libro->numero_tomo !== $tomoData['tomo']) {
+                    $libro->update([
+                        'master_id' => $master->id,
+                        'serie_id' => $serie->id,
+                        'numero_tomo' => $tomoData['tomo'],
+                    ]);
+                }
 
                 // Precio (si no existe)
                 if (!$libro->precios()->where('activo', true)->exists()) {
