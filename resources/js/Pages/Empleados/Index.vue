@@ -303,7 +303,7 @@ const colorCargo = (nombre) => {
                             v-model="search" 
                             @keyup.enter="handleSearch"
                             type="text" 
-                            placeholder="Buscar por legajo, nombre o DNI..." 
+                            placeholder="Buscar por nombre o DNI..." 
                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium transition-all"
                         >
                     </div>
@@ -315,7 +315,7 @@ const colorCargo = (nombre) => {
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
-                                    <th class="p-4">Legajo / Datos</th>
+                                    <th class="p-4">Empleado / DNI</th>
                                     <th class="p-4">Sucursal Asignada</th>
                                     <th class="p-4">Cargos / Accesos</th>
                                     <th class="p-4">Ingreso / Estado</th>
@@ -327,7 +327,7 @@ const colorCargo = (nombre) => {
                                     <td class="p-4">
                                         <div class="flex flex-col justify-center">
                                             <div class="font-bold text-white tracking-tight capitalize group-hover:text-zinc-200 transition-colors">{{ emp.user.name }} {{ emp.user.apellido }}</div>
-                                            <div class="text-xs text-zinc-400 font-mono font-medium mt-0.5">Legajo: {{ emp.legajo }} · DNI: {{ emp.user.dni || 'S/D' }}</div>
+                                            <div class="text-xs text-zinc-400 font-mono font-medium mt-0.5">DNI: {{ emp.user.dni || 'S/D' }}</div>
                                         </div>
                                     </td>
                                     <td class="p-4">
@@ -443,10 +443,6 @@ const colorCargo = (nombre) => {
                             <div class="space-y-4 pt-2">
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-white border-b border-white/5 pb-2">Datos de la Empresa</h4>
                                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div v-if="isEditing">
-                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Nro. de Legajo</label>
-                                        <input v-model="form.legajo" type="text" disabled class="w-full bg-[#131316]/50 border border-white/5 rounded-xl px-4 py-2.5 text-sm text-zinc-400 font-mono font-bold cursor-not-allowed">
-                                    </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Cargo Principal</label>
                                         <select v-model="form.cargo_id" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer" :class="{'border-rose-500': form.errors.cargo_id}">
@@ -508,7 +504,7 @@ const colorCargo = (nombre) => {
                             <div>
                                 <h3 class="text-sm font-bold text-white uppercase tracking-wider">Gestión de Accesos</h3>
                                 <p class="text-xs text-zinc-400 font-medium mt-0.5">
-                                    {{ empleadoSeleccionado?.user?.name }} {{ empleadoSeleccionado?.user?.apellido }} — Leg. {{ empleadoSeleccionado?.legajo }}
+                                    {{ empleadoSeleccionado?.user?.name }} {{ empleadoSeleccionado?.user?.apellido }} — DNI: {{ empleadoSeleccionado?.user?.dni || 'S/D' }}
                                 </p>
                             </div>
                             <button @click="showAccesosModal = false" class="text-zinc-400 hover:text-white transition-colors">
