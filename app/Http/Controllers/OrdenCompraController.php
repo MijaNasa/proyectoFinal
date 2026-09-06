@@ -252,8 +252,8 @@ class OrdenCompraController extends Controller
                     $libro->recalcularCostoPPP($item->precio_unitario, $item->cantidad);
 
                     // Notificar a los suscriptores activos de la serie en esta sucursal
-                    if ($libro->libro_master_id) {
-                        $subscripciones = \App\Models\Suscripcion::where('libro_master_id', $libro->libro_master_id)
+                    if ($libro->master_id) {
+                        $subscripciones = \App\Models\Suscripcion::where('libro_master_id', $libro->master_id)
                             ->where('sucursal_id', $fresh->sucursal_id)
                             ->where('estado', 'activa')
                             ->with('cliente.user')
