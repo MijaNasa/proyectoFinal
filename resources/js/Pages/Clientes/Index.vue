@@ -8,7 +8,8 @@ import { decodeLabel } from '@/composables/useDecodeLabel';
 const props = defineProps({
     clientes: Object,
     tipos_clientes: Array,
-    filters: Object
+    filters: Object,
+    total_clientes: Number
 });
 
 const page = usePage();
@@ -52,21 +53,14 @@ const openModal = (cliente = null) => {
         form.email = cliente.user.email;
         form.dni = cliente.user.dni || '';
         form.telefono = cliente.user.telefono || '';
-        form.tipo_cliente_id = cliente.tipo_cliente_id;
+        form.tipo_cliente_id = cliente.tipo_cliente_id || '';
         form.estado_abono = cliente.estado_abono || 'Activo';
-        form.saldo_actual = cliente.saldo_actual;
+        form.saldo_actual = cliente.saldo_actual || 0;
     } else {
         isEditing.value = false;
         form.reset();
         form.id = null;
-        form.name = '';
-        form.apellido = '';
-        form.email = '';
-        form.dni = '';
-        form.telefono = '';
-        form.tipo_cliente_id = 1;
-        form.estado_abono = 'Activo';
-        form.saldo_actual = 0;
+        form.tipo_cliente_id = props.tipos_clientes.length > 0 ? props.tipos_clientes[0].id : '';
     }
     showModal.value = true;
 };
@@ -88,9 +82,10 @@ const submit = () => {
         form.put(route('clientes.update', form.id), {
             onSuccess: () => {
                 showModal.value = false;
+                form.reset();
                 darkSwal.fire({
                     title: '¡Actualizado!',
-                    text: 'Datos del cliente actualizados correctamente.',
+                    text: 'Los datos del cliente han sido actualizados.',
                     icon: 'success',
                     timer: 1500,
                     showConfirmButton: false
@@ -103,8 +98,8 @@ const submit = () => {
                 showModal.value = false;
                 form.reset();
                 darkSwal.fire({
-                    title: '¡Registrado!',
-                    text: 'Nuevo cliente registrado con éxito.',
+                    title: '¡Guardado!',
+                    text: 'El cliente ha sido registrado correctamente.',
                     icon: 'success',
                     timer: 1500,
                     showConfirmButton: false
@@ -114,20 +109,20 @@ const submit = () => {
     }
 };
 
-const eliminarCliente = (id) => {
+const eliminarCliente = (cliente) => {
     darkSwal.fire({
-        title: '¿Eliminar cliente?',
-        text: "Esta acción eliminará el perfil del cliente.",
+        title: '¿Eliminar cliente sin actividad?',
+        text: 'Este cliente no posee compras ni movimientos registrados. Se eliminará permanentemente para corregir el duplicado.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
+        confirmButtonText: 'Sí, eliminar definitivamente',
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            router.delete(route('clientes.destroy', id), {
+            router.delete(route('clientes.destroy', cliente.id), {
                 preserveScroll: true,
-                onSuccess: () => {
-                    const errorMsg = page.props.flash?.error_modal;
+                onSuccess: (page) => {
+                    const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
                     if (errorMsg) {
                         darkSwal.fire({
                             title: 'No se puede eliminar',
@@ -137,7 +132,7 @@ const eliminarCliente = (id) => {
                     } else {
                         darkSwal.fire({
                             title: '¡Eliminado!',
-                            text: page.props.flash?.message || 'El cliente ha sido eliminado.',
+                            text: page.props.flash?.swal_success || page.props.flash?.message || 'Registro eliminado permanentemente.',
                             icon: 'success',
                             timer: 1500,
                             showConfirmButton: false
@@ -203,8 +198,8 @@ const formatCurrency = (value) => {
         <div class="py-8 page-clientes">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
-                <!-- Search Filter Bar Container -->
-                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex items-center shadow-xl">
+                <!-- Search Filter Bar Container con Pestañas -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
                     <div class="relative w-full md:w-96">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-500">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -217,6 +212,10 @@ const formatCurrency = (value) => {
                             placeholder="Buscar por nombre, DNI o email..." 
                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium transition-all"
                         >
+                    </div>
+
+                    <div class="text-xs font-semibold text-zinc-400 self-start md:self-auto px-1">
+                        Total: <span class="text-white font-bold font-mono">{{ total_clientes || clientes.total || 0 }}</span> clientes registrados
                     </div>
                 </div>
 
@@ -251,10 +250,16 @@ const formatCurrency = (value) => {
                                         No se encontraron clientes
                                     </td>
                                 </tr>
-                                <tr v-for="cliente in clientes.data" :key="cliente.id" class="hover:bg-white/[0.02] transition-colors group">
+                                <tr 
+                                    v-for="cliente in clientes.data" 
+                                    :key="cliente.id" 
+                                    class="hover:bg-white/[0.02] transition-colors group"
+                                >
                                     <td class="p-4">
-                                        <div class="font-bold text-white tracking-tight capitalize group-hover:text-zinc-200 transition-colors">
-                                            {{ cliente.user.apellido ? cliente.user.apellido + ', ' : '' }}{{ cliente.user.name }}
+                                        <div class="flex items-center gap-2">
+                                            <div class="font-bold text-white tracking-tight capitalize group-hover:text-zinc-200 transition-colors">
+                                                {{ cliente.user.apellido ? cliente.user.apellido + ', ' : '' }}{{ cliente.user.name }}
+                                            </div>
                                         </div>
                                     </td>
                                     <td class="p-4 font-mono text-xs font-semibold text-zinc-300">
@@ -277,6 +282,18 @@ const formatCurrency = (value) => {
                                     </td>
                                     <td class="p-4 text-right">
                                         <div class="flex items-center justify-end gap-1">
+                                            <!-- Editar datos del cliente -->
+                                            <button 
+                                                @click="openModal(cliente)"
+                                                class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"
+                                                title="Editar Datos del Cliente"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                </svg>
+                                            </button>
+
+                                            <!-- Ver Ficha del Cliente -->
                                             <Link 
                                                 :href="route('clientes.show', cliente.id)" 
                                                 class="p-2 text-zinc-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-xl transition-all"
@@ -287,12 +304,29 @@ const formatCurrency = (value) => {
                                                     <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
                                                 </svg>
                                             </Link>
+
+                                            <!-- Eliminar duplicado: SOLO si nunca tuvo compras ni transacciones -->
                                             <button 
-                                                @click="eliminarCliente(cliente.id)"
-                                                class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
-                                                title="Eliminar Cliente"
+                                                v-if="cliente.ventas_count === 0 && cliente.transacciones_count === 0 && Math.abs(cliente.saldo_actual || 0) < 0.01"
+                                                @click="eliminarCliente(cliente)"
+                                                class="p-2 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+                                                title="Eliminar duplicado sin operaciones"
                                             >
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
+                                                </svg>
+                                            </button>
+
+                                            <!-- Historial protegido -->
+                                            <button 
+                                                v-else
+                                                disabled
+                                                class="p-2 text-zinc-700 cursor-not-allowed opacity-30 rounded-xl"
+                                                title="No se puede eliminar: cliente con historial de compras registrado"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                                </svg>
                                             </button>
                                         </div>
                                     </td>

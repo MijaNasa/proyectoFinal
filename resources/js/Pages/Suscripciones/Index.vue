@@ -136,7 +136,7 @@ const formatDate = (dateString) => {
                                     </td>
                                     <td class="p-4">
                                         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-mono font-bold text-white">
-                                            Desde Tomo #{{ sub.tomo_inicio || 1 }}
+                                            Tomo {{ sub.tomo_inicio || 1 }}
                                         </span>
                                     </td>
                                     <td class="p-4">

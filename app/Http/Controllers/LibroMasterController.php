@@ -217,20 +217,57 @@ class LibroMasterController extends Controller
             $data['portada'] = $request->file('portada')->store('portadas', 'public');
         }
 
-        $libroMaster->update($data);
+        unset($data['activo']);
+
+        \DB::transaction(function() use ($libroMaster, $data) {
+            $libroMaster->update($data);
+        });
 
         return redirect()->route('libros.index')
             ->with('message', 'Obra maestra actualizada con éxito');
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Alternar estado activo / inactivo del producto padre (y sus tomos).
+     */
+    public function toggleActivo(LibroMaster $libroMaster)
+    {
+        $nuevoEstado = !$libroMaster->activo;
+
+        if (!$nuevoEstado) {
+            // Verificar si algún tomo de este master tiene stock disponible o reservado > 0
+            $totalStock = (int) \App\Models\Stock::whereIn('libro_id', $libroMaster->libros()->pluck('id'))
+                ->where(function ($q) {
+                    $q->where('cantidad_disponible', '>', 0)
+                      ->orWhere('cantidad_reservada', '>', 0);
+                })
+                ->sum(\DB::raw('cantidad_disponible + cantidad_reservada'));
+
+            if ($totalStock > 0) {
+                return redirect()->back()->with('error_modal', "No se puede desactivar el producto porque sus tomos todavía poseen {$totalStock} unidad(es) de stock en inventario. Debe vaciarse o transferirse el stock antes.");
+            }
+
+            \DB::transaction(function() use ($libroMaster) {
+                $libroMaster->update(['activo' => false]);
+                $libroMaster->libros()->update(['activo' => false]);
+            });
+
+            return redirect()->back()->with('swal_success', 'Producto desactivado con éxito. Su historial permanece intacto.');
+        } else {
+            \DB::transaction(function() use ($libroMaster) {
+                $libroMaster->update(['activo' => true]);
+                $libroMaster->libros()->update(['activo' => true]);
+            });
+
+            return redirect()->back()->with('swal_success', 'Producto reactivado con éxito en el catálogo.');
+        }
+    }
+
+    /**
+     * Remove the specified resource from storage (desactivación lógica).
      */
     public function destroy(LibroMaster $libroMaster)
     {
-        $libroMaster->delete();
-
-        return redirect()->route('libros.index')
-            ->with('message', 'Obra maestra eliminada con éxito');
+        return $this->toggleActivo($libroMaster);
     }
 }

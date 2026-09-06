@@ -2,17 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Notifications\TrasladoPendienteVenta;
 use Illuminate\Http\Request;
 
 class NotificationController extends Controller
 {
     public function index(Request $request)
     {
-        // Get all notifications for the user
-        $notifications = $request->user()->notifications()->paginate(10);
+        $user = $request->user();
+        if ($user) {
+            TrasladoPendienteVenta::marcarLeidasSiCompletado();
+        }
+        $notifications = $user ? $user->notifications()->paginate(10) : null;
+        $unreadCount = $user ? $user->unreadNotifications()->count() : 0;
 
         return inertia('Notificaciones/Index', [
-            'notificaciones' => $notifications
+            'notificaciones' => $notifications,
+            'unreadCount' => $unreadCount,
         ]);
     }
 

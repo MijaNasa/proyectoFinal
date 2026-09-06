@@ -9,6 +9,7 @@ const props = defineProps({
     empleados: Object,
     sucursales: Array,
     cargos: Array,
+    stats: Object,
     filters: Object
 });
 
@@ -32,7 +33,17 @@ const triggerDatePicker = (e) => {
     }
 };
 
-const search = ref(props.filters.search || '');
+const search = ref(props.filters?.search || '');
+const estadoFiltro = ref(props.filters?.estado || 'activos');
+
+const cambiarFiltro = (nuevoEstado) => {
+    estadoFiltro.value = nuevoEstado;
+    router.get(
+        route('empleados.index'),
+        { search: search.value, estado: nuevoEstado },
+        { preserveState: true, preserveScroll: true }
+    );
+};
 
 const form = useForm({
     id: null,
@@ -114,24 +125,70 @@ const submit = () => {
     }
 };
 
-const deleteEmpleado = (id) => {
+const deleteEmpleado = (emp) => {
     darkSwal.fire({
-        title: '¿Confirmar baja?',
-        text: "Se desactivarán los accesos del usuario y se marcará la baja en el sistema.",
+        title: '¿Confirmar baja del empleado?',
+        text: `Se desactivarán los accesos al sistema de ${emp.user?.name || 'este empleado'} y se registrará su fecha de egreso. Las ventas y el historial permanecerán intactos.`,
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sí, confirmar baja',
+        confirmButtonText: 'Sí, dar de baja',
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
-            form.delete(route('empleados.destroy', id), {
-                onSuccess: () => {
-                    darkSwal.fire({
-                        title: 'Baja confirmada',
-                        icon: 'success',
-                        timer: 1500,
-                        showConfirmButton: false
-                    });
+            router.delete(route('empleados.destroy', emp.id), {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                    if (errorMsg) {
+                        darkSwal.fire({
+                            title: 'No se puede dar de baja',
+                            text: errorMsg,
+                            icon: 'error',
+                        });
+                    } else {
+                        darkSwal.fire({
+                            title: 'Baja confirmada',
+                            text: page.props.flash?.swal_success || page.props.flash?.message || 'Empleado dado de baja correctamente.',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    }
+                }
+            });
+        }
+    });
+};
+
+const reactivarEmpleado = (emp) => {
+    darkSwal.fire({
+        title: '¿Reactivar empleado?',
+        text: `Se rehabilitarán los accesos al sistema de ${emp.user?.name || 'este empleado'} y se removerá la fecha de egreso.`,
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, reactivar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.patch(route('empleados.reactivar', emp.id), {}, {
+                preserveScroll: true,
+                onSuccess: (page) => {
+                    const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                    if (errorMsg) {
+                        darkSwal.fire({
+                            title: 'No se puede reactivar',
+                            text: errorMsg,
+                            icon: 'error',
+                        });
+                    } else {
+                        darkSwal.fire({
+                            title: '¡Empleado reactivado!',
+                            text: page.props.flash?.swal_success || page.props.flash?.message || 'El empleado vuelve a estar activo.',
+                            icon: 'success',
+                            timer: 1500,
+                            showConfirmButton: false
+                        });
+                    }
                 }
             });
         }
@@ -139,7 +196,7 @@ const deleteEmpleado = (id) => {
 };
 
 const handleSearch = () => {
-    router.get(route('empleados.index'), { search: search.value }, {
+    router.get(route('empleados.index'), { search: search.value, estado: estadoFiltro.value }, {
         preserveState: true,
         replace: true,
         preserveScroll: true
@@ -291,8 +348,8 @@ const colorCargo = (nombre) => {
         <div class="py-8 page-empleados">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
-                <!-- Search Bar Container -->
-                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex items-center shadow-xl">
+                <!-- Search Bar Container con Filtros -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
                     <div class="relative w-full md:w-96">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-500">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -301,11 +358,43 @@ const colorCargo = (nombre) => {
                         </span>
                         <input 
                             v-model="search" 
-                            @keyup.enter="handleSearch"
                             type="text" 
                             placeholder="Buscar por nombre o DNI..." 
                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium transition-all"
                         >
+                    </div>
+
+                    <div class="flex items-center gap-2 self-start md:self-auto">
+                        <button 
+                            @click="cambiarFiltro('activos')" 
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-2"
+                            :class="estadoFiltro === 'activos' ? 'bg-white text-black border-white shadow-md' : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'"
+                        >
+                            <span>Activos</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold" :class="estadoFiltro === 'activos' ? 'bg-black/15 text-black' : 'bg-emerald-500/20 text-emerald-400'">
+                                {{ stats?.total_activos ?? 0 }}
+                            </span>
+                        </button>
+                        <button 
+                            @click="cambiarFiltro('inactivos')" 
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-2"
+                            :class="(estadoFiltro === 'inactivos' || estadoFiltro === 'bajas') ? 'bg-white text-black border-white shadow-md' : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'"
+                        >
+                            <span>Inactivos</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold" :class="(estadoFiltro === 'inactivos' || estadoFiltro === 'bajas') ? 'bg-black/15 text-black' : 'bg-white/10 text-zinc-300'">
+                                {{ stats?.total_inactivos ?? stats?.total_bajas ?? 0 }}
+                            </span>
+                        </button>
+                        <button 
+                            @click="cambiarFiltro('todos')" 
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-2"
+                            :class="estadoFiltro === 'todos' ? 'bg-white text-black border-white shadow-md' : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'"
+                        >
+                            <span>Todos</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold" :class="estadoFiltro === 'todos' ? 'bg-black/15 text-black' : 'bg-white/10 text-zinc-300'">
+                                {{ stats?.total_todos ?? 0 }}
+                            </span>
+                        </button>
                     </div>
                 </div>
 
@@ -323,16 +412,16 @@ const colorCargo = (nombre) => {
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5 text-sm">
-                                <tr v-for="emp in empleados.data" :key="emp.id" class="hover:bg-white/[0.02] transition-colors group">
+                                <tr v-for="emp in empleados.data" :key="emp.id" class="hover:bg-white/[0.02] transition-colors group" :class="{'opacity-60': emp.deleted_at || emp.fecha_egreso || (emp.user && !emp.user.activo)}">
                                     <td class="p-4">
                                         <div class="flex flex-col justify-center">
-                                            <div class="font-bold text-white tracking-tight capitalize group-hover:text-zinc-200 transition-colors">{{ emp.user.name }} {{ emp.user.apellido }}</div>
-                                            <div class="text-xs text-zinc-400 font-mono font-medium mt-0.5">DNI: {{ emp.user.dni || 'S/D' }}</div>
+                                            <div class="font-bold text-white tracking-tight capitalize group-hover:text-zinc-200 transition-colors">{{ emp.user?.name || 'S/D' }} {{ emp.user?.apellido || '' }}</div>
+                                            <div class="text-xs text-zinc-400 font-mono font-medium mt-0.5">DNI: {{ emp.user?.dni || 'S/D' }}</div>
                                         </div>
                                     </td>
                                     <td class="p-4">
                                         <div class="text-xs font-bold text-white">
-                                            {{ emp.sucursal?.nombre }}
+                                            {{ emp.sucursal?.nombre || 'Sin sucursal' }}
                                         </div>
                                     </td>
                                     <td class="p-4">
@@ -347,29 +436,47 @@ const colorCargo = (nombre) => {
                                     <td class="p-4">
                                         <div class="flex items-center gap-2">
                                             <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
-                                                <span class="w-2 h-2 rounded-full shrink-0" :class="emp.fecha_egreso ? 'bg-rose-400' : 'bg-emerald-400'"></span>
-                                                <span>{{ emp.fecha_egreso ? 'Baja: ' + emp.fecha_egreso : 'Activo' }}</span>
+                                                <span class="w-2 h-2 rounded-full shrink-0" :class="(emp.deleted_at || emp.fecha_egreso || (emp.user && !emp.user.activo)) ? 'bg-rose-400' : 'bg-emerald-400'"></span>
+                                                <span>{{ (emp.deleted_at || emp.fecha_egreso || (emp.user && !emp.user.activo)) ? (emp.fecha_egreso ? 'Baja: ' + emp.fecha_egreso : 'Inactivo') : 'Activo' }}</span>
                                             </span>
                                         </div>
-                                        <div class="text-xs text-zinc-500 font-medium mt-1">Desde: {{ emp.fecha_ingreso }}</div>
+                                        <div class="text-xs text-zinc-500 font-medium mt-1">Desde: {{ emp.fecha_ingreso || 'S/D' }}</div>
                                     </td>
                                     <td class="p-4 text-right">
                                         <div class="flex items-center justify-end gap-1">
-                                            <button @click="openAccesosModal(emp)" title="Gestionar Accesos" class="p-2 text-zinc-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-xl transition-all">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                                                </svg>
-                                            </button>
-                                            <button @click="openModal(emp)" title="Editar Empleado" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                                                </svg>
-                                            </button>
-                                            <button @click="deleteEmpleado(emp.id)" title="Dar de baja" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" />
-                                                </svg>
-                                            </button>
+                                            <template v-if="!emp.deleted_at && (!emp.user || emp.user.activo)">
+                                                <button @click="openAccesosModal(emp)" title="Gestionar Accesos" class="p-2 text-zinc-400 hover:text-sky-400 hover:bg-sky-500/10 rounded-xl transition-all">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+                                                    </svg>
+                                                </button>
+                                                <button @click="openModal(emp)" title="Editar Empleado" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                                                    </svg>
+                                                </button>
+                                                <button 
+                                                    v-if="$page.props.auth.user.id !== emp.user_id" 
+                                                    @click="deleteEmpleado(emp)" 
+                                                    title="Desactivar / Dar de baja" 
+                                                    class="p-2 text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-xl transition-all"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                    </svg>
+                                                </button>
+                                            </template>
+                                            <template v-else>
+                                                <button 
+                                                    @click="reactivarEmpleado(emp)" 
+                                                    title="Reactivar Empleado" 
+                                                    class="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                    </svg>
+                                                </button>
+                                            </template>
                                         </div>
                                     </td>
                                 </tr>

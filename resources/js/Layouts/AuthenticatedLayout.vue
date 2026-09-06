@@ -25,19 +25,6 @@ const expandedGroups = ref({
 const page = usePage();
 const hasPermiso = (codigo) => page.props.auth.permisos?.includes(codigo) ?? false;
 
-const toast = ref(null);
-let toastTimer = null;
-const showToast = (msg, type) => {
-    if (toastTimer) clearTimeout(toastTimer);
-    toast.value = { msg, type };
-    toastTimer = setTimeout(() => toast.value = null, 3500);
-};
-watch(() => page.props.flash, (flash) => {
-    if (flash?.success) showToast(flash.success, 'success');
-    else if (flash?.error)   showToast(flash.error,   'error');
-    else if (flash?.warning) showToast(flash.warning, 'warning');
-}, { deep: true });
-
 const toggleGroup = (group) => {
     expandedGroups.value[group] = !expandedGroups.value[group];
 };
@@ -90,23 +77,6 @@ const toggleGroup = (group) => {
                 </footer>
             </main>
         </div>
-    <!-- Toast global -->
-    <transition name="toast">
-        <div
-            v-if="toast"
-            class="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl text-sm font-black uppercase tracking-widest"
-            :class="{
-                'bg-green-500/90 text-white':  toast.type === 'success',
-                'bg-yellow-500/90 text-black': toast.type === 'warning',
-                'bg-red-600/90 text-white':    toast.type === 'error',
-            }"
-        >
-            <svg v-if="toast.type === 'success'" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
-            <svg v-else-if="toast.type === 'warning'" class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-            <svg v-else class="w-5 h-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-            {{ toast.msg }}
-        </div>
-    </transition>
     </div>
 </template>
 
@@ -124,8 +94,4 @@ const toggleGroup = (group) => {
 .fade-enter-from, .fade-leave-to {
   opacity: 0;
 }
-.toast-enter-active { transition: opacity 0.25s ease, transform 0.25s ease; }
-.toast-leave-active { transition: opacity 0.3s ease, transform 0.3s ease; }
-.toast-enter-from  { opacity: 0; transform: translateY(12px); }
-.toast-leave-to    { opacity: 0; transform: translateY(12px); }
 </style>

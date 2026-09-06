@@ -1,11 +1,42 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { Head, Link, router, usePage } from '@inertiajs/vue3';
+import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
 
 const props = defineProps({
     notificaciones: Object,
+    unreadCount: {
+        type: Number,
+        default: null,
+    },
+});
+
+const page = usePage();
+
+const getInitialUnreadCount = () => {
+    if (props.unreadCount !== null && props.unreadCount !== undefined) {
+        return Number(props.unreadCount);
+    }
+    if (page.props.unreadNotificationsCount !== undefined) {
+        return Number(page.props.unreadNotificationsCount);
+    }
+    return props.notificaciones?.data ? props.notificaciones.data.filter(n => !n.read_at).length : 0;
+};
+
+const localUnreadCount = ref(getInitialUnreadCount());
+const filtro = ref('sin_leer'); // 'sin_leer' | 'todas'
+
+watch(() => [props.unreadCount, page.props.unreadNotificationsCount], () => {
+    localUnreadCount.value = getInitialUnreadCount();
+});
+
+const notificacionesVisibles = computed(() => {
+    if (!props.notificaciones?.data) return [];
+    if (filtro.value === 'sin_leer') {
+        return props.notificaciones.data.filter(n => !n.read_at);
+    }
+    return props.notificaciones.data;
 });
 
 const showDetalleModal = ref(false);
@@ -19,6 +50,19 @@ const verDetalles = (notif) => {
 };
 
 const marcarLeida = (id) => {
+    const notif = props.notificaciones?.data?.find(n => n.id === id);
+    if (notif && !notif.read_at) {
+        notif.read_at = new Date().toISOString();
+        if (localUnreadCount.value > 0) {
+            localUnreadCount.value--;
+        }
+        if (page.props.unreadNotificationsCount > 0) {
+            page.props.unreadNotificationsCount--;
+        }
+        if (page.props.auth?.unreadNotificationsCount > 0) {
+            page.props.auth.unreadNotificationsCount--;
+        }
+    }
     router.patch(route('notificaciones.read', id), {}, { preserveScroll: true });
 };
 
@@ -46,6 +90,17 @@ const eliminarNotificacion = (id) => {
         cancelButtonText: 'Cancelar',
     }).then((result) => {
         if (result.isConfirmed) {
+            const index = props.notificaciones?.data?.findIndex(n => n.id === id);
+            if (index !== -1 && index !== undefined) {
+                const notif = props.notificaciones.data[index];
+                if (!notif.read_at) {
+                    if (localUnreadCount.value > 0) localUnreadCount.value--;
+                    if (page.props.unreadNotificationsCount > 0) page.props.unreadNotificationsCount--;
+                    if (page.props.auth?.unreadNotificationsCount > 0) page.props.auth.unreadNotificationsCount--;
+                }
+                props.notificaciones.data.splice(index, 1);
+                if (props.notificaciones.total > 0) props.notificaciones.total--;
+            }
             router.delete(route('notificaciones.destroy', id), {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -71,6 +126,15 @@ const eliminarTodas = () => {
         cancelButtonText: 'Cancelar',
     }).then((result) => {
         if (result.isConfirmed) {
+            if (props.notificaciones) {
+                props.notificaciones.data = [];
+                props.notificaciones.total = 0;
+            }
+            localUnreadCount.value = 0;
+            page.props.unreadNotificationsCount = 0;
+            if (page.props.auth) {
+                page.props.auth.unreadNotificationsCount = 0;
+            }
             router.delete(route('notificaciones.destroyAll'), {
                 preserveScroll: true,
                 onSuccess: () => {
@@ -88,13 +152,63 @@ const eliminarTodas = () => {
 };
 
 const marcarTodasLeidas = () => {
-    router.patch(route('notificaciones.markAllRead'), {}, { preserveScroll: true });
+    darkSwal.fire({
+        title: '¿Marcar todas como leídas?',
+        text: 'Se marcarán todos los avisos pendientes como leídos.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, marcar todas',
+        cancelButtonText: 'Cancelar',
+    }).then((result) => {
+        if (result.isConfirmed) {
+            if (props.notificaciones?.data) {
+                props.notificaciones.data.forEach(n => {
+                    n.read_at = n.read_at || new Date().toISOString();
+                });
+            }
+            localUnreadCount.value = 0;
+            page.props.unreadNotificationsCount = 0;
+            if (page.props.auth) {
+                page.props.auth.unreadNotificationsCount = 0;
+            }
+            router.patch(route('notificaciones.markAllRead'), {}, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    darkSwal.fire({
+                        title: 'Notificaciones leídas',
+                        text: 'Todas las notificaciones fueron marcadas como leídas.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false,
+                    });
+                }
+            });
+        }
+    });
 };
 
 const extractVentaId = (msg) => {
     if (!msg) return '';
     const match = msg.match(/#(\d+)/);
     return match ? match[1] : '';
+};
+
+const getVentaUrl = (notif) => {
+    const ventaId = notif.data?.venta_id || extractVentaId(notif.data?.message) || '';
+    if (ventaId) {
+        return route('ventas.index', { view: ventaId, search: ventaId });
+    }
+    if (notif.data?.url) {
+        if (notif.data.url.includes('/ventas') && !notif.data.url.includes('view=')) {
+            const separator = notif.data.url.includes('?') ? '&' : '?';
+            const match = notif.data.url.match(/search=([^&]+)/);
+            if (match) {
+                return `${notif.data.url}${separator}view=${match[1]}`;
+            }
+        }
+        return notif.data.url;
+    }
+    return route('ventas.index');
 };
 </script>
 
@@ -114,16 +228,25 @@ const extractVentaId = (msg) => {
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 
                 <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl space-y-6">
-                    <div class="flex justify-between items-center pb-4 border-b border-white/5">
+                    <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-white/5">
                         <div class="flex items-center gap-3">
-                            <h3 class="text-sm font-bold text-white tracking-tight">Avisos Pendientes</h3>
-                            <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-xs font-semibold text-zinc-300">
-                                <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                                {{ notificaciones.total }} sin leer
+                            <h3 class="text-sm font-bold text-white tracking-tight uppercase">Avisos</h3>
+                            <span 
+                                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl border text-xs font-semibold transition-all"
+                                :class="localUnreadCount > 0 
+                                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
+                                    : 'bg-white/5 border-white/10 text-zinc-400'"
+                            >
+                                <span 
+                                    class="w-2 h-2 rounded-full transition-colors" 
+                                    :class="localUnreadCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'"
+                                ></span>
+                                <span>{{ localUnreadCount }} sin leer</span>
                             </span>
                         </div>
-                        <div v-if="notificaciones.data.length > 0" class="flex items-center gap-2.5">
+                        <div v-if="notificaciones.data.length > 0" class="flex items-center gap-2.5 flex-wrap">
                             <button 
+                                v-if="localUnreadCount > 0"
                                 @click="marcarTodasLeidas" 
                                 class="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white font-semibold text-xs border border-white/10 transition-all flex items-center gap-2 active:scale-95 cursor-pointer"
                             >
@@ -144,15 +267,59 @@ const extractVentaId = (msg) => {
                         </div>
                     </div>
 
+                    <!-- Filter buttons (Sin leer / Todas) -->
+                    <div v-if="notificaciones.data.length > 0" class="flex items-center gap-2">
+                        <button 
+                            @click="filtro = 'sin_leer'"
+                            type="button"
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 border"
+                            :class="filtro === 'sin_leer' 
+                                ? 'bg-white text-black border-white shadow-md' 
+                                : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'"
+                        >
+                            <span>Sin leer</span>
+                            <span 
+                                class="px-1.5 py-0.2 rounded-full text-[10px] font-bold"
+                                :class="filtro === 'sin_leer' 
+                                    ? 'bg-black/15 text-black' 
+                                    : (localUnreadCount > 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-white/10 text-zinc-400')"
+                            >
+                                {{ localUnreadCount }}
+                            </span>
+                        </button>
+                        <button 
+                            @click="filtro = 'todas'"
+                            type="button"
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center gap-2 border"
+                            :class="filtro === 'todas' 
+                                ? 'bg-white text-black border-white shadow-md' 
+                                : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'"
+                        >
+                            <span>Todas</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold" :class="filtro === 'todas' ? 'bg-black/15 text-black' : 'bg-white/10 text-zinc-300'">
+                                {{ notificaciones.total }}
+                            </span>
+                        </button>
+                    </div>
+
                     <!-- No Notifications Empty State -->
                     <div v-if="notificaciones.data.length === 0" class="py-16 text-center text-zinc-500 text-sm italic bg-white/[0.01] border border-dashed border-white/5 rounded-2xl">
-                        No hay notificaciones pendientes.
+                        No hay notificaciones pendientes ni registradas.
+                    </div>
+                    <div v-else-if="filtro === 'sin_leer' && notificacionesVisibles.length === 0" class="py-16 text-center text-zinc-400 text-sm bg-white/[0.01] border border-dashed border-white/5 rounded-2xl space-y-2">
+                        <div class="w-10 h-10 rounded-full bg-emerald-500/10 text-emerald-400 mx-auto flex items-center justify-center">
+                            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                        </div>
+                        <p class="font-bold text-white">¡Estás al día!</p>
+                        <p class="text-xs text-zinc-400">No tienes ninguna notificación pendiente de lectura.</p>
                     </div>
 
                     <!-- List of Notifications -->
                     <div v-else class="space-y-3">
                         <div 
-                            v-for="notif in notificaciones.data" 
+                            v-for="notif in notificacionesVisibles" 
                             :key="notif.id" 
                             class="p-4 rounded-2xl transition-all border flex flex-col md:flex-row justify-between md:items-center gap-4"
                             :class="notif.read_at 
@@ -185,7 +352,7 @@ const extractVentaId = (msg) => {
                                         <p class="text-sm font-semibold text-white leading-relaxed">
                                             Nueva Venta 
                                             <Link 
-                                                :href="route('ventas.index', { search: notif.data.venta_id || extractVentaId(notif.data.message) })" 
+                                                :href="getVentaUrl(notif)" 
                                                 class="text-emerald-400 hover:text-emerald-300 font-bold hover:underline"
                                             >
                                                 #{{ notif.data.venta_id || extractVentaId(notif.data.message) }}
@@ -195,7 +362,7 @@ const extractVentaId = (msg) => {
                                             </span>
                                         </p>
                                         <Link 
-                                            :href="route('ventas.index', { search: notif.data.venta_id || extractVentaId(notif.data.message) })" 
+                                            :href="getVentaUrl(notif)" 
                                             class="inline-flex items-center gap-2 text-xs font-semibold text-zinc-200 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 mt-2"
                                         >
                                             <svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -210,7 +377,7 @@ const extractVentaId = (msg) => {
                                             {{ notif.data.message }}
                                         </p>
                                         <Link 
-                                            :href="notif.data.url" 
+                                            :href="getVentaUrl(notif)" 
                                             class="inline-flex items-center gap-2 text-xs font-semibold text-zinc-200 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 mt-2"
                                         >
                                             <svg class="w-4 h-4 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -223,7 +390,7 @@ const extractVentaId = (msg) => {
                                     <template v-else-if="notif.data.type === 'traslado_pendiente'">
                                         <p class="text-sm font-semibold text-white leading-relaxed">
                                             Se requiere traslado de productos para cubrir la 
-                                            <Link :href="route('ventas.index', { search: notif.data.venta_id || extractVentaId(notif.data.message) })" class="text-amber-400 hover:text-amber-300 font-bold hover:underline">
+                                            <Link :href="getVentaUrl(notif)" class="text-amber-400 hover:text-amber-300 font-bold hover:underline">
                                                 Venta #{{ notif.data.venta_id || extractVentaId(notif.data.message) }}
                                             </Link>
                                         </p>

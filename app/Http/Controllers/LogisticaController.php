@@ -7,6 +7,7 @@ use App\Models\Sucursal;
 use App\Models\Stock;
 use App\Models\MovimientoStock;
 use App\Models\TransferenciaStock;
+use App\Notifications\TrasladoPendienteVenta;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -14,6 +15,9 @@ class LogisticaController extends Controller
 {
     public function index(Request $request)
     {
+        // Limpiar notificaciones de traslados cuyas transferencias ya hayan sido completadas
+        TrasladoPendienteVenta::marcarLeidasSiCompletado();
+
         $sucursalId = $request->user()->sucursalRestringidaId();
 
         $filterDesde      = $request->input('desde');
@@ -66,7 +70,7 @@ class LogisticaController extends Controller
         $esAdmin = is_null($sucursalId);
 
         // Traslados por Ventas Pendientes (Solo los que tienen venta_id)
-        $trasladosAEnviar = TransferenciaStock::with(['libro.master', 'sucursalDestino', 'venta'])
+        $trasladosAEnviar = TransferenciaStock::with(['libro.master', 'sucursalOrigen', 'sucursalDestino', 'venta'])
             ->whereNotNull('venta_id')
             ->whereHas('venta', function($q) {
                 $q->where('estado', '!=', 'cancelado');
@@ -77,7 +81,7 @@ class LogisticaController extends Controller
             ->where('estado', 'pendiente_envio')
             ->get();
 
-        $trasladosARecibir = TransferenciaStock::with(['libro.master', 'sucursalOrigen', 'venta'])
+        $trasladosARecibir = TransferenciaStock::with(['libro.master', 'sucursalOrigen', 'sucursalDestino', 'venta'])
             ->whereNotNull('venta_id')
             ->whereHas('venta', function($q) {
                 $q->where('estado', '!=', 'cancelado');
@@ -319,6 +323,8 @@ class LogisticaController extends Controller
                             $venta->update(['estado' => 'listo_para_retiro']);
                         }
                     }
+
+                    TrasladoPendienteVenta::marcarLeidasSiCompletado($traslado->venta_id);
                 }
             }
 

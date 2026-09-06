@@ -41,7 +41,7 @@ class NuevaVentaNotification extends Notification
             'message'    => "Nueva venta #{$this->venta->id} ({$tipoLabel}) por {$totalFormatted} - Cliente: {$clienteName}",
             'total'      => $this->venta->total,
             'tipo'       => $this->venta->tipo,
-            'url'        => "/ventas?search={$this->venta->id}",
+            'url'        => "/ventas?view={$this->venta->id}&search={$this->venta->id}",
         ];
     }
 }

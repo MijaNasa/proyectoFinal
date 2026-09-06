@@ -17,6 +17,9 @@ const expandedGroups = ref({
 
 const page = usePage();
 const hasPermiso = (codigo) => page.props.auth.esAdmin || (page.props.auth.permisos?.includes(codigo) ?? false);
+const esSoloRepartidor = computed(() => {
+    return !!page.props.auth?.esRepartidor && !page.props.auth?.esAdmin && !page.props.auth?.esGerente;
+});
 const unreadNotificationsCount = computed(() => {
     return page.props.unreadNotificationsCount ?? page.props.auth?.unreadNotificationsCount ?? 0;
 });
@@ -49,8 +52,22 @@ const toggleGroup = (group) => {
                 <span>Dashboard</span>
             </Link>
 
-            <!-- Notificaciones -->
+            <!-- Rutas de Reparto (Acceso directo exclusivo para Repartidor) -->
             <Link 
+                v-if="esSoloRepartidor"
+                :href="route('rutas-reparto.index')" 
+                class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
+                :class="route().current('rutas-reparto.*') ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
+            >
+                <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0" />
+                </svg>
+                <span>Rutas de Reparto</span>
+            </Link>
+
+            <!-- Notificaciones (Oculto para repartidor) -->
+            <Link 
+                v-if="!esSoloRepartidor"
                 :href="route('notificaciones.index')" 
                 class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold group"
                 :class="route().current('notificaciones.index') ? 'bg-white/10 text-white shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-white/5'"
@@ -70,7 +87,7 @@ const toggleGroup = (group) => {
             </Link>
 
             <!-- Group: Catálogo -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('colecciones.acceder')" class="space-y-1">
+            <div v-if="($page.props.auth.esAdmin || hasPermiso('colecciones.acceder')) && !esSoloRepartidor" class="space-y-1">
                 <button 
                     @click="toggleGroup('books')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
@@ -91,7 +108,7 @@ const toggleGroup = (group) => {
             </div>
 
             <!-- Group: Ventas y Caja -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('ventas.acceder') || hasPermiso('caja.acceder') || hasPermiso('gastos.acceder') || hasPermiso('repartos.acceder')" class="space-y-1">
+            <div v-if="($page.props.auth.esAdmin || hasPermiso('ventas.acceder') || hasPermiso('caja.acceder') || hasPermiso('gastos.acceder') || hasPermiso('repartos.acceder')) && !esSoloRepartidor" class="space-y-1">
                 <button 
                     @click="toggleGroup('operations')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
@@ -114,7 +131,7 @@ const toggleGroup = (group) => {
             </div>
 
             <!-- Group: Logística y Stock -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('stock.acceder')" class="space-y-1">
+            <div v-if="($page.props.auth.esAdmin || hasPermiso('stock.acceder')) && !esSoloRepartidor" class="space-y-1">
                 <button 
                     @click="toggleGroup('inventory')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
@@ -135,7 +152,7 @@ const toggleGroup = (group) => {
             </div>
 
             <!-- Group: Clientes -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('clientes.acceder')" class="space-y-1">
+            <div v-if="($page.props.auth.esAdmin || hasPermiso('clientes.acceder')) && !esSoloRepartidor" class="space-y-1">
                 <button 
                     @click="toggleGroup('people')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
@@ -156,7 +173,7 @@ const toggleGroup = (group) => {
             </div>
 
             <!-- Group: Proveedores -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('proveedores.acceder')" class="space-y-1">
+            <div v-if="($page.props.auth.esAdmin || hasPermiso('proveedores.acceder')) && !esSoloRepartidor" class="space-y-1">
                 <button 
                     @click="toggleGroup('proveedores')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
@@ -177,7 +194,7 @@ const toggleGroup = (group) => {
             </div>
 
             <!-- Group: Reportes -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('reportes.acceder')">
+            <div v-if="($page.props.auth.esAdmin || hasPermiso('reportes.acceder')) && !esSoloRepartidor">
                 <Link 
                     :href="route('reportes.index')" 
                     class="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"
@@ -191,7 +208,7 @@ const toggleGroup = (group) => {
             </div>
 
             <!-- Group: Administración -->
-            <div v-if="$page.props.auth.esAdmin || hasPermiso('cargos.gestionar') || hasPermiso('empleados.acceder')" class="space-y-1">
+            <div v-if="($page.props.auth.esAdmin || hasPermiso('cargos.gestionar') || hasPermiso('empleados.acceder')) && !esSoloRepartidor" class="space-y-1">
                 <button 
                     @click="toggleGroup('admin')" 
                     class="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all text-sm font-semibold"

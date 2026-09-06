@@ -70,16 +70,10 @@ const updateSearchLabel = () => {
     search.value = '';
 };
 
+import { calculateSimilarity, normalizeText } from '@/composables/useSmartSearch';
+
 // Update the search box when the modelValue or options changes
 watch(() => [props.modelValue, props.options], updateSearchLabel, { immediate: true, deep: true });
-
-const normalizeStr = (str) => {
-    return (str || '')
-        .toString()
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
-};
 
 const filteredOptions = computed(() => {
     if (!props.options) return [];
@@ -91,11 +85,33 @@ const filteredOptions = computed(() => {
         return props.options;
     }
     
-    const term = normalizeStr(search.value);
-    return props.options.filter(opt => {
-        const label = normalizeStr(getLabel(opt));
-        return label.includes(term);
+    const query = search.value.trim();
+    if (!query) return props.options;
+
+    const normQ = normalizeText(query);
+
+    // Score all options with fuzzy similarity
+    const scored = props.options.map(opt => {
+        const label = getLabel(opt);
+        const normLabel = normalizeText(label);
+        
+        let score = calculateSimilarity(query, label);
+
+        // Boost prefix match
+        if (normLabel.startsWith(normQ)) {
+            score = Math.max(score, 92);
+        }
+
+        return { opt, score, label, normLabel };
     });
+
+    // Keep those with good score or where label includes the query
+    const filtered = scored.filter(entry => entry.score >= 45 || entry.normLabel.includes(normQ));
+    
+    // Sort by relevance (highest score first)
+    filtered.sort((a, b) => b.score - a.score);
+
+    return filtered.map(entry => entry.opt);
 });
 
 const getOptValue = (opt) => {
@@ -135,8 +151,8 @@ const handleClickOutside = (event) => {
             return;
         }
 
-        // Auto-select exact match if they typed it perfectly but didn't click
-        const exactMatch = props.options.find(opt => normalizeStr(getLabel(opt)) === normalizeStr(search.value));
+        // Auto-select exact match if they typed it (tolerating accents/ñ) but didn't click
+        const exactMatch = props.options.find(opt => normalizeText(getLabel(opt)) === normalizeText(search.value));
         if (exactMatch) {
             selectOption(exactMatch);
             return;

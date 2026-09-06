@@ -129,7 +129,7 @@ const formatFecha = (f) => {
                     <h2 class="text-2xl font-bold text-white tracking-tight uppercase">RUTAS DE REPARTO</h2>
                 </div>
                 <button
-                    v-if="!$page.props.auth.esRepartidor"
+                    v-if="$page.props.auth.esAdmin || $page.props.auth.esGerente || !$page.props.auth.esRepartidor"
                     @click="abrirNuevaRuta"
                     class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
                 >
@@ -282,7 +282,7 @@ const formatFecha = (f) => {
                                                 </svg>
                                             </Link>
                                             <button
-                                                v-if="ruta.estado !== 'finalizada' && !$page.props.auth.esRepartidor"
+                                                v-if="ruta.estado !== 'finalizada' && ($page.props.auth.esAdmin || $page.props.auth.esGerente || !$page.props.auth.esRepartidor)"
                                                 @click="eliminar(ruta)"
                                                 class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
                                                 title="Eliminar ruta"

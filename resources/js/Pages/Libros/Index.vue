@@ -1,9 +1,10 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import Swal from 'sweetalert2';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
+import { detectPotentialDuplicate } from '@/composables/useSmartSearch';
 
 const props = defineProps({
     obras: Array,
@@ -177,8 +178,20 @@ const agregarAutor = () => {
                 Swal.showValidationMessage('Nombre y Apellido son obligatorios');
                 return false;
             }
+
+            const isForced = popup?.dataset?.forceSubmit === 'true';
+
+            // Detección preventiva de duplicados
+            const candidate = `${nombre} ${apellido}`;
+            const check = detectPotentialDuplicate(candidate, autoresLocal.value, (a) => `${a.nombre} ${a.apellido}`);
+            if (!isForced && check.hasDuplicate && check.isCritical) {
+                if (popup) popup.dataset.forceSubmit = 'true';
+                Swal.showValidationMessage(`Ya existe un autor similar: "${check.matchedLabel}" (${check.score}%). Presiona Guardar otra vez para registrarlo de todas formas.`);
+                return false;
+            }
+
             try {
-                const res = await window.axios.post('/catalogo/ajustes/autores', { nombre, apellido }, {
+                const res = await window.axios.post('/catalogo/ajustes/autores', { nombre, apellido, forzar: true }, {
                     headers: { 'Accept': 'application/json' }
                 });
                 const createdItem = res.data.model || res.data.data;
@@ -192,6 +205,11 @@ const agregarAutor = () => {
         }
     }).then((result) => {
         if (result.isConfirmed && result.value) {
+            if (result.value.isExisting) {
+                obraForm.autor_id = result.value.item.id;
+                darkSwal.fire({ title: 'Autor Seleccionado', icon: 'success', timer: 1500, showConfirmButton: false });
+                return;
+            }
             const createdItem = result.value;
             autoresLocal.value.push(createdItem);
             obraForm.autor_id = createdItem.id;
@@ -228,8 +246,19 @@ const agregarCategoria = () => {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
             }
+
+            const isForced = popup?.dataset?.forceSubmit === 'true';
+
+            // Detección preventiva de duplicados
+            const check = detectPotentialDuplicate(nombre, categoriasLocal.value, (c) => c.nombre);
+            if (!isForced && check.hasDuplicate && check.isCritical) {
+                if (popup) popup.dataset.forceSubmit = 'true';
+                Swal.showValidationMessage(`Ya existe una categoría similar: "${check.matchedLabel}" (${check.score}%). Presiona Guardar otra vez para registrarla de todas formas.`);
+                return false;
+            }
+
             try {
-                const res = await window.axios.post('/catalogo/ajustes/categorias', { nombre }, {
+                const res = await window.axios.post('/catalogo/ajustes/categorias', { nombre, forzar: true }, {
                     headers: { 'Accept': 'application/json' }
                 });
                 const createdItem = res.data.model || res.data.data;
@@ -243,6 +272,11 @@ const agregarCategoria = () => {
         }
     }).then((result) => {
         if (result.isConfirmed && result.value) {
+            if (result.value.isExisting) {
+                obraForm.categoria_id = result.value.item.id;
+                darkSwal.fire({ title: 'Categoría Seleccionada', icon: 'success', timer: 1500, showConfirmButton: false });
+                return;
+            }
             const createdItem = result.value;
             categoriasLocal.value.push(createdItem);
             obraForm.categoria_id = createdItem.id;
@@ -295,8 +329,19 @@ const agregarProveedor = () => {
                 Swal.showValidationMessage('El nombre de la empresa es obligatorio');
                 return false;
             }
+
+            const isForced = popup?.dataset?.forceSubmit === 'true';
+
+            // Detección preventiva de duplicados
+            const check = detectPotentialDuplicate(nombre_empresa, proveedoresLocal.value, (p) => p.nombre_empresa);
+            if (!isForced && check.hasDuplicate && check.isCritical) {
+                if (popup) popup.dataset.forceSubmit = 'true';
+                Swal.showValidationMessage(`Ya existe un proveedor similar: "${check.matchedLabel}" (${check.score}%). Presiona Guardar otra vez para registrarlo de todas formas.`);
+                return false;
+            }
+
             try {
-                const res = await window.axios.post('/catalogo/ajustes/proveedores', { nombre_empresa, email, telefono }, {
+                const res = await window.axios.post('/catalogo/ajustes/proveedores', { nombre_empresa, email, telefono, forzar: true }, {
                     headers: { 'Accept': 'application/json' }
                 });
                 const createdItem = res.data.model || res.data.data;
@@ -310,6 +355,11 @@ const agregarProveedor = () => {
         }
     }).then((result) => {
         if (result.isConfirmed && result.value) {
+            if (result.value.isExisting) {
+                obraForm.proveedor_id = result.value.item.id;
+                darkSwal.fire({ title: 'Proveedor Seleccionado', icon: 'success', timer: 1500, showConfirmButton: false });
+                return;
+            }
             const createdItem = result.value;
             proveedoresLocal.value.push(createdItem);
             obraForm.proveedor_id = createdItem.id;
@@ -346,8 +396,19 @@ const agregarIdioma = () => {
                 Swal.showValidationMessage('El nombre es obligatorio');
                 return false;
             }
+
+            const isForced = popup?.dataset?.forceSubmit === 'true';
+
+            // Detección preventiva de duplicados
+            const check = detectPotentialDuplicate(nombre, idiomasLocal.value, (i) => i.nombre);
+            if (!isForced && check.hasDuplicate && check.isCritical) {
+                if (popup) popup.dataset.forceSubmit = 'true';
+                Swal.showValidationMessage(`Ya existe un idioma similar: "${check.matchedLabel}" (${check.score}%). Presiona Guardar otra vez para registrarlo de todas formas.`);
+                return false;
+            }
+
             try {
-                const res = await window.axios.post('/catalogo/ajustes/idiomas', { nombre }, {
+                const res = await window.axios.post('/catalogo/ajustes/idiomas', { nombre, forzar: true }, {
                     headers: { 'Accept': 'application/json' }
                 });
                 const createdItem = res.data.model || res.data.data;
@@ -361,6 +422,11 @@ const agregarIdioma = () => {
         }
     }).then((result) => {
         if (result.isConfirmed && result.value) {
+            if (result.value.isExisting) {
+                obraForm.idioma_id = result.value.item.id;
+                darkSwal.fire({ title: 'Idioma Seleccionado', icon: 'success', timer: 1500, showConfirmButton: false });
+                return;
+            }
             const createdItem = result.value;
             idiomasLocal.value.push(createdItem);
             obraForm.idioma_id = createdItem.id;
@@ -389,16 +455,42 @@ const agregarFormato = () => {
         cancelButtonText: 'Cancelar',
         reverseButtons: true,
         focusConfirm: false,
-        preConfirm: () => {
-            const val = Swal.getPopup().querySelector('#swal-formato-nombre').value.trim();
+        preConfirm: async () => {
+            const popup = Swal.getPopup();
+            const inputEl = popup ? popup.querySelector('#swal-formato-nombre') : null;
+            const val = inputEl ? inputEl.value.trim() : '';
             if (!val) {
                 Swal.showValidationMessage('El nombre del formato es obligatorio');
                 return false;
             }
-            return val;
+
+            const isForced = popup?.dataset?.forceSubmit === 'true';
+
+            // Detección preventiva de duplicados
+            const check = detectPotentialDuplicate(val, formatosLocal.value, (f) => (typeof f === 'string' ? f : f.nombre));
+            if (!isForced && check.hasDuplicate && check.isCritical) {
+                if (popup) popup.dataset.forceSubmit = 'true';
+                Swal.showValidationMessage(`Ya existe un formato similar: "${check.matchedLabel}" (${check.score}%). Presiona Guardar otra vez para registrarlo de todas formas.`);
+                return false;
+            }
+
+            try {
+                const res = await window.axios.post('/catalogo/ajustes/formatos', { nombre: val, forzar: true }, {
+                    headers: { 'Accept': 'application/json' }
+                });
+                const createdItem = res.data.model || res.data.data;
+                return createdItem ? (createdItem.nombre || createdItem) : val;
+            } catch (err) {
+                return val;
+            }
         }
     }).then((result) => {
         if (result.isConfirmed && result.value) {
+            if (result.value.isExisting) {
+                obraForm.formato = result.value.item;
+                darkSwal.fire({ title: 'Formato Seleccionado', icon: 'success', timer: 1200, showConfirmButton: false });
+                return;
+            }
             const nuevoFormato = result.value;
             if (!formatosLocal.value.includes(nuevoFormato)) {
                 formatosLocal.value.push(nuevoFormato);
@@ -444,19 +536,74 @@ const submitObra = () => {
     }
 };
 
-const deleteObra = (id) => {
-    darkSwal.fire({
-        title: '¿Eliminar producto?',
-        text: "Esto eliminará el producto y todos sus tomos/variantes asociados.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar',
-    }).then((result) => {
-        if (result.isConfirmed) {
-            obraForm.delete(route('obras.destroy', id));
-        }
-    });
+const toggleObra = (obra) => {
+    if (obra.activo) {
+        darkSwal.fire({
+            title: '¿Desactivar producto?',
+            text: "El producto y todos sus tomos se ocultarán del catálogo público, pero todo el historial de ventas y stock permanecerá intacto.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, desactivar',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.patch(route('obras.toggleActivo', obra.id), {}, {
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                        if (errorMsg) {
+                            darkSwal.fire({
+                                title: 'No se puede desactivar',
+                                text: errorMsg,
+                                icon: 'error',
+                            });
+                        } else {
+                            darkSwal.fire({
+                                title: 'Producto desactivado',
+                                text: page.props.flash?.swal_success || page.props.flash?.message || 'El producto fue desactivado correctamente.',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    } else {
+        darkSwal.fire({
+            title: '¿Reactivar producto?',
+            text: "El producto y sus tomos volverán a estar disponibles en el catálogo.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, reactivar',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.patch(route('obras.toggleActivo', obra.id), {}, {
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                        if (errorMsg) {
+                            darkSwal.fire({
+                                title: 'No se puede reactivar',
+                                text: errorMsg,
+                                icon: 'error',
+                            });
+                        } else {
+                            darkSwal.fire({
+                                title: 'Producto reactivado',
+                                text: page.props.flash?.swal_success || page.props.flash?.message || 'El producto se reactivó correctamente.',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
 };
 
 // --- LOGICA DE TOMO (Libro) ---
@@ -579,19 +726,74 @@ const submitTomo = () => {
     }
 };
 
-const deleteTomo = (id) => {
-    darkSwal.fire({
-        title: '¿Eliminar tomo?',
-        text: "Esto eliminará únicamente el tomo específico, la serie se mantendrá",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar',
-    }).then((result) => {
-        if (result.isConfirmed) {
-            tomoForm.delete(route('libros.destroy', id));
-        }
-    });
+const toggleTomo = (libro) => {
+    if (libro.activo) {
+        darkSwal.fire({
+            title: '¿Desactivar ítem / tomo?',
+            text: "El tomo se ocultará de la tienda y no estará disponible para la venta, pero su historial de ventas y stock permanecerá intacto.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, desactivar',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.patch(route('libros.toggleActivo', libro.id), {}, {
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                        if (errorMsg) {
+                            darkSwal.fire({
+                                title: 'No se puede desactivar',
+                                text: errorMsg,
+                                icon: 'error',
+                            });
+                        } else {
+                            darkSwal.fire({
+                                title: 'Ítem desactivado',
+                                text: page.props.flash?.swal_success || page.props.flash?.message || 'El ítem fue desactivado correctamente.',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    } else {
+        darkSwal.fire({
+            title: '¿Reactivar ítem / tomo?',
+            text: "El tomo volverá a estar disponible para la venta y operaciones.",
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, reactivar',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.patch(route('libros.toggleActivo', libro.id), {}, {
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                        if (errorMsg) {
+                            darkSwal.fire({
+                                title: 'No se puede reactivar',
+                                text: errorMsg,
+                                icon: 'error',
+                            });
+                        } else {
+                            darkSwal.fire({
+                                title: 'Ítem reactivado',
+                                text: page.props.flash?.swal_success || page.props.flash?.message || 'El ítem se reactivó correctamente.',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
 };
 
 const formatCurrency = (value) => {
@@ -708,27 +910,6 @@ const formatSucursalName = (name) => {
     return name.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 };
 
-const toggleTomoActivo = (libro) => {
-    const currentPriceObj = libro.precios?.find(p => p.activo);
-    const precioVenta = currentPriceObj ? currentPriceObj.precio_venta : 0;
-    const precioCompra = currentPriceObj ? currentPriceObj.precio_compra : 0;
-
-    router.put(route('libros.update', libro.id), {
-        master_id: libro.master_id,
-        isbn: libro.isbn,
-        numero_tomo: libro.numero_tomo,
-        año_edicion: libro.año_edicion,
-        cantidad_paginas: libro.cantidad_paginas,
-        activo: !libro.activo,
-        permite_preventa: libro.permite_preventa,
-        precio_venta: precioVenta,
-        precio_compra: precioCompra,
-        only_active_toggle: true,
-    }, {
-        preserveScroll: true
-    });
-};
-
 // Formularios y estados para el Aumento Masivo
 const showBulkModal = ref(false);
 const opcionesMasivasLocal = ref(null);
@@ -760,6 +941,7 @@ const bulkForm = useForm({
     proveedor: '',
     formato: '',
     libro_id: '',
+    libros_ids: [],
     categoria_id: '',
     nuevo_precio: ''
 });
@@ -772,6 +954,21 @@ const showProveedorDropdown = ref(false);
 
 const searchLibroQuery = ref('');
 const showLibroDropdown = ref(false);
+const libroMultiSelectContainerRef = ref(null);
+
+const handleClickOutsideLibroSelect = (event) => {
+    if (libroMultiSelectContainerRef.value && !libroMultiSelectContainerRef.value.contains(event.target)) {
+        showLibroDropdown.value = false;
+    }
+};
+
+onMounted(() => {
+    document.addEventListener('mousedown', handleClickOutsideLibroSelect);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('mousedown', handleClickOutsideLibroSelect);
+});
 
 const seriesFiltradas = computed(() => {
     if (!opcionesMasivasLocal.value?.series) return [];
@@ -799,13 +996,61 @@ const formatosDisponibles = computed(() => {
 
 const librosFiltrados = computed(() => {
     if (!opcionesMasivasLocal.value?.libros) return [];
-    if (!searchLibroQuery.value) return opcionesMasivasLocal.value.libros;
-    const q = searchLibroQuery.value.toLowerCase();
-    return opcionesMasivasLocal.value.libros.filter(l => 
-        (l.titulo && l.titulo.toLowerCase().includes(q)) || 
-        (l.isbn && l.isbn.toLowerCase().includes(q))
-    );
+    if (!searchLibroQuery.value.trim()) return opcionesMasivasLocal.value.libros;
+    const q = searchLibroQuery.value.toLowerCase().trim();
+    const terms = q.split(/\s+/).filter(Boolean);
+    return opcionesMasivasLocal.value.libros.filter(l => {
+        const titulo = (l.titulo || '').toLowerCase();
+        const isbn = (l.isbn || '').toLowerCase();
+        return terms.every(t => titulo.includes(t) || isbn.includes(t));
+    });
 });
+
+const selectedLibrosDetails = computed(() => {
+    if (!opcionesMasivasLocal.value?.libros || !bulkForm.libros_ids?.length) return [];
+    const idsSet = new Set(bulkForm.libros_ids);
+    return opcionesMasivasLocal.value.libros.filter(l => idsSet.has(l.id));
+});
+
+const isLibroSelected = (id) => {
+    return bulkForm.libros_ids.includes(id);
+};
+
+const toggleLibroSelection = (libro) => {
+    const idx = bulkForm.libros_ids.indexOf(libro.id);
+    if (idx > -1) {
+        bulkForm.libros_ids.splice(idx, 1);
+    } else {
+        bulkForm.libros_ids.push(libro.id);
+    }
+};
+
+const removeLibroSelection = (id) => {
+    const idx = bulkForm.libros_ids.indexOf(id);
+    if (idx > -1) {
+        bulkForm.libros_ids.splice(idx, 1);
+    }
+};
+
+const clearLibrosSelection = () => {
+    bulkForm.libros_ids = [];
+};
+
+const areAllVisibleLibrosSelected = computed(() => {
+    if (!librosFiltrados.value.length) return false;
+    return librosFiltrados.value.every(l => bulkForm.libros_ids.includes(l.id));
+});
+
+const toggleAllVisibleLibros = () => {
+    const visibleIds = librosFiltrados.value.map(l => l.id);
+    if (areAllVisibleLibrosSelected.value) {
+        bulkForm.libros_ids = bulkForm.libros_ids.filter(id => !visibleIds.includes(id));
+    } else {
+        const currentSet = new Set(bulkForm.libros_ids);
+        visibleIds.forEach(id => currentSet.add(id));
+        bulkForm.libros_ids = Array.from(currentSet);
+    }
+};
 
 watch(() => bulkForm.criterio, () => {
     bulkForm.categoria_id = '';
@@ -813,17 +1058,42 @@ watch(() => bulkForm.criterio, () => {
     bulkForm.proveedor = '';
     bulkForm.formato = '';
     bulkForm.libro_id = '';
+    bulkForm.libros_ids = [];
     searchSerieQuery.value = '';
     searchProveedorQuery.value = '';
     searchLibroQuery.value = '';
+    showLibroDropdown.value = false;
 });
 
 watch(() => bulkForm.proveedor, () => {
     bulkForm.formato = '';
 });
 
-const submitBulk = () => {
+const executeBulkSubmit = () => {
+    bulkForm.post(route('precios.bulk'), {
+        onSuccess: () => {
+            showBulkModal.value = false;
+            bulkForm.reset();
+            searchLibroQuery.value = '';
+            showLibroDropdown.value = false;
+            darkSwal.fire({
+                title: '¡Actualización Exitosa!',
+                text: 'Precios masivos aplicados en el catálogo',
+                icon: 'success',
+            });
+        },
+        onError: (errores) => {
+            console.error(errores);
+            darkSwal.fire({
+                title: 'Error de servidor',
+                text: Object.values(errores).flat().join('\n') || 'Revisá los datos ingresados',
+                icon: 'error',
+            });
+        }
+    });
+};
 
+const submitBulk = () => {
     if (bulkForm.criterio === 'categoria' && !bulkForm.categoria_id) {
         darkSwal.fire({ title: 'Atención', text: 'Seleccioná una categoría', icon: 'warning' });
         return;
@@ -836,34 +1106,91 @@ const submitBulk = () => {
         darkSwal.fire({ title: 'Atención', text: 'Seleccioná un producto o serie', icon: 'warning' });
         return;
     }
-    if (bulkForm.criterio === 'libro_individual' && !bulkForm.libro_id) {
-        darkSwal.fire({ title: 'Atención', text: 'Seleccioná un producto individual', icon: 'warning' });
+    if (bulkForm.criterio === 'libro_individual' && bulkForm.libros_ids.length === 0) {
+        darkSwal.fire({ title: 'Atención', text: 'Seleccioná al menos un ítem o producto individual', icon: 'warning' });
         return;
     }
-    if (!bulkForm.nuevo_precio || bulkForm.nuevo_precio <= 0) {
+    if (!bulkForm.nuevo_precio || Number(bulkForm.nuevo_precio) <= 0) {
         darkSwal.fire({ title: 'Atención', text: 'Ingresá un precio válido mayor a 0', icon: 'warning' });
         return;
     }
 
-    bulkForm.post(route('precios.bulk'), {
-        onSuccess: () => {
-            showBulkModal.value = false;
-            bulkForm.reset();
-            darkSwal.fire({
-                title: '¡Actualización Exitosa!',
-                text: 'Precios masivos aplicados en el catálogo',
-                icon: 'success',
-            });
-        },
-        onError: (errores) => {
-            console.error(errores);
-            darkSwal.fire({
-                title: 'Error de servidor',
-                text: 'Revisá los datos ingresados',
-                icon: 'error',
-            });
-        }
-    });
+    const formattedPrice = formatCurrency(bulkForm.nuevo_precio);
+
+    if (bulkForm.criterio === 'libro_individual') {
+        const count = bulkForm.libros_ids.length;
+        const preview = selectedLibrosDetails.value.slice(0, 6);
+        const remaining = count - preview.length;
+
+        const itemsHtml = `
+            <div class="mt-3 text-left bg-black/40 border border-white/10 rounded-xl p-3 max-h-44 overflow-y-auto space-y-1.5 text-xs custom-scrollbar">
+                ${preview.map(l => `
+                    <div class="flex items-center justify-between gap-2 text-zinc-300">
+                        <span class="truncate font-medium flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full bg-blue-400 shrink-0"></span>
+                            ${l.titulo}
+                        </span>
+                        ${l.precio_actual !== null && l.precio_actual !== undefined ? `<span class="text-[11px] text-zinc-400 shrink-0 font-mono">(${formatCurrency(l.precio_actual)})</span>` : ''}
+                    </div>
+                `).join('')}
+                ${remaining > 0 ? `<div class="text-zinc-500 italic text-[11px] pt-1.5 border-t border-white/5">+ ${remaining} ítems más seleccionados...</div>` : ''}
+            </div>
+        `;
+
+        darkSwal.fire({
+            title: '¿Confirmar aumento masivo?',
+            html: `
+                <p class="text-zinc-300 text-sm">
+                    ¿Estás seguro de que querés aplicar el nuevo precio de <strong class="text-emerald-400 font-bold text-base">${formattedPrice}</strong> a los <strong class="text-white font-bold">${count}</strong> ítems seleccionados?
+                </p>
+                ${itemsHtml}
+            `,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, aplicar a todos',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                executeBulkSubmit();
+            }
+        });
+        return;
+    }
+
+    if (bulkForm.criterio === 'serie') {
+        darkSwal.fire({
+            title: '¿Confirmar aumento masivo?',
+            html: `¿Estás seguro de aplicar el precio de <strong class="text-emerald-400 font-bold">${formattedPrice}</strong> a todos los tomos de la serie <strong class="text-white font-bold">${bulkForm.serie}</strong>?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, aplicar a todos',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                executeBulkSubmit();
+            }
+        });
+        return;
+    }
+
+    if (bulkForm.criterio === 'proveedor_formato') {
+        const detalle = bulkForm.formato ? `${bulkForm.proveedor} (Formato: ${bulkForm.formato})` : bulkForm.proveedor;
+        darkSwal.fire({
+            title: '¿Confirmar aumento masivo?',
+            html: `¿Estás seguro de aplicar el precio de <strong class="text-emerald-400 font-bold">${formattedPrice}</strong> a todos los productos de <strong class="text-white font-bold">${detalle}</strong>?`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, aplicar a todos',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) {
+                executeBulkSubmit();
+            }
+        });
+        return;
+    }
+
+    executeBulkSubmit();
 };
 </script>
 
@@ -949,7 +1276,7 @@ const submitBulk = () => {
                                     <tr 
                                         @click="toggleMaster(obra.id)" 
                                         class="hover:bg-white/[0.02] transition-colors cursor-pointer group"
-                                        :class="expandedMasters.includes(obra.id) ? 'bg-black/20' : ''"
+                                        :class="[expandedMasters.includes(obra.id) ? 'bg-black/20' : '', !obra.activo ? 'opacity-50 hover:opacity-100' : '']"
                                     >
                                         <td class="p-4">
                                             <div class="flex items-center gap-3">
@@ -958,7 +1285,10 @@ const submitBulk = () => {
                                                     <span v-else class="text-[9px] text-zinc-600 font-semibold text-center">Sin foto</span>
                                                 </div>
                                                 <div>
-                                                    <div class="font-bold text-base text-white tracking-tight">{{ obra.titulo }}</div>
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="font-bold text-base text-white tracking-tight">{{ obra.titulo }}</div>
+                                                        <span v-if="!obra.activo" class="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">Desactivado</span>
+                                                    </div>
                                                     <div class="text-xs text-zinc-400 font-medium mt-1 flex items-center gap-2">
                                                         <template v-for="(tag, idx) in [obra.categoria?.nombre, obra.formato, obra.idioma?.nombre].filter(Boolean)" :key="idx">
                                                             <span v-if="idx > 0" class="w-1 h-1 rounded-full bg-white/20"></span>
@@ -982,8 +1312,26 @@ const submitBulk = () => {
                                                 <button @click.stop="openObraModal(obra)" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Editar Obra">
                                                     <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                                 </button>
-                                                <button @click.stop="deleteObra(obra.id)" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" title="Eliminar Obra">
-                                                    <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                <!-- Desactivar / Reactivar Producto Padre -->
+                                                <button 
+                                                    v-if="obra.activo"
+                                                    @click.stop="toggleObra(obra)" 
+                                                    class="p-2 text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-xl transition-all" 
+                                                    title="Desactivar Producto"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                    </svg>
+                                                </button>
+                                                <button 
+                                                    v-else
+                                                    @click.stop="toggleObra(obra)" 
+                                                    class="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all" 
+                                                    title="Reactivar Producto"
+                                                >
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                    </svg>
                                                 </button>
                                                 <svg 
                                                     class="w-5 h-5 ml-1 text-zinc-500 transition-transform duration-300"
@@ -1023,7 +1371,10 @@ const submitBulk = () => {
                                                                     <div class="w-7 h-10 bg-zinc-900 border border-white/10 rounded overflow-hidden shrink-0 flex items-center justify-center">
                                                                         <img :src="libro.portada_url" @error="$event.target.src = '/images/no-cover.png'" class="w-full h-full object-cover" />
                                                                     </div>
-                                                                    <div class="text-xs font-bold text-white tracking-tight">{{ formatTomoDisplay(libro.numero_tomo) }}</div>
+                                                                    <div class="flex items-center gap-1.5">
+                                                                        <span class="text-xs font-bold text-white tracking-tight">{{ formatTomoDisplay(libro.numero_tomo) }}</span>
+                                                                        <span v-if="!libro.activo" class="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.2 rounded-full border border-amber-500/20">Inactivo</span>
+                                                                    </div>
                                                                 </div>
                                                             </td>
                                                             <td class="py-3 pr-4">
@@ -1037,40 +1388,32 @@ const submitBulk = () => {
                                                             </td>
                                                             <td class="py-3 text-center w-36">
                                                                 <div class="flex justify-center items-center gap-1">
-                                                                    <!-- Visibility Switch -->
-                                                                    <button 
-                                                                        @click.stop="toggleTomoActivo(libro)" 
-                                                                        class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none align-middle mr-2"
-                                                                        :class="libro.activo ? 'bg-emerald-500' : 'bg-zinc-700'"
-                                                                        :title="libro.activo ? 'Ítem visible (Click para ocultar)' : 'Ítem oculto (Click para mostrar)'"
-                                                                    >
-                                                                        <span 
-                                                                            class="pointer-events-none inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out"
-                                                                            :class="libro.activo ? 'translate-x-3' : 'translate-x-0'"
-                                                                        />
-                                                                    </button>
                                                                     <button @click.stop="quickEditPrice(libro)" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Actualizar Precio">
                                                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                                                     </button>
                                                                     <button @click.stop="openTomoModal(libro, obra.id)" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Editar Ítem">
                                                                         <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" /></svg>
                                                                     </button>
-                                                                    <!-- Conditional Trash Button -->
+                                                                    <!-- Desactivar / Reactivar Tomo -->
                                                                     <button 
-                                                                        v-if="libro.tiene_historial"
-                                                                        class="p-1.5 text-zinc-700 cursor-not-allowed" 
-                                                                        title="No se puede eliminar porque tiene historial de movimientos"
-                                                                        @click.stop
+                                                                        v-if="libro.activo"
+                                                                        @click.stop="toggleTomo(libro)" 
+                                                                        class="p-1.5 text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-xl transition-all" 
+                                                                        title="Desactivar Tomo"
                                                                     >
-                                                                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                                        </svg>
                                                                     </button>
                                                                     <button 
                                                                         v-else
-                                                                        @click.stop="deleteTomo(libro.id)" 
-                                                                        class="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" 
-                                                                        title="Eliminar Ítem"
+                                                                        @click.stop="toggleTomo(libro)" 
+                                                                        class="p-1.5 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all" 
+                                                                        title="Reactivar Tomo"
                                                                     >
-                                                                        <svg class="w-4 h-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                                        </svg>
                                                                     </button>
                                                                 </div>
                                                             </td>
@@ -1171,10 +1514,6 @@ const submitBulk = () => {
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Descripción / Detalles</label>
                                         <textarea v-model="obraForm.synopsis" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-white/30 font-medium h-24 resize-none" placeholder="Descripción del producto"></textarea>
                                     </div>
-                                    <div class="flex items-center gap-3 mt-2">
-                                        <input type="checkbox" v-model="obraForm.activo" id="obra_activa" class="rounded border-white/20 bg-[#131316] text-emerald-500 focus:ring-emerald-500 h-4 w-4">
-                                        <label for="obra_activa" class="text-xs font-semibold text-white cursor-pointer select-none">Producto Activo en Catálogo</label>
-                                    </div>
                                 </div>
 
                                 <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
@@ -1267,14 +1606,10 @@ const submitBulk = () => {
                                     </div>
                                 </div>
 
-                                <div class="grid grid-cols-2 gap-3 pt-2">
-                                    <label class="flex items-center gap-3 cursor-pointer select-none">
-                                        <input type="checkbox" v-model="tomoForm.activo" class="rounded border-white/20 bg-[#131316] text-emerald-500 focus:ring-emerald-500 h-4 w-4">
-                                        <span class="text-xs font-semibold text-white">Tomo Activo</span>
-                                    </label>
+                                <div class="pt-2">
                                     <label class="flex items-center gap-3 cursor-pointer select-none">
                                         <input type="checkbox" v-model="tomoForm.permite_preventa" class="rounded border-white/20 bg-[#131316] text-emerald-500 focus:ring-emerald-500 h-4 w-4">
-                                        <span class="text-xs font-semibold text-white">Habilitar Preventa</span>
+                                        <span class="text-xs font-semibold text-white">Habilitar Preventa (Permite reservar antes del ingreso físico con 10% de descuento)</span>
                                     </label>
                                 </div>
 
@@ -1318,7 +1653,7 @@ const submitBulk = () => {
                 <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showBulkModal = false"></div>
                 <div class="fixed inset-0 z-[101] overflow-y-auto page-catalogo">
                     <div class="flex min-h-full items-start justify-center p-4">
-                        <div class="relative w-full max-w-lg bg-[#0d0d0f] border border-white/10 shadow-2xl overflow-hidden rounded-2xl my-8">
+                        <div class="relative w-full max-w-xl bg-[#0d0d0f] border border-white/10 shadow-2xl overflow-hidden rounded-2xl my-8">
                             <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
                                 <h3 class="text-sm font-bold text-white uppercase tracking-wider">Aumento Masivo</h3>
                                 <button @click="showBulkModal = false" class="text-zinc-400 hover:text-white transition-colors">
@@ -1336,7 +1671,7 @@ const submitBulk = () => {
                                     <select v-model="bulkForm.criterio" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
                                         <option value="proveedor_formato">Por Proveedor y Formato</option>
                                         <option value="serie">Por Producto / Serie</option>
-                                        <option value="libro_individual">Por Ítem / Producto Individual</option>
+                                        <option value="libro_individual">Por Ítem(s) / Producto(s) Individual(es)</option>
                                     </select>
                                 </div>
 
@@ -1356,9 +1691,162 @@ const submitBulk = () => {
                                     <SearchableSelect v-model="bulkForm.serie" :options="opcionesMasivasLocal?.series || []" placeholder="Seleccionar producto o serie" :required="true" />
                                 </div>
 
-                                <div v-if="bulkForm.criterio === 'libro_individual'" class="bg-white/[0.02] p-4 rounded-xl border border-white/5">
-                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Seleccionar Ítem Individual *</label>
-                                    <SearchableSelect v-model="bulkForm.libro_id" :options="opcionesMasivasLocal?.libros || []" labelKey="titulo" valueKey="id" placeholder="Seleccionar ítem por título o ISBN" :required="true" />
+                                <!-- Selección múltiple de ítems individuales -->
+                                <div v-if="bulkForm.criterio === 'libro_individual'" class="bg-white/[0.02] p-4 rounded-xl border border-white/5 space-y-3" ref="libroMultiSelectContainerRef">
+                                    <div class="flex items-center justify-between">
+                                        <label class="block text-xs font-semibold text-zinc-400">Seleccionar Ítems Individuales *</label>
+                                        <span v-if="bulkForm.libros_ids.length > 0" class="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-400 border border-blue-500/25">
+                                            {{ bulkForm.libros_ids.length }} {{ bulkForm.libros_ids.length === 1 ? 'ítem seleccionado' : 'ítems seleccionados' }}
+                                        </span>
+                                    </div>
+
+                                    <!-- Buscador interactivo -->
+                                    <div class="relative">
+                                        <div class="relative">
+                                            <input 
+                                                type="text" 
+                                                v-model="searchLibroQuery" 
+                                                @focus="showLibroDropdown = true"
+                                                placeholder="Buscar tomos por título o ISBN (ej. One Piece 8)..." 
+                                                class="w-full bg-[#131316] border border-white/10 rounded-xl pl-9 pr-8 py-2.5 text-xs text-white placeholder:text-zinc-500 font-medium focus:outline-none focus:border-blue-500/50 transition-all"
+                                            />
+                                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-400">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                </svg>
+                                            </div>
+                                            <button 
+                                                v-if="searchLibroQuery" 
+                                                type="button" 
+                                                @click="searchLibroQuery = ''" 
+                                                class="absolute inset-y-0 right-0 pr-3 flex items-center text-zinc-400 hover:text-white transition-colors"
+                                                title="Limpiar búsqueda"
+                                            >
+                                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </div>
+
+                                        <!-- Dropdown flotante con opciones y checkboxes -->
+                                        <div 
+                                            v-show="showLibroDropdown" 
+                                            class="absolute z-50 left-0 right-0 mt-1.5 bg-[#131316] border border-white/10 rounded-xl shadow-2xl overflow-hidden backdrop-blur-md"
+                                        >
+                                            <!-- Barra superior con contador y acción rápida -->
+                                            <div class="px-3.5 py-2 bg-white/[0.03] border-b border-white/5 flex items-center justify-between text-[11px] text-zinc-400">
+                                                <span>{{ librosFiltrados.length }} {{ librosFiltrados.length === 1 ? 'coincidencia' : 'coincidencias' }}</span>
+                                                <div class="flex items-center gap-3">
+                                                    <button 
+                                                        v-if="librosFiltrados.length > 0" 
+                                                        type="button" 
+                                                        @click="toggleAllVisibleLibros" 
+                                                        class="text-blue-400 hover:text-blue-300 font-semibold transition-colors"
+                                                    >
+                                                        {{ areAllVisibleLibrosSelected ? 'Deseleccionar visibles' : 'Seleccionar visibles' }}
+                                                    </button>
+                                                    <button 
+                                                        type="button" 
+                                                        @click="showLibroDropdown = false" 
+                                                        class="text-zinc-500 hover:text-zinc-300 font-medium transition-colors"
+                                                    >
+                                                        Cerrar ✕
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Lista scrolleable de opciones -->
+                                            <div class="max-h-56 overflow-y-auto divide-y divide-white/[0.03]">
+                                                <div v-if="librosFiltrados.length === 0" class="p-4 text-xs text-zinc-400 text-center italic">
+                                                    No se encontraron tomos coincidentes
+                                                </div>
+                                                <div 
+                                                    v-else 
+                                                    v-for="libro in librosFiltrados" 
+                                                    :key="libro.id" 
+                                                    @click="toggleLibroSelection(libro)"
+                                                    class="px-3.5 py-2.5 text-xs cursor-pointer transition-all flex items-center justify-between gap-3 select-none"
+                                                    :class="isLibroSelected(libro.id) ? 'bg-blue-500/15 border-l-2 border-l-blue-400 text-white' : 'hover:bg-white/5 text-zinc-300'"
+                                                >
+                                                    <div class="flex items-center gap-2.5 truncate">
+                                                        <!-- Checkbox visual -->
+                                                        <div 
+                                                            class="w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0"
+                                                            :class="isLibroSelected(libro.id) ? 'bg-blue-500 border-blue-400 text-white' : 'border-white/20 bg-white/5'"
+                                                        >
+                                                            <svg v-if="isLibroSelected(libro.id)" class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+                                                            </svg>
+                                                        </div>
+                                                        <span class="truncate font-medium">{{ libro.titulo }}</span>
+                                                    </div>
+                                                    
+                                                    <div class="flex items-center gap-2 shrink-0">
+                                                        <span v-if="libro.precio_actual !== null && libro.precio_actual !== undefined" class="text-[10px] text-zinc-400 font-mono bg-white/5 px-2 py-0.5 rounded border border-white/5">
+                                                            {{ formatCurrency(libro.precio_actual) }}
+                                                        </span>
+                                                        <span v-else class="text-[10px] text-zinc-600 bg-white/5 px-2 py-0.5 rounded">
+                                                            S/P
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Lista de ítems seleccionados -->
+                                    <div class="space-y-1.5 pt-1">
+                                        <div class="flex items-center justify-between text-xs">
+                                            <span class="font-semibold text-zinc-400">
+                                                Ítems seleccionados ({{ bulkForm.libros_ids.length }})
+                                            </span>
+                                            <button 
+                                                v-if="bulkForm.libros_ids.length > 0" 
+                                                type="button" 
+                                                @click="clearLibrosSelection" 
+                                                class="text-[11px] text-rose-400 hover:text-rose-300 font-medium transition-colors hover:underline"
+                                            >
+                                                Quitar todos
+                                            </button>
+                                        </div>
+
+                                        <div v-if="bulkForm.libros_ids.length === 0" class="p-3 bg-white/[0.02] border border-dashed border-white/10 rounded-xl text-center">
+                                            <p class="text-[11px] text-zinc-500">
+                                                No hay ítems seleccionados. Buscá arriba por nombre o tomo para agregar varios.
+                                            </p>
+                                        </div>
+
+                                        <div v-else class="max-h-44 overflow-y-auto space-y-1.5 p-2 bg-[#09090b] rounded-xl border border-white/5">
+                                            <div 
+                                                v-for="item in selectedLibrosDetails" 
+                                                :key="item.id" 
+                                                class="flex items-center justify-between px-3 py-1.5 bg-white/[0.04] hover:bg-white/[0.07] border border-white/5 rounded-lg transition-colors group"
+                                            >
+                                                <div class="flex items-center gap-2 truncate min-w-0 pr-2">
+                                                    <svg class="w-3.5 h-3.5 text-blue-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                                    </svg>
+                                                    <span class="text-xs text-zinc-200 font-medium truncate" :title="item.titulo">{{ item.titulo }}</span>
+                                                </div>
+
+                                                <div class="flex items-center gap-2 shrink-0">
+                                                    <span v-if="item.precio_actual !== null && item.precio_actual !== undefined" class="text-[10px] text-zinc-400 font-mono bg-white/5 px-1.5 py-0.5 rounded">
+                                                        Actual: {{ formatCurrency(item.precio_actual) }}
+                                                    </span>
+                                                    <button 
+                                                        type="button" 
+                                                        @click="removeLibroSelection(item.id)" 
+                                                        class="text-zinc-500 hover:text-rose-400 hover:bg-rose-500/15 p-1 rounded-md transition-colors"
+                                                        title="Quitar ítem"
+                                                    >
+                                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                                 
                                 <div>
@@ -1371,8 +1859,8 @@ const submitBulk = () => {
                                 
                                 <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
                                     <button type="button" @click="showBulkModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
-                                    <button type="submit" :disabled="bulkForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95">
-                                        <span>{{ bulkForm.processing ? 'APLICANDO...' : 'APLICAR A TODOS' }}</span>
+                                    <button type="submit" :disabled="bulkForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                                        <span>{{ bulkForm.processing ? 'APLICANDO...' : (bulkForm.criterio === 'libro_individual' && bulkForm.libros_ids.length > 0 ? `APLICAR A ${bulkForm.libros_ids.length} ÍTEMS` : 'APLICAR A TODOS') }}</span>
                                     </button>
                                 </div>
                             </form>

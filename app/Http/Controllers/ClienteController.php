@@ -21,7 +21,8 @@ class ClienteController extends Controller
         $query = Cliente::query()
             ->join('users', 'clientes.user_id', '=', 'users.id')
             ->select('clientes.*') // Select only cliente columns to avoid ID conflicts
-            ->with(['user', 'tipoCliente']);
+            ->with(['user', 'tipoCliente'])
+            ->withCount(['ventas', 'transacciones']);
 
         if ($request->has('search') && $request->search != '') {
             $like = '%' . mb_strtolower($request->search) . '%';
@@ -55,7 +56,8 @@ class ClienteController extends Controller
         return inertia('Clientes/Index', [
             'clientes' => $clientes,
             'tipos_clientes' => \App\Models\TipoCliente::get(['id', 'nombre', 'descuento_porcentaje']),
-            'filters' => $request->only(['search', 'sort', 'direction'])
+            'filters' => $request->only(['search', 'sort', 'direction']),
+            'total_clientes' => Cliente::count(),
         ]);
     }
 
@@ -214,7 +216,7 @@ class ClienteController extends Controller
             'pagos' => $pagos,
             'stats' => $stats,
             'libro_masters' => \App\Models\LibroMaster::orderBy('titulo')->get(['id', 'titulo']),
-            'sucursales' => \App\Models\Sucursal::get(['id', 'nombre'])
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre'])
         ]);
     }
 
@@ -351,47 +353,41 @@ class ClienteController extends Controller
         return back()->with('message', 'Todas las ventas canceladas han sido eliminadas permanentemente.');
     }
 
+
+    /**
+     * Eliminación de cliente: permitida ÚNICAMENTE si el registro no tiene historial operativo (duplicado/creado por error).
+     */
+    public function forceDeleteSinHistorial(Cliente $cliente)
+    {
+        $tieneVentas = $cliente->ventas()->exists();
+        $tieneTransacciones = $cliente->transacciones()->exists();
+        $tieneSuscripciones = $cliente->suscripciones()->exists();
+        $saldo = (float) $cliente->saldo_actual;
+
+        if ($tieneVentas || $tieneTransacciones || $tieneSuscripciones || abs($saldo) >= 0.01) {
+            return redirect()->back()->with('error_modal', 'No se puede eliminar este cliente porque posee compras, transacciones o saldo registrado. Su registro se resguarda para proteger la trazabilidad.');
+        }
+
+        try {
+            \DB::transaction(function() use ($cliente) {
+                $user = $cliente->user;
+                $cliente->forceDelete();
+                if ($user && !$user->esAdmin() && !$user->empleado()->exists()) {
+                    $user->delete();
+                }
+            });
+
+            return redirect()->back()->with('swal_success', 'Registro duplicado sin actividad eliminado permanentemente.');
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('error_modal', 'No se pudo eliminar el cliente: ' . $e->getMessage());
+        }
+    }
+
     /**
      * Remove the specified resource from storage.
      */
     public function destroy(Cliente $cliente)
     {
-        $saldo = (float) $cliente->saldo_actual;
-        if (abs($saldo) >= 0.01) {
-            $msg = $saldo < 0 
-                ? 'No se puede eliminar el cliente porque posee una deuda pendiente ($' . number_format(abs($saldo), 2, ',', '.') . '). Debe saldarla antes.'
-                : 'No se puede eliminar el cliente porque posee un saldo a favor ($' . number_format($saldo, 2, ',', '.') . '). Debe consumirse o devolverse antes.';
-            return redirect()->route('clientes.index')->with('error_modal', $msg);
-        }
-
-        // Verificar si tiene pedidos activos en curso
-        $pedidosActivos = $cliente->ventas()->whereNotIn('estado', ['finalizado', 'cancelado'])->pluck('id')->toArray();
-        if (!empty($pedidosActivos)) {
-            return back()->with('error', 'No se puede eliminar el cliente porque posee pedidos activos en curso (#' . implode(', #', $pedidosActivos) . ').');
-        }
-
-        try {
-            \DB::transaction(function() use ($cliente) {
-                // Cancelar/eliminar suscripciones asociadas
-                $cliente->suscripciones()->delete();
-
-                $user = $cliente->user;
-                // Soft-delete del cliente
-                $cliente->delete();
-
-                // Desactivamos la cuenta de usuario si existe (no hard-delete para mantener integridad de ventas)
-                if ($user) {
-                    $user->update(['activo' => false]);
-                }
-            });
-
-            return redirect()->route('clientes.index')
-                ->with('message', 'Cliente eliminado con éxito. Las compras históricas conservan sus datos intactos.');
-        } catch (\Throwable $e) {
-            \Log::error('Error al eliminar cliente: ' . $e->getMessage(), [
-                'cliente_id' => $cliente->id,
-            ]);
-            return back()->with('error', 'No se pudo eliminar el cliente: ' . $e->getMessage());
-        }
+        return $this->forceDeleteSinHistorial($cliente);
     }
 }

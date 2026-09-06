@@ -1,10 +1,14 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+    * {
+        font-family: 'Montserrat', sans-serif;
+    }
+
     :root {
         --brand-red: #E61919;
         --brand-black: #0A0A0A;
@@ -15,6 +19,7 @@
 
     body {
         @apply bg-brand-black text-white font-sans antialiased;
+        font-family: 'Montserrat', sans-serif;
     }
 
     h1, h2, h3, h4, h5, h6 {
@@ -120,3 +125,49 @@
 .swal2-icon.swal2-warning .swal2-icon-content {
     color: #E61919 !important;
 }
+
+/* SweetAlert2 container z-index guarantee over all modals */
+.swal2-container {
+    z-index: 20000 !important;
+}
+
+/* SweetAlert2 dark select and inputs override */
+.swal2-popup .swal2-select {
+    color-scheme: dark !important;
+    background-color: #18181b !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.625rem 1rem !important;
+    font-size: 0.875rem !important;
+    font-family: 'Montserrat', sans-serif !important;
+    outline: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.swal2-popup .swal2-select:focus {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1) !important;
+}
+
+.swal2-popup .swal2-select option {
+    background-color: #18181b !important;
+    color: #ffffff !important;
+    padding: 0.5rem !important;
+    font-size: 0.875rem !important;
+}
+
+.swal2-popup .swal2-input,
+.swal2-popup .swal2-textarea {
+    color-scheme: dark !important;
+    background-color: #18181b !important;
+    color: #ffffff !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    border-radius: 0.75rem !important;
+    padding: 0.625rem 1rem !important;
+    font-family: 'Montserrat', sans-serif !important;
+    outline: none !important;
+}
+

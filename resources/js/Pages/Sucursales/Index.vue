@@ -9,10 +9,21 @@ import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 const props = defineProps({
     sucursales: Object,
     ciudades: Array,
+    stats: Object,
     filters: Object
 });
 
 const search = ref(props.filters.search || '');
+const estadoFiltro = ref(props.filters.estado || 'activas');
+
+const cambiarFiltro = (nuevoEstado) => {
+    estadoFiltro.value = nuevoEstado;
+    router.get(
+        route('sucursales.index'),
+        { search: search.value, estado: nuevoEstado },
+        { preserveState: true, preserveScroll: true }
+    );
+};
 
 const form = useForm({
     id: null,
@@ -112,19 +123,74 @@ const submit = () => {
     }
 };
 
-const deleteSucursal = (id) => {
-    darkSwal.fire({
-        title: '¿Estás seguro?',
-        text: "¡No podrás revertir esto! Se perderán las asociaciones de stock directo.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            form.delete(route('sucursales.destroy', id));
-        }
-    });
+const toggleSucursal = (sucursal) => {
+    if (sucursal.activo) {
+        darkSwal.fire({
+            title: '¿Desactivar sucursal?',
+            text: 'La sucursal dejará de estar disponible para nuevas operaciones, pero todo el historial de ventas y stock permanecerá intacto.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, desactivar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.patch(route('sucursales.toggleActivo', sucursal.id), {}, {
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                        if (errorMsg) {
+                            darkSwal.fire({
+                                title: 'No se puede desactivar',
+                                text: errorMsg,
+                                icon: 'error',
+                            });
+                        } else {
+                            darkSwal.fire({
+                                title: 'Sucursal desactivada',
+                                text: page.props.flash?.swal_success || page.props.flash?.message || 'La sucursal fue desactivada correctamente.',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    } else {
+        darkSwal.fire({
+            title: '¿Reactivar sucursal?',
+            text: 'La sucursal volverá a estar disponible para operar y registrar operaciones.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, reactivar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.patch(route('sucursales.toggleActivo', sucursal.id), {}, {
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                        if (errorMsg) {
+                            darkSwal.fire({
+                                title: 'No se puede reactivar',
+                                text: errorMsg,
+                                icon: 'error',
+                            });
+                        } else {
+                            darkSwal.fire({
+                                title: 'Sucursal reactivada',
+                                text: page.props.flash?.swal_success || page.props.flash?.message || 'La sucursal se encuentra operativa nuevamente.',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                        }
+                    }
+                });
+            }
+        });
+    }
 };
 
 const onSeleccionarDireccionSucursal = (f) => {
@@ -140,7 +206,7 @@ watch(search, (value) => {
     debounceTimeout = setTimeout(() => {
         router.get(
             route('sucursales.index'),
-            { search: value },
+            { search: value, estado: estadoFiltro.value },
             { preserveState: true, preserveScroll: true }
         );
     }, 300);
@@ -170,8 +236,8 @@ watch(search, (value) => {
         <div class="py-8 page-sucursales">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
-                <!-- Search Filter Bar -->
-                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex items-center shadow-xl">
+                <!-- Search Filter Bar & Tabs -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row items-center justify-between gap-4 shadow-xl">
                     <div class="relative w-full md:w-96">
                         <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-zinc-500">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -184,6 +250,39 @@ watch(search, (value) => {
                             placeholder="Buscar por nombre o email..." 
                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium transition-all"
                         >
+                    </div>
+
+                    <div class="flex items-center gap-2 self-start md:self-auto">
+                        <button 
+                            @click="cambiarFiltro('activas')" 
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-2"
+                            :class="estadoFiltro === 'activas' ? 'bg-white text-black border-white shadow-md' : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'"
+                        >
+                            <span>Operativas</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold" :class="estadoFiltro === 'activas' ? 'bg-black/15 text-black' : 'bg-emerald-500/20 text-emerald-400'">
+                                {{ stats?.activas ?? 0 }}
+                            </span>
+                        </button>
+                        <button 
+                            @click="cambiarFiltro('inactivas')" 
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-2"
+                            :class="estadoFiltro === 'inactivas' ? 'bg-white text-black border-white shadow-md' : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'"
+                        >
+                            <span>Inactivas</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold" :class="estadoFiltro === 'inactivas' ? 'bg-black/15 text-black' : 'bg-white/10 text-zinc-300'">
+                                {{ stats?.inactivas ?? 0 }}
+                            </span>
+                        </button>
+                        <button 
+                            @click="cambiarFiltro('todas')" 
+                            class="px-3.5 py-1.5 rounded-xl text-xs font-semibold transition-all border flex items-center gap-2"
+                            :class="estadoFiltro === 'todas' ? 'bg-white text-black border-white shadow-md' : 'bg-white/5 text-zinc-400 border-white/5 hover:text-white hover:bg-white/10'"
+                        >
+                            <span>Todas</span>
+                            <span class="px-1.5 py-0.2 rounded-full text-[10px] font-bold" :class="estadoFiltro === 'todas' ? 'bg-black/15 text-black' : 'bg-white/10 text-zinc-300'">
+                                {{ stats?.todas ?? 0 }}
+                            </span>
+                        </button>
                     </div>
                 </div>
 
@@ -207,7 +306,7 @@ watch(search, (value) => {
                                         No se encontraron sucursales
                                     </td>
                                 </tr>
-                                <tr v-for="sucursal in sucursales.data" :key="sucursal.id" class="hover:bg-white/[0.02] transition-colors group">
+                                <tr v-for="sucursal in sucursales.data" :key="sucursal.id" class="hover:bg-white/[0.02] transition-colors group" :class="{'opacity-60': !sucursal.activo}">
                                     <td class="p-4">
                                         <div class="font-bold text-white tracking-tight flex items-center gap-2">
                                             <span>{{ sucursal.nombre }}</span>
@@ -225,8 +324,12 @@ watch(search, (value) => {
                                         {{ sucursal.email || 'Sin email' }}
                                     </td>
                                     <td class="p-4 text-center">
-                                        <span class="text-xs font-semibold px-2.5 py-1 rounded-xl border border-white/5 bg-white/5 text-zinc-300">
-                                            {{ sucursal.activo ? 'Operativa' : 'Inactiva' }}
+                                        <span 
+                                            class="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-xl border"
+                                            :class="sucursal.activo ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-400' : 'border-white/5 bg-white/5 text-zinc-400'"
+                                        >
+                                            <span class="w-1.5 h-1.5 rounded-full" :class="sucursal.activo ? 'bg-emerald-400' : 'bg-zinc-500'"></span>
+                                            <span>{{ sucursal.activo ? 'Operativa' : 'Inactiva' }}</span>
                                         </span>
                                     </td>
                                     <td v-if="$page.props.auth.esAdmin" class="p-4 text-center">
@@ -234,8 +337,27 @@ watch(search, (value) => {
                                             <button @click="openModal(sucursal)" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Editar Sucursal">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                             </button>
-                                            <button @click="deleteSucursal(sucursal.id)" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" title="Eliminar Sucursal">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                            <button 
+                                                v-if="sucursal.activo"
+                                                @click="toggleSucursal(sucursal)" 
+                                                :disabled="sucursal.es_principal"
+                                                class="p-2 rounded-xl transition-all" 
+                                                :class="sucursal.es_principal ? 'text-zinc-600 cursor-not-allowed' : 'text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10'"
+                                                :title="sucursal.es_principal ? 'No se puede desactivar la sucursal principal' : 'Desactivar Sucursal'"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                </svg>
+                                            </button>
+                                            <button 
+                                                v-else
+                                                @click="toggleSucursal(sucursal)" 
+                                                class="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all" 
+                                                title="Reactivar Sucursal"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                </svg>
                                             </button>
                                         </div>
                                     </td>

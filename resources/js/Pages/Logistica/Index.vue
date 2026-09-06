@@ -357,7 +357,7 @@ const editarCosto = async (detalle) => {
                                 <div v-for="t in trasladosAEnviar" :key="t.id" class="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
                                     <div>
                                         <div class="text-sm font-bold text-white">{{ t.libro?.master?.titulo }} - Tomo {{ t.libro?.numero_tomo || 'Único' }}</div>
-                                        <div class="text-xs text-zinc-400 mt-1">Hacia: <strong class="text-white">{{ formatSucursalHeader(t.sucursal_destino?.nombre) }}</strong> | Venta #{{ t.venta_id }}</div>
+                                        <div class="text-xs text-zinc-400 mt-1"><strong class="text-white font-bold">Venta #{{ t.venta_id }}</strong> | Desde: <span class="text-zinc-200 font-semibold">{{ formatSucursalHeader(t.sucursal_origen?.nombre) }}</span> | Hacia: <span class="text-zinc-200 font-semibold">{{ formatSucursalHeader(t.sucursal_destino?.nombre) }}</span></div>
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <div class="text-center px-3 border-r border-white/5">
@@ -382,7 +382,7 @@ const editarCosto = async (detalle) => {
                                 <div v-for="t in trasladosARecibir" :key="t.id" class="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
                                     <div>
                                         <div class="text-sm font-bold text-white">{{ t.libro?.master?.titulo }} - Tomo {{ t.libro?.numero_tomo || 'Único' }}</div>
-                                        <div class="text-xs text-zinc-400 mt-1">Desde: <strong class="text-white">{{ formatSucursalHeader(t.sucursal_origen?.nombre) }}</strong> | Venta #{{ t.venta_id }}</div>
+                                        <div class="text-xs text-zinc-400 mt-1"><strong class="text-white font-bold">Venta #{{ t.venta_id }}</strong> | Desde: <span class="text-zinc-200 font-semibold">{{ formatSucursalHeader(t.sucursal_origen?.nombre) }}</span> | Hacia: <span class="text-zinc-200 font-semibold">{{ formatSucursalHeader(t.sucursal_destino?.nombre) }}</span></div>
                                     </div>
                                     <div class="flex items-center gap-3">
                                         <div class="text-center px-3 border-r border-white/5">

@@ -13,7 +13,7 @@ export default {
     theme: {
         extend: {
             fontFamily: {
-                sans: ['Outfit', 'Inter', ...defaultTheme.fontFamily.sans],
+                sans: ['Montserrat', ...defaultTheme.fontFamily.sans],
             },
             colors: {
                 brand: {

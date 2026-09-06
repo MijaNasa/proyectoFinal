@@ -26,7 +26,7 @@ class StoreLibroMasterRequest extends FormRequest
             'idioma_id' => ['nullable'],
             'formato' => ['nullable', 'string', 'max:255'],
             'synopsis' => ['nullable', 'string'],
-            'activo' => ['boolean']
+            'activo' => ['sometimes', 'boolean']
         ];
     }
 }

@@ -21,7 +21,65 @@ class CatalogoAjustesController extends Controller
 
     private function removeAccents(string $value): string
     {
-        return mb_strtolower(trim(Str::ascii($value)), 'UTF-8');
+        $normalized = mb_strtolower(trim(Str::ascii($value)), 'UTF-8');
+        // Normalizar también 'ñ' a 'n' para comparaciones fonéticas en español
+        return str_replace(['ñ', 'Ñ'], 'n', $normalized);
+    }
+
+    private function calculateSimilarityPercent(string $a, string $b): float
+    {
+        $normA = $this->removeAccents($a);
+        $normB = $this->removeAccents($b);
+
+        if ($normA === $normB) {
+            return 100.0;
+        }
+
+        if (empty($normA) || empty($normB)) {
+            return 0.0;
+        }
+
+        if (str_contains($normA, $normB) || str_contains($normB, $normA)) {
+            $minLen = min(strlen($normA), strlen($normB));
+            $maxLen = max(strlen($normA), strlen($normB));
+            return 80.0 + (20.0 * ($minLen / $maxLen));
+        }
+
+        similar_text($normA, $normB, $percent);
+
+        $lev = levenshtein($normA, $normB);
+        $maxLen = max(strlen($normA), strlen($normB));
+        $levScore = max(0, (1 - ($lev / $maxLen)) * 100);
+
+        if ($lev <= 1 && $maxLen >= 4) {
+            return max($percent, 90.0);
+        }
+        if ($lev <= 2 && $maxLen >= 6) {
+            return max($percent, 82.0);
+        }
+
+        return max($percent, $levScore);
+    }
+
+    private function findSimilarModel($collection, callable $getNameCallback, string $candidate, float $threshold = 85.0)
+    {
+        $bestMatch = null;
+        $highestScore = 0.0;
+
+        foreach ($collection as $item) {
+            $name = $getNameCallback($item);
+            $score = $this->calculateSimilarityPercent($candidate, $name);
+            if ($score > $highestScore) {
+                $highestScore = $score;
+                $bestMatch = ['item' => $item, 'score' => round($score), 'name' => $name];
+            }
+        }
+
+        if ($highestScore >= $threshold && $bestMatch) {
+            return $bestMatch;
+        }
+
+        return null;
     }
 
     public function index(Request $request)
@@ -44,6 +102,7 @@ class CatalogoAjustesController extends Controller
     public function store(Request $request, string $type)
     {
         $model = null;
+        $forzar = $request->boolean('forzar');
 
         $messages = [
             'nombre.required' => 'El nombre es obligatorio.',
@@ -77,6 +136,16 @@ class CatalogoAjustesController extends Controller
                         'nombre' => "Este autor ya se encuentra registrado (registrado como: {$model->nombre} {$model->apellido})."
                     ]);
                 } else {
+                    if (!$forzar) {
+                        $candidate = "{$validated['nombre']} {$validated['apellido']}";
+                        $allAutores = Autor::all();
+                        $similar = $this->findSimilarModel($allAutores, fn($a) => "{$a->nombre} {$a->apellido}", $candidate, 85.0);
+                        if ($similar) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'nombre' => "Ya existe un autor muy similar registrado: '{$similar['name']}' ({$similar['score']}% de coincidencia). Si realmente deseas registrarlo, confirma la creación."
+                            ]);
+                        }
+                    }
                     $model = Autor::create($validated);
                 }
                 break;
@@ -100,6 +169,15 @@ class CatalogoAjustesController extends Controller
                         'nombre' => "Esta categoría ya se encuentra registrada (registrada como: {$model->nombre})."
                     ]);
                 } else {
+                    if (!$forzar) {
+                        $allCats = Categoria::all();
+                        $similar = $this->findSimilarModel($allCats, fn($c) => $c->nombre, $validated['nombre'], 85.0);
+                        if ($similar) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'nombre' => "Ya existe una categoría muy similar registrada: '{$similar['name']}' ({$similar['score']}% de coincidencia). Si realmente deseas registrarla, confirma la creación."
+                            ]);
+                        }
+                    }
                     $model = Categoria::create($validated);
                 }
                 break;
@@ -125,6 +203,15 @@ class CatalogoAjustesController extends Controller
                         'nombre_empresa' => "Este proveedor ya se encuentra registrado (registrado como: {$model->nombre_empresa})."
                     ]);
                 } else {
+                    if (!$forzar) {
+                        $allProv = \App\Models\Proveedor::all();
+                        $similar = $this->findSimilarModel($allProv, fn($p) => $p->nombre_empresa, $validated['nombre_empresa'], 85.0);
+                        if ($similar) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'nombre_empresa' => "Ya existe un proveedor muy similar registrado: '{$similar['name']}' ({$similar['score']}% de coincidencia). Si realmente deseas registrarlo, confirma la creación."
+                            ]);
+                        }
+                    }
                     $model = \App\Models\Proveedor::create($validated);
                 }
                 break;
@@ -148,6 +235,16 @@ class CatalogoAjustesController extends Controller
                         'nombre' => "Este idioma ya se encuentra registrado (registrado como: {$model->nombre})."
                     ]);
                 } else {
+                    if (!$forzar) {
+                        $allIdiomas = Idioma::all();
+                        $similar = $this->findSimilarModel($allIdiomas, fn($i) => $i->nombre, $validated['nombre'], 85.0);
+                        if ($similar) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'nombre' => "Ya existe un idioma muy similar registrado: '{$similar['name']}' ({$similar['score']}% de coincidencia). Si realmente deseas registrarlo, confirma la creación."
+                            ]);
+                        }
+                    }
+
                     $codigo = strtoupper(substr(preg_replace('/[^a-zA-Z]/', '', $this->removeAccents($validated['nombre'])), 0, 3));
                     if (empty($codigo)) $codigo = 'IDI';
                     $originalCodigo = $codigo;
@@ -182,6 +279,16 @@ class CatalogoAjustesController extends Controller
                         'nombre' => "Este formato ya se encuentra registrado (registrado como: {$model->nombre})."
                     ]);
                 } else {
+                    if (!$forzar) {
+                        $allFormatos = Formato::all();
+                        $similar = $this->findSimilarModel($allFormatos, fn($f) => $f->nombre, $validated['nombre'], 85.0);
+                        if ($similar) {
+                            throw \Illuminate\Validation\ValidationException::withMessages([
+                                'nombre' => "Ya existe un formato muy similar registrado: '{$similar['name']}' ({$similar['score']}% de coincidencia). Si realmente deseas registrarlo, confirma la creación."
+                            ]);
+                        }
+                    }
+
                     $model = Formato::create(['nombre' => trim($validated['nombre'])]);
                 }
                 break;
@@ -191,14 +298,14 @@ class CatalogoAjustesController extends Controller
         }
 
         if ($request->header('X-Inertia')) {
-            return redirect()->back()->with('message', 'Registro creado con éxito.');
+            return redirect()->route('catalogo.ajustes.index')->with('message', 'Registro creado con éxito.');
         }
 
         if ($request->wantsJson() || $request->acceptsJson()) {
             return response()->json(['success' => true, 'model' => $model]);
         }
 
-        return redirect()->back()->with('message', 'Registro creado con éxito.');
+        return redirect()->route('catalogo.ajustes.index')->with('message', 'Registro creado con éxito.');
     }
 
     public function update(Request $request, string $type, $id)
@@ -340,13 +447,13 @@ class CatalogoAjustesController extends Controller
                     \App\Models\LibroMaster::where('formato', $oldNombre)
                         ->update(['formato' => $newNombre]);
                 }
-                return redirect()->back()->with('message', 'Formato actualizado con éxito.');
+                return redirect()->route('catalogo.ajustes.index')->with('message', 'Formato actualizado con éxito.');
 
             default:
                 abort(400, 'Tipo de ajuste no válido.');
         }
 
-        return redirect()->back()->with('message', 'Registro actualizado con éxito.');
+        return redirect()->route('catalogo.ajustes.index')->with('message', 'Registro actualizado con éxito.');
     }
 
     public function destroy(Request $request, string $type, $id)
@@ -357,7 +464,7 @@ class CatalogoAjustesController extends Controller
             case 'autores':
                 $model = Autor::findOrFail($id);
                 if ($model->libroMasters()->exists()) {
-                    return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
+                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
                 }
                 $model->delete();
                 break;
@@ -365,7 +472,7 @@ class CatalogoAjustesController extends Controller
             case 'categorias':
                 $model = Categoria::findOrFail($id);
                 if ($model->libroMasters()->exists()) {
-                    return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
+                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
                 }
                 $model->delete();
                 break;
@@ -373,7 +480,7 @@ class CatalogoAjustesController extends Controller
             case 'proveedores':
                 $model = \App\Models\Proveedor::findOrFail($id);
                 if ($model->libroMasters()->exists()) {
-                    return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
+                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
                 }
                 $model->delete();
                 break;
@@ -381,7 +488,7 @@ class CatalogoAjustesController extends Controller
             case 'idiomas':
                 $model = Idioma::findOrFail($id);
                 if ($model->libroMasters()->exists()) {
-                    return redirect()->back()->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
+                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
                 }
                 $model->delete();
                 break;
@@ -391,7 +498,7 @@ class CatalogoAjustesController extends Controller
                 $nombre = $model ? $model->nombre : urldecode((string)$id);
                 $count = \App\Models\LibroMaster::where('formato', $nombre)->count();
                 if ($count > 0) {
-                    return redirect()->back()->with('error', 'No se puede eliminar el formato porque tiene ' . $count . ' obra(s) asociada(s).');
+                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el formato porque tiene ' . $count . ' obra(s) asociada(s).');
                 }
                 if ($model) {
                     $model->delete();
@@ -402,6 +509,6 @@ class CatalogoAjustesController extends Controller
                 abort(400, 'Tipo de ajuste no válido.');
         }
 
-        return redirect()->back()->with('message', 'Registro eliminado con éxito.');
+        return redirect()->route('catalogo.ajustes.index')->with('message', 'Registro eliminado con éxito.');
     }
 }

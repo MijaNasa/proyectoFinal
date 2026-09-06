@@ -26,7 +26,7 @@ const esAdmin = computed(() =>
 
 const esEstadoRestringido = computed(() => {
     if (!selectedVenta.value) return false;
-    return ['finalizado', 'cancelado'].includes(selectedVenta.value.estado);
+    return ['finalizado', 'cancelado', 'enviado'].includes(selectedVenta.value.estado);
 });
 
 const puedeModificarEstadoManual = computed(() => {
@@ -50,13 +50,13 @@ const estadoOpciones = [
 ];
 
 const transicionesMap = {
-    pendiente_pago:     ['en_preparacion', 'listo_para_retiro', 'esperando_traslado', 'finalizado', 'en_preventa', 'acumulado', 'cancelado'],
+    pendiente_pago:     ['en_preparacion', 'listo_para_retiro', 'finalizado', 'en_preventa', 'acumulado', 'cancelado'],
     en_preventa:        ['en_preparacion', 'listo_para_retiro', 'acumulado', 'cancelado'],
-    en_preparacion:     ['listo_para_retiro', 'enviado', 'esperando_traslado', 'cancelado'],
+    en_preparacion:     ['listo_para_retiro', 'enviado', 'cancelado'],
     esperando_traslado: ['en_preparacion', 'listo_para_retiro', 'cancelado'],
     acumulado:          ['en_preparacion', 'listo_para_retiro', 'cancelado'],
     listo_para_retiro:  ['finalizado'],
-    enviado:            ['finalizado', 'en_preparacion'],
+    enviado:            ['en_preparacion'],
     finalizado:         [],
     cancelado:          []
 };
@@ -69,6 +69,7 @@ const estadoOpcionesFiltradas = computed(() => {
 
     return estadoOpciones.filter(e => {
         if (!e.tipos.includes(selectedVenta.value.tipo)) return false;
+        if (estadoActual === 'enviado' && e.value === 'finalizado') return false;
         if (e.value === estadoActual) return true;
         return permitidos.includes(e.value);
     });
@@ -145,6 +146,11 @@ const expandedVentas = ref([]);
 
 const urlParams = new URLSearchParams(window.location.search);
 const currentTab = ref(props.filters?.tab || urlParams.get('tab') || 'activas');
+watch(() => props.filters?.tab, (newTab) => {
+    if (newTab) {
+        currentTab.value = newTab;
+    }
+});
 
 const toggleExpand = (id) => {
     if (expandedVentas.value.includes(id)) {
@@ -596,6 +602,12 @@ const viewVenta = (venta) => {
     showDetailModal.value = true;
 };
 
+watch(() => props.ventaView, (newVenta) => {
+    if (newVenta) {
+        viewVenta(newVenta);
+    }
+}, { immediate: true });
+
 const closeDetailModal = () => {
     showDetailModal.value = false;
     const urlParams = new URLSearchParams(window.location.search);
@@ -606,7 +618,11 @@ const closeDetailModal = () => {
 };
 
 const cambiarEstado = async () => {
-    if (estadoForm.estado === selectedVenta.value.estado && estadoForm.direccion_envio === (selectedVenta.value.direccion_envio || '') && estadoForm.tracking_code === (selectedVenta.value.tracking_code || '')) return;
+    if (
+        estadoForm.estado === selectedVenta.value.estado &&
+        (estadoForm.direccion_envio || '') === (selectedVenta.value.direccion_envio || '') &&
+        (estadoForm.tracking_code || '') === (selectedVenta.value.tracking_code || '')
+    ) return;
 
     if (!puedeModificarEstadoManual.value) {
         darkSwal.fire({
@@ -649,21 +665,60 @@ const cambiarEstado = async () => {
     }
 
     estadoForm.patch(route('ventas.estado', selectedVenta.value.id), {
-        onSuccess: () => {
-            router.reload({
-                preserveScroll: true,
-                onSuccess: (newPage) => {
-                    const ventaActualizada = newPage.props.ventas?.data?.find(v => v.id === selectedVenta.value.id);
-                    if (ventaActualizada) {
-                        selectedVenta.value = ventaActualizada;
-                        estadoForm.estado = ventaActualizada.estado;
-                        estadoForm.direccion_envio = ventaActualizada.direccion_envio || '';
-                        estadoForm.latitud = ventaActualizada.latitud || null;
-                        estadoForm.longitud = ventaActualizada.longitud || null;
-                        estadoForm.tracking_code = ventaActualizada.tracking_code || '';
-                    }
-                }
+        preserveScroll: true,
+        onSuccess: (page) => {
+            if (page.props.flash?.error) {
+                darkSwal.fire({
+                    title: 'No se pudo cambiar el estado',
+                    text: page.props.flash.error,
+                    icon: 'error'
+                });
+                estadoForm.estado = selectedVenta.value.estado;
+                return;
+            }
+
+            const nuevoEstado = estadoForm.estado;
+            const ventaActualizada = page.props.flash?.updatedVenta
+                || page.props.ventas?.data?.find(v => v.id === selectedVenta.value.id) 
+                || (page.props.ventaView?.id === selectedVenta.value.id ? page.props.ventaView : null);
+
+            if (ventaActualizada) {
+                selectedVenta.value = { ...ventaActualizada };
+                estadoForm.estado = ventaActualizada.estado;
+                estadoForm.direccion_envio = ventaActualizada.direccion_envio || '';
+                estadoForm.latitud = ventaActualizada.latitud || null;
+                estadoForm.longitud = ventaActualizada.longitud || null;
+                estadoForm.tracking_code = ventaActualizada.tracking_code || '';
+            } else {
+                selectedVenta.value = {
+                    ...selectedVenta.value,
+                    estado: nuevoEstado,
+                    direccion_envio: estadoForm.direccion_envio || '',
+                    tracking_code: estadoForm.tracking_code || '',
+                    latitud: estadoForm.latitud || null,
+                    longitud: estadoForm.longitud || null
+                };
+                estadoForm.estado = nuevoEstado;
+                estadoForm.direccion_envio = selectedVenta.value.direccion_envio;
+                estadoForm.tracking_code = selectedVenta.value.tracking_code;
+            }
+
+            darkSwal.fire({
+                title: '¡Estado Actualizado!',
+                text: 'La venta ahora está en estado ' + (estadoOpciones.find(e => e.value === selectedVenta.value.estado)?.label || selectedVenta.value.estado) + '.',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false,
             });
+        },
+        onError: (errors) => {
+            const msg = Object.values(errors).flat().join('\n') || 'Ocurrió un error al actualizar el estado.';
+            darkSwal.fire({
+                title: 'Error de Validación',
+                text: msg,
+                icon: 'error'
+            });
+            estadoForm.estado = selectedVenta.value.estado;
         }
     });
 };
@@ -710,8 +765,8 @@ const confirmarPago = async () => {
 const isFormModified = computed(() => {
     if (!selectedVenta.value) return false;
     return estadoForm.estado !== selectedVenta.value.estado ||
-           estadoForm.direccion_envio !== (selectedVenta.value.direccion_envio || '') ||
-           estadoForm.tracking_code !== (selectedVenta.value.tracking_code || '');
+           (estadoForm.direccion_envio || '') !== (selectedVenta.value.direccion_envio || '') ||
+           (estadoForm.tracking_code || '') !== (selectedVenta.value.tracking_code || '');
 });
 
 const formatTicketDate = (fechaStr) => {
@@ -748,11 +803,18 @@ onMounted(() => {
         if (urlParams.get('open') === 'pos' || urlParams.get('nueva') === '1') {
             openPos();
         }
-        if (urlParams.get('view')) {
-            const viewId = urlParams.get('view');
-            const ventaToView = props.ventas?.data?.find(v => v.id == viewId) || (props.ventaView && props.ventaView.id == viewId ? props.ventaView : null);
-            if (ventaToView) {
-                viewVenta(ventaToView);
+        if (props.ventaView) {
+            viewVenta(props.ventaView);
+        } else {
+            const rawTarget = urlParams.get('view') || urlParams.get('search');
+            if (rawTarget) {
+                const targetId = rawTarget.replace(/[^0-9]/g, '');
+                if (targetId) {
+                    const found = props.ventas?.data?.find(v => v.id == targetId);
+                    if (found) {
+                        viewVenta(found);
+                    }
+                }
             }
         }
     }
@@ -1280,6 +1342,14 @@ onMounted(() => {
                                 </div>
                             </div>
 
+                            <div v-if="(selectedVenta.tipo_envio && selectedVenta.tipo_envio !== 'retiro') || selectedVenta.direccion_envio" class="bg-white/[0.03] border border-white/5 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <span class="text-zinc-400 font-medium">Envío:</span>
+                                    <span class="text-white font-bold capitalize">{{ (selectedVenta.tipo_envio || 'Domicilio').replace('_', ' ') }}</span>
+                                    <span v-if="selectedVenta.direccion_envio" class="text-zinc-400 font-normal truncate max-w-md">· {{ selectedVenta.direccion_envio }}</span>
+                                </div>
+                            </div>
+
                             <div class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden">
                                 <table class="w-full text-left border-collapse">
                                     <thead>
@@ -1360,6 +1430,7 @@ onMounted(() => {
                                     </svg>
                                     <span v-if="selectedVenta.estado === 'en_preventa'">🔒 Pedido a la espera de la recepción del tomo de preventa.</span>
                                     <span v-else-if="selectedVenta.estado === 'esperando_traslado'">🔒 Pedido a la espera de confirmación de recepción en Logística.</span>
+                                    <span v-else-if="selectedVenta.estado === 'enviado'">🔒 Venta en estado enviado. Solo un Administrador puede modificarla.</span>
                                     <span v-else-if="selectedVenta.estado === 'finalizado'">🔒 Venta finalizada. Solo un Administrador puede modificar el estado.</span>
                                     <span v-else-if="selectedVenta.estado === 'cancelado'">🔒 Venta cancelada. Solo un Administrador puede modificar el estado.</span>
                                 </div>
@@ -1382,9 +1453,15 @@ onMounted(() => {
                                         <label class="text-xs font-semibold text-zinc-400 mb-1.5 block">Dirección de Envío</label>
                                         <DireccionAutocomplete v-model="estadoForm.direccion_envio" :disabled="estadoForm.estado === 'enviado' || !puedeModificarEstadoManual" @select="onSeleccionarDireccionVenta" placeholder="Ej: San Martín 123, Rosario" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed" />
                                     </div>
-                                    <div v-if="['correo_nacional', 'correo_sucursal'].includes(selectedVenta.tipo_envio) && estadoForm.estado === 'enviado'" class="sm:col-span-2 md:col-span-1">
+                                    <div v-if="estadoForm.estado === 'enviado' || selectedVenta.tracking_code || ['correo_nacional', 'correo_sucursal'].includes(selectedVenta.tipo_envio)" class="sm:col-span-2 md:col-span-1">
                                         <label class="text-xs font-semibold text-zinc-400 mb-1.5 block">Código de Seguimiento</label>
-                                        <input type="text" v-model="estadoForm.tracking_code" placeholder="Ej: SD321876451AR" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all" />
+                                        <input 
+                                            type="text" 
+                                            v-model="estadoForm.tracking_code" 
+                                            :disabled="(selectedVenta.estado === 'enviado' && !esAdmin) || !puedeModificarEstadoManual" 
+                                            placeholder="Ej: SD321876451AR" 
+                                            class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-zinc-800/40" 
+                                        />
                                     </div>
                                 </div>
                             </div>

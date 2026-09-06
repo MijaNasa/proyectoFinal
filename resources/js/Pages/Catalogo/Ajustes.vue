@@ -4,6 +4,7 @@ import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
+import { calculateSimilarity, normalizeText, detectPotentialDuplicate } from '@/composables/useSmartSearch';
 
 const props = defineProps({
     autores: Array,
@@ -27,24 +28,70 @@ const selectTab = (tabId) => {
     searchQuery.value = '';
 };
 
+// Helper para obtener el texto representativo de un elemento
+const getItemLabel = (item, type = currentTab.value) => {
+    if (!item) return '';
+    if (type === 'autores') {
+        const parts = [item.nombre, item.apellido].filter(Boolean);
+        return parts.join(' ');
+    }
+    if (type === 'proveedores') {
+        return item.nombre_empresa || '';
+    }
+    return item.nombre || '';
+};
+
+// Buscador Inteligente con ordenamiento por relevancia y similitud
 const filteredItems = computed(() => {
     let list = [];
-    if (currentTab.value === 'autores') list = props.autores;
-    else if (currentTab.value === 'categorias') list = props.categorias;
-    else if (currentTab.value === 'formatos') list = props.formatos;
-    else if (currentTab.value === 'idiomas') list = props.idiomas;
+    if (currentTab.value === 'autores') list = props.autores || [];
+    else if (currentTab.value === 'categorias') list = props.categorias || [];
+    else if (currentTab.value === 'formatos') list = props.formatos || [];
+    else if (currentTab.value === 'idiomas') list = props.idiomas || [];
 
-    if (!searchQuery.value) return list;
+    const query = searchQuery.value.trim();
+    if (!query) return list;
 
-    const term = searchQuery.value.toLowerCase();
-    return list.filter(item => {
+    const normQ = normalizeText(query);
+
+    const scored = list.map(item => {
+        let score = 0;
         if (currentTab.value === 'autores') {
-            return (item.nombre && item.nombre.toLowerCase().includes(term)) ||
-                   (item.apellido && item.apellido.toLowerCase().includes(term));
+            const fullName = `${item.nombre || ''} ${item.apellido || ''}`.trim();
+            const revName = `${item.apellido || ''} ${item.nombre || ''}`.trim();
+            const s1 = calculateSimilarity(query, fullName);
+            const s2 = calculateSimilarity(query, revName);
+            const sNombre = calculateSimilarity(query, item.nombre || '');
+            const sApellido = calculateSimilarity(query, item.apellido || '');
+            score = Math.max(s1, s2, sNombre, sApellido);
+
+            if (normalizeText(fullName).includes(normQ) || normalizeText(revName).includes(normQ)) {
+                score = Math.max(score, 88);
+            }
         } else {
-            return item.nombre && item.nombre.toLowerCase().includes(term);
+            const label = getItemLabel(item, currentTab.value);
+            score = calculateSimilarity(query, label);
+            if (normalizeText(label).includes(normQ)) {
+                score = Math.max(score, 88);
+            }
         }
+
+        return { item, score };
     });
+
+    const filtered = scored.filter(entry => entry.score >= 45);
+    filtered.sort((a, b) => b.score - a.score);
+    return filtered.map(entry => entry.item);
+});
+
+// Indica si el buscador está mostrando sugerencias por aproximación
+const isFuzzySearchActive = computed(() => {
+    const q = searchQuery.value.trim();
+    if (!q || filteredItems.value.length === 0) return false;
+    const normQ = normalizeText(q);
+    const topItem = filteredItems.value[0];
+    const topLabel = normalizeText(getItemLabel(topItem, currentTab.value));
+    return !topLabel.includes(normQ);
 });
 
 const darkSwal = Swal.mixin({
@@ -118,34 +165,193 @@ const openEditModal = (item) => {
     showEditModal.value = true;
 };
 
-const submitEdit = () => {
+// Cadena que el usuario está escribiendo para verificar duplicados
+const inputParaVerificar = computed(() => {
+    if (editingType.value === 'autores') {
+        const n = (editForm.nombre || '').trim();
+        const a = (editForm.apellido || '').trim();
+        return [n, a].filter(Boolean).join(' ');
+    }
+    if (editingType.value === 'proveedores') {
+        return (editForm.nombre_empresa || '').trim();
+    }
+    return (editForm.nombre || '').trim();
+});
+
+// Detección reactiva de duplicados en tiempo real
+const detectedDuplicate = computed(() => {
+    if (!isCreating.value || !showEditModal.value) return { hasDuplicate: false, topMatch: null, score: 0 };
+    const query = inputParaVerificar.value;
+    if (!query || query.length < 2) return { hasDuplicate: false, topMatch: null, score: 0 };
+
+    let currentList = [];
+    if (editingType.value === 'autores') currentList = props.autores || [];
+    else if (editingType.value === 'categorias') currentList = props.categorias || [];
+    else if (editingType.value === 'formatos') currentList = props.formatos || [];
+    else if (editingType.value === 'idiomas') currentList = props.idiomas || [];
+
+    if (!currentList.length) return { hasDuplicate: false, topMatch: null, score: 0 };
+
+    return detectPotentialDuplicate(
+        query,
+        currentList,
+        (item) => getItemLabel(item, editingType.value),
+        68
+    );
+});
+
+const usarRegistroExistente = (matchedItem) => {
+    showEditModal.value = false;
+    const label = getItemLabel(matchedItem, editingType.value);
+    searchQuery.value = label;
+    darkSwal.fire({
+        title: 'Registro Existente',
+        text: `Se seleccionó '${label}'. El registro ya se encuentra en el sistema, evitando duplicados.`,
+        icon: 'info',
+        timer: 2000,
+        showConfirmButton: false
+    });
+};
+
+const getCleanPayload = (forzar = false) => {
+    const payload = { forzar };
+    if (editingType.value === 'autores') {
+        payload.nombre = (editForm.nombre || '').trim();
+        payload.apellido = (editForm.apellido || '').trim();
+    } else if (editingType.value === 'proveedores') {
+        payload.nombre_empresa = (editForm.nombre_empresa || '').trim();
+        payload.email = (editForm.email || '').trim();
+        payload.telefono = (editForm.telefono || '').trim();
+        payload.direccion = (editForm.direccion || '').trim();
+    } else {
+        payload.nombre = (editForm.nombre || '').trim();
+    }
+    return payload;
+};
+
+const executeSubmit = (forzar = false) => {
+    const payload = getCleanPayload(forzar);
+
+    // Validación básica previa
+    if (editingType.value === 'autores') {
+        if (!payload.nombre || !payload.apellido) {
+            darkSwal.fire({
+                title: 'Campos obligatorios',
+                text: 'Debes ingresar tanto el nombre como el apellido del autor.',
+                icon: 'warning'
+            });
+            return;
+        }
+    } else if (editingType.value === 'proveedores') {
+        if (!payload.nombre_empresa) {
+            darkSwal.fire({
+                title: 'Campo obligatorio',
+                text: 'El nombre de empresa es obligatorio.',
+                icon: 'warning'
+            });
+            return;
+        }
+    } else {
+        if (!payload.nombre) {
+            darkSwal.fire({
+                title: 'Campo obligatorio',
+                text: `El nombre de ${itemName.value.toLowerCase()} es obligatorio.`,
+                icon: 'warning'
+            });
+            return;
+        }
+    }
+
     if (isCreating.value) {
-        editForm.post(route('catalogo.ajustes.store', { type: editingType.value }), {
+        editForm.transform(() => payload).post(route('catalogo.ajustes.store', { type: editingType.value }), {
+            preserveScroll: true,
             onSuccess: () => {
                 showEditModal.value = false;
+                editForm.reset();
                 darkSwal.fire({
                     title: '¡Creado!',
-                    text: 'Registro creado con éxito.',
+                    text: `${itemName.value} registrado con éxito.`,
                     icon: 'success',
                     timer: 1500,
                     showConfirmButton: false
                 });
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+                if (firstError && (firstError.includes('confirma la creación') || firstError.includes('similar'))) {
+                    darkSwal.fire({
+                        title: '¿Confirmar creación?',
+                        text: firstError,
+                        icon: 'warning',
+                        showCancelButton: true,
+                        confirmButtonText: 'Sí, crear de todas formas',
+                        cancelButtonText: 'Cancelar',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            executeSubmit(true);
+                        }
+                    });
+                } else {
+                    darkSwal.fire({
+                        title: 'Atención',
+                        text: firstError || 'No se pudo completar el registro. Verifica los campos.',
+                        icon: 'warning'
+                    });
+                }
             }
         });
     } else {
-        editForm.put(route('catalogo.ajustes.update', { type: editingType.value, id: editingId.value }), {
+        editForm.transform(() => payload).put(route('catalogo.ajustes.update', { type: editingType.value, id: editingId.value }), {
+            preserveScroll: true,
             onSuccess: () => {
                 showEditModal.value = false;
+                editForm.reset();
                 darkSwal.fire({
                     title: '¡Actualizado!',
-                    text: 'Registro modificado con éxito.',
+                    text: `${itemName.value} modificado con éxito.`,
                     icon: 'success',
                     timer: 1500,
                     showConfirmButton: false
+                });
+            },
+            onError: (errors) => {
+                const firstError = Object.values(errors)[0];
+                darkSwal.fire({
+                    title: 'Error de validación',
+                    text: firstError || 'Verifique los campos requeridos.',
+                    icon: 'error'
                 });
             }
         });
     }
+};
+
+const submitEdit = () => {
+    if (isCreating.value && detectedDuplicate.value.hasDuplicate && detectedDuplicate.value.isCritical) {
+        const item = detectedDuplicate.value.topMatch;
+        const nombreExistente = detectedDuplicate.value.matchedLabel;
+        const score = detectedDuplicate.value.score;
+
+        darkSwal.fire({
+            title: '¿Crear de todas formas?',
+            text: `Detectamos que ya existe un registro muy similar: "${nombreExistente}" (${score}% de coincidencia). Para no duplicar datos, ¿deseas usar el existente o crearlo de todas formas?`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, crear de todas formas',
+            cancelButtonText: 'Usar existente',
+            reverseButtons: true
+        }).then((result) => {
+            if (result.isConfirmed) {
+                executeSubmit(true);
+            } else if (result.dismiss === Swal.DismissReason.cancel && item) {
+                usarRegistroExistente(item);
+            }
+        });
+        return;
+    }
+
+    executeSubmit(false);
 };
 
 // Safe Delete Logic
@@ -252,6 +458,12 @@ const itemName = computed(() => {
                             <span>Nuevo</span>
                         </button>
                     </div>
+                </div>
+
+                <!-- Sugerencia inteligente de búsqueda aproximada -->
+                <div v-if="searchQuery.trim() && filteredItems.length > 0 && isFuzzySearchActive" class="flex items-center gap-2 text-xs text-amber-300 bg-amber-500/10 px-4 py-2.5 rounded-xl border border-amber-500/20 shadow-sm animate-fadeIn">
+                    <span class="text-base">💡</span>
+                    <span>Búsqueda inteligente: Mostrando coincidencias aproximadas para <strong class="text-white font-bold">"{{ searchQuery }}"</strong>.</span>
                 </div>
 
                 <!-- Table Section -->
@@ -406,6 +618,32 @@ const itemName = computed(() => {
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Nombre Idioma *</label>
                                     <input v-model="editForm.nombre" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" required />
                                     <span v-if="editForm.errors.nombre" class="text-rose-400 text-xs mt-1 block font-semibold">{{ editForm.errors.nombre }}</span>
+                                </div>
+                            </div>
+
+                            <!-- Sugerencia reactiva de duplicados -->
+                            <div v-if="isCreating && detectedDuplicate.hasDuplicate" class="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs space-y-2 animate-fadeIn transition-all">
+                                <div class="flex items-center gap-2 font-bold text-amber-300">
+                                    <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                                    </svg>
+                                    <span>Posible duplicado detectado</span>
+                                    <span class="ml-auto text-[10px] px-2 py-0.5 rounded-full font-extrabold bg-amber-400/20 text-amber-300">
+                                        {{ detectedDuplicate.score }}% de coincidencia
+                                    </span>
+                                </div>
+                                <p class="text-zinc-300 leading-relaxed text-[11px]">
+                                    Ya existe un registro similar: <strong class="text-white font-bold">"{{ detectedDuplicate.matchedLabel }}"</strong>. Te sugerimos seleccionarlo para evitar duplicar registros en el catálogo.
+                                </p>
+                                <div class="flex items-center gap-2 pt-1">
+                                    <button 
+                                        type="button" 
+                                        @click="usarRegistroExistente(detectedDuplicate.topMatch)"
+                                        class="px-3 py-1.5 bg-amber-400 hover:bg-amber-300 text-black font-bold text-[11px] rounded-lg transition-all shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                                    >
+                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                        <span>Usar este registro existente</span>
+                                    </button>
                                 </div>
                             </div>
 

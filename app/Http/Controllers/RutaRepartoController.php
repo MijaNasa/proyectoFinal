@@ -19,7 +19,7 @@ class RutaRepartoController extends Controller
     private function autorizarVista(RutaReparto $ruta): void
     {
         $user = \Auth::user();
-        if ($user->esAdmin() || $user->esGerente() || $user->hasPermiso('repartos.acceder')) return;
+        if ($user->esAdmin() || $user->esGerente() || ($user->hasPermiso('repartos.acceder') && !$user->esRepartidor())) return;
         if ($ruta->repartidor_id && $ruta->repartidor_id === $user->empleado?->id) return;
 
         abort(403, 'No tenés permiso para ver esta ruta.');
@@ -44,7 +44,7 @@ class RutaRepartoController extends Controller
         $esDespachador = $user->esAdmin() || $user->esGerente() || ($user->hasPermiso('repartos.acceder') && !$user->esRepartidor());
 
         $query = RutaReparto::with(['repartidor.user', 'paradas'])
-            ->when(!$esDespachador, fn($q) => $q->where('repartidor_id', $user->empleado?->id));
+            ->when(!$esDespachador, fn($q) => $q->where('repartidor_id', $user->empleado?->id ?: -1));
 
         if ($request->filled('search')) {
             $like = '%' . mb_strtolower($request->search) . '%';
@@ -109,6 +109,7 @@ class RutaRepartoController extends Controller
             'repartidor.user',
             'paradas' => fn($q) => $q->orderBy('orden'),
             'paradas.venta.cliente.user',
+            'paradas.venta.user',
             'paradas.venta.detalles.libro.master',
         ]);
 
@@ -318,18 +319,28 @@ class RutaRepartoController extends Controller
 
     public function optimizarRuta(RutaReparto $rutasReparto)
     {
-        $this->autorizarGestion();
+        $this->autorizarVista($rutasReparto);
 
         $paradas = $rutasReparto->paradas()->orderBy('orden')->get();
-        $conCoordenadas = $paradas->filter(fn($p) => $p->latitud && $p->longitud)->values();
+
+        // Si la ruta ya tiene paradas entregadas, las mantenemos fijas al inicio en su orden original
+        $entregadas = $paradas->filter(fn($p) => $p->estado === 'entregada')->values();
+        $pendientes = $paradas->filter(fn($p) => $p->estado !== 'entregada')->values();
+
+        $conCoordenadas = $pendientes->filter(fn($p) => $p->latitud && $p->longitud)->values();
 
         if ($conCoordenadas->isEmpty()) {
-            return back()->with('error', 'No hay paradas con coordenadas válidas para optimizar.');
+            return back()->with('error', 'No hay paradas pendientes con coordenadas válidas para optimizar.');
         }
 
-        // Origen: San Martin 843, Rosario
+        // Origen: Si hay entregadas previas, partimos de la última entregada. Si no, origen sucursal (San Martin 843, Rosario)
         $startLat = -32.9473682;
         $startLon = -60.6364222;
+        $ultimaEntregada = $entregadas->filter(fn($p) => $p->latitud && $p->longitud)->last();
+        if ($ultimaEntregada) {
+            $startLat = (float) $ultimaEntregada->latitud;
+            $startLon = (float) $ultimaEntregada->longitud;
+        }
 
         $unvisited = $conCoordenadas->toArray();
         $ordenadas = [];
@@ -360,14 +371,17 @@ class RutaRepartoController extends Controller
         }
 
         $idsOrdenadas = collect($ordenadas)->pluck('id')->toArray();
-        $resto = $paradas->filter(fn($p) => !in_array($p->id, $idsOrdenadas))->values();
+        $restoPendientes = $pendientes->filter(fn($p) => !in_array($p->id, $idsOrdenadas))->values();
 
-        \Illuminate\Support\Facades\DB::transaction(function () use ($ordenadas, $resto) {
+        \Illuminate\Support\Facades\DB::transaction(function () use ($entregadas, $ordenadas, $restoPendientes) {
             $orden = 1;
+            foreach ($entregadas as $p) {
+                \App\Models\ParadaReparto::where('id', $p->id)->update(['orden' => $orden++]);
+            }
             foreach ($ordenadas as $p) {
                 \App\Models\ParadaReparto::where('id', $p['id'])->update(['orden' => $orden++]);
             }
-            foreach ($resto as $p) {
+            foreach ($restoPendientes as $p) {
                 \App\Models\ParadaReparto::where('id', $p->id)->update(['orden' => $orden++]);
             }
         });
@@ -377,7 +391,7 @@ class RutaRepartoController extends Controller
 
     public function iniciarRuta(RutaReparto $rutasReparto)
     {
-        $this->autorizarGestion();
+        $this->autorizarVista($rutasReparto);
 
         if (!$rutasReparto->repartidor_id) {
             return back()->with('error', 'No se puede iniciar una ruta sin un repartidor asignado.');
@@ -413,7 +427,7 @@ class RutaRepartoController extends Controller
 
     public function finalizarRuta(RutaReparto $rutasReparto)
     {
-        $this->autorizarGestion();
+        $this->autorizarVista($rutasReparto);
 
         if ($rutasReparto->estado === 'finalizada') {
             return back()->with('error', 'La ruta ya se encuentra finalizada.');
@@ -423,23 +437,25 @@ class RutaRepartoController extends Controller
             $rutasReparto->update(['activa' => false, 'estado' => 'finalizada']);
 
             foreach ($rutasReparto->paradas as $parada) {
-                if (in_array($parada->estado, ['pendiente', 'en camino'])) {
-                    // Marcar la parada como fallida en esta ruta finalizada
-                    $parada->update(['estado' => 'fallida']);
-                    // Devolver la venta a en_preparacion para que pueda re-asignarse
-                    if ($parada->venta) {
+                if (in_array($parada->estado, ['pendiente', 'en camino', 'fallida'])) {
+                    // Si estaba pendiente o en camino, marcar como fallida en esta ruta cerrada
+                    if (in_array($parada->estado, ['pendiente', 'en camino'])) {
+                        $parada->update(['estado' => 'fallida']);
+                    }
+                    // Las que quedaron no entregadas (en camino o fallidas) deben volver a en_preparacion si no finalizaron
+                    if ($parada->venta && $parada->venta->estado !== 'finalizado') {
                         $parada->venta->update(['estado' => 'en_preparacion']);
                     }
                 }
             }
         });
 
-        return back()->with('message', 'Ruta finalizada. Las entregas pendientes se marcaron como fallidas y sus ventas volvieron a estar en preparación.');
+        return back()->with('message', 'Ruta finalizada. Las entregas no completadas volvieron a estar en preparación.');
     }
 
     public function reordenarParadas(Request $request, RutaReparto $rutasReparto)
     {
-        $this->autorizarGestion();
+        $this->autorizarVista($rutasReparto);
 
         $request->validate([
             'orden'   => 'required|array',

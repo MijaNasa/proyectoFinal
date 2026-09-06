@@ -29,10 +29,11 @@ class ComprobanteSubido extends Notification
         $clienteName = $this->venta->user ? ($this->venta->user->name . ' ' . $this->venta->user->apellido) : 'Cliente Web';
         
         return [
-            'type'    => 'comprobante_subido',
-            'title'   => 'Comprobante Subido',
-            'message' => "El cliente {$clienteName} subió un comprobante para el Pedido #{$this->venta->id}.",
-            'url'     => "/ventas?search={$this->venta->id}",
+            'type'     => 'comprobante_subido',
+            'venta_id' => $this->venta->id,
+            'title'    => 'Comprobante Subido',
+            'message'  => "El cliente {$clienteName} subió un comprobante para el Pedido #{$this->venta->id}.",
+            'url'      => "/ventas?view={$this->venta->id}&search={$this->venta->id}",
         ];
     }
 }

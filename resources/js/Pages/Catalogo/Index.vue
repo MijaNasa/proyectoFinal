@@ -1,7 +1,7 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, computed, reactive } from 'vue';
+import { ref, computed, reactive, watch } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
@@ -50,8 +50,20 @@ const limpiarFiltros = () => {
     applyFilters();
 };
 
+const limpiarSearch = () => {
+    search.value = '';
+    applyFilters();
+};
+
+watch(() => props.filters?.search, (newVal) => {
+    search.value = newVal || '';
+});
+
 const activeChips = computed(() => {
     const chips = [];
+    if (props.filters?.search) {
+        chips.push({ label: `Búsqueda: "${props.filters.search}"`, key: 'search' });
+    }
     if (selected.preventa) {
         chips.push({ label: 'Sección: Preventas', key: 'preventa' });
     }
@@ -82,11 +94,15 @@ const activeChips = computed(() => {
 });
 
 const removeChip = (chip) => {
-    selected[chip.key] = null;
+    if (chip.key === 'search') {
+        search.value = '';
+    } else {
+        selected[chip.key] = null;
+    }
     applyFilters();
 };
 
-const hayFiltrosActivos = computed(() => search.value || activeChips.value.length);
+const hayFiltrosActivos = computed(() => !!props.filters?.search || activeChips.value.length > 0);
 
 const getStockTotal = (libro) =>
     libro.stocks?.reduce((s, st) => s + (st.cantidad_disponible ?? 0), 0) ?? 0;
@@ -166,7 +182,7 @@ const onMouseMove = (e) => {
     <PublicLayout>
         <div class="page-catalogo">
             <!-- Hero -->
-            <div v-if="!hayFiltrosActivos" class="relative overflow-hidden py-16 sm:py-20 bg-gradient-to-b from-white/[0.04] to-transparent">
+            <div class="relative overflow-hidden py-16 sm:py-20 bg-gradient-to-b from-white/[0.04] to-transparent">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-6">
                     <h1 class="text-5xl md:text-7xl font-bold tracking-tight uppercase leading-none text-white">
                         Tu Próximo <br><span class="text-zinc-400 italic">Capítulo</span> Inicia Aquí
@@ -185,14 +201,27 @@ const onMouseMove = (e) => {
                                 v-model="search"
                                 type="text"
                                 placeholder="¿Qué manga o cómic estás buscando hoy? (título, autor, editorial...)"
-                                class="w-full bg-[#131316] border border-white/10 rounded-2xl py-4 pl-14 pr-32 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 shadow-2xl transition-all font-medium"
+                                class="w-full bg-[#131316] border border-white/10 rounded-2xl py-4 pl-14 pr-36 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 shadow-2xl transition-all font-medium"
                             >
-                            <button
-                                type="submit"
-                                class="absolute right-2 px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95"
-                            >
-                                BUSCAR
-                            </button>
+                            <div class="absolute right-2 flex items-center gap-1.5">
+                                <button
+                                    v-if="search"
+                                    type="button"
+                                    @click="limpiarSearch"
+                                    class="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
+                                    title="Borrar búsqueda"
+                                >
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
+                                <button
+                                    type="submit"
+                                    class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
+                                >
+                                    BUSCAR
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>

@@ -95,7 +95,9 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
 
     // Colecciones
     Route::middleware('permiso:colecciones.acceder')->group(function () {
+        Route::patch('libro-masters/{libroMaster}/toggle-activo', [LibroMasterController::class, 'toggleActivo'])->name('obras.toggleActivo');
         Route::resource('libro-masters', LibroMasterController::class)->names('obras')->except(['index', 'show', 'create', 'edit']);
+        Route::patch('libros/{libro}/toggle-activo', [LibroController::class, 'toggleActivo'])->name('libros.toggleActivo');
         Route::post('libros/deshabilitar-preventas', [LibroController::class, 'deshabilitarPreventas'])->name('libros.deshabilitar-preventas');
         Route::resource('libros', LibroController::class)->except(['show', 'create', 'edit']);
         Route::post('precios/bulk', [PrecioController::class, 'bulkUpdate'])->name('precios.bulk');
@@ -143,6 +145,7 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
     // Logística
     Route::middleware('permiso:stock.acceder')->group(function () {
         Route::resource('sucursales', SucursalController::class)->except(['show', 'create', 'edit'])->parameters(['sucursales' => 'sucursal']);
+        Route::patch('sucursales/{sucursal}/toggle-activo', [SucursalController::class, 'toggleActivo'])->name('sucursales.toggleActivo');
         Route::resource('stocks', StockController::class)->except(['show', 'create', 'edit']);
         Route::get('logistica', [LogisticaController::class, 'index'])->name('logistica.index');
         Route::post('logistica', [LogisticaController::class, 'store'])->name('logistica.store');
@@ -154,12 +157,13 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
 
     // Clientes
     Route::middleware('permiso:clientes.acceder')->group(function () {
+        Route::delete('clientes/{cliente}/force-delete', [ClienteController::class, 'forceDeleteSinHistorial'])->name('clientes.force-delete');
         Route::resource('clientes', ClienteController::class)->except(['create', 'edit']);
-        Route::get('clientes/{cliente}/pdf', [ClienteController::class, 'generarResumenPdf'])->name('clientes.pdf');
-        Route::post('clientes/{cliente}/consolidar', [ClienteController::class, 'consolidarPedidos'])->name('clientes.consolidar');
-        Route::post('clientes/{cliente}/pago', [ClienteController::class, 'registrarPago'])->name('clientes.pago');
-        Route::delete('clientes/{cliente}/pago/{transaccion}', [ClienteController::class, 'eliminarPago'])->name('clientes.pago.destroy');
-        Route::delete('clientes/{cliente}/ventas-canceladas', [ClienteController::class, 'destroyCanceladas'])->name('clientes.ventas-canceladas.destroy');
+        Route::get('clientes/{cliente}/pdf', [ClienteController::class, 'generarResumenPdf'])->withTrashed()->name('clientes.pdf');
+        Route::post('clientes/{cliente}/consolidar', [ClienteController::class, 'consolidarPedidos'])->withTrashed()->name('clientes.consolidar');
+        Route::post('clientes/{cliente}/pago', [ClienteController::class, 'registrarPago'])->withTrashed()->name('clientes.pago');
+        Route::delete('clientes/{cliente}/pago/{transaccion}', [ClienteController::class, 'eliminarPago'])->withTrashed()->name('clientes.pago.destroy');
+        Route::delete('clientes/{cliente}/ventas-canceladas', [ClienteController::class, 'destroyCanceladas'])->withTrashed()->name('clientes.ventas-canceladas.destroy');
         
         Route::get('suscripciones', [SuscripcionController::class, 'index'])->name('suscripciones.index');
         Route::post('suscripciones', [SuscripcionController::class, 'store'])->name('suscripciones.store');
@@ -170,6 +174,7 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
     // Empleados
     Route::middleware('permiso:empleados.acceder')->group(function () {
         Route::resource('empleados', EmpleadoController::class)->except(['show', 'create', 'edit']);
+        Route::patch('empleados/{id}/reactivar', [EmpleadoController::class, 'reactivar'])->name('empleados.reactivar');
         Route::post('empleados/{empleado}/cargos', [EmpleadoController::class, 'asignarCargo'])->name('empleados.asignar-cargo');
         Route::delete('empleados/{empleado}/cargos/{cargo}', [EmpleadoController::class, 'desasignarCargo'])->name('empleados.desasignar-cargo');
         Route::post('empleados/{empleado}/resetear-password', [EmpleadoController::class, 'resetearPassword'])->name('empleados.resetear-password');

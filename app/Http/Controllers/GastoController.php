@@ -55,7 +55,7 @@ class GastoController extends Controller
                 'cantidad' => (int)   ($stats->cantidad ?? 0),
             ],
             'porCategoria' => $porCategoria,
-            'sucursales'   => Sucursal::orderBy('nombre')->when($request->user()->sucursalRestringidaId(), fn($q, $sid) => $q->where('id', $sid))->get(['id', 'nombre']),
+            'sucursales'   => Sucursal::where('activo', true)->orderBy('nombre')->when($request->user()->sucursalRestringidaId(), fn($q, $sid) => $q->where('id', $sid))->get(['id', 'nombre']),
             'filters'      => compact('desde', 'hasta', 'sucursalId', 'categoria'),
         ]);
     }

@@ -18,7 +18,6 @@ class Venta extends Model
         'pendiente_pago' => [
             'en_preparacion',
             'listo_para_retiro',
-            'esperando_traslado',
             'finalizado',
             'en_preventa',
             'acumulado',
@@ -33,7 +32,6 @@ class Venta extends Model
         'en_preparacion' => [
             'listo_para_retiro',
             'enviado',
-            'esperando_traslado',
             'cancelado'
         ],
         'esperando_traslado' => [
@@ -50,7 +48,6 @@ class Venta extends Model
             'finalizado'
         ],
         'enviado' => [
-            'finalizado',
             'en_preparacion'
         ],
         'finalizado' => [],
@@ -63,7 +60,8 @@ class Venta extends Model
         'estado', 'tipo_envio', 'direccion_envio',
         'pago_expira_at', 'payment_id',
         'origen', 'motivo_pendiente', 'metodo_pago', 'comprobante_path',
-        'latitud', 'longitud'
+        'latitud', 'longitud',
+        'tracking_code', 'costo_envio'
     ];
 
     protected $casts = [

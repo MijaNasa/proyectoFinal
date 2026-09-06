@@ -106,6 +106,8 @@ class User extends Authenticatable
 
     public function esRepartidor(): bool
     {
+        if ($this->esAdmin() || $this->esGerente()) return false;
+
         if (!$this->empleado) return false;
 
         if ($this->empleado->relationLoaded('cargos')) {

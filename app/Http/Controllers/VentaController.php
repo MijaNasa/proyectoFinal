@@ -18,15 +18,23 @@ class VentaController extends Controller
         $ventaView = null;
         $tab = $request->get('tab', 'activas');
 
-        if ($request->filled('view')) {
+        $targetId = $request->input('view');
+        if (!$targetId && $request->filled('search')) {
+            $cleaned = trim(str_replace(['#', 'TK-', 'tk-', 'Tk-', 'tK-'], '', $request->search));
+            if (is_numeric($cleaned)) {
+                $targetId = (int)$cleaned;
+            }
+        }
+
+        if ($targetId) {
             $targetVenta = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones'])
                 ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))
-                ->find($request->view);
+                ->find($targetId);
 
             if ($targetVenta) {
                 $ventaView = $targetVenta;
                 if (!$request->filled('tab') && !$request->filled('estados')) {
-                    if ($targetVenta->estado === 'finalizado') {
+                    if (in_array($targetVenta->estado, ['finalizado', 'enviado'])) {
                         $tab = 'finalizadas';
                     } elseif ($targetVenta->estado === 'cancelado') {
                         $tab = 'canceladas';
@@ -63,9 +71,9 @@ class VentaController extends Controller
             if ($tab === 'canceladas') {
                 $query->where('estado', 'cancelado');
             } elseif ($tab === 'finalizadas') {
-                $query->where('estado', 'finalizado');
+                $query->whereIn('estado', ['finalizado', 'enviado']);
             } else {
-                $query->whereNotIn('estado', ['cancelado', 'finalizado']);
+                $query->whereNotIn('estado', ['cancelado', 'finalizado', 'enviado']);
             }
         }
 
@@ -82,8 +90,8 @@ class VentaController extends Controller
             'ventas_hoy'       => (int)   $statsHoy->cantidad,
             'recaudacion'      => (float) $statsHoy->recaudacion,
             'promedio_ticket'  => (float) $statsHoy->promedio,
-            'total_activas'    => Venta::whereNotIn('estado', ['cancelado', 'finalizado'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
-            'total_finalizadas'=> Venta::where('estado', 'finalizado')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'total_activas'    => Venta::whereNotIn('estado', ['cancelado', 'finalizado', 'enviado'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'total_finalizadas'=> Venta::whereIn('estado', ['finalizado', 'enviado'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
             'total_canceladas' => Venta::where('estado', 'cancelado')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
         ];
 
@@ -149,7 +157,9 @@ class VentaController extends Controller
             return response()->json([]);
         }
 
-        $libros = \App\Models\Libro::with([
+        $libros = \App\Models\Libro::where('activo', true)
+        ->whereHas('master', fn($m) => $m->where('activo', true))
+        ->with([
             'master:id,titulo',
             'precios' => fn($query) => $query
                 ->where('activo', true)
@@ -621,9 +631,9 @@ class VentaController extends Controller
     {
         $user = \Auth::user();
 
-        // Si la venta ya está finalizada o cancelada, solo un Administrador puede alterarla
-        if (in_array($venta->estado, ['finalizado', 'cancelado']) && !$user->esAdmin()) {
-            return back()->with('error', 'Solo un Administrador puede modificar una venta concluida o cancelada.');
+        // Si la venta ya está finalizada, cancelada o enviada, solo un Administrador puede alterarla
+        if (in_array($venta->estado, ['finalizado', 'cancelado', 'enviado']) && !$user->esAdmin()) {
+            return back()->with('error', 'Solo un Administrador puede modificar una venta enviada, concluida o cancelada.');
         }
 
         // Si no es admin, solo puede modificar ventas de su propia sucursal
@@ -636,6 +646,7 @@ class VentaController extends Controller
             'direccion_envio' => 'nullable|string|max:500',
             'latitud' => 'nullable|numeric|between:-90,90',
             'longitud' => 'nullable|numeric|between:-180,180',
+            'tracking_code' => 'nullable|string|max:255',
         ]);
 
         $nuevoEstado = $request->estado;
@@ -703,9 +714,9 @@ class VentaController extends Controller
             $updates['direccion_envio'] = $request->direccion_envio;
         }
 
-        // Si mandan el tracking (desde el panel de la venta de correo)
-        if ($request->has('tracking_code')) {
-            $updates['tracking_code'] = $request->tracking_code;
+        // Si mandan el tracking (desde el panel de la venta de correo o envío)
+        if ($request->exists('tracking_code')) {
+            $updates['tracking_code'] = $request->filled('tracking_code') ? trim($request->tracking_code) : null;
         }
 
         if (!empty($updates)) {
@@ -717,7 +728,12 @@ class VentaController extends Controller
             }
         }
 
-        return back()->with('message', 'Estado de venta actualizado.');
+        $freshVenta = $venta->fresh(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones']);
+
+        return back()->with([
+            'message'      => 'Estado de venta actualizado.',
+            'updatedVenta' => $freshVenta,
+        ]);
     }
 
     public function confirmarPago(Request $request, Venta $venta)

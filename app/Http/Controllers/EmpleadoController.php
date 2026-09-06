@@ -15,13 +15,21 @@ class EmpleadoController extends Controller
      */
     public function index(Request $request)
     {
+        $estado = $request->get('estado', 'activos'); // activos | inactivos | bajas | todos
+
         $query = Empleado::query()->with([
             'user',
             'sucursal',
             'cargos' => fn($q) => $q->whereNull('empleados_cargos.fecha_hasta'),
         ]);
 
-        if ($request->has('search')) {
+        if ($estado === 'bajas' || $estado === 'inactivos') {
+            $query->onlyTrashed();
+        } elseif ($estado === 'todos') {
+            $query->withTrashed();
+        }
+
+        if ($request->has('search') && filled($request->search)) {
             $like = '%' . mb_strtolower($request->search) . '%';
             $query->where(function($q) use ($like) {
                 $q->whereRaw('LOWER(legajo) LIKE ?', [$like])
@@ -35,11 +43,22 @@ class EmpleadoController extends Controller
 
         $empleados = $query->latest()->paginate(10)->withQueryString();
 
+        $stats = [
+            'total_activos'   => Empleado::count(),
+            'total_inactivos' => Empleado::onlyTrashed()->count(),
+            'total_bajas'     => Empleado::onlyTrashed()->count(),
+            'total_todos'     => Empleado::withTrashed()->count(),
+        ];
+
         return inertia('Empleados/Index', [
-            'empleados' => $empleados,
+            'empleados'  => $empleados,
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre', 'es_principal']),
             'cargos'     => Cargo::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
-            'filters'    => $request->only(['search']),
+            'filters'    => [
+                'search' => $request->search ?? '',
+                'estado' => $estado,
+            ],
+            'stats'      => $stats,
         ]);
     }
 
@@ -81,7 +100,9 @@ class EmpleadoController extends Controller
             ]);
 
             if ($request->filled('cargo_id')) {
-                $empleado->cargos()->attach($request->cargo_id, ['fecha_desde' => now()->toDateString()]);
+                $empleado->cargos()->attach($request->cargo_id, [
+                    'fecha_desde' => $request->fecha_ingreso,
+                ]);
             }
         });
 
@@ -94,12 +115,18 @@ class EmpleadoController extends Controller
      */
     public function update(UpdateEmpleadoRequest $request, Empleado $empleado)
     {
+        $userAuth = $request->user();
+
+        if (!$userAuth->esAdmin() && $userAuth->empleado?->sucursal_id !== $empleado->sucursal_id) {
+            abort(403, 'Solo podés editar empleados de tu sucursal.');
+        }
+
         \DB::transaction(function() use ($request, $empleado) {
             $empleado->user->update([
                 'name' => $request->name,
-                'email' => $request->email,
                 'apellido' => $request->apellido,
                 'dni' => $request->dni,
+                'email' => $request->email,
                 'telefono' => $request->telefono,
             ]);
 
@@ -118,17 +145,28 @@ class EmpleadoController extends Controller
                 'legajo' => $request->legajo,
                 'sucursal_id' => $sucursalId,
                 'fecha_ingreso' => $request->fecha_ingreso,
-                'fecha_egreso' => $request->fecha_egreso,
             ]);
 
-            if ($request->has('cargo_id')) {
-                $currentCargoIds = $empleado->cargos()->pluck('cargos.id')->toArray();
-                $newCargoId = $request->cargo_id;
+            if ($request->filled('cargo_id')) {
+                $cargoActual = $empleado->cargos()
+                    ->whereNull('empleados_cargos.fecha_hasta')
+                    ->first();
 
-                if (!in_array($newCargoId, $currentCargoIds) || (!$newCargoId && $currentCargoIds)) {
-                    $empleado->cargos()->updateExistingPivot($currentCargoIds, ['fecha_hasta' => now()->toDateString()]);
-                    
-                    if ($newCargoId) {
+                $newCargoId = (int)$request->cargo_id;
+
+                if (!$cargoActual || $cargoActual->id !== $newCargoId) {
+                    if ($cargoActual) {
+                        $empleado->cargos()->updateExistingPivot($cargoActual->id, [
+                            'fecha_hasta' => now()->toDateString(),
+                        ]);
+                    }
+
+                    $yaAsignadoPreviamente = $empleado->cargos()
+                        ->wherePivot('cargo_id', $newCargoId)
+                        ->whereNull('empleados_cargos.fecha_hasta')
+                        ->exists();
+
+                    if (!$yaAsignadoPreviamente) {
                         $empleado->cargos()->attach($newCargoId, ['fecha_desde' => now()->toDateString()]);
                     }
                 }
@@ -140,28 +178,65 @@ class EmpleadoController extends Controller
     }
 
     /**
-     * Remove the specified resource from storage.
+     * Remove the specified resource from storage (Baja lógica).
      */
     public function destroy(Empleado $empleado)
     {
+        $userAuth = request()->user();
+
+        if (!$userAuth->esAdmin() && $userAuth->empleado?->sucursal_id !== $empleado->sucursal_id) {
+            abort(403, 'Solo podés dar de baja a empleados de tu sucursal.');
+        }
+
+        if ($empleado->user_id === $userAuth->id) {
+            return redirect()->route('empleados.index')
+                ->with('error_modal', 'No podés darte de baja a vos mismo.');
+        }
+
         $tieneRutasActivas = \App\Models\RutaReparto::where('repartidor_id', $empleado->id)
             ->where('estado', '!=', 'finalizada')
             ->exists();
 
         if ($tieneRutasActivas) {
             return redirect()->route('empleados.index')
-                ->with('error', 'No se puede eliminar el empleado porque tiene rutas de reparto asignadas.');
+                ->with('error_modal', 'No se puede dar de baja al empleado porque tiene rutas de reparto activas asignadas.');
         }
 
         \DB::transaction(function() use ($empleado) {
             $user = $empleado->user;
-            $empleado->delete();
-            $user->update(['activo' => false]);
-            $user->delete();
+            $empleado->update(['fecha_egreso' => now()->toDateString()]);
+            $empleado->delete(); // Soft delete en empleados
+            if ($user) {
+                $user->update(['activo' => false]);
+            }
         });
 
         return redirect()->route('empleados.index')
-            ->with('message', 'Empleado eliminado con éxito');
+            ->with('swal_success', 'Empleado dado de baja con éxito. Su historial y ventas se conservan intactos.');
+    }
+
+    /**
+     * Reactivar un empleado dado de baja.
+     */
+    public function reactivar(Request $request, $id)
+    {
+        $empleado = Empleado::withTrashed()->findOrFail($id);
+        $userAuth = $request->user();
+
+        if (!$userAuth->esAdmin() && $userAuth->empleado?->sucursal_id !== $empleado->sucursal_id) {
+            abort(403, 'Solo podés reactivar empleados de tu sucursal.');
+        }
+
+        \DB::transaction(function() use ($empleado) {
+            $empleado->restore();
+            $empleado->update(['fecha_egreso' => null]);
+            if ($empleado->user) {
+                $empleado->user->update(['activo' => true]);
+            }
+        });
+
+        return redirect()->route('empleados.index')
+            ->with('swal_success', 'Empleado reactivado con éxito.');
     }
 
     public function resetearPassword(Request $request, Empleado $empleado)

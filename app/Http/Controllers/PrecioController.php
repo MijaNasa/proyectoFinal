@@ -22,6 +22,8 @@ class PrecioController extends Controller
             'nuevo_precio' => 'required|numeric|min:0',
             'categoria_id' => 'nullable|exists:categorias,id',
             'libro_id'     => 'nullable|exists:libros,id',
+            'libros_ids'   => 'nullable|array',
+            'libros_ids.*' => 'exists:libros,id',
             'proveedor'    => 'nullable|string',
             'formato'      => 'nullable|string',
             'serie'        => 'nullable|string',
@@ -39,7 +41,14 @@ class PrecioController extends Controller
                 $q->where('titulo', $request->serie);
             });
         } elseif ($request->criterio === 'libro_individual') {
-            $query->where('id', $request->libro_id);
+            $ids = $request->input('libros_ids', []);
+            if (empty($ids) && $request->filled('libro_id')) {
+                $ids = [$request->libro_id];
+            }
+            if (empty($ids)) {
+                return redirect()->back()->withErrors(['libros_ids' => 'Debes seleccionar al menos un producto individual.']);
+            }
+            $query->whereIn('id', $ids);
         } else {
             if (!empty($request->proveedor)) {
                 $query->whereHas('master.proveedor', function ($q) use ($request) {
@@ -55,30 +64,32 @@ class PrecioController extends Controller
 
         $libros = $query->get();
 
-        // 3. Aplicamos el aumento a todos los productos encontrados
-        foreach ($libros as $libro) {
-            // Capturamos el precio viejo para no perder el dato del costo original
-            $precioViejo = $libro->precios()->where('activo', true)->first();
-            
-            // Si el producto ya tiene exactamente ese precio activo, se omite para evitar duplicados en el historial
-            if ($precioViejo && abs((float)$precioViejo->precio_venta - (float)$request->nuevo_precio) < 0.01) {
-                continue;
+        // 3. Aplicamos el aumento a todos los productos encontrados en una transacción
+        DB::transaction(function () use ($libros, $request) {
+            foreach ($libros as $libro) {
+                // Capturamos el precio viejo para no perder el dato del costo original
+                $precioViejo = $libro->precios()->where('activo', true)->first();
+                
+                // Si el producto ya tiene exactamente ese precio activo, se omite para evitar duplicados en el historial
+                if ($precioViejo && abs((float)$precioViejo->precio_venta - (float)$request->nuevo_precio) < 0.01) {
+                    continue;
+                }
+
+                $costoActual = $precioViejo ? $precioViejo->precio_compra : 0;
+
+                // Desactivamos el historial viejo
+                $libro->precios()->update(['activo' => false]);
+
+                // Creamos el nuevo precio
+                $libro->precios()->create([
+                    'precio_compra' => $costoActual,
+                    'precio_venta'  => $request->nuevo_precio,
+                    'motivo'        => 'Aumento masivo',
+                    'fecha_desde'   => now(),
+                    'activo'        => true,
+                ]);
             }
-
-            $costoActual = $precioViejo ? $precioViejo->precio_compra : 0;
-
-            // Desactivamos el historial viejo
-            $libro->precios()->update(['activo' => false]);
-
-            // Creamos el nuevo precio
-            $libro->precios()->create([
-                'precio_compra' => $costoActual,
-                'precio_venta'  => $request->nuevo_precio,
-                'motivo'        => 'Aumento masivo',
-                'fecha_desde'   => now(),
-                'activo'        => true,
-            ]);
-        }
+        });
 
         return redirect()->back();
     }
@@ -106,12 +117,19 @@ class PrecioController extends Controller
             'proveedores' => \App\Models\Proveedor::whereHas('libroMasters')->orderBy('nombre_empresa')->pluck('nombre_empresa'),
             'proveedores_formatos' => $proveedoresData,
             'proveedoresFormatos' => $proveedoresData,
-            'libros' => Libro::whereHas('master')->with('master:id,titulo')->select('id', 'master_id', 'numero_tomo')->get()->map(function($l) {
-                return [
-                    'id' => $l->id,
-                    'titulo' => ($l->master ? $l->master->titulo : 'Sin Producto') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : '')
-                ];
-            })->sortBy('titulo')->values()
+            'libros' => Libro::whereHas('master')
+                ->with(['master:id,titulo', 'precios' => fn($q) => $q->where('activo', true)])
+                ->select('id', 'master_id', 'numero_tomo', 'isbn')
+                ->get()
+                ->map(function($l) {
+                    $precioActual = $l->precios->first()?->precio_venta;
+                    return [
+                        'id' => $l->id,
+                        'titulo' => ($l->master ? $l->master->titulo : 'Sin Producto') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
+                        'isbn' => $l->isbn ?? '',
+                        'precio_actual' => $precioActual !== null ? (float)$precioActual : null,
+                    ];
+                })->sortBy('titulo')->values()
         ];
 
         return response()->json($opcionesMasivas);

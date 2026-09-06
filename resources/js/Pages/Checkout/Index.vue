@@ -14,7 +14,7 @@ const props = defineProps({
 });
 
 const tipoEnvio           = ref('retiro');
-const sucursalId          = ref('');
+const sucursalId          = ref(props.sucursal_principal_id || props.sucursales?.[0]?.id || '');
 const medioPago           = ref('Tarjeta');
 const metodoPagoExcedente = ref(null);
 const direccionInput      = ref('');
@@ -31,6 +31,7 @@ const inputRef            = ref(null);
 
 const provincia = ref('Santa Fe');
 const localidad = ref('');
+const otraLocalidadSantaFe = ref('');
 
 const provincias = [
     'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Ciudad Autónoma de Buenos Aires',
@@ -61,6 +62,19 @@ let ultimaConsultaId = 0;
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
 
+const localidadEfectiva = computed(() => {
+    if (tipoEnvio.value === 'correo_sucursal') {
+        return localidad.value.trim();
+    }
+    if (provincia.value === 'Santa Fe') {
+        if (localidad.value === '__otra__') {
+            return otraLocalidadSantaFe.value.trim();
+        }
+        return localidad.value.trim();
+    }
+    return localidad.value.trim();
+});
+
 const esEnvioLocal = computed(() => {
     if (tipoEnvio.value !== 'domicilio') return true;
     return provincia.value === 'Santa Fe' && localidadesSantaFe.includes(localidad.value);
@@ -68,6 +82,9 @@ const esEnvioLocal = computed(() => {
 
 const costoEnvio = computed(() => {
     if (tipoEnvio.value === 'domicilio' && !esEnvioLocal.value) {
+        return 50000;
+    }
+    if (tipoEnvio.value === 'correo_sucursal') {
         return 50000;
     }
     return 0;
@@ -79,7 +96,10 @@ const totalFinal = computed(() => {
 });
 
 const direccionHabilitada = computed(() => {
-    if (provincia.value === 'Santa Fe') return !!localidad.value;
+    if (provincia.value === 'Santa Fe') {
+        if (localidad.value === '__otra__') return !!otraLocalidadSantaFe.value.trim();
+        return !!localidad.value;
+    }
     return !!provincia.value;
 });
 
@@ -89,9 +109,10 @@ const normalizar = (str) => (str || '')
     .replace(new RegExp('[̀-ͯ]', 'g'), '');
 
 const coincideLocalidad = (f) => {
-    if (!localidad.value) return true;
+    const loc = localidadEfectiva.value;
+    if (!loc) return true;
     const p = f.properties;
-    const objetivo = normalizar(localidad.value);
+    const objetivo = normalizar(loc);
     const candidatos = [p.city, p.district, p.county].filter(Boolean).map(normalizar);
     return candidatos.some(c => c.includes(objetivo) || objetivo.includes(c));
 };
@@ -106,7 +127,7 @@ const buscarDirecciones = async (query) => {
     const consultaId = ++ultimaConsultaId;
     buscandoDireccion.value = true;
     try {
-        const contexto = [query, localidad.value, provincia.value, 'Argentina'].filter(Boolean).join(', ');
+        const contexto = [query, localidadEfectiva.value, provincia.value, 'Argentina'].filter(Boolean).join(', ');
         const params = new URLSearchParams({
             q: contexto,
             limit: '8',
@@ -150,6 +171,8 @@ const seleccionarSugerencia = (f) => {
 
     if (provincia.value !== 'Santa Fe') {
         localidad.value = p.city || p.district || p.county || provincia.value;
+    } else if (localidad.value === '__otra__' && !otraLocalidadSantaFe.value.trim()) {
+        otraLocalidadSantaFe.value = p.city || p.district || p.county || '';
     }
     if (p.postcode) {
         cp.value = p.postcode;
@@ -168,6 +191,8 @@ watch(tipoEnvio, (val) => {
     comentario.value = '';
     provincia.value = 'Santa Fe';
     localidad.value = '';
+    otraLocalidadSantaFe.value = '';
+    sucursalCorreoInput.value = '';
     sugerencias.value = [];
     mostrarSugerencias.value = false;
     if (['domicilio', 'correo_sucursal'].includes(val)) {
@@ -185,6 +210,7 @@ watch(tipoEnvio, (val) => {
 
 watch(provincia, () => {
     localidad.value           = '';
+    otraLocalidadSantaFe.value = '';
     direccionInput.value      = '';
     direccionFormatted.value  = '';
     addressSelected.value     = false;
@@ -195,8 +221,22 @@ watch(provincia, () => {
     mostrarSugerencias.value  = false;
 });
 
-watch(localidad, () => {
+watch(localidad, (val) => {
+    if (tipoEnvio.value === 'correo_sucursal') return;
+    if (val !== '__otra__') {
+        otraLocalidadSantaFe.value = '';
+    }
     if (provincia.value !== 'Santa Fe') return;
+    direccionInput.value     = '';
+    direccionFormatted.value = '';
+    addressSelected.value    = false;
+    latitud.value            = null;
+    longitud.value           = null;
+    sugerencias.value        = [];
+    mostrarSugerencias.value = false;
+});
+
+watch(otraLocalidadSantaFe, () => {
     direccionInput.value     = '';
     direccionFormatted.value = '';
     addressSelected.value    = false;
@@ -241,14 +281,14 @@ const puedeEnviar = computed(() => {
     if (tipoEnvio.value === 'domicilio') {
         const calleOk = direccionInput.value.trim().length > 0;
         const provinciaOk = !!provincia.value;
-        const localidadOk = !!localidad.value;
+        const localidadOk = !!localidadEfectiva.value;
         const cpOk = cp.value.trim().length > 0;
         return calleOk && provinciaOk && localidadOk && cpOk;
     }
 
     if (tipoEnvio.value === 'correo_sucursal') {
         const provinciaOk = !!provincia.value;
-        const localidadOk = !!localidad.value;
+        const localidadOk = !!localidadEfectiva.value;
         const sucursalOk = sucursalCorreoInput.value.trim().length > 0;
         const cpOk = cp.value.trim().length > 0;
         return provinciaOk && localidadOk && sucursalOk && cpOk;
@@ -272,7 +312,7 @@ const confirmar = () => {
         if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
         if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
         if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
-        if (localidad.value)    direccion += `, ${localidad.value}`;
+        if (localidadEfectiva.value) direccion += `, ${localidadEfectiva.value}`;
         if (provincia.value)    direccion += `, ${provincia.value}`;
         if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
 
@@ -289,7 +329,7 @@ const confirmar = () => {
     } else if (tipoEnvio.value === 'correo_sucursal') {
         direccion = `Sucursal Correo Argentino: ${sucursalCorreoInput.value.trim()}`;
         if (cp.value.trim()) direccion += `, CP ${cp.value.trim()}`;
-        if (localidad.value) direccion += `, ${localidad.value}`;
+        if (localidadEfectiva.value) direccion += `, ${localidadEfectiva.value}`;
         if (provincia.value) direccion += `, ${provincia.value}`;
         if (comentario.value.trim()) direccion += ` | Obs: ${comentario.value.trim()}`;
 
@@ -548,8 +588,9 @@ const confirmar = () => {
                             <!-- Formulario de Sucursal de Correo Argentino -->
                             <transition name="fade">
                                 <div v-if="tipoEnvio === 'correo_sucursal'" class="mt-6 space-y-4 pt-4 border-t border-white/5">
-                                    <div class="p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl text-amber-400 text-xs font-semibold">
-                                        📦 Envío a Sucursal de Correo Argentino con recargo de {{ formatPrecio(50000) }}. Retirás con tu DNI en la sucursal de correo elegida.
+                                    <div class="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs font-semibold flex items-center gap-2">
+                                        <span class="text-base shrink-0">📦</span>
+                                        <span>Envío a Sucursal de Correo Argentino con recargo de {{ formatPrecio(50000) }}. Retirás con tu DNI en la sucursal de correo elegida.</span>
                                     </div>
 
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -566,11 +607,7 @@ const confirmar = () => {
                                             <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
                                                 Localidad *
                                             </label>
-                                            <select v-if="provincia === 'Santa Fe'" v-model="localidad" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
-                                                <option value="" disabled>-- Localidad --</option>
-                                                <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
-                                            </select>
-                                            <input v-else v-model="localidad" type="text" placeholder="Ej: Córdoba Capital, Mendoza..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
+                                            <input v-model="localidad" type="text" placeholder="Escribí tu localidad..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
                                         </div>
                                     </div>
 
@@ -607,6 +644,16 @@ const confirmar = () => {
                             <transition name="fade">
                                 <div v-if="tipoEnvio === 'domicilio'" class="mt-6 space-y-4 pt-4 border-t border-white/5">
 
+                                    <div v-if="!sucursales.find(s => s.id === (sucursalId || sucursal_principal_id))?.tiene_stock_local" class="p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl flex items-start gap-3">
+                                        <span class="text-lg shrink-0">🚚</span>
+                                        <div>
+                                            <p class="text-amber-400 font-bold text-xs uppercase tracking-wider">Requiere traslados entre sucursales</p>
+                                            <p class="text-zinc-300 text-xs mt-1 font-medium leading-relaxed">
+                                                Tu pedido contiene productos que están físicamente en distintas sucursales. Los reuniremos antes de despachar a tu domicilio, por lo que el envío puede demorar unos días extra. Te avisaremos cuando el paquete esté en camino.
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
                                             <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
@@ -621,12 +668,36 @@ const confirmar = () => {
                                             <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
                                                 Localidad *
                                             </label>
-                                            <select v-if="provincia === 'Santa Fe'" v-model="localidad" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
-                                                <option value="" disabled>-- Localidad --</option>
-                                                <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
-                                            </select>
+                                            <div v-if="provincia === 'Santa Fe'" class="space-y-2">
+                                                <select v-model="localidad" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-white/30 transition-all font-semibold uppercase tracking-wider">
+                                                    <option value="" disabled>-- Seleccioná tu Localidad --</option>
+                                                    <optgroup label="Gran Rosario (Reparto local en moto - Sin cargo)">
+                                                        <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
+                                                    </optgroup>
+                                                    <optgroup label="Resto de la Provincia">
+                                                        <option value="__otra__">📦 Otra localidad de Santa Fe (Correo Nacional)</option>
+                                                    </optgroup>
+                                                </select>
+                                                <div v-if="localidad === '__otra__'">
+                                                    <input v-model="otraLocalidadSantaFe" type="text" placeholder="Escribí tu localidad (ej: Rafaela, Venado Tuerto, Santa Fe Capital...)" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
+                                                </div>
+                                            </div>
                                             <input v-else v-model="localidad" type="text" placeholder="Ej: Córdoba Capital, Mendoza..." class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 transition-all font-medium">
                                         </div>
+                                    </div>
+
+                                    <!-- Banners informativos según zona de envío -->
+                                    <div v-if="provincia === 'Santa Fe' && localidad && localidad !== '__otra__'" class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs font-semibold flex items-center gap-2">
+                                        <span class="text-base shrink-0">🛵</span>
+                                        <span>Zona Gran Rosario: <strong>Reparto local por moto propio sin cargo de envío</strong>.</span>
+                                    </div>
+                                    <div v-else-if="provincia === 'Santa Fe' && localidad === '__otra__'" class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs font-medium flex items-center gap-2">
+                                        <span class="text-base shrink-0">📦</span>
+                                        <span>Envío fuera del Gran Rosario: se despacha mediante <strong>Correo Nacional</strong> a domicilio (+{{ formatPrecio(50000) }}).</span>
+                                    </div>
+                                    <div v-else-if="provincia && provincia !== 'Santa Fe'" class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs font-medium flex items-center gap-2">
+                                        <span class="text-base shrink-0">📦</span>
+                                        <span>Envío Nacional: se despacha mediante <strong>Correo Nacional</strong> a domicilio (+{{ formatPrecio(50000) }}).</span>
                                     </div>
 
                                     <!-- Autocomplete -->
@@ -640,7 +711,7 @@ const confirmar = () => {
                                                 v-model="direccionInput"
                                                 type="text"
                                                 :disabled="!direccionHabilitada"
-                                                :placeholder="direccionHabilitada ? 'Buscá tu dirección...' : (provincia === 'Santa Fe' ? 'Elegí primero la localidad' : 'Elegí primero la provincia')"
+                                                :placeholder="direccionHabilitada ? 'Buscá tu dirección...' : (provincia === 'Santa Fe' ? (localidad === '__otra__' ? 'Escribí primero el nombre de tu localidad' : 'Elegí primero la localidad') : 'Elegí primero la provincia')"
                                                 autocomplete="off"
                                                 @focus="mostrarSugerencias = sugerencias.length > 0"
                                                 @blur="setTimeout(() => mostrarSugerencias = false, 150)"
@@ -682,8 +753,8 @@ const confirmar = () => {
                                         <p v-if="!addressSelected && direccionInput.length > 2" class="text-amber-400 text-[10px] mt-1.5 font-semibold uppercase tracking-wider">
                                             Seleccioná una dirección de la lista emergente
                                         </p>
-                                        <p v-if="provincia !== 'Santa Fe' && addressSelected && localidad" class="text-zinc-400 text-[10px] mt-1.5 font-semibold uppercase tracking-wider">
-                                            Localidad: {{ localidad }}
+                                        <p v-if="(provincia !== 'Santa Fe' || localidad === '__otra__') && addressSelected && localidadEfectiva" class="text-zinc-400 text-[10px] mt-1.5 font-semibold uppercase tracking-wider">
+                                            Localidad: {{ localidadEfectiva }}
                                         </p>
                                     </div>
 

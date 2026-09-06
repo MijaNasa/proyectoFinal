@@ -92,6 +92,8 @@ class LibroController extends Controller
     {
         \DB::transaction(function() use ($request, $libro) {
             $data = $request->validated();
+            unset($data['activo']);
+
             if (empty($data['isbn']) || trim($data['isbn']) === '') {
                 $data['isbn'] = null;
             }
@@ -141,17 +143,38 @@ class LibroController extends Controller
             }
         });
 
-        $message = 'Edición de libro actualizada con éxito';
-        if ($request->input('only_active_toggle')) {
-            $message = $libro->activo 
-                ? 'El tomo ahora está visible en la tienda.' 
-                : 'El tomo ahora está oculto y fuera de la venta.';
-        }
-
         return redirect()->route('libros.index')
-            ->with('message', $message);
+            ->with('message', 'Edición de libro actualizada con éxito');
     }
     
+    /**
+     * Alternar estado activo / inactivo de un tomo individual con validación de stock.
+     */
+    public function toggleActivo(Libro $libro)
+    {
+        $nuevoEstado = !$libro->activo;
+
+        if (!$nuevoEstado) {
+            $totalStock = (int) $libro->stocks()
+                ->where(function ($q) {
+                    $q->where('cantidad_disponible', '>', 0)
+                      ->orWhere('cantidad_reservada', '>', 0);
+                })
+                ->sum(\DB::raw('cantidad_disponible + cantidad_reservada'));
+
+            if ($totalStock > 0) {
+                return redirect()->back()->with('error_modal', "No se puede desactivar este tomo porque todavía posee {$totalStock} unidad(es) de stock en inventario. Debe vaciarse o transferirse el stock antes.");
+            }
+        }
+
+        $libro->update(['activo' => $nuevoEstado]);
+
+        $mensaje = $nuevoEstado 
+            ? 'Ítem/Tomo reactivado con éxito en el catálogo.' 
+            : 'Ítem/Tomo desactivado con éxito. Su historial permanece intacto.';
+
+        return redirect()->back()->with('swal_success', $mensaje);
+    }
 
     public function deshabilitarPreventas()
     {
@@ -162,17 +185,6 @@ class LibroController extends Controller
 
     public function destroy(Libro $libro)
     {
-        if ($libro->tiene_historial) {
-            return redirect()->back()->with('error', 'No se puede eliminar este libro porque tiene historial de movimientos.');
-        }
-
-        if ($libro->portada && \Illuminate\Support\Facades\Storage::disk('public')->exists($libro->portada)) {
-            \Illuminate\Support\Facades\Storage::disk('public')->delete($libro->portada);
-        }
-
-        $libro->delete();
-
-        return redirect()->route('libros.index')
-            ->with('message', 'Edición de libro eliminada con éxito');
+        return $this->toggleActivo($libro);
     }
 }
