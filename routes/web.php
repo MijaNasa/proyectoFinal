@@ -212,24 +212,6 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         Route::get('reportes/prediccion/buscar', [PrediccionDemandaController::class, 'buscar'])->name('reportes.prediccion.buscar');
         Route::get('reportes/prediccion/datos', [PrediccionDemandaController::class, 'datos'])->name('reportes.prediccion.datos');
     });
-
-    // Utilidad temporal: correr el seeder de ventas de prueba sin acceso a la Shell de Render.
-    // Se puede borrar despues de usarla una vez; es segura de visitar de nuevo (no hace nada
-    // si ya hay ventas cargadas).
-    Route::get('admin/seed-ventas-demo', function (\Illuminate\Http\Request $request) {
-        if (!$request->user()->esAdmin()) {
-            abort(403);
-        }
-
-        \App\Models\Venta::where('estado', 'cancelado')->get()->each(function ($venta) {
-            $venta->detalles()->delete();
-            $venta->delete();
-        });
-
-        (new \Database\Seeders\VentasSeeder())->run();
-
-        return 'Listo. Ventas totales ahora: ' . \App\Models\Venta::count();
-    })->name('admin.seed-ventas-demo');
 });
 
 require __DIR__.'/auth.php';
