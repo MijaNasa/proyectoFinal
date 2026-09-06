@@ -554,7 +554,7 @@ class VentaController extends Controller
                 $autorizado = true;
             }
         } else {
-            if (session('checkout_venta_id') == $venta->id || $request->query('ref') == $venta->id) {
+            if (session('checkout_venta_id') == $venta->id) {
                 $autorizado = true;
             }
         }
