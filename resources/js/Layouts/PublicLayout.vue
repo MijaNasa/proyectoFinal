@@ -70,24 +70,6 @@ const fmtARS = (val) => new Intl.NumberFormat('es-AR', { style: 'currency', curr
 
 const activeDropdown = ref(null);
 
-const menuMangas = [
-    { nombre: 'Ivrea Argentina', search: 'Ivrea' },
-    { nombre: 'Panini Comics', search: 'Panini' },
-    { nombre: 'Ovni Press', search: 'Ovni Press' },
-    { nombre: 'ECC Ediciones', search: 'ECC' },
-    { nombre: 'Planeta Cómic', search: 'Planeta' },
-    { nombre: 'Distrito Manga', search: 'Distrito Manga' },
-    { nombre: 'Milky Way', search: 'Milky Way' },
-];
-
-const menuComics = [
-    { nombre: 'Ovni Press', search: 'Ovni' },
-    { nombre: 'Panini Comics', search: 'Panini' },
-    { nombre: 'ECC Ediciones', search: 'ECC' },
-    { nombre: 'Planeta Cómic', search: 'Planeta' },
-    { nombre: 'Moebius / Indep.', search: 'Moebius' },
-];
-
 const filterBySearch = (query) => {
     router.get(route('catalogo.index'), { search: query });
 };
@@ -111,16 +93,6 @@ watch(() => page.props.flash, (flash) => {
 <template>
     <div class="min-h-screen bg-[#0A0A0A] text-white font-sans selection:bg-brand-red selection:text-white flex">
 
-        <!-- ─── Persistent Sidebar (Admin / Empleado, desktop only) ─── -->
-        <div
-            v-if="page.props.auth?.empleado || page.props.auth?.esAdmin"
-            class="hidden xl:flex w-64 shrink-0"
-        >
-            <!-- Fixed so it doesn't scroll with content -->
-            <div class="fixed top-0 left-0 w-64 h-screen bg-[#131316] border-r border-white/5 z-40">
-                <AgentSidebar />
-            </div>
-        </div>
 
         <!-- ─── Main Content Column ─── -->
         <div class="flex-1 min-w-0 flex flex-col">
@@ -142,17 +114,19 @@ watch(() => page.props.flash, (flash) => {
 
                             <!-- Left: Logo (terminal button only on mobile for admin/employee) -->
                             <div class="flex items-center gap-4">
-                                <!-- Mobile terminal toggle (hidden on xl when sidebar is always shown) -->
-                                <button
-                                    v-if="page.props.auth?.empleado || page.props.auth?.esAdmin"
-                                    @click="isTerminalMenuOpen = true"
-                                    class="xl:hidden flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold uppercase tracking-wider text-white bg-white/10 border border-white/20 rounded hover:bg-white/20 transition-colors"
-                                >
-                                    <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
-                                    </svg>
-                                    <span>Terminal</span>
-                                </button>
+                                <!-- Acceso al Panel Admin (visible para admin / empleado sin invadir la tienda) -->
+                                <div v-if="page.props.auth?.empleado || page.props.auth?.esAdmin" class="flex items-center gap-2">
+                                    <Link
+                                        :href="route('dashboard')"
+                                        class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-white bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl transition-all shadow-sm group"
+                                        title="Ir al Panel de Administración"
+                                    >
+                                        <svg class="w-4 h-4 text-brand-red group-hover:rotate-12 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                                        </svg>
+                                        <span>Panel Admin</span>
+                                    </Link>
+                                </div>
 
                                 <!-- Store Logo (no terminal icon next to it) -->
                                 <Link :href="route('catalogo.index')" class="flex items-center gap-2 group">
@@ -233,48 +207,6 @@ watch(() => page.props.flash, (flash) => {
                             <Link :href="route('catalogo.index')" class="px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
                                 INICIO
                             </Link>
-
-                            <!-- Mangas Dropdown -->
-                            <div class="relative" @mouseenter="activeDropdown = 'mangas'" @mouseleave="activeDropdown = null">
-                                <Link :href="route('catalogo.index', { tipo: 'manga' })" class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
-                                    <span>MANGAS</span>
-                                    <svg class="w-3 h-3 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </Link>
-                                <transition name="fade">
-                                    <div v-if="activeDropdown === 'mangas'" class="absolute left-0 top-full mt-1 w-56 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                        <Link
-                                            v-for="item in $page.props.globalMangaEditoriales"
-                                            :key="'manga-' + item.id"
-                                            :href="route('catalogo.index', { proveedor: item.id, tipo: 'manga' })"
-                                            @click="activeDropdown = null"
-                                            class="block w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold truncate"
-                                        >{{ item.nombre_empresa }}</Link>
-                                    </div>
-                                </transition>
-                            </div>
-
-                            <!-- Comics Dropdown -->
-                            <div class="relative" @mouseenter="activeDropdown = 'comics'" @mouseleave="activeDropdown = null">
-                                <Link :href="route('catalogo.index', { tipo: 'comic' })" class="flex items-center gap-1 px-3 py-2 rounded-md hover:text-white hover:bg-white/5 transition-colors">
-                                    <span>COMICS</span>
-                                    <svg class="w-3 h-3 text-white/40" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-                                    </svg>
-                                </Link>
-                                <transition name="fade">
-                                    <div v-if="activeDropdown === 'comics'" class="absolute left-0 top-full mt-1 w-56 bg-[#1A1A1A] border border-white/10 rounded-lg shadow-xl py-2 z-50 max-h-[60vh] overflow-y-auto custom-scrollbar">
-                                        <Link
-                                            v-for="item in $page.props.globalComicEditoriales"
-                                            :key="'comic-' + item.id"
-                                            :href="route('catalogo.index', { proveedor: item.id, tipo: 'comic' })"
-                                            @click="activeDropdown = null"
-                                            class="block w-full text-left px-4 py-2 text-xs text-white/70 hover:text-white hover:bg-brand-red/20 transition-colors uppercase font-bold truncate"
-                                        >{{ item.nombre_empresa }}</Link>
-                                    </div>
-                                </transition>
-                            </div>
 
                             <!-- Editoriales Dropdown -->
                             <div class="relative" @mouseenter="activeDropdown = 'editoriales'" @mouseleave="activeDropdown = null">
@@ -437,9 +369,9 @@ watch(() => page.props.flash, (flash) => {
                 </transition>
             </header>
 
-            <!-- Terminal Sidebar Drawer (mobile/tablet only; desktop uses fixed sidebar above) -->
+            <!-- Terminal Sidebar Drawer (deslizable sin fijarse de forma invasiva) -->
             <transition name="slide-left">
-                <div v-if="isTerminalMenuOpen" class="xl:hidden fixed inset-y-0 left-0 z-[60] flex">
+                <div v-if="isTerminalMenuOpen" class="fixed inset-y-0 left-0 z-[60] flex">
                     <AgentSidebar />
                     <div class="fixed inset-0 bg-black/60 backdrop-blur-sm -z-10" @click="isTerminalMenuOpen = false"></div>
                     <button @click="isTerminalMenuOpen = false" class="absolute top-4 -right-12 text-white/60 hover:text-white p-2">

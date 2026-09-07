@@ -25,14 +25,15 @@ class PublicCatalogoController extends Controller
                 'stocks.sucursal'
             ])
             ->whereHas('master', function ($q) {
-                $q->where('activo', true);
+                $q->where('libro_masters.activo', true);
             })
-            ->where('activo', true);
+            ->where('libros.activo', true);
 
+        // 1. Búsqueda por texto (título, autor, editorial, isbn)
         if ($request->filled('search')) {
             $like = '%' . mb_strtolower($request->search) . '%';
             $query->where(function ($q) use ($like) {
-                $q->whereRaw('LOWER(isbn) LIKE ?', [$like])
+                $q->whereRaw('LOWER(libros.isbn) LIKE ?', [$like])
                   ->orWhereHas('master', function ($q2) use ($like) {
                       $q2->whereRaw('LOWER(titulo) LIKE ?', [$like])
                          ->orWhereRaw('LOWER(titulo_original) LIKE ?', [$like])
@@ -42,32 +43,7 @@ class PublicCatalogoController extends Controller
             });
         }
 
-        if ($request->filled('categoria')) {
-            $query->whereHas('master', function ($q) use ($request) {
-                $q->where('categoria_id', $request->categoria);
-            });
-        }
-
-        if ($request->filled('autor')) {
-            $query->whereHas('master', function ($q) use ($request) {
-                $q->where('autor_id', $request->autor);
-            });
-        }
-
-
-
-        if ($request->filled('proveedor')) {
-            $query->whereHas('master', function ($q) use ($request) {
-                $q->where('proveedor_id', $request->proveedor);
-            });
-        }
-
-        if ($request->filled('idioma')) {
-            $query->whereHas('master', function ($q) use ($request) {
-                $q->where('idioma_id', $request->idioma);
-            });
-        }
-
+        // 2. Tipo (manga / comic)
         if ($request->filled('tipo')) {
             $tipo = mb_strtolower($request->tipo);
             $query->whereHas('master.categoria', function ($q) use ($tipo) {
@@ -79,46 +55,176 @@ class PublicCatalogoController extends Controller
             });
         }
 
-        if ($request->filled('preventa')) {
-            $query->where('permite_preventa', true);
+        // ── Base para el cálculo de facetas (conteo por editorial y categoría) ──
+        $facetBase = clone $query;
+
+        $proveedoresFiltro = (clone $facetBase)
+            ->join('libro_masters', 'libros.master_id', '=', 'libro_masters.id')
+            ->join('proveedores', 'libro_masters.proveedor_id', '=', 'proveedores.id')
+            ->where('proveedores.activo', true)
+            ->where('libro_masters.activo', true)
+            ->groupBy('proveedores.id', 'proveedores.nombre_empresa')
+            ->selectRaw('proveedores.id, proveedores.nombre_empresa as nombre, count(distinct libros.id) as count')
+            ->orderByDesc('count')
+            ->get();
+
+        $categoriasFiltro = (clone $facetBase)
+            ->join('libro_masters', 'libros.master_id', '=', 'libro_masters.id')
+            ->join('categorias', 'libro_masters.categoria_id', '=', 'categorias.id')
+            ->where('categorias.activo', true)
+            ->where('libro_masters.activo', true)
+            ->groupBy('categorias.id', 'categorias.nombre')
+            ->selectRaw('categorias.id, categorias.nombre, count(distinct libros.id) as count')
+            ->orderByDesc('count')
+            ->get();
+
+        // 3. Filtro por Editorial (Proveedor) - Soporta múltiples seleccionados
+        $proveedorIds = [];
+        if ($request->filled('proveedor')) {
+            $rawProv = $request->input('proveedor');
+            $proveedorIds = is_array($rawProv) ? $rawProv : explode(',', (string)$rawProv);
+            $proveedorIds = array_values(array_filter(array_map('intval', $proveedorIds)));
+            if (!empty($proveedorIds)) {
+                $query->whereHas('master', function ($q) use ($proveedorIds) {
+                    $q->whereIn('proveedor_id', $proveedorIds);
+                });
+            }
+        }
+
+        // 4. Filtro por Categoría - Soporta múltiples seleccionadas
+        $categoriaIds = [];
+        if ($request->filled('categoria')) {
+            $rawCat = $request->input('categoria');
+            $categoriaIds = is_array($rawCat) ? $rawCat : explode(',', (string)$rawCat);
+            $categoriaIds = array_values(array_filter(array_map('intval', $categoriaIds)));
+            if (!empty($categoriaIds)) {
+                $query->whereHas('master', function ($q) use ($categoriaIds) {
+                    $q->whereIn('categoria_id', $categoriaIds);
+                });
+            }
+        }
+
+        if ($request->filled('autor')) {
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('autor_id', $request->autor);
+            });
+        }
+
+        if ($request->filled('idioma')) {
+            $query->whereHas('master', function ($q) use ($request) {
+                $q->where('idioma_id', $request->idioma);
+            });
+        }
+
+        // 5. Rango de precio (min y max)
+        if ($request->filled('precio_min')) {
+            $min = (float) $request->precio_min;
+            $query->whereRaw('COALESCE((SELECT precio_venta FROM precios_libros WHERE precios_libros.libro_id = libros.id AND precios_libros.activo = true ORDER BY fecha_desde DESC LIMIT 1), 0) >= ?', [$min]);
+        }
+
+        if ($request->filled('precio_max')) {
+            $max = (float) $request->precio_max;
+            $query->whereRaw('COALESCE((SELECT precio_venta FROM precios_libros WHERE precios_libros.libro_id = libros.id AND precios_libros.activo = true ORDER BY fecha_desde DESC LIMIT 1), 0) <= ?', [$max]);
+        }
+
+        // 6. Disponibilidad: Solo en stock
+        if ($request->boolean('solo_stock')) {
+            $query->whereHas('stocks', function ($q) {
+                $q->where('cantidad_disponible', '>', 0);
+            });
+        }
+
+        // 7. Disponibilidad: Preventas
+        if ($request->boolean('preventa')) {
+            $query->where('libros.permite_preventa', true);
         }
 
         $query->withSum('stocks', 'cantidad_disponible');
 
         // Check if there are any search filters applied
-        $hasFilters = $request->filled('search') || $request->filled('categoria') || 
-                      $request->filled('autor') || $request->filled('proveedor') || 
+        $hasFilters = $request->filled('search') || !empty($categoriaIds) || 
+                      $request->filled('autor') || !empty($proveedorIds) || 
                       $request->filled('idioma') || $request->filled('tipo') ||
-                      $request->filled('preventa');
+                      $request->boolean('preventa') || $request->filled('precio_min') ||
+                      $request->filled('precio_max') || $request->boolean('solo_stock') ||
+                      ($request->filled('orden') && $request->orden !== 'relevancia');
 
         $preventas = collect();
 
         if (!$hasFilters) {
-            // Fetch preventas separately
-            $preventas = clone $query;
-            $preventas = $preventas->where('permite_preventa', true)
-                                   ->orderByRaw('(select coalesce(sum(cantidad_disponible), 0) from stocks where stocks.libro_id = libros.id) > 0 desc')
-                                   ->latest()
-                                   ->get();
-                                   
-            // Exclude preventas from main catalog
-            $query->where('permite_preventa', false);
+            // Fetch preventas separately for the top carousel
+            $preventas = (clone $query)
+                ->where('libros.permite_preventa', true)
+                ->orderByRaw('(select coalesce(sum(cantidad_disponible), 0) from stocks where stocks.libro_id = libros.id) > 0 desc')
+                ->latest('libros.id')
+                ->get();
+                                       
+            // Exclude preventas from main catalog when viewing initial page
+            $query->where('libros.permite_preventa', false);
         }
 
-        $libros = $query->orderByRaw('(select coalesce(sum(cantidad_disponible), 0) from stocks where stocks.libro_id = libros.id) > 0 desc')
-                        ->latest()
-                        ->paginate(24)
-                        ->withQueryString();
+        // 8. Ordenamiento
+        $orden = $request->input('orden', 'relevancia');
+        switch ($orden) {
+            case 'precio_asc':
+                $query->orderByRaw('COALESCE((SELECT precio_venta FROM precios_libros WHERE precios_libros.libro_id = libros.id AND precios_libros.activo = true ORDER BY fecha_desde DESC LIMIT 1), 99999999) ASC');
+                break;
+            case 'precio_desc':
+                $query->orderByRaw('COALESCE((SELECT precio_venta FROM precios_libros WHERE precios_libros.libro_id = libros.id AND precios_libros.activo = true ORDER BY fecha_desde DESC LIMIT 1), 0) DESC');
+                break;
+            case 'recientes':
+                $query->latest('libros.created_at');
+                break;
+            case 'nombre_asc':
+                $query->join('libro_masters', 'libros.master_id', '=', 'libro_masters.id')
+                      ->select('libros.*')
+                      ->orderBy('libro_masters.titulo', 'ASC')
+                      ->orderBy('libros.numero_tomo', 'ASC');
+                break;
+            case 'relevancia':
+            default:
+                $query->orderByRaw('(select coalesce(sum(cantidad_disponible), 0) from stocks where stocks.libro_id = libros.id) > 0 desc')
+                      ->latest('libros.id');
+                break;
+        }
+
+        $libros = $query->paginate(24)->withQueryString();
+
+        // Rango de precio sugerido
+        $precioMinMax = \Illuminate\Support\Facades\DB::table('precios_libros')
+            ->where('activo', true)
+            ->selectRaw('MIN(precio_venta) as min_p, MAX(precio_venta) as max_p')
+            ->first();
+        $minSugerido = $precioMinMax?->min_p ? (int) floor($precioMinMax->min_p) : 1000;
+        $maxSugerido = $precioMinMax?->max_p ? (int) ceil($precioMinMax->max_p) : 50000;
 
         return Inertia::render('Catalogo/Index', [
-            'libros'      => $libros,
-            'preventas'   => $preventas,
-            'categorias'  => Categoria::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre')->get(['id', 'nombre']),
-            'autores'     => Autor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
-            'series'      => [], // Removido por desuso
-            'proveedores' => Proveedor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
-            'idiomas'     => Idioma::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre')->get(['id', 'nombre']),
-            'filters'     => $request->only(['search', 'categoria', 'autor', 'serie', 'proveedor', 'idioma', 'tipo', 'preventa']),
+            'libros'            => $libros,
+            'preventas'         => $preventas,
+            'proveedoresFiltro' => $proveedoresFiltro,
+            'categoriasFiltro'  => $categoriasFiltro,
+            'precioRango'       => [
+                'min' => $minSugerido,
+                'max' => $maxSugerido,
+            ],
+            'categorias'        => fn() => Categoria::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre')->get(['id', 'nombre']),
+            'autores'           => fn() => Autor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
+            'series'            => [],
+            'proveedores'       => fn() => Proveedor::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
+            'idiomas'           => fn() => Idioma::where('activo', true)->whereHas('libroMasters', fn($q) => $q->where('activo', true))->orderBy('nombre')->get(['id', 'nombre']),
+            'filters'           => [
+                'search'     => $request->input('search'),
+                'categoria'  => $categoriaIds,
+                'proveedor'  => $proveedorIds,
+                'autor'      => $request->input('autor'),
+                'idioma'     => $request->input('idioma'),
+                'tipo'       => $request->input('tipo'),
+                'preventa'   => $request->boolean('preventa'),
+                'solo_stock' => $request->boolean('solo_stock'),
+                'precio_min' => $request->input('precio_min'),
+                'precio_max' => $request->input('precio_max'),
+                'orden'      => $orden,
+            ],
         ]);
     }
 
