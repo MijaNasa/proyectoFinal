@@ -509,25 +509,6 @@ class VentaController extends Controller
             ->with('message', 'Venta procesada con éxito');
     }
 
-    public function show(Venta $venta): \Inertia\Response
-    {
-        $user = \Auth::user();
-        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $venta->sucursal_id) {
-            abort(403);
-        }
-
-        $venta->load([
-            'cliente.user:id,name,apellido,email',
-            'user:id,name,apellido',
-            'sucursal:id,nombre,calle,numero,telefono',
-            'detalles.libro.master:id,titulo',
-            'detalles.libro:id,master_id,isbn,numero_tomo',
-            'transacciones',
-        ]);
-
-        return inertia('Ventas/Show', ['venta' => $venta]);
-    }
-
     public function generarComprobantePdf(Venta $venta)
     {
         $user = \Auth::user();

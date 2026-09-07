@@ -341,12 +341,21 @@ class OrdenCompraController extends Controller
     {
         $q = trim($request->get('q', ''));
         $proveedor_id = $request->get('proveedor_id');
+        $sucursal_id = $request->get('sucursal_id');
 
-        $query = \App\Models\Libro::with('master:id,titulo,proveedor_id')
-            ->withSum('stocks', 'cantidad_disponible')
-            ->withSum(['ventaDetalles as reservas_pendientes' => function($q) {
-                $q->whereHas('venta', function($qVenta) {
-                    $qVenta->whereIn('estado', ['pendiente', 'pagado', 'pendiente_pago']);
+        $query = \App\Models\Libro::whereHas('master')
+            ->with(['master:id,titulo,proveedor_id', 'precioActual'])
+            ->withSum(['stocks as stock_sucursal' => function($q) use ($sucursal_id) {
+                if ($sucursal_id) {
+                    $q->where('sucursal_id', $sucursal_id);
+                }
+            }], 'cantidad_disponible')
+            ->withSum(['ventaDetalles as reservas_pendientes' => function($q) use ($sucursal_id) {
+                $q->whereHas('venta', function($qVenta) use ($sucursal_id) {
+                    $qVenta->where('estado', 'en_preventa');
+                    if ($sucursal_id) {
+                        $qVenta->where('sucursal_id', $sucursal_id);
+                    }
                 });
             }], 'cantidad');
 
@@ -355,21 +364,33 @@ class OrdenCompraController extends Controller
         }
 
         if (strlen($q) > 0) {
-            $like = '%' . mb_strtolower($q) . '%';
-            $query->where(function($query) use ($like) {
-                $query->whereHas('master', fn($q2) => $q2->whereRaw('LOWER(titulo) LIKE ?', [$like]))
-                      ->orWhereRaw('LOWER(numero_tomo) LIKE ?', [$like]);
-            });
+            $cleanQ = preg_replace('/[-\/]/', ' ', $q);
+            $rawWords = array_filter(explode(' ', mb_strtolower(trim($cleanQ))));
+            $stopWords = ['tomo', 'tomos', 'vol', 'volumen', 'nro', 'num', 'numero'];
+            $words = array_values(array_filter($rawWords, fn($w) => !in_array($w, $stopWords)));
+            if (empty($words)) {
+                $words = $rawWords;
+            }
+
+            foreach ($words as $w) {
+                $like = '%' . $w . '%';
+                $query->where(function($sub) use ($like) {
+                    $sub->whereHas('master', fn($m) => $m->whereRaw('LOWER(titulo) LIKE ?', [$like]))
+                        ->orWhereRaw('LOWER(numero_tomo) LIKE ?', [$like])
+                        ->orWhereRaw('LOWER(isbn) LIKE ?', [$like]);
+                });
+            }
         }
 
-        $libros = $query->select('id', 'master_id', 'numero_tomo')
-            ->limit(50)
+        $libros = $query->limit(50)
             ->get()
             ->map(fn($l) => [
-                'id'       => $l->id,
-                'titulo'   => $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
-                'stock'    => $l->stocks_sum_cantidad_disponible ?? 0,
-                'reservas' => $l->reservas_pendientes ?? 0,
+                'id'              => $l->id,
+                'titulo'          => ($l->master?->titulo ?? 'Sin título') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
+                'stock'           => (int) ($l->stock_sucursal ?? 0),
+                'reservas'        => (int) ($l->reservas_pendientes ?? 0),
+                'precio_costo'    => (float) ($l->precioActual?->precio_compra ?? 0),
+                'precio_unitario' => (float) ($l->precioActual?->precio_compra ?? 0),
             ]);
 
         return response()->json($libros);
@@ -384,7 +405,8 @@ class OrdenCompraController extends Controller
             return response()->json([]);
         }
 
-        $libros = \App\Models\Libro::with('master:id,titulo,proveedor_id')
+        $libros = \App\Models\Libro::whereHas('master')
+            ->with(['master:id,titulo,proveedor_id', 'precioActual'])
             ->whereHas('master', fn($q) => $q->where('proveedor_id', $proveedor_id))
             ->where('permite_preventa', true)
             ->whereHas('ventaDetalles', function($q) use ($sucursal_id) {
@@ -393,6 +415,9 @@ class OrdenCompraController extends Controller
                            ->where('sucursal_id', $sucursal_id);
                 });
             })
+            ->withSum(['stocks as stock_sucursal' => function($q) use ($sucursal_id) {
+                $q->where('sucursal_id', $sucursal_id);
+            }], 'cantidad_disponible')
             ->withSum(['ventaDetalles as reservas_pendientes' => function($q) use ($sucursal_id) {
                 $q->whereHas('venta', function($qVenta) use ($sucursal_id) {
                     $qVenta->where('estado', 'en_preventa')
@@ -401,11 +426,12 @@ class OrdenCompraController extends Controller
             }], 'cantidad')
             ->get()
             ->map(fn($l) => [
-                'id'       => $l->id,
-                'titulo'   => $l->master->titulo . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
-                'stock'    => 0,
-                'reservas' => (int) $l->reservas_pendientes,
-                'precio_unitario' => $l->precioOriginal ?? 0,
+                'id'              => $l->id,
+                'titulo'          => ($l->master?->titulo ?? 'Sin título') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
+                'stock'           => (int) ($l->stock_sucursal ?? 0),
+                'reservas'        => (int) $l->reservas_pendientes,
+                'precio_costo'    => (float) ($l->precioActual?->precio_compra ?? 0),
+                'precio_unitario' => (float) ($l->precioActual?->precio_compra ?? 0),
             ]);
 
         return response()->json($libros);

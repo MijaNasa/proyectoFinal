@@ -2,7 +2,7 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import SearchableSelect from '@/Components/SearchableSelect.vue';
 import { Head, Link, router, useForm } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue';
 import Swal from 'sweetalert2';
 
 const props = defineProps({
@@ -152,7 +152,7 @@ function addItem(checkValidation = true) {
         return;
     }
     modalError.value = '';
-    form.items.push({ libro_id: '', cantidad: 1, precio_unitario: 0 });
+    form.items.push({ libro_id: '', cantidad: 1, precio_unitario: 0, stock: 0, reservas: 0 });
     itemDdOpen.value.push(false);
     itemSearches.value.push('');
     itemResults.value.push([]);
@@ -265,21 +265,66 @@ watch([() => form.proveedor_id, () => form.sucursal_id], ([newProv, newSuc]) => 
     }
 });
 
-function openItemDd(i) {
+function closeAllItemDds() {
+    itemDdOpen.value = itemDdOpen.value.map(() => false);
+}
+
+function handleGlobalClick(e) {
+    if (!itemDdOpen.value.some(isOpen => isOpen)) return;
+    const targetWrapper = e.target.closest('.item-libro-wrapper');
+    if (!targetWrapper) {
+        closeAllItemDds();
+    } else {
+        const clickedIndex = parseInt(targetWrapper.dataset.itemIndex, 10);
+        itemDdOpen.value = itemDdOpen.value.map((val, idx) => idx === clickedIndex ? val : false);
+    }
+}
+
+function handleGlobalKeyDown(e) {
+    if (e.key === 'Escape') {
+        closeAllItemDds();
+    }
+}
+
+onMounted(() => {
+    document.addEventListener('mousedown', handleGlobalClick);
+    document.addEventListener('touchstart', handleGlobalClick);
+    document.addEventListener('keydown', handleGlobalKeyDown);
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener('mousedown', handleGlobalClick);
+    document.removeEventListener('touchstart', handleGlobalClick);
+    document.removeEventListener('keydown', handleGlobalKeyDown);
+});
+
+function openItemDd(i, forceOpen = false) {
     if (!form.proveedor_id || !form.sucursal_id) {
         modalError.value = 'Por favor, selecciona el proveedor y la sucursal destino antes de agregar o seleccionar libros.';
         return;
     }
     modalError.value = '';
-    itemDdOpen.value = itemDdOpen.value.map((val, idx) => idx === i ? !val : false);
+    itemDdOpen.value = itemDdOpen.value.map((val, idx) => {
+        if (idx === i) {
+            return forceOpen ? true : !val;
+        }
+        return false;
+    });
     if (itemDdOpen.value[i] && (!itemResults.value[i] || itemResults.value[i].length === 0)) {
-        searchLibros(i, '');
+        searchLibros(i, itemSearches.value[i] || itemLabels.value[i] || '');
     }
 }
 function selectItemLibro(i, libro) {
     form.items[i].libro_id = libro.id;
-    if (libro.precio_costo) {
+    form.items[i].stock = libro.stock ?? 0;
+    form.items[i].reservas = libro.reservas ?? 0;
+    if (libro.precio_costo !== undefined && libro.precio_costo !== null) {
         form.items[i].precio_unitario = parseFloat(libro.precio_costo);
+    } else if (libro.precio_unitario !== undefined && libro.precio_unitario !== null) {
+        form.items[i].precio_unitario = parseFloat(libro.precio_unitario);
+    }
+    if (libro.reservas && libro.reservas > 0) {
+        form.items[i].cantidad = Math.max(form.items[i].cantidad || 1, libro.reservas);
     }
     itemLabels.value[i] = libro.titulo;
     itemDdOpen.value[i] = false;
@@ -293,6 +338,7 @@ function searchLibros(i, q) {
         try {
             const query = new URLSearchParams({ q: q || '' });
             if (form.proveedor_id) query.append('proveedor_id', form.proveedor_id);
+            if (form.sucursal_id) query.append('sucursal_id', form.sucursal_id);
             const res = await fetch(
                 route('ordenes-compra.search-libros') + '?' + query.toString(),
                 { headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' } }
@@ -557,7 +603,7 @@ const decodeLabel = (l) => {
             <div v-if="showModal" class="page-ordenes-compra">
                 <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showModal = false" />
                 <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
-                    <div class="relative w-full max-w-3xl bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
+                    <div class="relative w-full max-w-4xl bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
 
                         <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
                             <h3 class="text-sm font-bold text-white uppercase tracking-wider">
@@ -664,17 +710,17 @@ const decodeLabel = (l) => {
                                         <div v-for="(item, i) in form.items" :key="i" class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center pt-3 first:pt-0 pb-3 last:pb-0 px-1">
 
                                             <!-- Libro direct search input & dropdown -->
-                                            <div class="col-span-1 sm:col-span-6 relative">
+                                            <div class="col-span-1 sm:col-span-6 relative item-libro-wrapper" :data-item-index="i">
                                                 <div class="relative">
                                                     <input 
                                                         type="text" 
                                                         v-model="itemLabels[i]"
-                                                        @focus="openItemDd(i)"
-                                                        @input="openItemDd(i); searchLibros(i, $event.target.value)"
+                                                        @focus="openItemDd(i, true); $event.target.select()"
+                                                        @input="openItemDd(i, true); searchLibros(i, $event.target.value)"
                                                         placeholder="Escribir título o ISBN..." 
                                                         class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-semibold focus:outline-none focus:border-white/30 truncate"
                                                     />
-                                                    <div v-if="itemLabels[i]" @click.stop="itemLabels[i] = ''; form.items[i].libro_id = ''; openItemDd(i); searchLibros(i, '')" class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-500 hover:text-white text-xs">✕</div>
+                                                    <div v-if="itemLabels[i]" @click.stop="itemLabels[i] = ''; form.items[i].libro_id = ''; form.items[i].reservas = 0; form.items[i].stock = 0; openItemDd(i, true); searchLibros(i, '')" class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-500 hover:text-white text-xs">✕</div>
                                                 </div>
                                                 <p v-if="item.reservas > 0" class="text-[11px] text-amber-400 mt-1 font-semibold">
                                                     ⚡ ¡Hay {{ item.reservas }} tomo(s) en preventa!
@@ -689,12 +735,7 @@ const decodeLabel = (l) => {
                                                                 class="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-white/10 transition-colors flex justify-between items-center"
                                                                 :class="{ 'text-white font-bold bg-white/10': item.libro_id == l.id }">
                                                                 <span class="truncate pr-2">{{ l.titulo }}</span>
-                                                                <div class="flex items-center gap-2 text-[11px] font-semibold shrink-0">
-                                                                    <span class="text-zinc-500">Stock: {{ l.stock }}</span>
-                                                                    <span v-if="l.reservas > 0" class="bg-amber-400/20 text-amber-300 px-1.5 py-0.5 rounded-lg border border-amber-400/30">
-                                                                        Reservas: {{ l.reservas }}
-                                                                    </span>
-                                                                </div>
+                                                                <span class="text-zinc-500 text-[11px] font-semibold shrink-0">Stock: {{ l.stock }}</span>
                                                             </button>
                                                         </template>
                                                     </div>

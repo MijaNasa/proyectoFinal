@@ -121,7 +121,7 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         Route::post('clientes/store-rapido',  [ClienteController::class, 'storeRapido'])->name('clientes.store-rapido');
         Route::delete('ventas/canceladas/all', [VentaController::class, 'destroyCanceladas'])->name('ventas.canceladas.destroyAll');
         Route::get('ventas/{venta}/comprobante-pdf', [VentaController::class, 'generarComprobantePdf'])->name('ventas.comprobante-pdf');
-        Route::resource('ventas', VentaController::class)->except(['create', 'edit', 'update']);
+        Route::resource('ventas', VentaController::class)->except(['show', 'create', 'edit', 'update']);
         Route::post('/ventas/{venta}/confirmar-pago', [VentaController::class, 'confirmarPago'])->name('ventas.confirmar-pago');
         Route::patch('ventas/{venta}/estado', [VentaController::class, 'updateEstado'])->name('ventas.estado');
     });
