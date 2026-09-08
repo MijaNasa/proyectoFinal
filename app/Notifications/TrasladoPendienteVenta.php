@@ -41,21 +41,12 @@ class TrasladoPendienteVenta extends Notification
      */
     public static function marcarLeidasSiCompletado(?int $ventaId = null): void
     {
-        $query = DatabaseNotification::whereNull('read_at')
-            ->where(function ($q) {
-                $q->where('type', self::class)
-                  ->orWhere('data->type', 'traslado_pendiente');
-            });
-
-        if ($ventaId) {
-            $query->where(function ($q) use ($ventaId) {
-                $q->where('data->venta_id', $ventaId)
-                  ->orWhere('data->message', 'like', '%Venta #' . $ventaId . '%')
-                  ->orWhere('data->message', 'like', '%venta ' . $ventaId . '%');
-            });
-        }
-
-        $notificaciones = $query->get();
+        // Nota: 'data' es una columna de texto plano (no json/jsonb), asi que el
+        // filtrado por venta se hace en PHP en vez de con el operador -> de SQL
+        // (ese operador no existe en Postgres para columnas de texto).
+        $notificaciones = DatabaseNotification::whereNull('read_at')
+            ->where('type', self::class)
+            ->get();
 
         foreach ($notificaciones as $notif) {
             $data = $notif->data;
@@ -64,6 +55,10 @@ class TrasladoPendienteVenta extends Notification
                 if (preg_match('/[Vv]enta\s*#?(\d+)/', $data['message'], $m)) {
                     $vId = (int) $m[1];
                 }
+            }
+
+            if ($ventaId && $vId !== $ventaId) {
+                continue;
             }
 
             if ($vId) {
