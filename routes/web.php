@@ -217,6 +217,32 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         Route::get('reportes/prediccion/buscar', [PrediccionDemandaController::class, 'buscar'])->name('reportes.prediccion.buscar');
         Route::get('reportes/prediccion/datos', [PrediccionDemandaController::class, 'datos'])->name('reportes.prediccion.datos');
     });
+
+    // Utilidad temporal de diagnostico: ver por que un pedido de Mercado Pago no quedo
+    // reflejado como pagado. Se puede borrar despues de usarla. Solo lectura.
+    Route::get('admin/debug-ventas-mp', function (\Illuminate\Http\Request $request) {
+        if (!$request->user()->esAdmin()) {
+            abort(403);
+        }
+
+        $ventas = \App\Models\Venta::where('metodo_pago', 'Mercado Pago')
+            ->orWhereNotNull('payment_id')
+            ->with('transacciones')
+            ->latest()
+            ->take(15)
+            ->get(['id', 'estado', 'metodo_pago', 'payment_id', 'total', 'tipo_envio', 'created_at']);
+
+        return response()->json($ventas->map(fn ($v) => [
+            'id' => $v->id,
+            'estado' => $v->estado,
+            'metodo_pago' => $v->metodo_pago,
+            'payment_id' => $v->payment_id,
+            'total' => $v->total,
+            'tipo_envio' => $v->tipo_envio,
+            'creada' => $v->created_at,
+            'transacciones' => $v->transacciones->map(fn ($t) => ['tipo' => $t->tipo, 'monto' => $t->monto, 'metodo_pago' => $t->metodo_pago])->toArray(),
+        ]));
+    })->name('admin.debug-ventas-mp');
 });
 
 require __DIR__.'/auth.php';
