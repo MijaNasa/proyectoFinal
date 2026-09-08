@@ -866,6 +866,20 @@ class CheckoutController extends Controller
                 'payment_id' => $paymentId,
             ]);
 
+            // Registrar el ingreso de Mercado Pago: sin esto, el comprobante y la caja
+            // nunca ven el pago real (calculan el saldo pendiente en base a Transaccion).
+            if (!$fresh->transacciones()->where('tipo', 'ingreso')->exists()) {
+                $fresh->transacciones()->create([
+                    'fecha'        => now(),
+                    'tipo'         => 'ingreso',
+                    'monto'        => $fresh->total,
+                    'metodo_pago'  => 'Mercado Pago',
+                    'sucursal_id'  => $fresh->sucursal_id,
+                    'user_id'      => $fresh->user_id,
+                    'descripcion'  => "[Pedido Online #{$fresh->id}] - Pago aprobado por Mercado Pago",
+                ]);
+            }
+
             if ($requiereTraslados) {
                 $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
                 \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
