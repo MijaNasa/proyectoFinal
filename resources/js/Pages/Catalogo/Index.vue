@@ -94,7 +94,7 @@ const applyFilters = () => {
         preserveState: true,
         preserveScroll: true,
         replace: true,
-        only: ['libros', 'preventas', 'proveedoresFiltro', 'categoriasFiltro', 'filters'],
+        only: ['libros', 'preventas', 'proveedoresFiltro', 'categoriasFiltro', 'filters', 'flash'],
         onFinish: () => {
             isFiltering.value = false;
         },

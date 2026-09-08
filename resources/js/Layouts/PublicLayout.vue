@@ -83,7 +83,16 @@ const showToast = (msg, type) => {
     toastTimer = setTimeout(() => toast.value = null, 3500);
 };
 
+// Evita re-mostrar el mismo flash "pegado" en page.props cuando una recarga
+// parcial de Inertia (only: [...]) no pidió 'flash' y el valor viejo queda
+// congelado en las props (ej. navegar filtros del catálogo).
+let ultimoFlashMostrado = null;
+
 watch(() => page.props.flash, (flash) => {
+    const mensaje = flash?.success || flash?.warning || flash?.error;
+    if (!mensaje || mensaje === ultimoFlashMostrado) return;
+    ultimoFlashMostrado = mensaje;
+
     if (flash?.success) showToast(flash.success, 'success');
     else if (flash?.warning) showToast(flash.warning, 'warning');
     else if (flash?.error) showToast(flash.error, 'error');
