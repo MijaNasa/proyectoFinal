@@ -93,15 +93,19 @@ const cambiarCp = () => {
     codigoPostal.value = '';
 };
 
-const envioDomicilioClasico = computed(() => {
-    const val = getPrecioVentaNum(props.libro);
-    return val >= 100000 ? 'Gratis' : '$9.177,02';
-});
+// Gran Rosario: misma zona de reparto local gratis que en el Checkout real
+// (Rosario, Funes, Roldán, Pérez, Granadero Baigorria, Villa Gobernador Gálvez,
+// San Lorenzo, Capitán Bermúdez, Puerto Gral. San Martín, Fray Luis Beltrán).
+const codigosPostalesGranRosario = ['2000', '2132', '2148', '2123', '2152', '2124', '2200', '2154', '2202', '2156'];
 
-const envioSucursalCorreo = computed(() => {
-    const val = getPrecioVentaNum(props.libro);
-    return val >= 80000 ? 'Gratis' : '$6.264,56';
-});
+const esCpGranRosario = computed(() => codigosPostalesGranRosario.includes(cpCalculado.value.trim()));
+
+// Mismos montos que en Checkout/Index.vue: reparto local gratis en Gran Rosario,
+// Correo Nacional a $50.000 en el resto del país.
+const envioDomicilioClasico = computed(() => esCpGranRosario.value ? 'Gratis (reparto local)' : '$50.000,00');
+
+// La sucursal de Correo Argentino siempre cobra la tarifa nacional, sin importar la localidad.
+const envioSucursalCorreo = computed(() => '$50.000,00');
 </script>
 
 <template>
@@ -242,17 +246,10 @@ const envioSucursalCorreo = computed(() => {
                                 <div class="bg-[#0d0d0f] border border-white/5 rounded-xl p-3.5 space-y-2 text-xs">
                                     <div class="flex justify-between items-start">
                                         <div>
-                                            <p class="font-bold text-white">Correo Argentino Clásico - Envío a domicilio</p>
-                                            <p class="text-xs text-zinc-400 mt-0.5">Llega en 3 a 5 días hábiles</p>
+                                            <p class="font-bold text-white">{{ esCpGranRosario ? 'Reparto local (moto propia)' : 'Correo Argentino - Envío a domicilio' }}</p>
+                                            <p class="text-xs text-zinc-400 mt-0.5">{{ esCpGranRosario ? 'Zona Gran Rosario: entrega en 24-48hs' : 'Llega en 3 a 5 días hábiles' }}</p>
                                         </div>
-                                        <span class="font-bold text-white font-mono">{{ envioDomicilioClasico }}</span>
-                                    </div>
-                                    <div class="flex justify-between items-start border-t border-white/5 pt-2">
-                                        <div>
-                                            <p class="font-bold text-white">Correo Argentino Expreso - Envío a domicilio</p>
-                                            <p class="text-xs text-zinc-400 mt-0.5">Llega en 1 a 2 días hábiles</p>
-                                        </div>
-                                        <span class="font-bold text-white font-mono">$12.619,31</span>
+                                        <span class="font-bold font-mono" :class="esCpGranRosario ? 'text-emerald-400' : 'text-white'">{{ envioDomicilioClasico }}</span>
                                     </div>
                                 </div>
                             </div>
