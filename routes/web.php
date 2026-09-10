@@ -109,6 +109,7 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         Route::get('catalogo/ajustes', [CatalogoAjustesController::class, 'index'])->name('catalogo.ajustes.index');
         Route::post('catalogo/ajustes/{type}', [CatalogoAjustesController::class, 'store'])->name('catalogo.ajustes.store');
         Route::put('catalogo/ajustes/{type}/{id}', [CatalogoAjustesController::class, 'update'])->name('catalogo.ajustes.update');
+        Route::patch('catalogo/ajustes/{type}/{id}/toggle-activo', [CatalogoAjustesController::class, 'toggleActivo'])->name('catalogo.ajustes.toggleActivo');
         Route::delete('catalogo/ajustes/{type}/{id}', [CatalogoAjustesController::class, 'destroy'])->name('catalogo.ajustes.destroy');
     });
 
@@ -182,6 +183,7 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
 
     // Proveedores y Series
     Route::middleware('permiso:proveedores.acceder')->group(function () {
+        Route::patch('proveedores/{proveedor}/toggle-activo', [ProveedorController::class, 'toggleActivo'])->name('proveedores.toggleActivo');
         Route::resource('proveedores', ProveedorController::class)->except(['create', 'edit'])->parameters(['proveedores' => 'proveedor']);
         Route::post('proveedores/{proveedor}/pago', [ProveedorController::class, 'registrarPago'])->name('proveedores.pago');
 

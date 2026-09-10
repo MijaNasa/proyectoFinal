@@ -154,23 +154,35 @@ class ProveedorController extends Controller
         return redirect()->back()->with('message', 'Pago registrado con éxito');
     }
 
+    public function toggleActivo(Proveedor $proveedor)
+    {
+        if ($proveedor->activo) {
+            $tieneLibros = \App\Models\LibroMaster::where('proveedor_id', $proveedor->id)->exists();
+            if ($tieneLibros) {
+                return redirect()->route('proveedores.index')
+                    ->with('error_modal', 'No se puede desactivar el proveedor porque posee series (obras) asociadas. Debe desvincularlas antes.');
+            }
+
+            if ($proveedor->deuda_actual > 0) {
+                $montoFormateado = '$' . number_format($proveedor->deuda_actual, 2, ',', '.');
+                return redirect()->route('proveedores.index')
+                    ->with('error_modal', "No se puede desactivar el proveedor porque posee una deuda pendiente ({$montoFormateado}). Debe saldarse antes.");
+            }
+
+            $proveedor->update(['activo' => false]);
+
+            return redirect()->route('proveedores.index')
+                ->with('message', 'Proveedor desactivado con éxito');
+        } else {
+            $proveedor->update(['activo' => true]);
+
+            return redirect()->route('proveedores.index')
+                ->with('message', 'Proveedor reactivado con éxito');
+        }
+    }
+
     public function destroy(Proveedor $proveedor)
     {
-        $tieneLibros = \App\Models\LibroMaster::where('proveedor_id', $proveedor->id)->exists();
-        if ($tieneLibros) {
-            return redirect()->route('proveedores.index')
-                ->with('error_modal', 'No se puede eliminar el proveedor porque posee series (obras) asociadas. Debe desvincularlas o eliminarlas antes.');
-        }
-
-        if ($proveedor->deuda_actual > 0) {
-            $montoFormateado = '$' . number_format($proveedor->deuda_actual, 2, ',', '.');
-            return redirect()->route('proveedores.index')
-                ->with('error_modal', "No se puede eliminar el proveedor porque posee una deuda pendiente ({$montoFormateado}). Debe saldarse antes.");
-        }
-
-        $proveedor->delete();
-
-        return redirect()->route('proveedores.index')
-            ->with('message', 'Proveedor eliminado con éxito');
+        return $this->toggleActivo($proveedor);
     }
 }

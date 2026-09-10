@@ -150,10 +150,10 @@ class LibroMasterController extends Controller
 
         return inertia('LibroMasters/Index', [
             'librosMaster' => $librosMaster,
-            'autores' => \App\Models\Autor::orderBy('apellido')->get(['id', 'nombre', 'apellido']),
-            'categorias' => \App\Models\Categoria::orderBy('nombre')->get(['id', 'nombre']),
+            'autores' => \App\Models\Autor::where('activo', true)->orderBy('apellido')->get(['id', 'nombre', 'apellido']),
+            'categorias' => \App\Models\Categoria::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa']),
-            'idiomas' => \App\Models\Idioma::orderBy('nombre')->get(['id', 'nombre']),
+            'idiomas' => \App\Models\Idioma::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'formatos' => \App\Models\Formato::where('activo', true)->orderBy('nombre')->pluck('nombre'),
             'filters' => $request->only(['search'])
         ]);

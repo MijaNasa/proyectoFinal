@@ -456,59 +456,69 @@ class CatalogoAjustesController extends Controller
         return redirect()->route('catalogo.ajustes.index')->with('message', 'Registro actualizado con éxito.');
     }
 
-    public function destroy(Request $request, string $type, $id)
+    public function toggleActivo(Request $request, string $type, $id)
     {
         $this->checkAdmin($request);
 
         switch ($type) {
             case 'autores':
                 $model = Autor::findOrFail($id);
-                if ($model->libroMasters()->exists()) {
-                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
-                }
-                $model->delete();
+                $hasObras = $model->libroMasters()->exists();
+                $nombreEntidad = 'autor';
                 break;
 
             case 'categorias':
                 $model = Categoria::findOrFail($id);
-                if ($model->libroMasters()->exists()) {
-                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
-                }
-                $model->delete();
-                break;
-
-            case 'proveedores':
-                $model = \App\Models\Proveedor::findOrFail($id);
-                if ($model->libroMasters()->exists()) {
-                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
-                }
-                $model->delete();
+                $hasObras = $model->libroMasters()->exists();
+                $nombreEntidad = 'categoría';
                 break;
 
             case 'idiomas':
                 $model = Idioma::findOrFail($id);
-                if ($model->libroMasters()->exists()) {
-                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el registro porque tiene obras asociadas.');
-                }
-                $model->delete();
+                $hasObras = $model->libroMasters()->exists();
+                $nombreEntidad = 'idioma';
                 break;
 
             case 'formatos':
                 $model = Formato::find($id);
-                $nombre = $model ? $model->nombre : urldecode((string)$id);
-                $count = \App\Models\LibroMaster::where('formato', $nombre)->count();
-                if ($count > 0) {
-                    return redirect()->route('catalogo.ajustes.index')->with('error', 'No se puede eliminar el formato porque tiene ' . $count . ' obra(s) asociada(s).');
+                if (!$model) {
+                    $nombreFmt = urldecode((string)$id);
+                    $model = Formato::where('nombre', $nombreFmt)->firstOrFail();
                 }
-                if ($model) {
-                    $model->delete();
-                }
+                $hasObras = \App\Models\LibroMaster::where('formato', $model->nombre)->exists();
+                $nombreEntidad = 'formato';
+                break;
+
+            case 'proveedores':
+                $model = \App\Models\Proveedor::findOrFail($id);
+                $hasObras = $model->libroMasters()->exists();
+                $nombreEntidad = 'proveedor';
                 break;
 
             default:
                 abort(400, 'Tipo de ajuste no válido.');
         }
 
-        return redirect()->route('catalogo.ajustes.index')->with('message', 'Registro eliminado con éxito.');
+        if ($model->activo) {
+            if ($hasObras) {
+                return redirect()->route('catalogo.ajustes.index')
+                    ->with('error', "No se puede desactivar el {$nombreEntidad} porque tiene obras asociadas en el catálogo. Desvincúlelas antes de desactivar.");
+            }
+
+            $model->update(['activo' => false]);
+
+            return redirect()->route('catalogo.ajustes.index')
+                ->with('message', 'Registro desactivado con éxito.');
+        } else {
+            $model->update(['activo' => true]);
+
+            return redirect()->route('catalogo.ajustes.index')
+                ->with('message', 'Registro reactivado con éxito.');
+        }
+    }
+
+    public function destroy(Request $request, string $type, $id)
+    {
+        return $this->toggleActivo($request, $type, $id);
     }
 }

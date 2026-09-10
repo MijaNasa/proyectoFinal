@@ -128,39 +128,54 @@ const submit = () => {
     }
 };
 
-const deleteProveedor = (id) => {
-    darkSwal.fire({
-        title: '¿Eliminar proveedor?',
-        text: "Esta acción eliminará la ficha del proveedor.",
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonText: 'Sí, eliminar',
-        cancelButtonText: 'Cancelar'
-    }).then((result) => {
-        if (result.isConfirmed) {
-            router.delete(route('proveedores.destroy', id), {
-                preserveScroll: true,
-                onSuccess: () => {
-                    const errorMsg = page.props.flash?.error_modal;
-                    if (errorMsg) {
-                        darkSwal.fire({
-                            title: 'No se puede eliminar',
-                            text: errorMsg,
-                            icon: 'error',
-                        });
-                    } else {
-                        darkSwal.fire({
-                            title: '¡Eliminado!',
-                            text: page.props.flash?.message || 'El proveedor ha sido eliminado.',
-                            icon: 'success',
-                            timer: 1500,
-                            showConfirmButton: false
-                        });
+const toggleProveedor = (proveedor) => {
+    if (proveedor.activo) {
+        darkSwal.fire({
+            title: '¿Desactivar proveedor?',
+            text: "El proveedor se marcará como inactivo y no estará disponible para nuevas compras ni operaciones.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, desactivar',
+            cancelButtonText: 'Cancelar'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                router.patch(route('proveedores.toggleActivo', proveedor.id), {}, {
+                    preserveScroll: true,
+                    onSuccess: (page) => {
+                        const errorMsg = page.props.flash?.error_modal || page.props.flash?.error;
+                        if (errorMsg) {
+                            darkSwal.fire({
+                                title: 'No se puede desactivar',
+                                text: errorMsg,
+                                icon: 'error',
+                            });
+                        } else {
+                            darkSwal.fire({
+                                title: '¡Desactivado!',
+                                text: page.props.flash?.message || 'El proveedor fue desactivado correctamente.',
+                                icon: 'success',
+                                timer: 1500,
+                                showConfirmButton: false
+                            });
+                        }
                     }
-                }
-            });
-        }
-    });
+                });
+            }
+        });
+    } else {
+        router.patch(route('proveedores.toggleActivo', proveedor.id), {}, {
+            preserveScroll: true,
+            onSuccess: (page) => {
+                darkSwal.fire({
+                    title: '¡Reactivado!',
+                    text: page.props.flash?.message || 'El proveedor fue reactivado correctamente.',
+                    icon: 'success',
+                    timer: 1500,
+                    showConfirmButton: false
+                });
+            }
+        });
+    }
 };
 
 const sortField = ref(props.filters?.sort || 'latest');
@@ -328,11 +343,24 @@ const setEstado = (estado) => {
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                                             </button>
                                             <button 
-                                                @click="deleteProveedor(proveedor.id)" 
-                                                class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
-                                                title="Eliminar Proveedor"
+                                                v-if="proveedor.activo"
+                                                @click="toggleProveedor(proveedor)" 
+                                                class="p-2 text-zinc-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-xl transition-all"
+                                                title="Desactivar Proveedor"
                                             >
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                </svg>
+                                            </button>
+                                            <button 
+                                                v-else
+                                                @click="toggleProveedor(proveedor)" 
+                                                class="p-2 text-zinc-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl transition-all" 
+                                                title="Reactivar Proveedor"
+                                            >
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                </svg>
                                             </button>
                                         </div>
                                     </td>
