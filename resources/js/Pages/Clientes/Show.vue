@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 import Swal from 'sweetalert2';
 import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
@@ -219,6 +219,13 @@ const eliminarTodasCanceladas = () => {
 
 const showNuevaSuscripcion = ref(false);
 
+const seriesDisponibles = computed(() => {
+    const idsSuscritos = (props.cliente.suscripciones || [])
+        .filter(s => s.estado !== 'cancelada')
+        .map(s => s.libro_master_id);
+    return (props.libro_masters || []).filter(lm => !idsSuscritos.includes(lm.id));
+});
+
 const suscribir = () => {
     suscripcionForm.post(route('suscripciones.store'), {
         preserveScroll: true,
@@ -234,10 +241,10 @@ const suscribir = () => {
                 showConfirmButton: false
             });
         },
-        onError: () => {
+        onError: (errors) => {
             darkSwal.fire({
-                title: 'Error',
-                text: 'El cliente ya está suscrito a esta serie o hubo un error.',
+                title: 'No se pudo crear la suscripción',
+                text: errors.libro_master_id || errors.cliente_id || errors.sucursal_id || 'El cliente ya está suscrito a esta serie o hubo un error.',
                 icon: 'error'
             });
         }
@@ -681,8 +688,9 @@ const estadoConfig = {
                                 <label class="block text-xs font-semibold text-zinc-400">SELECCIONE SERIE *</label>
                                 <select v-model="suscripcionForm.libro_master_id" required class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 cursor-pointer" :class="{'border-rose-500': suscripcionForm.errors.libro_master_id}">
                                     <option value="" disabled class="bg-[#131316]">-- Selecciona Serie --</option>
-                                    <option v-for="lm in libro_masters" :key="lm.id" :value="lm.id" class="bg-[#131316]">{{ lm.titulo }}</option>
+                                    <option v-for="lm in seriesDisponibles" :key="lm.id" :value="lm.id" class="bg-[#131316]">{{ lm.titulo }}</option>
                                 </select>
+                                <p v-if="seriesDisponibles.length === 0" class="text-amber-400 text-xs font-semibold mt-1">El cliente ya se encuentra suscrito a todas las series disponibles.</p>
                                 <p v-if="suscripcionForm.errors.libro_master_id" class="text-rose-400 text-xs font-semibold mt-1">{{ suscripcionForm.errors.libro_master_id }}</p>
                             </div>
 

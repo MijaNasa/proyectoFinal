@@ -3,6 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\Suscripcion;
+use App\Models\Cliente;
+use App\Models\LibroMaster;
+use App\Models\Sucursal;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -38,10 +41,40 @@ class SuscripcionController extends Controller
 
         $suscripciones = $query->latest()->paginate(15)->withQueryString();
 
+        $clientes = Cliente::with([
+            'user:id,name,apellido,email,dni',
+            'suscripciones:id,cliente_id,libro_master_id,estado'
+        ])
+            ->whereHas('user', fn($q) => $q->where('activo', true))
+            ->get()
+            ->map(fn($c) => [
+                'id'                      => $c->id,
+                'nombre'                  => trim(($c->user?->name ?? '') . ' ' . ($c->user?->apellido ?? '')),
+                'email'                   => $c->user?->email ?? '',
+                'dni'                     => $c->user?->dni ?? '',
+                'suscripciones_master_ids' => $c->suscripciones
+                    ->whereIn('estado', ['activa', 'pausada'])
+                    ->pluck('libro_master_id')
+                    ->values()
+                    ->all()
+            ])
+            ->sortBy('nombre', SORT_NATURAL | SORT_FLAG_CASE)
+            ->values();
+
+        $libroMasters = LibroMaster::where('activo', true)
+            ->orWhereNull('activo')
+            ->orderBy('titulo')
+            ->get(['id', 'titulo']);
+
+        $sucursales = Sucursal::where('activo', true)->get(['id', 'nombre']);
+
         return inertia('Suscripciones/Index', [
             'suscripciones' => $suscripciones,
-            'topSeries' => $topSeries,
-            'filters' => $request->only(['search', 'estado'])
+            'topSeries'     => $topSeries,
+            'clientes'      => $clientes,
+            'libro_masters' => $libroMasters,
+            'sucursales'    => $sucursales,
+            'filters'       => $request->only(['search', 'estado'])
         ]);
     }
     public function store(Request $request)
@@ -51,15 +84,23 @@ class SuscripcionController extends Controller
             'libro_master_id' => 'required|exists:libro_masters,id',
             'sucursal_id'     => 'required|exists:sucursales,id',
             'tomo_inicio'     => 'nullable|integer|min:1',
+        ], [
+            'cliente_id.required'      => 'Debe seleccionar un cliente.',
+            'cliente_id.exists'        => 'El cliente seleccionado no es válido.',
+            'libro_master_id.required' => 'Debe seleccionar una serie.',
+            'libro_master_id.exists'   => 'La serie seleccionada no es válida.',
+            'sucursal_id.required'     => 'Debe seleccionar una sucursal.',
+            'sucursal_id.exists'       => 'La sucursal seleccionada no es válida.',
+            'tomo_inicio.min'          => 'El tomo de inicio debe ser mayor o igual a 1.',
         ]);
 
         $exists = Suscripcion::where('cliente_id', $request->cliente_id)
             ->where('libro_master_id', $request->libro_master_id)
-            ->where('sucursal_id', $request->sucursal_id)
+            ->whereIn('estado', ['activa', 'pausada'])
             ->first();
 
         if ($exists) {
-            return back()->withErrors(['libro_master_id' => 'El cliente ya está suscrito a esta serie en esta sucursal.']);
+            return back()->withErrors(['libro_master_id' => 'El cliente ya se encuentra suscrito a esta serie.']);
         }
 
         Suscripcion::create([

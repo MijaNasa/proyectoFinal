@@ -1,7 +1,8 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { ref, computed, watch } from 'vue';
+import Swal from 'sweetalert2';
 
 const debounce = (fn, delay) => {
     let timeout;
@@ -14,6 +15,9 @@ const debounce = (fn, delay) => {
 const props = defineProps({
     suscripciones: Object,
     topSeries: Array,
+    clientes: Array,
+    libro_masters: Array,
+    sucursales: Array,
     filters: Object
 });
 
@@ -37,6 +41,124 @@ const formatDate = (dateString) => {
         day: '2-digit', month: '2-digit', year: 'numeric'
     });
 };
+
+const darkSwal = Swal.mixin({
+    background: '#131316',
+    color: '#ffffff',
+    buttonsStyling: false,
+    customClass: {
+        popup: 'border border-white/10 rounded-2xl p-6 shadow-2xl bg-[#131316] page-suscripciones',
+        title: 'text-xl font-bold text-white tracking-tight',
+        htmlContainer: 'text-sm text-zinc-300 font-medium mt-2 leading-relaxed',
+        confirmButton: 'px-6 py-3 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-sm transition-all shadow-md active:scale-95 mx-1 cursor-pointer',
+        cancelButton: 'px-6 py-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-sm border border-white/10 transition-all active:scale-95 mx-1 cursor-pointer',
+        actions: 'mt-6 flex items-center justify-end gap-2'
+    }
+});
+
+// Modal Nueva Suscripción
+const showModal = ref(false);
+const clienteSearch = ref('');
+const showClienteDropdown = ref(false);
+
+const form = useForm({
+    cliente_id: '',
+    libro_master_id: '',
+    sucursal_id: '',
+    tomo_inicio: 1,
+});
+
+const clientesFiltrados = computed(() => {
+    if (!clienteSearch.value) return (props.clientes || []).slice(0, 8);
+    const q = clienteSearch.value.toLowerCase().trim();
+    return (props.clientes || []).filter(c =>
+        c.nombre.toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        (c.dni && c.dni.includes(q))
+    ).slice(0, 8);
+});
+
+const clienteSeleccionado = computed(() => {
+    return (props.clientes || []).find(c => c.id === form.cliente_id);
+});
+
+const selectCliente = (c) => {
+    form.cliente_id = c.id;
+    clienteSearch.value = `${c.nombre} (${c.email})`;
+    showClienteDropdown.value = false;
+    form.libro_master_id = '';
+    form.clearErrors('cliente_id');
+};
+
+const clearCliente = () => {
+    form.cliente_id = '';
+    clienteSearch.value = '';
+    form.libro_master_id = '';
+};
+
+const seriesDisponibles = computed(() => {
+    if (!clienteSeleccionado.value) {
+        return props.libro_masters || [];
+    }
+    const suscritos = clienteSeleccionado.value.suscripciones_master_ids || [];
+    return (props.libro_masters || []).filter(m => !suscritos.includes(m.id));
+});
+
+const openModal = () => {
+    form.reset();
+    form.clearErrors();
+    form.tomo_inicio = 1;
+    clienteSearch.value = '';
+    showClienteDropdown.value = false;
+
+    // Preseleccionar sucursal del empleado logueado o la primera disponible
+    const userSucursal = router.page.props.auth?.user?.empleado?.sucursal_id;
+    if (userSucursal) {
+        form.sucursal_id = userSucursal;
+    } else if (props.sucursales && props.sucursales.length > 0) {
+        form.sucursal_id = props.sucursales[0].id;
+    }
+
+    showModal.value = true;
+};
+
+const submitSuscripcion = () => {
+    if (!form.cliente_id) {
+        form.setError('cliente_id', 'Seleccione un cliente.');
+        return;
+    }
+    if (!form.libro_master_id) {
+        form.setError('libro_master_id', 'Seleccione una serie.');
+        return;
+    }
+    if (!form.sucursal_id) {
+        form.setError('sucursal_id', 'Seleccione una sucursal.');
+        return;
+    }
+
+    form.post(route('suscripciones.store'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showModal.value = false;
+            form.reset();
+            clienteSearch.value = '';
+            darkSwal.fire({
+                title: '¡Suscripción Creada!',
+                text: 'La suscripción a la serie fue registrada correctamente.',
+                icon: 'success',
+                timer: 1500,
+                showConfirmButton: false
+            });
+        },
+        onError: (errors) => {
+            darkSwal.fire({
+                title: 'No se pudo crear la suscripción',
+                text: errors.libro_master_id || errors.cliente_id || errors.sucursal_id || 'Verifique los datos ingresados.',
+                icon: 'error'
+            });
+        }
+    });
+};
 </script>
 
 <template>
@@ -44,10 +166,19 @@ const formatDate = (dateString) => {
 
     <AuthenticatedLayout>
         <template #header>
-            <div class="flex items-center justify-between w-full page-suscripciones">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full page-suscripciones">
                 <div>
                     <h2 class="text-2xl font-bold text-white tracking-tight uppercase">GESTIÓN DE SUSCRIPCIONES</h2>
                 </div>
+                <button
+                    @click="openModal"
+                    class="px-5 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 flex items-center gap-2 self-start sm:self-auto cursor-pointer"
+                >
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    <span>Nueva Suscripción</span>
+                </button>
             </div>
         </template>
 
@@ -171,6 +302,169 @@ const formatDate = (dateString) => {
                 </div>
             </div>
         </div>
+
+        <!-- Modal Nueva Suscripción -->
+        <Teleport to="body">
+            <div v-if="showModal" class="page-suscripciones">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showModal = false"></div>
+                <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
+                    <div class="relative w-full max-w-lg bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[90vh] shadow-2xl pointer-events-auto">
+                        
+                        <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                            <div>
+                                <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                    NUEVA SUSCRIPCIÓN A SERIE
+                                </h3>
+                                <p class="text-xs text-zinc-400 font-medium mt-0.5">
+                                    Asigná un cliente a una colección para reservar automáticamente los próximos tomos.
+                                </p>
+                            </div>
+                            <button @click="showModal = false" class="text-zinc-400 hover:text-white transition-colors cursor-pointer">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <form @submit.prevent="submitSuscripcion" class="p-6 space-y-5">
+                            <!-- Selector de Cliente con Buscador -->
+                            <div class="space-y-1 relative">
+                                <label class="block text-xs font-semibold text-zinc-400">CLIENTE *</label>
+                                
+                                <div v-if="clienteSeleccionado" class="bg-[#131316] p-3 rounded-xl border border-white/10 flex items-center justify-between">
+                                    <div>
+                                        <div class="text-sm font-bold text-white">{{ clienteSeleccionado.nombre }}</div>
+                                        <div class="text-xs text-zinc-400">{{ clienteSeleccionado.email }} <span v-if="clienteSeleccionado.dni" class="text-zinc-500">| DNI: {{ clienteSeleccionado.dni }}</span></div>
+                                        <div class="text-[11px] text-emerald-400 font-medium mt-0.5">
+                                            {{ clienteSeleccionado.suscripciones_master_ids.length }} suscripciones activas
+                                        </div>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        @click="clearCliente"
+                                        class="px-2.5 py-1 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white text-xs font-semibold rounded-lg transition-colors cursor-pointer"
+                                    >
+                                        Cambiar
+                                    </button>
+                                </div>
+
+                                <div v-else class="relative">
+                                    <input
+                                        v-model="clienteSearch"
+                                        @focus="showClienteDropdown = true"
+                                        type="text"
+                                        placeholder="Buscar por nombre, email o DNI..."
+                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30"
+                                        :class="{ 'border-rose-500': form.errors.cliente_id }"
+                                    />
+                                    
+                                    <!-- Dropdown de clientes -->
+                                    <div
+                                        v-if="showClienteDropdown && clientesFiltrados.length"
+                                        class="absolute z-50 w-full mt-1 bg-[#131316] border border-white/10 rounded-2xl max-h-48 overflow-y-auto shadow-2xl"
+                                    >
+                                        <div
+                                            v-for="c in clientesFiltrados"
+                                            :key="c.id"
+                                            @mousedown.prevent="selectCliente(c)"
+                                            class="px-4 py-2.5 text-xs text-white cursor-pointer hover:bg-white/5 transition-colors border-b border-white/5 last:border-0 flex items-center justify-between"
+                                        >
+                                            <div>
+                                                <div class="font-bold text-white">{{ c.nombre }}</div>
+                                                <div class="text-zinc-400">{{ c.email }} <span v-if="c.dni">| {{ c.dni }}</span></div>
+                                            </div>
+                                            <span class="text-[10px] px-2 py-0.5 rounded bg-white/5 text-zinc-400">
+                                                {{ c.suscripciones_master_ids.length }} activas
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div
+                                        v-if="showClienteDropdown && !clientesFiltrados.length"
+                                        class="absolute z-50 w-full mt-1 bg-[#131316] border border-white/10 rounded-2xl p-4 text-xs text-zinc-500 text-center shadow-2xl"
+                                    >
+                                        No se encontraron clientes
+                                    </div>
+                                    <div v-if="showClienteDropdown" class="fixed inset-0 z-40" @click="showClienteDropdown = false"></div>
+                                </div>
+                                <p v-if="form.errors.cliente_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.cliente_id }}</p>
+                            </div>
+
+                            <!-- Selector de Serie -->
+                            <div class="space-y-1">
+                                <label class="block text-xs font-semibold text-zinc-400">SERIE / COLECCIÓN *</label>
+                                <select
+                                    v-model="form.libro_master_id"
+                                    :disabled="!form.cliente_id"
+                                    class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                    :class="{ 'border-rose-500': form.errors.libro_master_id }"
+                                >
+                                    <option value="" disabled class="bg-[#131316]">
+                                        {{ !form.cliente_id ? '-- Primero seleccioná un cliente --' : (seriesDisponibles.length ? '-- Seleccionar Serie --' : '-- Sin series disponibles --') }}
+                                    </option>
+                                    <option v-for="m in seriesDisponibles" :key="m.id" :value="m.id" class="bg-[#131316]">
+                                        {{ m.titulo }}
+                                    </option>
+                                </select>
+                                <p v-if="form.cliente_id && seriesDisponibles.length === 0" class="text-amber-400 text-xs font-medium mt-1">
+                                    Este cliente ya está suscrito a todas las series disponibles.
+                                </p>
+                                <p v-if="form.errors.libro_master_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.libro_master_id }}</p>
+                            </div>
+
+                            <!-- Tomo Inicio y Sucursal -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">TOMO INICIO *</label>
+                                    <input
+                                        v-model.number="form.tomo_inicio"
+                                        type="number"
+                                        min="1"
+                                        required
+                                        placeholder="1"
+                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold font-mono text-white focus:outline-none focus:border-white/30"
+                                        :class="{ 'border-rose-500': form.errors.tomo_inicio }"
+                                    />
+                                    <p v-if="form.errors.tomo_inicio" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.tomo_inicio }}</p>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">SUCURSAL DE RETIRO *</label>
+                                    <select
+                                        v-model="form.sucursal_id"
+                                        required
+                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 cursor-pointer"
+                                        :class="{ 'border-rose-500': form.errors.sucursal_id }"
+                                    >
+                                        <option value="" disabled class="bg-[#131316]">-- Seleccionar Sucursal --</option>
+                                        <option v-for="suc in sucursales" :key="suc.id" :value="suc.id" class="bg-[#131316]">
+                                            {{ suc.nombre }}
+                                        </option>
+                                    </select>
+                                    <p v-if="form.errors.sucursal_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.sucursal_id }}</p>
+                                </div>
+                            </div>
+
+                            <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
+                                <button
+                                    type="button"
+                                    @click="showModal = false"
+                                    class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all cursor-pointer"
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    :disabled="form.processing || (form.cliente_id && seriesDisponibles.length === 0)"
+                                    class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer"
+                                >
+                                    <span>{{ form.processing ? 'GUARDANDO...' : 'GUARDAR SUSCRIPCIÓN' }}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </AuthenticatedLayout>
 </template>
 
