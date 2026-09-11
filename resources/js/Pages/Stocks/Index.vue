@@ -1,9 +1,11 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
+
+const page = usePage();
 
 const props = defineProps({
     obras: Object,
@@ -155,7 +157,7 @@ const openModal = (stock = null) => {
         form.reset();
         
         // Auto-select sucursal for employee
-        const userSucursal = router.page.props.auth.user?.empleado?.sucursal_id;
+        const userSucursal = page.props.auth.user?.empleado?.sucursal_id;
         if (userSucursal) {
             form.sucursal_id = userSucursal;
         }

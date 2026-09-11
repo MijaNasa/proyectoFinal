@@ -22,24 +22,56 @@ class SuscripcionController extends Controller
             ->with(['serie' => fn($q) => $q->select('id', 'titulo', 'portada')->with(['libros' => fn($l) => $l->select('id', 'master_id', 'portada', 'numero_tomo')->whereNotNull('portada')->where('portada', '!=', '')])])
             ->get();
 
-        // Listado de suscripciones
-        $query = Suscripcion::with(['cliente.user:id,name,apellido,email', 'serie:id,titulo', 'sucursal:id,nombre']);
+        $search = $request->input('search');
 
-        if ($request->filled('search')) {
-            $like = '%' . mb_strtolower($request->search) . '%';
-            $query->whereHas('cliente.user', function ($q) use ($like) {
-                $q->whereRaw('LOWER(name) LIKE ?', [$like])
-                  ->orWhereRaw('LOWER(apellido) LIKE ?', [$like]);
-            })->orWhereHas('serie', function ($q) use ($like) {
-                $q->whereRaw('LOWER(titulo) LIKE ?', [$like]);
-            });
-        }
+        // Series agrupadas con sus suscripciones
+        $query = LibroMaster::query()
+            ->with([
+                'autor:id,nombre,apellido',
+                'categoria:id,nombre',
+                'proveedor:id,nombre',
+                'libros:id,master_id,portada',
+                'suscripciones' => function ($sq) use ($search) {
+                    $sq->with(['cliente.user:id,name,apellido,email,dni', 'sucursal:id,nombre']);
+                    if ($search) {
+                        $like = '%' . mb_strtolower($search) . '%';
+                        $sq->where(function ($subQ) use ($like) {
+                            $subQ->whereHas('cliente.user', function ($uq) use ($like) {
+                                $uq->whereRaw('LOWER(name) LIKE ?', [$like])
+                                   ->orWhereRaw('LOWER(apellido) LIKE ?', [$like])
+                                   ->orWhereRaw('LOWER(email) LIKE ?', [$like])
+                                   ->orWhereRaw('LOWER(dni) LIKE ?', [$like]);
+                            })->orWhereHas('serie', function ($mq) use ($like) {
+                                $mq->whereRaw('LOWER(titulo) LIKE ?', [$like]);
+                            });
+                        });
+                    }
+                    $sq->latest();
+                }
+            ])
+            ->whereHas('suscripciones', function ($q) use ($search) {
+                if ($search) {
+                    $like = '%' . mb_strtolower($search) . '%';
+                    $q->where(function ($subQ) use ($like) {
+                        $subQ->whereHas('cliente.user', function ($uq) use ($like) {
+                            $uq->whereRaw('LOWER(name) LIKE ?', [$like])
+                               ->orWhereRaw('LOWER(apellido) LIKE ?', [$like])
+                               ->orWhereRaw('LOWER(email) LIKE ?', [$like])
+                               ->orWhereRaw('LOWER(dni) LIKE ?', [$like]);
+                        })->orWhereHas('serie', function ($mq) use ($like) {
+                            $mq->whereRaw('LOWER(titulo) LIKE ?', [$like]);
+                        });
+                    });
+                }
+            })
+            ->withCount([
+                'suscripciones as total_suscripciones',
+                'suscripciones as suscripciones_activas'
+            ])
+            ->orderByDesc('suscripciones_activas')
+            ->orderBy('titulo');
 
-        if ($request->filled('estado')) {
-            $query->where('estado', $request->estado);
-        }
-
-        $suscripciones = $query->latest()->paginate(15)->withQueryString();
+        $series = $query->paginate(12)->withQueryString();
 
         $clientes = Cliente::with([
             'user:id,name,apellido,email,dni',
@@ -53,7 +85,6 @@ class SuscripcionController extends Controller
                 'email'                   => $c->user?->email ?? '',
                 'dni'                     => $c->user?->dni ?? '',
                 'suscripciones_master_ids' => $c->suscripciones
-                    ->whereIn('estado', ['activa', 'pausada'])
                     ->pluck('libro_master_id')
                     ->values()
                     ->all()
@@ -69,12 +100,12 @@ class SuscripcionController extends Controller
         $sucursales = Sucursal::where('activo', true)->get(['id', 'nombre']);
 
         return inertia('Suscripciones/Index', [
-            'suscripciones' => $suscripciones,
+            'series'        => $series,
             'topSeries'     => $topSeries,
             'clientes'      => $clientes,
             'libro_masters' => $libroMasters,
             'sucursales'    => $sucursales,
-            'filters'       => $request->only(['search', 'estado'])
+            'filters'       => $request->only(['search'])
         ]);
     }
     public function store(Request $request)
@@ -94,13 +125,25 @@ class SuscripcionController extends Controller
             'tomo_inicio.min'          => 'El tomo de inicio debe ser mayor o igual a 1.',
         ]);
 
-        $exists = Suscripcion::where('cliente_id', $request->cliente_id)
+        $existing = Suscripcion::withTrashed()
+            ->where('cliente_id', $request->cliente_id)
             ->where('libro_master_id', $request->libro_master_id)
-            ->whereIn('estado', ['activa', 'pausada'])
             ->first();
 
-        if ($exists) {
-            return back()->withErrors(['libro_master_id' => 'El cliente ya se encuentra suscrito a esta serie.']);
+        if ($existing) {
+            if (!$existing->trashed()) {
+                return back()->withErrors(['libro_master_id' => 'El cliente ya se encuentra suscrito a esta serie.']);
+            }
+
+            // Si estaba deshabilitada (soft deleted), se reanuda el mismo registro
+            $existing->restore();
+            $existing->update([
+                'sucursal_id' => $request->sucursal_id,
+                'tomo_inicio' => $request->input('tomo_inicio', 1) ?: 1,
+                'estado'      => 'activa'
+            ]);
+
+            return back()->with('success', 'Suscripción reanudada exitosamente.');
         }
 
         Suscripcion::create([
@@ -117,11 +160,11 @@ class SuscripcionController extends Controller
     public function update(Request $request, Suscripcion $suscripcion)
     {
         $request->validate([
-            'estado'      => ['sometimes', Rule::in(['activa', 'pausada'])],
             'tomo_inicio' => ['nullable', 'integer', 'min:1'],
+            'sucursal_id' => ['nullable', 'exists:sucursales,id'],
         ]);
 
-        $suscripcion->update($request->only(['estado', 'tomo_inicio']));
+        $suscripcion->update($request->only(['tomo_inicio', 'sucursal_id']));
 
         return back()->with('success', 'Suscripción actualizada exitosamente.');
     }
@@ -129,6 +172,6 @@ class SuscripcionController extends Controller
     public function destroy(Suscripcion $suscripcion)
     {
         $suscripcion->delete();
-        return back()->with('success', 'Suscripción eliminada exitosamente.');
+        return back()->with('success', 'Suscripción deshabilitada exitosamente.');
     }
 }

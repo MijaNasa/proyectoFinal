@@ -1,8 +1,10 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, router, useForm } from '@inertiajs/vue3';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import Swal from 'sweetalert2';
+
+const page = usePage();
 
 const debounce = (fn, delay) => {
     let timeout;
@@ -13,7 +15,7 @@ const debounce = (fn, delay) => {
 };
 
 const props = defineProps({
-    suscripciones: Object,
+    series: Object,
     topSeries: Array,
     clientes: Array,
     libro_masters: Array,
@@ -21,15 +23,42 @@ const props = defineProps({
     filters: Object
 });
 
-const search = ref(props.filters.search || '');
-const estadoFiltro = ref(props.filters.estado || '');
+const search = ref(props.filters?.search || '');
 
-watch([search, estadoFiltro], debounce(([newSearch, newEstado]) => {
+watch(search, debounce((newSearch) => {
     router.get(route('suscripciones.index'), {
-        search: newSearch,
-        estado: newEstado
+        search: newSearch
     }, { preserveState: true, preserveScroll: true, replace: true });
 }, 300));
+
+// --- Control de Acordeón / Expansión de Obras ---
+const expandedSeries = ref([]);
+
+const toggleSerie = (id) => {
+    const idx = expandedSeries.value.indexOf(id);
+    if (idx > -1) {
+        expandedSeries.value.splice(idx, 1);
+    } else {
+        expandedSeries.value.push(id);
+    }
+};
+
+const expandirTodas = () => {
+    if (props.series?.data) {
+        expandedSeries.value = props.series.data.map(s => s.id);
+    }
+};
+
+const colapsarTodas = () => {
+    expandedSeries.value = [];
+};
+
+// Desplegar automáticamente resultados al buscar para ver inmediatamente al cliente/serie
+watch(() => props.series?.data, (newSeries) => {
+    if (search.value && newSeries && newSeries.length > 0) {
+        expandedSeries.value = newSeries.map(s => s.id);
+    }
+}, { immediate: true });
 
 const decodeLabel = (label) => {
     if (!label) return '';
@@ -56,7 +85,34 @@ const darkSwal = Swal.mixin({
     }
 });
 
-// Modal Nueva Suscripción
+// --- Acción: Deshabilitar Suscripción (Soft Delete / Dar de baja) ---
+const deshabilitarSuscripcion = (sub) => {
+    darkSwal.fire({
+        title: '¿Deshabilitar suscripción?',
+        text: `La suscripción de "${sub.cliente?.user?.name || 'este cliente'}" se dará de baja y se ocultará de la lista.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, deshabilitar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            router.delete(route('suscripciones.destroy', sub.id), {
+                preserveScroll: true,
+                onSuccess: () => {
+                    darkSwal.fire({
+                        title: '¡Deshabilitada!',
+                        text: 'La suscripción ha sido dada de baja exitosamente.',
+                        icon: 'success',
+                        timer: 1500,
+                        showConfirmButton: false
+                    });
+                }
+            });
+        }
+    });
+};
+
+// --- Modal Nueva Suscripción ---
 const showModal = ref(false);
 const clienteSearch = ref('');
 const showClienteDropdown = ref(false);
@@ -94,6 +150,7 @@ const clearCliente = () => {
     form.cliente_id = '';
     clienteSearch.value = '';
     form.libro_master_id = '';
+    showClienteDropdown.value = true;
 };
 
 const seriesDisponibles = computed(() => {
@@ -112,7 +169,7 @@ const openModal = () => {
     showClienteDropdown.value = false;
 
     // Preseleccionar sucursal del empleado logueado o la primera disponible
-    const userSucursal = router.page.props.auth?.user?.empleado?.sucursal_id;
+    const userSucursal = page.props.auth?.user?.empleado?.sucursal_id;
     if (userSucursal) {
         form.sucursal_id = userSucursal;
     } else if (props.sucursales && props.sucursales.length > 0) {
@@ -217,70 +274,230 @@ const submitSuscripcion = () => {
                         <input
                             v-model="search"
                             type="text"
-                            placeholder="Buscar por cliente o serie..."
+                            placeholder="Buscar por serie o cliente (nombre, email, DNI)..."
                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium transition-all"
                         />
                     </div>
 
-                    <!-- Filtro Estado -->
-                    <div class="w-full sm:w-64">
-                        <select
-                            v-model="estadoFiltro"
-                            class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer"
+                    <!-- Botones de Acordeón -->
+                    <div class="w-full sm:w-auto flex items-center justify-end gap-2 shrink-0">
+                        <button
+                            type="button"
+                            @click="expandirTodas"
+                            title="Expandir todas las series"
+                            class="px-3.5 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white rounded-xl border border-white/10 transition-all text-xs font-semibold cursor-pointer flex items-center gap-2 shadow-sm"
                         >
-                            <option value="" class="bg-[#131316] text-zinc-400">Todos los estados</option>
-                            <option value="activa" class="bg-[#131316] text-white">Activas</option>
-                            <option value="pausada" class="bg-[#131316] text-white">Pausadas</option>
-                        </select>
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19 13l-7 7-7-7m14-8l-7 7-7-7" />
+                            </svg>
+                            <span>Expandir todo</span>
+                        </button>
+                        <button
+                            type="button"
+                            @click="colapsarTodas"
+                            title="Colapsar todas las series"
+                            class="px-3.5 py-2.5 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white rounded-xl border border-white/10 transition-all text-xs font-semibold cursor-pointer flex items-center gap-2 shadow-sm"
+                        >
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M5 11l7-7 7 7M5 19l7-7 7 7" />
+                            </svg>
+                            <span>Colapsar todo</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Tabla de Suscripciones -->
+                <!-- Tabla Jerárquica: Obra Suscripta -> Suscriptores -->
                 <div class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
                     <div class="overflow-x-auto">
                         <table class="w-full text-left border-collapse">
                             <thead>
                                 <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
-                                    <th class="p-4">Cliente</th>
-                                    <th class="p-4">Obra Suscripta</th>
-                                    <th class="p-4">Tomo Inicio</th>
-                                    <th class="p-4">Sucursal</th>
-                                    <th class="p-4">Alta</th>
-                                    <th class="p-4 text-center">Estado</th>
+                                    <th class="p-4 w-12 text-center"></th>
+                                    <th class="p-4 w-[40%]">Serie / Obra Suscripta</th>
+                                    <th class="p-4 w-[25%]">Editorial & Categoría</th>
+                                    <th class="p-4 w-[20%] text-center">Suscriptores</th>
+                                    <th class="p-4 w-[15%] text-right">Acción</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5 text-sm">
-                                <tr v-if="!suscripciones.data.length">
-                                    <td colspan="6" class="p-12 text-center text-zinc-500 italic">
-                                        No se encontraron suscripciones.
-                                    </td>
-                                </tr>
-                                <tr v-for="sub in suscripciones.data" :key="sub.id" class="hover:bg-white/[0.02] transition-colors group">
-                                    <td class="p-4">
-                                        <Link :href="route('clientes.index', { search: sub.cliente.user.email })" class="block">
-                                            <div class="font-bold text-white tracking-tight group-hover:text-zinc-200 transition-colors">{{ sub.cliente.user.name }} {{ sub.cliente.user.apellido }}</div>
-                                            <div class="text-xs text-zinc-400 font-medium mt-0.5">{{ sub.cliente.user.email }}</div>
-                                        </Link>
-                                    </td>
-                                    <td class="p-4">
-                                        <div class="font-bold text-white capitalize">{{ sub.serie.titulo }}</div>
-                                    </td>
-                                    <td class="p-4">
-                                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-xs font-mono font-bold text-white">
-                                            Tomo {{ sub.tomo_inicio || 1 }}
-                                        </span>
-                                    </td>
-                                    <td class="p-4">
-                                        <div class="text-xs font-semibold text-zinc-300">{{ sub.sucursal.nombre }}</div>
-                                    </td>
-                                    <td class="p-4">
-                                        <div class="text-xs font-medium text-zinc-400">{{ formatDate(sub.created_at) }}</div>
-                                    </td>
-                                    <td class="p-4 text-center">
-                                        <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
-                                            <span class="w-2 h-2 rounded-full shrink-0" :class="sub.estado === 'activa' ? 'bg-emerald-400' : 'bg-amber-400'"></span>
-                                            <span class="capitalize">{{ sub.estado }}</span>
-                                        </span>
+                                <template v-for="serie in series.data" :key="serie.id">
+                                    <!-- Fila Principal: Obra Suscripta -->
+                                    <tr
+                                        @click="toggleSerie(serie.id)"
+                                        class="hover:bg-white/[0.02] transition-colors cursor-pointer group select-none"
+                                    >
+                                        <!-- Chevron -->
+                                        <td class="p-4 text-center text-zinc-500 group-hover:text-white transition-colors">
+                                            <svg
+                                                class="w-4 h-4 mx-auto transition-transform duration-200"
+                                                :class="{ 'rotate-90 text-white': expandedSeries.includes(serie.id) }"
+                                                viewBox="0 0 20 20"
+                                                fill="currentColor"
+                                            >
+                                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                            </svg>
+                                        </td>
+
+                                        <!-- Obra: Portada + Título + Autor -->
+                                        <td class="p-4">
+                                            <div class="flex items-center gap-3">
+                                                <img
+                                                    :src="serie.portada_url || '/images/no-cover.png'"
+                                                    @error="$event.target.src = '/images/no-cover.png'"
+                                                    class="w-10 h-14 object-cover rounded-lg border border-white/10 shrink-0 shadow-sm bg-black/40"
+                                                    :alt="serie.titulo"
+                                                />
+                                                <div class="min-w-0">
+                                                    <div class="font-bold text-white tracking-tight group-hover:text-zinc-200 transition-colors uppercase leading-snug">
+                                                        {{ serie.titulo }}
+                                                    </div>
+                                                    <div class="text-xs text-zinc-400 font-medium mt-0.5">
+                                                        {{ serie.autor ? ((serie.autor.nombre ? serie.autor.nombre + ' ' : '') + serie.autor.apellido) : 'Autor sin especificar' }}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </td>
+
+                                        <!-- Editorial & Categoría -->
+                                        <td class="p-4">
+                                            <div class="text-xs font-semibold text-zinc-300">
+                                                {{ serie.proveedor?.nombre || 'Editorial S/D' }}
+                                            </div>
+                                            <div class="flex items-center gap-2 mt-1">
+                                                <span v-if="serie.categoria" class="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-[11px] text-zinc-400 font-medium">
+                                                    {{ serie.categoria.nombre }}
+                                                </span>
+                                                <span v-if="serie.formato" class="text-[11px] text-zinc-500 font-mono">
+                                                    {{ serie.formato }}
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        <!-- Contador de Suscriptores -->
+                                        <td class="p-4 text-center">
+                                            <div class="inline-flex flex-col items-center gap-1">
+                                                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-bold text-emerald-400">
+                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                    {{ serie.suscripciones?.length || 0 }} {{ (serie.suscripciones?.length || 0) === 1 ? 'activo' : 'activos' }}
+                                                </span>
+                                            </div>
+                                        </td>
+
+                                        <!-- Botón Desplegar -->
+                                        <td class="p-4 text-right">
+                                            <button
+                                                type="button"
+                                                class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-white/10 bg-white/5 group-hover:bg-white/10 text-zinc-300 group-hover:text-white transition-all cursor-pointer inline-flex items-center gap-1.5"
+                                            >
+                                                <span>{{ expandedSeries.includes(serie.id) ? 'Ocultar' : 'Ver' }} ({{ serie.suscripciones?.length || 0 }})</span>
+                                                <svg
+                                                    class="w-3.5 h-3.5 transition-transform duration-200"
+                                                    :class="{ 'rotate-180': expandedSeries.includes(serie.id) }"
+                                                    fill="none"
+                                                    viewBox="0 0 24 24"
+                                                    stroke="currentColor"
+                                                    stroke-width="2"
+                                                >
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                    </tr>
+
+                                    <!-- Fila Desplegable: Detalle de Suscriptores de esta Serie -->
+                                    <tr v-if="expandedSeries.includes(serie.id)">
+                                        <td colspan="5" class="p-0 border-b border-white/5 bg-[#0d0d0f]">
+                                            <div class="p-4 pl-8 sm:pl-12 border-l-4 border-white/20 overflow-x-auto">
+                                                
+                                                <div v-if="!serie.suscripciones || !serie.suscripciones.length" class="p-6 text-center text-zinc-500 italic text-xs">
+                                                    No se encontraron suscripciones para esta serie con los filtros aplicados.
+                                                </div>
+
+                                                <table v-else class="w-full text-left border-collapse text-xs min-w-[650px]">
+                                                    <thead>
+                                                        <tr class="text-zinc-500 uppercase font-semibold border-b border-white/5 text-[11px]">
+                                                            <th class="py-2.5 px-3">Cliente</th>
+                                                            <th class="py-2.5 px-3 text-center">Tomo Inicio</th>
+                                                            <th class="py-2.5 px-3">Sucursal Retiro</th>
+                                                            <th class="py-2.5 px-3">Alta</th>
+                                                            <th class="py-2.5 px-3 text-center">Estado</th>
+                                                            <th class="py-2.5 px-3 text-right">Acción</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody class="divide-y divide-white/5">
+                                                        <tr
+                                                            v-for="sub in serie.suscripciones"
+                                                            :key="sub.id"
+                                                            class="hover:bg-white/[0.02] transition-colors"
+                                                        >
+                                                            <!-- Cliente -->
+                                                            <td class="py-3 px-3">
+                                                                <Link
+                                                                    :href="route('clientes.index', { search: sub.cliente?.user?.email })"
+                                                                    class="block group/client"
+                                                                >
+                                                                    <div class="font-bold text-white group-hover/client:text-zinc-200 transition-colors">
+                                                                        {{ sub.cliente?.user?.name }} {{ sub.cliente?.user?.apellido }}
+                                                                    </div>
+                                                                    <div class="text-[11px] text-zinc-400 font-medium">
+                                                                        {{ sub.cliente?.user?.email }}
+                                                                        <span v-if="sub.cliente?.user?.dni" class="text-zinc-500"> — DNI: {{ sub.cliente.user.dni }}</span>
+                                                                    </div>
+                                                                </Link>
+                                                            </td>
+
+                                                            <!-- Tomo Inicio -->
+                                                            <td class="py-3 px-3 text-center">
+                                                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-lg bg-white/5 border border-white/10 text-xs font-mono font-bold text-white">
+                                                                    Tomo {{ sub.tomo_inicio || 1 }}
+                                                                </span>
+                                                            </td>
+
+                                                            <!-- Sucursal de Retiro -->
+                                                            <td class="py-3 px-3">
+                                                                <span class="text-xs font-medium text-zinc-300">
+                                                                    {{ sub.sucursal?.nombre || 'S/D' }}
+                                                                </span>
+                                                            </td>
+
+                                                            <!-- Alta -->
+                                                            <td class="py-3 px-3 text-zinc-400 font-medium">
+                                                                {{ formatDate(sub.created_at) }}
+                                                            </td>
+
+                                                            <!-- Estado -->
+                                                            <td class="py-3 px-3 text-center">
+                                                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+                                                                    <span>Activa</span>
+                                                                </span>
+                                                            </td>
+
+                                                            <!-- Acción: Deshabilitar (Dar de baja) -->
+                                                            <td class="py-3 px-3 text-right">
+                                                                <button
+                                                                    type="button"
+                                                                    @click.stop="deshabilitarSuscripcion(sub)"
+                                                                    title="Deshabilitar suscripción"
+                                                                    class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-zinc-400 hover:text-white cursor-pointer inline-flex items-center justify-center"
+                                                                >
+                                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                                    </svg>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </template>
+
+                                <!-- Estado Vacío General -->
+                                <tr v-if="!series.data.length">
+                                    <td colspan="5" class="p-12 text-center text-zinc-500 italic">
+                                        No se encontraron series con suscripciones registradas para los criterios seleccionados.
                                     </td>
                                 </tr>
                             </tbody>
@@ -288,9 +505,9 @@ const submitSuscripcion = () => {
                     </div>
                 </div>
 
-                <!-- Paginación -->
-                <div v-if="suscripciones.last_page > 1" class="flex justify-center gap-2 mt-6">
-                    <Link v-for="link in suscripciones.links" :key="link.label"
+                <!-- Paginación de Series -->
+                <div v-if="series.last_page > 1" class="flex justify-center gap-2 mt-6">
+                    <Link v-for="link in series.links" :key="link.label"
                         :href="link.url ?? '#'"
                         class="px-4 py-2 rounded-xl border border-white/5 transition-all text-xs font-semibold"
                         :class="link.active
@@ -352,6 +569,7 @@ const submitSuscripcion = () => {
                                     <input
                                         v-model="clienteSearch"
                                         @focus="showClienteDropdown = true"
+                                        @input="showClienteDropdown = true"
                                         type="text"
                                         placeholder="Buscar por nombre, email o DNI..."
                                         class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30"
