@@ -86,14 +86,18 @@ class ProveedorController extends Controller
             });
             
         $ordenes = \App\Models\OrdenCompra::where('proveedor_id', $proveedor->id)
-            ->where('estado', 'recibida')
+            ->whereIn('estado', ['confirmada', 'recibida'])
             ->latest('fecha')
-            ->get(['id', 'numero_orden', 'fecha', 'total'])
+            ->get(['id', 'numero_orden', 'fecha', 'total', 'condicion_pago', 'metodo_pago'])
             ->map(function ($orden) {
                 $fechaVal = $orden->fecha;
                 if ($fechaVal instanceof \Illuminate\Support\Carbon) {
                     $fechaVal = $fechaVal->toIso8601String();
                 }
+                $metodo = $orden->condicion_pago === 'contado'
+                    ? ($orden->metodo_pago ?: 'Contado')
+                    : 'Cuenta Corriente';
+
                 return [
                     'id' => 'orden_' . $orden->id,
                     'real_id' => $orden->id,
@@ -101,7 +105,7 @@ class ProveedorController extends Controller
                     'tipo' => 'deuda',
                     'fecha' => $fechaVal,
                     'descripcion' => 'Orden de Compra ' . $orden->numero_orden,
-                    'metodo_pago' => 'Cuenta Corriente',
+                    'metodo_pago' => $metodo,
                     'monto' => $orden->total,
                 ];
             });

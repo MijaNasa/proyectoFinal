@@ -98,14 +98,19 @@ const modalError = ref('');
 const form = useForm({
     proveedor_id:           '',
     sucursal_id:            '',
-    condicion_pago:         '',
+    pagada:                 false,
+    condicion_pago:         'cuenta_corriente',
     metodo_pago:            'Efectivo',
     observaciones:          '',
     items:                  [],
 });
 
+watch(() => form.pagada, (isPaid) => {
+    form.condicion_pago = isPaid ? 'contado' : 'cuenta_corriente';
+});
+
 const canConfigureItems = computed(() => {
-    return Boolean(form.proveedor_id && form.sucursal_id && form.condicion_pago);
+    return Boolean(form.proveedor_id && form.sucursal_id);
 });
 
 let prevProvId = null;
@@ -118,7 +123,8 @@ function openModal() {
     prevSucId        = null;
     modalError.value = '';
     form.reset();
-    form.condicion_pago = '';
+    form.pagada         = false;
+    form.condicion_pago = 'cuenta_corriente';
     form.metodo_pago    = 'Efectivo';
     form.items = [];
     itemDdOpen.value = [];
@@ -139,11 +145,12 @@ async function editOrden(orden) {
     form.reset();
     
     // Configurar form
-    form.proveedor_id   = orden.proveedor_id;
-    form.sucursal_id    = orden.sucursal_id;
+    form.proveedor_id    = orden.proveedor_id;
+    form.sucursal_id     = orden.sucursal_id;
+    form.pagada          = orden.condicion_pago === 'contado';
     form.condicion_pago  = orden.condicion_pago || 'cuenta_corriente';
     form.metodo_pago     = orden.metodo_pago || 'Efectivo';
-    form.observaciones  = orden.observaciones || '';
+    form.observaciones   = orden.observaciones || '';
 
     // Usar los ítems pre-cargados
     if (orden.items) {
@@ -717,28 +724,40 @@ const decodeLabel = (l) => {
                                 </div>
                             </div>
 
-                            <!-- Condición de Pago & Medio de Pago -->
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">CONDICIÓN DE PAGO *</label>
-                                    <select v-model="form.condicion_pago"
-                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
-                                        <option value="" disabled>-- Seleccionar Condición de Pago --</option>
-                                        <option value="cuenta_corriente">Cuenta Corriente</option>
-                                        <option value="contado">Contado</option>
-                                    </select>
-                                    <p v-if="form.errors.condicion_pago" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.condicion_pago }}</p>
-                                </div>
+                            <!-- Estado de Pago de la Orden -->
+                            <div class="bg-[#131316] border border-white/5 rounded-xl p-3.5 space-y-2.5">
+                                <label class="flex items-center justify-between cursor-pointer select-none">
+                                    <div class="space-y-0.5 pr-2">
+                                        <div class="text-xs font-semibold text-zinc-300">
+                                            ¿La orden ya fue abonada al proveedor?
+                                        </div>
+                                        <div class="text-[11px] text-zinc-400/50 font-normal leading-relaxed select-none">
+                                            {{ form.pagada 
+                                                ? 'Registra la compra y el pago por el mismo monto (saldo neto $0). No acumula deuda.' 
+                                                : 'Compra a crédito. Se acumulará como deuda pendiente en la cuenta del proveedor.' 
+                                            }}
+                                        </div>
+                                    </div>
+                                    <input 
+                                        type="checkbox" 
+                                        v-model="form.pagada" 
+                                        class="w-4 h-4 rounded bg-[#0d0d0f] border-white/20 text-white focus:ring-0 focus:ring-offset-0 cursor-pointer accent-white shrink-0 ml-3"
+                                    />
+                                </label>
 
-                                <div v-if="form.condicion_pago === 'contado'">
-                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">MEDIO DE PAGO *</label>
-                                    <select v-model="form.metodo_pago"
-                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
+                                <!-- Si está pagada, desplegar selector de medio de pago -->
+                                <div v-if="form.pagada" class="pt-2.5 border-t border-white/5 flex items-center justify-between gap-4">
+                                    <label class="text-[11px] font-semibold text-zinc-400 shrink-0 uppercase tracking-wider">
+                                        MEDIO DE PAGO
+                                    </label>
+                                    <select 
+                                        v-model="form.metodo_pago"
+                                        class="bg-[#0d0d0f] border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white font-medium focus:outline-none focus:border-white/30"
+                                    >
                                         <option value="Efectivo">Efectivo</option>
                                         <option value="Transferencia">Transferencia</option>
                                         <option value="Tarjeta">Tarjeta</option>
                                     </select>
-                                    <p v-if="form.errors.metodo_pago" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.metodo_pago }}</p>
                                 </div>
                             </div>
 

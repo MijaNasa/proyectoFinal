@@ -54,8 +54,9 @@ class OrdenCompraController extends Controller
         $request->validate([
             'proveedor_id'           => 'required|exists:proveedores,id',
             'sucursal_id'            => 'required|exists:sucursales,id',
+            'pagada'                 => 'nullable|boolean',
             'condicion_pago'         => 'nullable|in:cuenta_corriente,contado',
-            'metodo_pago'            => 'required_if:condicion_pago,contado|nullable|in:Efectivo,Transferencia,Tarjeta',
+            'metodo_pago'            => 'nullable|in:Efectivo,Transferencia,Tarjeta',
             'observaciones'          => 'nullable|string',
             'items'                  => 'required|array|min:1',
             'items.*.libro_id'       => 'required|exists:libros,id',
@@ -69,10 +70,11 @@ class OrdenCompraController extends Controller
         }
 
         $total = collect($request->items)->sum(fn($i) => $i['cantidad'] * $i['precio_unitario']);
-        $condicionPago = $request->input('condicion_pago', 'cuenta_corriente');
-        $metodoPago = $request->input('metodo_pago');
+        $pagada = $request->boolean('pagada') || $request->input('condicion_pago') === 'contado';
+        $condicionPago = $pagada ? 'contado' : 'cuenta_corriente';
+        $metodoPago = $pagada ? ($request->input('metodo_pago') ?: 'Efectivo') : null;
 
-        $orden = \DB::transaction(function () use ($request, $total, $condicionPago, $metodoPago) {
+        $orden = \DB::transaction(function () use ($request, $total, $condicionPago, $metodoPago, $pagada) {
             // Crear primero para obtener el ID autoincremental; luego generar el número
             $orden = OrdenCompra::create([
                 'numero_orden'           => 'OC-TEMP',
@@ -80,7 +82,7 @@ class OrdenCompraController extends Controller
                 'sucursal_id'            => $request->sucursal_id,
                 'estado'                 => 'confirmada',
                 'condicion_pago'         => $condicionPago,
-                'metodo_pago'            => $condicionPago === 'contado' ? $metodoPago : null,
+                'metodo_pago'            => $metodoPago,
                 'fecha'                  => now()->toDateString(),
                 'total'                  => $total,
                 'observaciones'          => $request->observaciones,
@@ -101,7 +103,7 @@ class OrdenCompraController extends Controller
             // Registrar movimiento financiero inmediatamente al crear la orden
             $proveedor = \App\Models\Proveedor::find($request->proveedor_id);
             if ($proveedor) {
-                if ($condicionPago === 'contado') {
+                if ($pagada) {
                     \App\Models\Transaccion::create([
                         'tipo'                 => 'egreso',
                         'monto'                => $total,
