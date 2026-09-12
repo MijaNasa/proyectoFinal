@@ -41,7 +41,7 @@ class SuscripcionController extends Controller
                 ->with([
                     'autor:id,nombre,apellido',
                     'categoria:id,nombre',
-                    'proveedor:id,nombre',
+                    'proveedor:id,nombre_empresa',
                     'suscripciones' => function ($sq) use ($search) {
                         $sq->with(['cliente.user:id,name,apellido,email,dni', 'sucursal:id,nombre']);
                         if ($search) {
@@ -120,11 +120,7 @@ class SuscripcionController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            return response()->json([
-                'error'   => $e->getMessage(),
-                'file'    => $e->getFile() . ':' . $e->getLine(),
-                'context' => 'SuscripcionController@index'
-            ], 500);
+            throw $e;
         }
     }
     public function store(Request $request)

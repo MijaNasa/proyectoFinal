@@ -361,7 +361,7 @@ const submitSuscripcion = () => {
                                         <!-- Editorial & Categoría -->
                                         <td class="p-4">
                                             <div class="text-xs font-semibold text-zinc-300">
-                                                {{ serie.proveedor?.nombre || 'Editorial S/D' }}
+                                                {{ serie.proveedor?.nombre_empresa || serie.proveedor?.nombre || 'Editorial S/D' }}
                                             </div>
                                             <div class="flex items-center gap-2 mt-1">
                                                 <span v-if="serie.categoria" class="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-[11px] text-zinc-400 font-medium">

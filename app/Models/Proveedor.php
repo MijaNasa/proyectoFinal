@@ -20,6 +20,13 @@ class Proveedor extends Model
         'nombre_empresa', 'nombre_contacto', 'telefono', 'email', 'activo', 'deuda_actual',
     ];
 
+    protected $appends = ['nombre'];
+
+    public function getNombreAttribute(): ?string
+    {
+        return $this->nombre_empresa;
+    }
+
     protected function nombreEmpresa(): Attribute
     {
         return Attribute::make(
