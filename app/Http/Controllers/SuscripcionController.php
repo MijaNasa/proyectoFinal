@@ -13,29 +13,57 @@ class SuscripcionController extends Controller
 {
     public function index(Request $request)
     {
-        // Top 5 series con más suscripciones activas
-        $topSeries = Suscripcion::select('libro_master_id', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
-            ->where('estado', 'activa')
-            ->groupBy('libro_master_id')
-            ->orderByDesc('total')
-            ->limit(5)
-            ->with(['serie' => fn($q) => $q->select('id', 'titulo', 'portada')->with(['libros' => fn($l) => $l->select('id', 'master_id', 'portada', 'numero_tomo')->whereNotNull('portada')->where('portada', '!=', '')])])
-            ->get();
+        // Asegurar que la columna deleted_at exista en la BD (resiliente ante migraciones pendientes en PostgreSQL/Render)
+        if (!\Illuminate\Support\Facades\Schema::hasColumn('suscripcions', 'deleted_at')) {
+            try {
+                \Illuminate\Support\Facades\Schema::table('suscripcions', function (\Illuminate\Database\Schema\Blueprint $table) {
+                    $table->softDeletes();
+                });
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('Verificación deleted_at en suscripcions: ' . $e->getMessage());
+            }
+        }
 
-        $search = $request->input('search');
+        try {
+            // Top 5 series con más suscripciones activas (ANSI SQL estándar compatible con PostgreSQL)
+            $topSeries = Suscripcion::select('libro_master_id', \Illuminate\Support\Facades\DB::raw('count(*) as total'))
+                ->where('estado', 'activa')
+                ->groupBy('libro_master_id')
+                ->orderByRaw('count(*) desc')
+                ->limit(5)
+                ->with(['serie:id,titulo,portada'])
+                ->get();
 
-        // Series agrupadas con sus suscripciones
-        $query = LibroMaster::query()
-            ->with([
-                'autor:id,nombre,apellido',
-                'categoria:id,nombre',
-                'proveedor:id,nombre',
-                'libros:id,master_id,portada',
-                'suscripciones' => function ($sq) use ($search) {
-                    $sq->with(['cliente.user:id,name,apellido,email,dni', 'sucursal:id,nombre']);
+            $search = $request->input('search');
+
+            // Series agrupadas con sus suscripciones
+            $query = LibroMaster::query()
+                ->with([
+                    'autor:id,nombre,apellido',
+                    'categoria:id,nombre',
+                    'proveedor:id,nombre',
+                    'suscripciones' => function ($sq) use ($search) {
+                        $sq->with(['cliente.user:id,name,apellido,email,dni', 'sucursal:id,nombre']);
+                        if ($search) {
+                            $like = '%' . mb_strtolower($search) . '%';
+                            $sq->where(function ($subQ) use ($like) {
+                                $subQ->whereHas('cliente.user', function ($uq) use ($like) {
+                                    $uq->whereRaw('LOWER(name) LIKE ?', [$like])
+                                       ->orWhereRaw('LOWER(apellido) LIKE ?', [$like])
+                                       ->orWhereRaw('LOWER(email) LIKE ?', [$like])
+                                       ->orWhereRaw('LOWER(dni) LIKE ?', [$like]);
+                                })->orWhereHas('serie', function ($mq) use ($like) {
+                                    $mq->whereRaw('LOWER(titulo) LIKE ?', [$like]);
+                                });
+                            });
+                        }
+                        $sq->latest();
+                    }
+                ])
+                ->whereHas('suscripciones', function ($q) use ($search) {
                     if ($search) {
                         $like = '%' . mb_strtolower($search) . '%';
-                        $sq->where(function ($subQ) use ($like) {
+                        $q->where(function ($subQ) use ($like) {
                             $subQ->whereHas('cliente.user', function ($uq) use ($like) {
                                 $uq->whereRaw('LOWER(name) LIKE ?', [$like])
                                    ->orWhereRaw('LOWER(apellido) LIKE ?', [$like])
@@ -46,67 +74,58 @@ class SuscripcionController extends Controller
                             });
                         });
                     }
-                    $sq->latest();
-                }
+                })
+                ->withCount('suscripciones')
+                ->orderByDesc('suscripciones_count')
+                ->orderBy('titulo');
+
+            $series = $query->paginate(12)->withQueryString();
+
+            $clientes = Cliente::with([
+                'user:id,name,apellido,email,dni',
+                'suscripciones:id,cliente_id,libro_master_id,estado'
             ])
-            ->whereHas('suscripciones', function ($q) use ($search) {
-                if ($search) {
-                    $like = '%' . mb_strtolower($search) . '%';
-                    $q->where(function ($subQ) use ($like) {
-                        $subQ->whereHas('cliente.user', function ($uq) use ($like) {
-                            $uq->whereRaw('LOWER(name) LIKE ?', [$like])
-                               ->orWhereRaw('LOWER(apellido) LIKE ?', [$like])
-                               ->orWhereRaw('LOWER(email) LIKE ?', [$like])
-                               ->orWhereRaw('LOWER(dni) LIKE ?', [$like]);
-                        })->orWhereHas('serie', function ($mq) use ($like) {
-                            $mq->whereRaw('LOWER(titulo) LIKE ?', [$like]);
-                        });
-                    });
-                }
-            })
-            ->withCount([
-                'suscripciones as total_suscripciones',
-                'suscripciones as suscripciones_activas'
-            ])
-            ->orderByDesc('suscripciones_activas')
-            ->orderBy('titulo');
+                ->whereHas('user', fn($q) => $q->where('activo', true))
+                ->get()
+                ->map(fn($c) => [
+                    'id'                      => $c->id,
+                    'nombre'                  => trim(($c->user?->name ?? '') . ' ' . ($c->user?->apellido ?? '')),
+                    'email'                   => $c->user?->email ?? '',
+                    'dni'                     => $c->user?->dni ?? '',
+                    'suscripciones_master_ids' => $c->suscripciones
+                        ->pluck('libro_master_id')
+                        ->values()
+                        ->all()
+                ])
+                ->sortBy('nombre', SORT_NATURAL | SORT_FLAG_CASE)
+                ->values();
 
-        $series = $query->paginate(12)->withQueryString();
+            $libroMasters = LibroMaster::where('activo', true)
+                ->orWhereNull('activo')
+                ->orderBy('titulo')
+                ->get(['id', 'titulo']);
 
-        $clientes = Cliente::with([
-            'user:id,name,apellido,email,dni',
-            'suscripciones:id,cliente_id,libro_master_id,estado'
-        ])
-            ->whereHas('user', fn($q) => $q->where('activo', true))
-            ->get()
-            ->map(fn($c) => [
-                'id'                      => $c->id,
-                'nombre'                  => trim(($c->user?->name ?? '') . ' ' . ($c->user?->apellido ?? '')),
-                'email'                   => $c->user?->email ?? '',
-                'dni'                     => $c->user?->dni ?? '',
-                'suscripciones_master_ids' => $c->suscripciones
-                    ->pluck('libro_master_id')
-                    ->values()
-                    ->all()
-            ])
-            ->sortBy('nombre', SORT_NATURAL | SORT_FLAG_CASE)
-            ->values();
+            $sucursales = Sucursal::where('activo', true)->get(['id', 'nombre']);
 
-        $libroMasters = LibroMaster::where('activo', true)
-            ->orWhereNull('activo')
-            ->orderBy('titulo')
-            ->get(['id', 'titulo']);
+            return inertia('Suscripciones/Index', [
+                'series'        => $series,
+                'topSeries'     => $topSeries,
+                'clientes'      => $clientes,
+                'libro_masters' => $libroMasters,
+                'sucursales'    => $sucursales,
+                'filters'       => $request->only(['search'])
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('Error en SuscripcionController@index: ' . $e->getMessage(), [
+                'trace' => $e->getTraceAsString(),
+            ]);
 
-        $sucursales = Sucursal::where('activo', true)->get(['id', 'nombre']);
-
-        return inertia('Suscripciones/Index', [
-            'series'        => $series,
-            'topSeries'     => $topSeries,
-            'clientes'      => $clientes,
-            'libro_masters' => $libroMasters,
-            'sucursales'    => $sucursales,
-            'filters'       => $request->only(['search'])
-        ]);
+            return response()->json([
+                'error'   => $e->getMessage(),
+                'file'    => $e->getFile() . ':' . $e->getLine(),
+                'context' => 'SuscripcionController@index'
+            ], 500);
+        }
     }
     public function store(Request $request)
     {
