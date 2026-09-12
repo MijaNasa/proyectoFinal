@@ -313,10 +313,10 @@ const submitSuscripcion = () => {
                             <thead>
                                 <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
                                     <th class="p-4 w-12 text-center"></th>
-                                    <th class="p-4 w-[40%]">Serie / Obra Suscripta</th>
-                                    <th class="p-4 w-[25%]">Editorial & Categoría</th>
-                                    <th class="p-4 w-[20%] text-center">Suscriptores</th>
-                                    <th class="p-4 w-[15%] text-right">Acción</th>
+                                    <th class="p-4 min-w-[280px]">Serie / Obra Suscripta</th>
+                                    <th class="p-4 min-w-[260px]">Editorial & Categoría</th>
+                                    <th class="p-4 w-36 text-center whitespace-nowrap">Suscriptores</th>
+                                    <th class="p-4 w-32 text-right whitespace-nowrap">Acción</th>
                                 </tr>
                             </thead>
                             <tbody class="divide-y divide-white/5 text-sm">
@@ -360,14 +360,14 @@ const submitSuscripcion = () => {
 
                                         <!-- Editorial & Categoría -->
                                         <td class="p-4">
-                                            <div class="text-xs font-semibold text-zinc-300">
+                                            <div class="text-xs font-semibold text-zinc-300 whitespace-nowrap">
                                                 {{ serie.proveedor?.nombre_empresa || serie.proveedor?.nombre || 'Editorial S/D' }}
                                             </div>
-                                            <div class="flex items-center gap-2 mt-1">
-                                                <span v-if="serie.categoria" class="px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-[11px] text-zinc-400 font-medium">
+                                            <div class="flex items-center gap-2 mt-1.5 whitespace-nowrap">
+                                                <span v-if="serie.categoria" class="inline-flex items-center px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-[11px] text-zinc-300 font-medium whitespace-nowrap">
                                                     {{ serie.categoria.nombre }}
                                                 </span>
-                                                <span v-if="serie.formato" class="text-[11px] text-zinc-500 font-mono">
+                                                <span v-if="serie.formato" class="inline-flex items-center px-2 py-0.5 rounded-md bg-white/[0.03] border border-white/5 text-[11px] text-zinc-400 font-medium whitespace-nowrap">
                                                     {{ serie.formato }}
                                                 </span>
                                             </div>
