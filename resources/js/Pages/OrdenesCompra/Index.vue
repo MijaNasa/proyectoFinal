@@ -69,6 +69,26 @@ function verDetalle(orden) {
     showDetailModal.value = true;
 }
 
+// ── Modal ver detalle de demanda (preventas y suscriptores) ───────────────────
+const showDemandaModal  = ref(false);
+const demandaModalItem  = ref(null);
+const demandaModalTitle = ref('');
+const demandaModalIndex = ref(null);
+
+function openDemandaModal(item, title, index) {
+    demandaModalItem.value  = item;
+    demandaModalTitle.value = title || 'Libro';
+    demandaModalIndex.value = index;
+    showDemandaModal.value  = true;
+}
+
+function aplicarCantidadSugerida() {
+    if (demandaModalIndex.value !== null && demandaModalItem.value?.total_comprometido) {
+        form.items[demandaModalIndex.value].cantidad = demandaModalItem.value.total_comprometido;
+    }
+    showDemandaModal.value = false;
+}
+
 // ── Modal crear orden ─────────────────────────────────────────────────────────
 const showModal  = ref(false);
 const isEditing  = ref(false);
@@ -152,7 +172,16 @@ function addItem(checkValidation = true) {
         return;
     }
     modalError.value = '';
-    form.items.push({ libro_id: '', cantidad: 1, precio_unitario: 0, stock: 0, reservas: 0 });
+    form.items.push({ 
+        libro_id: '', 
+        cantidad: 1, 
+        precio_unitario: 0, 
+        stock: 0, 
+        reservas: 0,
+        suscriptores: 0,
+        total_comprometido: 0,
+        demanda_detalle: { preventas: [], suscriptores: [] }
+    });
     itemDdOpen.value.push(false);
     itemSearches.value.push('');
     itemResults.value.push([]);
@@ -241,11 +270,14 @@ watch([() => form.proveedor_id, () => form.sucursal_id], ([newProv, newSuc]) => 
                 const preventas = response.data;
                 if (preventas && preventas.length > 0) {
                     form.items = preventas.map(p => ({
-                        libro_id: p.id,
-                        cantidad: p.reservas,
-                        precio_unitario: p.precio_unitario || 0,
-                        stock: p.stock,
-                        reservas: p.reservas,
+                        libro_id:           p.id,
+                        cantidad:           p.total_comprometido || p.reservas || 1,
+                        precio_unitario:    p.precio_unitario || 0,
+                        stock:              p.stock || 0,
+                        reservas:           p.reservas || 0,
+                        suscriptores:       p.suscriptores || 0,
+                        total_comprometido: p.total_comprometido || 0,
+                        demanda_detalle:    p.demanda_detalle || { preventas: [], suscriptores: [] },
                     }));
                     itemDdOpen.value = preventas.map(() => false);
                     itemSearches.value = preventas.map(() => '');
@@ -253,7 +285,16 @@ watch([() => form.proveedor_id, () => form.sucursal_id], ([newProv, newSuc]) => 
                     itemLoadings.value = preventas.map(() => false);
                     itemLabels.value = preventas.map(p => p.titulo);
                 } else {
-                    form.items = [{ libro_id: '', cantidad: 1, precio_unitario: 0, stock: 0, reservas: 0 }];
+                    form.items = [{ 
+                        libro_id:           '', 
+                        cantidad:           1, 
+                        precio_unitario:    0, 
+                        stock:              0, 
+                        reservas:           0,
+                        suscriptores:       0,
+                        total_comprometido: 0,
+                        demanda_detalle:    { preventas: [], suscriptores: [] }
+                    }];
                     itemDdOpen.value = [false];
                     itemSearches.value = [''];
                     itemResults.value = [[]];
@@ -314,22 +355,44 @@ function openItemDd(i, forceOpen = false) {
         searchLibros(i, itemSearches.value[i] || itemLabels.value[i] || '');
     }
 }
+
 function selectItemLibro(i, libro) {
-    form.items[i].libro_id = libro.id;
-    form.items[i].stock = libro.stock ?? 0;
-    form.items[i].reservas = libro.reservas ?? 0;
+    form.items[i].libro_id           = libro.id;
+    form.items[i].stock              = libro.stock ?? 0;
+    form.items[i].reservas           = libro.reservas ?? 0;
+    form.items[i].suscriptores       = libro.suscriptores ?? 0;
+    form.items[i].total_comprometido = libro.total_comprometido ?? (libro.reservas ?? 0);
+    form.items[i].demanda_detalle    = libro.demanda_detalle ?? { preventas: [], suscriptores: [] };
+
     if (libro.precio_costo !== undefined && libro.precio_costo !== null) {
         form.items[i].precio_unitario = parseFloat(libro.precio_costo);
     } else if (libro.precio_unitario !== undefined && libro.precio_unitario !== null) {
         form.items[i].precio_unitario = parseFloat(libro.precio_unitario);
     }
-    if (libro.reservas && libro.reservas > 0) {
+
+    if (libro.total_comprometido && libro.total_comprometido > 0) {
+        form.items[i].cantidad = Math.max(form.items[i].cantidad || 1, libro.total_comprometido);
+    } else if (libro.reservas && libro.reservas > 0) {
         form.items[i].cantidad = Math.max(form.items[i].cantidad || 1, libro.reservas);
     }
+
     itemLabels.value[i] = libro.titulo;
     itemDdOpen.value[i] = false;
     itemSearches.value[i] = '';
     itemResults.value[i] = [];
+}
+
+function clearItem(i) {
+    itemLabels.value[i]              = '';
+    form.items[i].libro_id           = '';
+    form.items[i].stock              = 0;
+    form.items[i].reservas           = 0;
+    form.items[i].suscriptores       = 0;
+    form.items[i].total_comprometido = 0;
+    form.items[i].demanda_detalle    = { preventas: [], suscriptores: [] };
+    itemResults.value[i]             = [];
+    openItemDd(i, true);
+    searchLibros(i, '');
 }
 function searchLibros(i, q) {
     clearTimeout(searchTimers[i]);
@@ -711,20 +774,47 @@ const decodeLabel = (l) => {
 
                                             <!-- Libro direct search input & dropdown -->
                                             <div class="col-span-1 sm:col-span-6 relative item-libro-wrapper" :data-item-index="i">
-                                                <div class="relative">
+                                                <div class="relative flex items-center">
                                                     <input 
                                                         type="text" 
                                                         v-model="itemLabels[i]"
                                                         @focus="openItemDd(i, true); $event.target.select()"
                                                         @input="openItemDd(i, true); searchLibros(i, $event.target.value)"
                                                         placeholder="Escribir título o ISBN..." 
-                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3 py-2 text-xs text-white font-semibold focus:outline-none focus:border-white/30 truncate"
+                                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl pl-3 py-2 text-xs text-white font-semibold focus:outline-none focus:border-white/30 truncate transition-all"
+                                                        :class="[
+                                                            (item.total_comprometido > 0 || item.reservas > 0)
+                                                                ? (itemLabels[i] ? 'pr-28' : 'pr-20') 
+                                                                : (itemLabels[i] ? 'pr-8' : 'pr-3')
+                                                        ]"
                                                     />
-                                                    <div v-if="itemLabels[i]" @click.stop="itemLabels[i] = ''; form.items[i].libro_id = ''; form.items[i].reservas = 0; form.items[i].stock = 0; openItemDd(i, true); searchLibros(i, '')" class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-500 hover:text-white text-xs">✕</div>
+
+                                                    <!-- Badge de Demanda Comprometida (Preventas + Suscriptores) -->
+                                                    <button
+                                                        v-if="item.total_comprometido > 0 || item.reservas > 0"
+                                                        type="button"
+                                                        @click.stop="openDemandaModal(item, itemLabels[i], i)"
+                                                        class="absolute top-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 text-[11px] font-bold cursor-pointer transition-all shadow-sm select-none"
+                                                        :class="itemLabels[i] ? 'right-7' : 'right-2'"
+                                                        title="Click para ver detalle de preventas y suscriptores"
+                                                    >
+                                                        <span>⚡</span>
+                                                        <span>{{ item.total_comprometido || item.reservas }}</span>
+                                                        <span class="text-[9px] text-amber-400/80 uppercase font-semibold hidden md:inline">mín.</span>
+                                                        <svg class="w-3 h-3 text-amber-400/80" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                    </button>
+
+                                                    <!-- Botón borrar selección (✕) -->
+                                                    <div 
+                                                        v-if="itemLabels[i]" 
+                                                        @click.stop="clearItem(i)" 
+                                                        class="absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-500 hover:text-white text-xs p-1"
+                                                        title="Borrar selección"
+                                                    >✕</div>
                                                 </div>
-                                                <p v-if="item.reservas > 0" class="text-[11px] text-amber-400 mt-1 font-semibold">
-                                                    ⚡ ¡Hay {{ item.reservas }} tomo(s) en preventa!
-                                                </p>
+
                                                 <div v-if="itemDdOpen[i]" @click.stop class="absolute z-50 mt-1 w-full bg-[#131316] border border-white/10 rounded-xl overflow-hidden shadow-2xl">
                                                     <div class="max-h-48 overflow-y-auto">
                                                         <div v-if="itemLoadings[i]" class="px-3 py-3 text-zinc-500 text-xs text-center">Cargando libros…</div>
@@ -735,7 +825,12 @@ const decodeLabel = (l) => {
                                                                 class="w-full text-left px-3 py-2 text-xs text-zinc-300 hover:bg-white/10 transition-colors flex justify-between items-center"
                                                                 :class="{ 'text-white font-bold bg-white/10': item.libro_id == l.id }">
                                                                 <span class="truncate pr-2">{{ l.titulo }}</span>
-                                                                <span class="text-zinc-500 text-[11px] font-semibold shrink-0">Stock: {{ l.stock }}</span>
+                                                                <div class="flex items-center gap-2 shrink-0">
+                                                                    <span v-if="l.total_comprometido > 0" class="px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300 font-bold text-[10px]">
+                                                                        ⚡ {{ l.total_comprometido }}
+                                                                    </span>
+                                                                    <span class="text-zinc-500 text-[11px] font-semibold">Stock: {{ l.stock }}</span>
+                                                                </div>
                                                             </button>
                                                         </template>
                                                     </div>
@@ -935,6 +1030,162 @@ const decodeLabel = (l) => {
                                     Cerrar
                                 </button>
                             </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <!-- Modal Ver Detalle de Demanda (Preventas y Suscriptores) -->
+        <Teleport to="body">
+            <div v-if="showDemandaModal && demandaModalItem" class="page-ordenes-compra">
+                <div class="fixed inset-0 z-[120] bg-black/90 backdrop-blur-md" @click="showDemandaModal = false" />
+                <div class="fixed inset-0 z-[130] flex items-center justify-center p-4 pointer-events-none">
+                    <div class="relative w-full max-w-2xl bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
+
+                        <!-- Header -->
+                        <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-start">
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <span class="p-1 rounded-lg bg-amber-500/20 text-amber-300 text-xs font-bold">⚡ DEMANDA</span>
+                                    <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                        Desglose de Ejemplares Comprometidos
+                                    </h3>
+                                </div>
+                                <p class="text-xs font-semibold text-zinc-300 mt-1.5">
+                                    {{ demandaModalTitle }}
+                                </p>
+                            </div>
+                            <button @click="showDemandaModal = false" class="text-zinc-400 hover:text-white transition-colors cursor-pointer p-1">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        <!-- Body -->
+                        <div class="p-6 space-y-5">
+
+                            <!-- Tarjetas Métricas de Resumen -->
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div class="bg-[#131316] border border-amber-500/30 rounded-xl p-3.5 flex flex-col justify-between shadow-md">
+                                    <div class="text-[11px] font-bold text-amber-400 uppercase tracking-wider">Mínimo Sugerido</div>
+                                    <div class="text-2xl font-mono font-bold text-white mt-1">
+                                        {{ demandaModalItem.total_comprometido || demandaModalItem.reservas || 1 }}
+                                        <span class="text-xs font-medium text-zinc-400 font-sans">tomos</span>
+                                    </div>
+                                </div>
+
+                                <div class="bg-[#131316] border border-white/5 rounded-xl p-3.5 flex flex-col justify-between shadow-md">
+                                    <div class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Preventas Web</div>
+                                    <div class="text-2xl font-mono font-bold text-white mt-1">
+                                        {{ demandaModalItem.reservas || 0 }}
+                                        <span class="text-xs font-medium text-zinc-400 font-sans">pagados</span>
+                                    </div>
+                                </div>
+
+                                <div class="bg-[#131316] border border-white/5 rounded-xl p-3.5 flex flex-col justify-between shadow-md">
+                                    <div class="text-[11px] font-bold text-zinc-400 uppercase tracking-wider">Suscriptores Sucursal</div>
+                                    <div class="text-2xl font-mono font-bold text-white mt-1">
+                                        {{ demandaModalItem.suscriptores || 0 }}
+                                        <span class="text-xs font-medium text-zinc-400 font-sans">a reservar</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Lista 1: Preventas Web -->
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>🛒 Preventas Web</span>
+                                        <span class="text-zinc-500 font-normal">({{ demandaModalItem.demanda_detalle?.preventas?.length || 0 }})</span>
+                                    </h4>
+                                </div>
+
+                                <div v-if="!demandaModalItem.demanda_detalle?.preventas?.length" class="bg-[#131316] border border-white/5 rounded-xl p-4 text-center text-xs text-zinc-500 italic">
+                                    No hay compras en preventa web registradas para este tomo.
+                                </div>
+
+                                <div v-else class="bg-[#131316] border border-white/5 rounded-xl divide-y divide-white/5 overflow-hidden">
+                                    <div v-for="(prev, pIdx) in demandaModalItem.demanda_detalle.preventas" :key="pIdx" class="p-3 flex items-center justify-between gap-3 text-xs hover:bg-white/[0.02]">
+                                        <div>
+                                            <div class="font-bold text-white">{{ prev.cliente_nombre }}</div>
+                                            <div class="text-[11px] text-zinc-400 font-medium">{{ prev.cliente_email }}</div>
+                                        </div>
+                                        <div class="flex items-center gap-3 shrink-0">
+                                            <span class="font-mono font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-lg text-xs">
+                                                {{ prev.cantidad }} {{ prev.cantidad === 1 ? 'ejemplar' : 'ejemplares' }}
+                                            </span>
+                                            <Link v-if="prev.venta_id" :href="route('ventas.index', { search: prev.codigo_venta || prev.venta_id })" target="_blank"
+                                                class="text-zinc-400 hover:text-white transition-colors underline text-[11px]" title="Ver venta en nueva pestaña">
+                                                {{ prev.codigo_venta || ('Venta #' + prev.venta_id) }}
+                                            </Link>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Lista 2: Suscriptores Activos a Reservar en Local -->
+                            <div class="space-y-2">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                                        <span>👥 Suscriptores de la Serie (Retiro en Mostrador)</span>
+                                        <span class="text-zinc-500 font-normal">({{ demandaModalItem.demanda_detalle?.suscriptores?.length || 0 }})</span>
+                                    </h4>
+                                </div>
+
+                                <div v-if="!demandaModalItem.demanda_detalle?.suscriptores?.length" class="bg-[#131316] border border-white/5 rounded-xl p-4 text-center text-xs text-zinc-500 italic">
+                                    No hay suscriptores pendientes de este tomo en la sucursal destino.
+                                </div>
+
+                                <div v-else class="bg-[#131316] border border-white/5 rounded-xl divide-y divide-white/5 overflow-hidden">
+                                    <div v-for="(sub, sIdx) in demandaModalItem.demanda_detalle.suscriptores" :key="sIdx" class="p-3 flex items-center justify-between gap-3 text-xs hover:bg-white/[0.02]">
+                                        <div>
+                                            <div class="font-bold text-white">{{ sub.cliente_nombre }}</div>
+                                            <div class="text-[11px] text-zinc-400 font-medium">{{ sub.cliente_email }}</div>
+                                        </div>
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <span class="px-2 py-0.5 rounded-lg bg-white/5 border border-white/10 text-[11px] text-zinc-300 font-medium font-mono">
+                                                Desde Tomo {{ sub.tomo_inicio }}
+                                            </span>
+                                            <span class="px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] font-semibold">
+                                                1 a reservar
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Nota aclaratoria -->
+                            <div class="p-3 rounded-xl bg-white/[0.02] border border-white/5 flex items-start gap-2.5 text-[11px] text-zinc-400 leading-relaxed">
+                                <svg class="w-4 h-4 text-zinc-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>
+                                    Los suscriptores que ya compraron este tomo online mediante Preventa están contabilizados únicamente en <strong>Preventas Web</strong> para evitar pedir ejemplares duplicados.
+                                </span>
+                            </div>
+
+                        </div>
+
+                        <!-- Footer -->
+                        <div class="flex items-center justify-between border-t border-white/5 p-4 sm:p-6 bg-[#131316]">
+                            <button
+                                type="button"
+                                @click="aplicarCantidadSugerida"
+                                class="px-4 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                            >
+                                <span>⚡ Establecer cantidad en {{ demandaModalItem.total_comprometido || demandaModalItem.reservas || 1 }}</span>
+                            </button>
+
+                            <button
+                                type="button"
+                                @click="showDemandaModal = false"
+                                class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all cursor-pointer"
+                            >
+                                Cerrar
+                            </button>
                         </div>
 
                     </div>

@@ -24,7 +24,7 @@ class Proveedor extends Model
 
     public function getNombreAttribute(): ?string
     {
-        return $this->nombre_empresa;
+        return $this->attributes['nombre'] ?? $this->attributes['nombre_empresa'] ?? null;
     }
 
     protected function nombreEmpresa(): Attribute

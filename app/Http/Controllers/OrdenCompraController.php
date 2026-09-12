@@ -42,7 +42,7 @@ class OrdenCompraController extends Controller
 
         return inertia('OrdenesCompra/Index', [
             'ordenes'     => $ordenes,
-            'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa as nombre']),
+            'proveedores' => \App\Models\Proveedor::where('activo', true)->orderBy('nombre_empresa')->get(['id', 'nombre_empresa', 'nombre_empresa as nombre']),
             'sucursales'  => \App\Models\Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
             'stats'       => $stats,
             'filters'     => $request->only(['search', 'estado']),
@@ -337,6 +337,101 @@ class OrdenCompraController extends Controller
             ->with('message', "Orden {$ordenesCompra->numero_orden} recibida. Stock y deuda actualizados.");
     }
 
+    private function getDetalleDemandaLibro($libroId, $masterId, $numeroTomo, $sucursalId): array
+    {
+        if (!$sucursalId) {
+            return [
+                'reservas'           => 0,
+                'suscriptores'       => 0,
+                'total_comprometido' => 0,
+                'demanda_detalle'    => [
+                    'preventas'    => [],
+                    'suscriptores' => [],
+                ],
+            ];
+        }
+
+        // 1. Preventas Web registradas para esta sucursal
+        $preventas = \App\Models\VentaDetalle::where('libro_id', $libroId)
+            ->whereHas('venta', function ($q) use ($sucursalId) {
+                $q->where('estado', 'en_preventa')
+                  ->where('sucursal_id', $sucursalId);
+            })
+            ->with(['venta.cliente.user:id,name,apellido,email'])
+            ->get();
+
+        $preventasCount = (int) $preventas->sum('cantidad');
+        $preventasDetalle = $preventas->map(function ($vd) {
+            $cliente = $vd->venta?->cliente;
+            $user = $cliente?->user;
+            $nombre = trim(($user?->name ?? '') . ' ' . ($user?->apellido ?? ''));
+            return [
+                'venta_id'       => $vd->venta_id,
+                'codigo_venta'   => $vd->venta?->codigo_venta ?? "V-{$vd->venta_id}",
+                'cliente_id'     => $cliente?->id,
+                'cliente_nombre' => $nombre ?: 'Cliente Web',
+                'cliente_email'  => $user?->email ?? '',
+                'cantidad'       => (int) $vd->cantidad,
+            ];
+        })->values()->all();
+
+        // IDs de clientes que ya compraron este tomo en preventa web
+        $clienteIdsConPreventa = collect($preventasDetalle)->pluck('cliente_id')->filter()->unique()->all();
+
+        // 2. Suscriptores Activos en esta Sucursal
+        $suscriptoresCount = 0;
+        $suscriptoresDetalle = [];
+
+        if ($masterId) {
+            $tomoNum = (int) preg_replace('/\D/', '', (string) $numeroTomo);
+            $suscripcionesQuery = \App\Models\Suscripcion::where('libro_master_id', $masterId)
+                ->where('sucursal_id', $sucursalId)
+                ->where('estado', 'activa')
+                ->whereNull('deleted_at')
+                ->with(['cliente.user:id,name,apellido,email']);
+
+            if ($tomoNum > 0) {
+                $suscripcionesQuery->where(function ($q) use ($tomoNum) {
+                    $q->whereNull('tomo_inicio')
+                      ->orWhere('tomo_inicio', '<=', $tomoNum);
+                });
+            }
+
+            $suscripciones = $suscripcionesQuery->get();
+
+            foreach ($suscripciones as $sub) {
+                // Si el suscriptor ya compró este tomo en preventa web, no se computa doble
+                if ($sub->cliente_id && in_array($sub->cliente_id, $clienteIdsConPreventa)) {
+                    continue;
+                }
+
+                $user = $sub->cliente?->user;
+                $nombre = trim(($user?->name ?? '') . ' ' . ($user?->apellido ?? ''));
+
+                $suscriptoresDetalle[] = [
+                    'suscripcion_id' => $sub->id,
+                    'cliente_id'     => $sub->cliente_id,
+                    'cliente_nombre' => $nombre ?: 'Suscriptor',
+                    'cliente_email'  => $user?->email ?? '',
+                    'tomo_inicio'    => $sub->tomo_inicio ?: 1,
+                ];
+                $suscriptoresCount++;
+            }
+        }
+
+        $totalComprometido = $preventasCount + $suscriptoresCount;
+
+        return [
+            'reservas'           => $preventasCount,
+            'suscriptores'       => $suscriptoresCount,
+            'total_comprometido' => $totalComprometido,
+            'demanda_detalle'    => [
+                'preventas'    => $preventasDetalle,
+                'suscriptores' => $suscriptoresDetalle,
+            ],
+        ];
+    }
+
     public function searchLibros(Request $request): \Illuminate\Http\JsonResponse
     {
         $q = trim($request->get('q', ''));
@@ -349,15 +444,7 @@ class OrdenCompraController extends Controller
                 if ($sucursal_id) {
                     $q->where('sucursal_id', $sucursal_id);
                 }
-            }], 'cantidad_disponible')
-            ->withSum(['ventaDetalles as reservas_pendientes' => function($q) use ($sucursal_id) {
-                $q->whereHas('venta', function($qVenta) use ($sucursal_id) {
-                    $qVenta->where('estado', 'en_preventa');
-                    if ($sucursal_id) {
-                        $qVenta->where('sucursal_id', $sucursal_id);
-                    }
-                });
-            }], 'cantidad');
+            }], 'cantidad_disponible');
 
         if ($proveedor_id) {
             $query->whereHas('master', fn($query) => $query->where('proveedor_id', $proveedor_id));
@@ -384,14 +471,20 @@ class OrdenCompraController extends Controller
 
         $libros = $query->limit(50)
             ->get()
-            ->map(fn($l) => [
-                'id'              => $l->id,
-                'titulo'          => ($l->master?->titulo ?? 'Sin título') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
-                'stock'           => (int) ($l->stock_sucursal ?? 0),
-                'reservas'        => (int) ($l->reservas_pendientes ?? 0),
-                'precio_costo'    => (float) ($l->precioActual?->precio_compra ?? 0),
-                'precio_unitario' => (float) ($l->precioActual?->precio_compra ?? 0),
-            ]);
+            ->map(function($l) use ($sucursal_id) {
+                $demanda = $this->getDetalleDemandaLibro($l->id, $l->master_id, $l->numero_tomo, $sucursal_id);
+                return [
+                    'id'                 => $l->id,
+                    'titulo'             => ($l->master?->titulo ?? 'Sin título') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
+                    'stock'              => (int) ($l->stock_sucursal ?? 0),
+                    'reservas'           => $demanda['reservas'],
+                    'suscriptores'       => $demanda['suscriptores'],
+                    'total_comprometido' => $demanda['total_comprometido'],
+                    'demanda_detalle'    => $demanda['demanda_detalle'],
+                    'precio_costo'       => (float) ($l->precioActual?->precio_compra ?? 0),
+                    'precio_unitario'    => (float) ($l->precioActual?->precio_compra ?? 0),
+                ];
+            });
 
         return response()->json($libros);
     }
@@ -405,36 +498,47 @@ class OrdenCompraController extends Controller
             return response()->json([]);
         }
 
-        $libros = \App\Models\Libro::whereHas('master')
-            ->with(['master:id,titulo,proveedor_id', 'precioActual'])
-            ->whereHas('master', fn($q) => $q->where('proveedor_id', $proveedor_id))
-            ->where('permite_preventa', true)
-            ->whereHas('ventaDetalles', function($q) use ($sucursal_id) {
-                $q->whereHas('venta', function($qVenta) use ($sucursal_id) {
-                    $qVenta->where('estado', 'en_preventa')
-                           ->where('sucursal_id', $sucursal_id);
+        $libros = \App\Models\Libro::whereHas('master', fn($q) => $q->where('proveedor_id', $proveedor_id))
+            ->where(function ($q) use ($sucursal_id) {
+                $q->where(function ($qPrev) use ($sucursal_id) {
+                    $qPrev->where('permite_preventa', true)
+                        ->whereHas('ventaDetalles', function($vd) use ($sucursal_id) {
+                            $vd->whereHas('venta', function($qVenta) use ($sucursal_id) {
+                                $qVenta->where('estado', 'en_preventa')
+                                       ->where('sucursal_id', $sucursal_id);
+                            });
+                        });
+                })->orWhereHas('master.suscripciones', function ($qSub) use ($sucursal_id) {
+                    $qSub->where('sucursal_id', $sucursal_id)
+                         ->where('estado', 'activa')
+                         ->whereNull('deleted_at');
                 });
             })
+            ->with(['master:id,titulo,proveedor_id', 'precioActual'])
             ->withSum(['stocks as stock_sucursal' => function($q) use ($sucursal_id) {
                 $q->where('sucursal_id', $sucursal_id);
             }], 'cantidad_disponible')
-            ->withSum(['ventaDetalles as reservas_pendientes' => function($q) use ($sucursal_id) {
-                $q->whereHas('venta', function($qVenta) use ($sucursal_id) {
-                    $qVenta->where('estado', 'en_preventa')
-                           ->where('sucursal_id', $sucursal_id);
-                });
-            }], 'cantidad')
-            ->get()
-            ->map(fn($l) => [
-                'id'              => $l->id,
-                'titulo'          => ($l->master?->titulo ?? 'Sin título') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
-                'stock'           => (int) ($l->stock_sucursal ?? 0),
-                'reservas'        => (int) $l->reservas_pendientes,
-                'precio_costo'    => (float) ($l->precioActual?->precio_compra ?? 0),
-                'precio_unitario' => (float) ($l->precioActual?->precio_compra ?? 0),
-            ]);
+            ->get();
 
-        return response()->json($libros);
+        $result = [];
+        foreach ($libros as $l) {
+            $demanda = $this->getDetalleDemandaLibro($l->id, $l->master_id, $l->numero_tomo, $sucursal_id);
+            if ($demanda['total_comprometido'] > 0) {
+                $result[] = [
+                    'id'                 => $l->id,
+                    'titulo'             => ($l->master?->titulo ?? 'Sin título') . ($l->numero_tomo ? ' - Tomo ' . $l->numero_tomo : ''),
+                    'stock'              => (int) ($l->stock_sucursal ?? 0),
+                    'reservas'           => $demanda['reservas'],
+                    'suscriptores'       => $demanda['suscriptores'],
+                    'total_comprometido' => $demanda['total_comprometido'],
+                    'demanda_detalle'    => $demanda['demanda_detalle'],
+                    'precio_costo'       => (float) ($l->precioActual?->precio_compra ?? 0),
+                    'precio_unitario'    => (float) ($l->precioActual?->precio_compra ?? 0),
+                ];
+            }
+        }
+
+        return response()->json($result);
     }
 
     public function destroy(Request $request, OrdenCompra $ordenesCompra)

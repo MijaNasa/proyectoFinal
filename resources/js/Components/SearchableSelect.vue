@@ -40,11 +40,12 @@ const wrapperRef = ref(null);
 
 // Get the display label for an option
 const getLabel = (option) => {
-    if (typeof option === 'string' || typeof option === 'number') return option;
+    if (!option) return '';
+    if (typeof option === 'string' || typeof option === 'number') return String(option);
     if (typeof props.labelKey === 'function') {
-        return props.labelKey(option);
+        return props.labelKey(option) || '';
     }
-    return option[props.labelKey];
+    return option[props.labelKey] ?? option.nombre ?? option.nombre_empresa ?? '';
 };
 
 // Find the currently selected option to show its label when closed
