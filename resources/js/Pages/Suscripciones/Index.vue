@@ -161,6 +161,10 @@ const seriesDisponibles = computed(() => {
     return (props.libro_masters || []).filter(m => !suscritos.includes(m.id));
 });
 
+const serieSeleccionada = computed(() => {
+    return (props.libro_masters || []).find(m => m.id === form.libro_master_id) || null;
+});
+
 const openModal = () => {
     form.reset();
     form.clearErrors();
@@ -642,6 +646,12 @@ const submitSuscripcion = () => {
                                         class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm font-bold font-mono text-white focus:outline-none focus:border-white/30"
                                         :class="{ 'border-rose-500': form.errors.tomo_inicio }"
                                     />
+                                    <p v-if="serieSeleccionada" class="text-zinc-500 text-[11px] mt-1">
+                                        Último tomo cargado en catálogo: {{ serieSeleccionada.max_tomo }}
+                                    </p>
+                                    <p v-if="serieSeleccionada && form.tomo_inicio > serieSeleccionada.max_tomo" class="text-amber-400 text-xs font-semibold mt-1">
+                                        ⚠ Todavía no existe ese tomo en el catálogo — la suscripción no disparará avisos ni descuentos hasta que se cargue.
+                                    </p>
                                     <p v-if="form.errors.tomo_inicio" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.tomo_inicio }}</p>
                                 </div>
 

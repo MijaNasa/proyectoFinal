@@ -103,7 +103,19 @@ class SuscripcionController extends Controller
             $libroMasters = LibroMaster::where('activo', true)
                 ->orWhereNull('activo')
                 ->orderBy('titulo')
-                ->get(['id', 'titulo']);
+                ->with(['libros:id,master_id,numero_tomo'])
+                ->get(['id', 'titulo'])
+                ->map(function ($m) {
+                    $maxTomo = $m->libros
+                        ->map(fn ($l) => (int) preg_replace('/\D/', '', (string) $l->numero_tomo))
+                        ->max();
+
+                    return [
+                        'id'        => $m->id,
+                        'titulo'    => $m->titulo,
+                        'max_tomo'  => $maxTomo ?: 1,
+                    ];
+                });
 
             $sucursales = Sucursal::where('activo', true)->get(['id', 'nombre']);
 
