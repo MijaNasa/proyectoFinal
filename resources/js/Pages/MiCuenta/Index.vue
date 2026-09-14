@@ -8,6 +8,7 @@ import { decodeLabel } from '@/composables/useDecodeLabel';
 const props = defineProps({
     pedidos: Object,
     usuario: Object,
+    saldoCuenta: [Number, String],
 });
 
 const darkSwal = Swal.mixin({
@@ -167,7 +168,8 @@ const estadoConfig = {
     cancelado:          { label: 'Cancelado',           bgDot: 'bg-rose-500' },
 };
 
-const getTipoEnvioLabel = (tipo) => {
+const getTipoEnvioLabel = (tipo, tipoVenta) => {
+    if (tipoVenta === 'presencial') return 'Compra en local';
     if (tipo === 'retiro') return 'Retiro en sucursal';
     if (tipo === 'acumulacion') return 'Acumulación en sucursal';
     if (tipo === 'correo_sucursal') return 'Envío a Sucursal Correo Argentino';
@@ -206,6 +208,21 @@ const solicitarEnvioAcumulados = () => {
                     </h1>
                     <p class="text-xs text-zinc-400 font-medium mt-0.5">Cliente desde {{ formatFecha(usuario.created_at) }}</p>
                 </div>
+            </div>
+
+            <!-- Cuenta Corriente: saldo a favor o deuda -->
+            <div v-if="saldoCuenta !== null && saldoCuenta !== undefined && Number(saldoCuenta) !== 0"
+                 class="bg-[#131316] border rounded-2xl p-5 shadow-xl flex items-center justify-between"
+                 :class="Number(saldoCuenta) < 0 ? 'border-rose-500/20' : 'border-emerald-500/20'">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-wider text-zinc-400">
+                        {{ Number(saldoCuenta) < 0 ? 'Deuda en cuenta corriente' : 'Saldo a favor' }}
+                    </p>
+                    <p class="text-[11px] text-zinc-500 mt-0.5">Incluye compras en local abonadas con cuenta corriente.</p>
+                </div>
+                <p class="text-xl font-bold font-mono" :class="Number(saldoCuenta) < 0 ? 'text-rose-400' : 'text-emerald-400'">
+                    {{ formatPrecio(Math.abs(Number(saldoCuenta))) }}
+                </p>
             </div>
 
             <!-- Tabs Container -->
@@ -376,7 +393,7 @@ const solicitarEnvioAcumulados = () => {
                                         <span v-if="pedido.sucursal_nombre" class="text-zinc-600">•</span>
                                         <span v-if="pedido.sucursal_nombre">{{ pedido.sucursal_nombre }}</span>
                                         <span class="text-zinc-600">•</span>
-                                        <span>{{ getTipoEnvioLabel(pedido.tipo_envio) }}</span>
+                                        <span>{{ getTipoEnvioLabel(pedido.tipo_envio, pedido.tipo) }}</span>
                                     </div>
                                 </div>
                             </div>

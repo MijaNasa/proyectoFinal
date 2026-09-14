@@ -13,16 +13,23 @@ class MiCuentaController extends Controller
 {
     public function index()
     {
+        $user = Auth::user();
+        $cliente = $user->cliente;
+
+        // Las ventas de un cliente se identifican por cliente_id, no por user_id:
+        // en una venta presencial user_id es el empleado que la cobró, no el
+        // cliente. Sin esto, las compras de mostrador nunca aparecían acá.
         $pedidos = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
-            ->where('user_id', Auth::id())
-            ->where('tipo', 'online')
-            ->latest()
+            ->when($cliente, fn($q) => $q->where('cliente_id', $cliente->id), fn($q) => $q->whereRaw('1 = 0'))
+            ->where('estado', '!=', 'cancelado')
+            ->latest('fecha')
             ->paginate(10)
             ->through(fn($v) => [
                 'id'         => $v->id,
                 'fecha'      => $v->fecha,
                 'total'      => $v->total,
                 'estado'          => $v->estado,
+                'tipo'            => $v->tipo,
                 'metodo_pago'     => $v->metodo_pago,
                 'comprobante_path'=> $v->comprobante_path ? Storage::url($v->comprobante_path) : null,
                 'tipo_envio'      => $v->tipo_envio,
@@ -36,8 +43,6 @@ class MiCuentaController extends Controller
                 ]),
             ]);
 
-        $user = Auth::user();
-
         return Inertia::render('MiCuenta/Index', [
             'pedidos' => $pedidos,
             'usuario' => [
@@ -46,6 +51,7 @@ class MiCuentaController extends Controller
                 'email'      => $user->email,
                 'created_at' => $user->created_at,
             ],
+            'saldoCuenta' => $cliente ? (float) $cliente->saldo_actual : null,
         ]);
     }
 
