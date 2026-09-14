@@ -367,7 +367,7 @@ const formatFecha = (f) =>
     new Date(f + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
 
 const ventaDetalle = ref(null);
-const abrirVentaDetalle = (parada) => { ventaDetalle.value = { ...parada.venta, _paradaEstado: parada.estado }; };
+const abrirVentaDetalle = (parada) => { ventaDetalle.value = { ...parada.venta, _paradaEstado: parada.estado, _paradaObservaciones: parada.observaciones }; };
 const cerrarVentaDetalle = () => { ventaDetalle.value = null; };
 const contarItemsVenta = (venta) => {
     if (!venta?.detalles) return 0;
@@ -1344,6 +1344,11 @@ watch(paradaActiva, () => {
                             <button @click="cerrarVentaDetalle" class="text-zinc-400 hover:text-white transition-colors">
                                 <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                             </button>
+                        </div>
+
+                        <div v-if="ventaDetalle._paradaObservaciones" class="mx-6 mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl">
+                            <span class="text-[11px] font-semibold text-amber-400 block mb-0.5">Comentario / motivo</span>
+                            <p class="text-xs text-white font-medium leading-relaxed">{{ ventaDetalle._paradaObservaciones }}</p>
                         </div>
 
                         <div class="p-6 space-y-5 text-sm">
