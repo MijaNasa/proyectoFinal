@@ -7,9 +7,12 @@ import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     pedidos: Object,
+    pagos: Array,
     usuario: Object,
     saldoCuenta: [Number, String],
 });
+
+const mostrarPagos = ref(false);
 
 const darkSwal = Swal.mixin({
     background: '#131316',
@@ -223,6 +226,29 @@ const solicitarEnvioAcumulados = () => {
                 <p class="text-xl font-bold font-mono" :class="Number(saldoCuenta) < 0 ? 'text-rose-400' : 'text-emerald-400'">
                     {{ formatPrecio(Math.abs(Number(saldoCuenta))) }}
                 </p>
+            </div>
+
+            <!-- Historial de Pagos a Cuenta Corriente -->
+            <div v-if="pagos && pagos.length > 0" class="bg-[#131316] border border-white/5 rounded-2xl shadow-xl overflow-hidden">
+                <button @click="mostrarPagos = !mostrarPagos" class="w-full p-5 flex items-center justify-between text-left">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-wider text-white">Historial de pagos</p>
+                        <p class="text-[11px] text-zinc-500 mt-0.5">{{ pagos.length }} pago(s) registrado(s) en tu cuenta corriente</p>
+                    </div>
+                    <svg class="w-4 h-4 text-zinc-400 transition-transform" :class="{ 'rotate-180': mostrarPagos }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div v-if="mostrarPagos" class="border-t border-white/5 divide-y divide-white/5">
+                    <div v-for="pago in pagos" :key="pago.id" class="p-4 flex items-center justify-between gap-4">
+                        <div class="min-w-0">
+                            <p class="text-xs font-bold text-white">{{ pago.metodo_pago }}</p>
+                            <p class="text-[11px] text-zinc-500 mt-0.5">{{ formatFecha(pago.fecha) }}</p>
+                            <p v-if="pago.descripcion" class="text-[11px] text-zinc-400 mt-1 font-medium">{{ pago.descripcion }}</p>
+                        </div>
+                        <p class="text-sm font-bold font-mono text-emerald-400 shrink-0">{{ formatPrecio(pago.monto) }}</p>
+                    </div>
+                </div>
             </div>
 
             <!-- Tabs Container -->

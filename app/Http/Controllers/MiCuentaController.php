@@ -43,8 +43,16 @@ class MiCuentaController extends Controller
                 ]),
             ]);
 
+        $pagos = $cliente
+            ? $cliente->transacciones()
+                ->where('tipo', 'ingreso')
+                ->latest('fecha')
+                ->get(['id', 'monto', 'metodo_pago', 'fecha', 'descripcion'])
+            : collect();
+
         return Inertia::render('MiCuenta/Index', [
             'pedidos' => $pedidos,
+            'pagos'   => $pagos,
             'usuario' => [
                 'name'       => $user->name,
                 'apellido'   => $user->apellido,
