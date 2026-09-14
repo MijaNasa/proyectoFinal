@@ -40,6 +40,17 @@ const togglePedidoExpand = (id) => {
     }
 };
 
+const expandedPagos = ref([]);
+
+const togglePagoExpand = (id) => {
+    const idx = expandedPagos.value.indexOf(id);
+    if (idx > -1) {
+        expandedPagos.value.splice(idx, 1);
+    } else {
+        expandedPagos.value.push(id);
+    }
+};
+
 const formatPrecio = (valor) =>
     new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(valor);
 
@@ -228,29 +239,6 @@ const solicitarEnvioAcumulados = () => {
                 </p>
             </div>
 
-            <!-- Historial de Pagos a Cuenta Corriente -->
-            <div v-if="pagos && pagos.length > 0" class="bg-[#131316] border border-white/5 rounded-2xl shadow-xl overflow-hidden">
-                <button @click="mostrarPagos = !mostrarPagos" class="w-full p-5 flex items-center justify-between text-left">
-                    <div>
-                        <p class="text-xs font-bold uppercase tracking-wider text-white">Historial de pagos</p>
-                        <p class="text-[11px] text-zinc-500 mt-0.5">{{ pagos.length }} pago(s) registrado(s) en tu cuenta corriente</p>
-                    </div>
-                    <svg class="w-4 h-4 text-zinc-400 transition-transform" :class="{ 'rotate-180': mostrarPagos }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
-                    </svg>
-                </button>
-                <div v-if="mostrarPagos" class="border-t border-white/5 divide-y divide-white/5">
-                    <div v-for="pago in pagos" :key="pago.id" class="p-4 flex items-center justify-between gap-4">
-                        <div class="min-w-0">
-                            <p class="text-xs font-bold text-white">{{ pago.metodo_pago }}</p>
-                            <p class="text-[11px] text-zinc-500 mt-0.5">{{ formatFecha(pago.fecha) }}</p>
-                            <p v-if="pago.descripcion" class="text-[11px] text-zinc-400 mt-1 font-medium">{{ pago.descripcion }}</p>
-                        </div>
-                        <p class="text-sm font-bold font-mono text-emerald-400 shrink-0">{{ formatPrecio(pago.monto) }}</p>
-                    </div>
-                </div>
-            </div>
-
             <!-- Tabs Container -->
             <div class="bg-[#131316] border border-white/5 rounded-2xl p-2 shadow-xl">
                 <div class="flex items-center gap-2">
@@ -269,6 +257,17 @@ const solicitarEnvioAcumulados = () => {
                         <span>MIS PEDIDOS</span>
                         <span v-if="pedidos.total" class="text-xs px-2 py-0.5 rounded-xl font-bold font-mono" :class="tab === 'pedidos' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'">
                             {{ pedidos.total }}
+                        </span>
+                    </button>
+                    <button
+                        v-if="pagos && pagos.length > 0"
+                        @click="tab = 'pagos'"
+                        class="px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2"
+                        :class="tab === 'pagos' ? 'bg-white text-black shadow-md' : 'text-zinc-400 hover:text-white bg-transparent'"
+                    >
+                        <span>MIS PAGOS</span>
+                        <span class="text-xs px-2 py-0.5 rounded-xl font-bold font-mono" :class="tab === 'pagos' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'">
+                            {{ pagos.length }}
                         </span>
                     </button>
                 </div>
@@ -559,6 +558,76 @@ const solicitarEnvioAcumulados = () => {
                         :class="{'bg-white text-black border-white shadow-md': link.active, 'text-zinc-500 hover:text-white bg-white/5': !link.active && link.url, 'text-zinc-600 cursor-not-allowed': !link.url}"
                     >{{ decodeLabel(link.label) }}</Link>
                 </div>
+                </div>
+            </div>
+
+            <!-- Tab: Mis Pagos -->
+            <div v-if="tab === 'pagos'" class="space-y-4">
+                <div
+                    v-for="pago in pagos"
+                    :key="pago.id"
+                    class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl hover:border-white/10 transition-all"
+                >
+                    <!-- Card Header (Clickable to Expand / Collapse) -->
+                    <div
+                        @click="togglePagoExpand(pago.id)"
+                        class="flex flex-col md:flex-row md:items-center justify-between gap-4 p-5 cursor-pointer hover:bg-white/[0.02] transition-colors select-none"
+                    >
+                        <div class="flex items-center gap-4">
+                            <div class="w-10 h-10 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+
+                            <div class="space-y-1">
+                                <div class="flex flex-wrap items-center gap-3">
+                                    <span class="text-white font-mono font-bold text-base tracking-tight">
+                                        {{ pago.metodo_pago }}
+                                    </span>
+                                </div>
+                                <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-400">
+                                    <span>{{ formatFecha(pago.fecha) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Right: Monto + Chevron Arrow -->
+                        <div class="flex items-center justify-between md:justify-end gap-5 border-t md:border-t-0 border-white/5 pt-3 md:pt-0">
+                            <p class="text-base sm:text-lg font-bold text-emerald-400 font-mono tracking-tight">
+                                {{ formatPrecio(pago.monto) }}
+                            </p>
+
+                            <div
+                                class="w-8 h-8 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center text-zinc-400 transition-transform duration-200"
+                                :class="{ 'rotate-180 bg-white/10 text-white': expandedPagos.includes(pago.id) }"
+                            >
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Collapsible Payment Details Content -->
+                    <div v-if="expandedPagos.includes(pago.id)" class="border-t border-white/5 bg-[#0d0d0f] p-5 space-y-3">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="text-zinc-400 font-medium">Método de pago:</span>
+                            <span class="font-bold text-white">{{ pago.metodo_pago }}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs border-t border-white/5 pt-3">
+                            <span class="text-zinc-400 font-medium">Fecha:</span>
+                            <span class="font-bold text-white">{{ formatFecha(pago.fecha) }}</span>
+                        </div>
+                        <div class="flex justify-between items-center text-xs border-t border-white/5 pt-3">
+                            <span class="text-zinc-400 font-medium">Monto:</span>
+                            <span class="font-bold text-emerald-400 font-mono">{{ formatPrecio(pago.monto) }}</span>
+                        </div>
+                        <div v-if="pago.descripcion" class="border-t border-white/5 pt-3">
+                            <span class="text-zinc-400 font-medium text-xs block mb-1">Observación:</span>
+                            <p class="text-white text-xs font-medium leading-relaxed">{{ pago.descripcion }}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
