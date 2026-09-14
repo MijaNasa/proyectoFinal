@@ -42,6 +42,7 @@ class SuscripcionController extends Controller
                     'autor:id,nombre,apellido',
                     'categoria:id,nombre',
                     'proveedor:id,nombre_empresa',
+                    'libros:id,master_id,numero_tomo',
                     'suscripciones' => function ($sq) use ($search) {
                         $sq->with(['cliente.user:id,name,apellido,email,dni', 'sucursal:id,nombre']);
                         if ($search) {
@@ -80,6 +81,14 @@ class SuscripcionController extends Controller
                 ->orderBy('titulo');
 
             $series = $query->paginate(12)->withQueryString();
+
+            $series->getCollection()->transform(function ($m) {
+                $maxTomo = $m->libros
+                    ->map(fn ($l) => (int) preg_replace('/\D/', '', (string) $l->numero_tomo))
+                    ->max();
+                $m->max_tomo = $maxTomo ?: 1;
+                return $m;
+            });
 
             $clientes = Cliente::with([
                 'user:id,name,apellido,email,dni',

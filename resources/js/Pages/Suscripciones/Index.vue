@@ -85,6 +85,60 @@ const darkSwal = Swal.mixin({
     }
 });
 
+// --- Acción: Editar Suscripción (tomo de inicio / sucursal de retiro) ---
+const editarSuscripcion = (sub, serie) => {
+    const sucursalesOptions = (props.sucursales || [])
+        .map(s => `<option value="${s.id}" ${s.id === sub.sucursal_id ? 'selected' : ''}>${s.nombre}</option>`)
+        .join('');
+
+    darkSwal.fire({
+        title: 'Editar suscripción',
+        html: `
+            <div class="space-y-4 text-left">
+                <p class="text-xs text-zinc-400">${sub.cliente?.user?.name || ''} ${sub.cliente?.user?.apellido || ''} — ${serie?.titulo || ''}</p>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Tomo Inicio *</label>
+                    <input id="swal-edit-tomo" type="number" min="1" value="${sub.tomo_inicio || 1}" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-bold font-mono focus:outline-none focus:border-white/30">
+                    <p class="text-zinc-500 text-[11px] mt-1">Último tomo cargado en catálogo: ${serie?.max_tomo || 1}</p>
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-zinc-400 block mb-1">Sucursal de Retiro *</label>
+                    <select id="swal-edit-sucursal" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30">
+                        ${sucursalesOptions}
+                    </select>
+                </div>
+            </div>
+        `,
+        showCancelButton: true,
+        confirmButtonText: 'Guardar cambios',
+        cancelButtonText: 'Cancelar',
+        reverseButtons: true,
+        focusConfirm: false,
+        preConfirm: () => {
+            const popup = Swal.getPopup();
+            const tomo = popup.querySelector('#swal-edit-tomo').value;
+            const sucursalId = popup.querySelector('#swal-edit-sucursal').value;
+            if (!tomo || tomo < 1) {
+                Swal.showValidationMessage('El tomo de inicio debe ser mayor o igual a 1');
+                return false;
+            }
+            return { tomo_inicio: parseInt(tomo, 10), sucursal_id: parseInt(sucursalId, 10) };
+        }
+    }).then((result) => {
+        if (result.isConfirmed && result.value) {
+            router.patch(route('suscripciones.update', sub.id), result.value, {
+                preserveScroll: true,
+                onSuccess: () => {
+                    darkSwal.fire({ title: '¡Actualizada!', icon: 'success', timer: 1500, showConfirmButton: false });
+                },
+                onError: () => {
+                    darkSwal.fire({ title: 'Error', text: 'No se pudo actualizar la suscripción.', icon: 'error' });
+                }
+            });
+        }
+    });
+};
+
 // --- Acción: Deshabilitar Suscripción (Soft Delete / Dar de baja) ---
 const deshabilitarSuscripcion = (sub) => {
     darkSwal.fire({
@@ -477,18 +531,30 @@ const submitSuscripcion = () => {
                                                                 </span>
                                                             </td>
 
-                                                            <!-- Acción: Deshabilitar (Dar de baja) -->
+                                                            <!-- Acciones: Editar / Deshabilitar -->
                                                             <td class="py-3 px-3 text-right">
-                                                                <button
-                                                                    type="button"
-                                                                    @click.stop="deshabilitarSuscripcion(sub)"
-                                                                    title="Deshabilitar suscripción"
-                                                                    class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-zinc-400 hover:text-white cursor-pointer inline-flex items-center justify-center"
-                                                                >
-                                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                                                                    </svg>
-                                                                </button>
+                                                                <div class="inline-flex items-center gap-1.5">
+                                                                    <button
+                                                                        type="button"
+                                                                        @click.stop="editarSuscripcion(sub, serie)"
+                                                                        title="Editar suscripción"
+                                                                        class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-zinc-400 hover:text-white cursor-pointer inline-flex items-center justify-center"
+                                                                    >
+                                                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                                                        </svg>
+                                                                    </button>
+                                                                    <button
+                                                                        type="button"
+                                                                        @click.stop="deshabilitarSuscripcion(sub)"
+                                                                        title="Deshabilitar suscripción"
+                                                                        class="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 border border-white/5 transition-all text-zinc-400 hover:text-white cursor-pointer inline-flex items-center justify-center"
+                                                                    >
+                                                                        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                                                            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                                                        </svg>
+                                                                    </button>
+                                                                </div>
                                                             </td>
                                                         </tr>
                                                     </tbody>
