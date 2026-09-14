@@ -583,11 +583,21 @@ const solicitarEnvioAcumulados = () => {
                             <div class="space-y-1">
                                 <div class="flex flex-wrap items-center gap-3">
                                     <span class="text-white font-mono font-bold text-base tracking-tight">
-                                        {{ pago.metodo_pago }}
+                                        #PAGO-{{ String(pago.id).padStart(6, '0') }}
+                                    </span>
+
+                                    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
+                                        <span class="w-2 h-2 rounded-full shrink-0 bg-emerald-400"></span>
+                                        <span>{{ pago.metodo_pago }}</span>
                                     </span>
                                 </div>
+
                                 <div class="flex flex-wrap items-center gap-2 text-xs font-medium text-zinc-400">
                                     <span>{{ formatFecha(pago.fecha) }}</span>
+                                    <template v-if="pago.descripcion">
+                                        <span class="text-zinc-600">•</span>
+                                        <span class="truncate max-w-[220px]">{{ pago.descripcion }}</span>
+                                    </template>
                                 </div>
                             </div>
                         </div>
