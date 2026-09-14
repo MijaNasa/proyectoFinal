@@ -559,7 +559,6 @@ const solicitarEnvioAcumulados = () => {
                     >{{ decodeLabel(link.label) }}</Link>
                 </div>
                 </div>
-            </div>
 
             <!-- Tab: Mis Pagos -->
             <div v-if="tab === 'pagos'" class="space-y-4">
@@ -641,6 +640,7 @@ const solicitarEnvioAcumulados = () => {
                 </div>
             </div>
 
+            </div>
         </div>
     </PublicLayout>
 </template>
