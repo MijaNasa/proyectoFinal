@@ -11,6 +11,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Render (y cualquier PaaS con reverse proxy) entrega la app detrás de un
+        // balanceador: sin esto, $request->ip() lee la IP interna del proxy en vez
+        // de la del visitante real, y cambia en cada pedido. Rompe cualquier cosa
+        // que dependa de la IP real (rate limit por IP del chatbot, throttle de
+        // rutas, detección de HTTPS vía X-Forwarded-Proto).
+        $middleware->trustProxies(at: '*');
+
         $middleware->validateCsrfTokens(except: [
             'checkout/webhook',
         ]);

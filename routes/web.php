@@ -245,6 +245,45 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
             'transacciones' => $v->transacciones->map(fn ($t) => ['tipo' => $t->tipo, 'monto' => $t->monto, 'metodo_pago' => $t->metodo_pago])->toArray(),
         ]));
     })->name('admin.debug-ventas-mp');
+
+    // Utilidad temporal de diagnostico: probar la API de IA del chatbot en vivo
+    // (Gemini/Anthropic) sin depender de los logs de Render. Solo lectura, admin-only.
+    Route::get('admin/debug-chatbot', function (\Illuminate\Http\Request $request) {
+        if (!$request->user()->esAdmin()) {
+            abort(403);
+        }
+
+        $geminiKey    = config('services.gemini.api_key');
+        $anthropicKey = config('services.anthropic.api_key');
+
+        $resultado = [
+            'ip_detectada'        => $request->ip(),
+            'todas_las_ips'       => $request->ips(),
+            'gemini_configurada'  => (bool) $geminiKey,
+            'anthropic_configurada' => (bool) $anthropicKey,
+            'rate_limit_key_actual' => $request->user() ? 'chatbot:user:' . $request->user()->id : 'chatbot:ip:' . $request->ip(),
+            'intentos_registrados'  => \Illuminate\Support\Facades\RateLimiter::attempts($request->user() ? 'chatbot:user:' . $request->user()->id : 'chatbot:ip:' . $request->ip()),
+        ];
+
+        if ($geminiKey || $anthropicKey) {
+            try {
+                $controller = new \App\Http\Controllers\ChatbotController();
+                $metodo = new \ReflectionMethod($controller, $geminiKey ? 'llamarGemini' : 'llamarAnthropic');
+                $metodo->setAccessible(true);
+                $clave = $geminiKey ?: $anthropicKey;
+                $respuesta = $metodo->invoke($controller, $clave, 'Responde solo "ok" si me recibís.', [['role' => 'user', 'content' => 'test']]);
+                $resultado['llamada_de_prueba'] = ['exito' => true, 'respuesta' => $respuesta];
+            } catch (\Throwable $e) {
+                $resultado['llamada_de_prueba'] = [
+                    'exito' => false,
+                    'error' => $e->getMessage(),
+                    'archivo' => basename($e->getFile()) . ':' . $e->getLine(),
+                ];
+            }
+        }
+
+        return response()->json($resultado);
+    })->name('admin.debug-chatbot');
 });
 
 require __DIR__.'/auth.php';
