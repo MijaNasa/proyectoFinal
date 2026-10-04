@@ -109,6 +109,11 @@ class ChatbotController extends Controller
             return "- [ID: {$m->id}] \"{$m->titulo}\" de {$autor} | Categoría: {$categoria} | Stock disponible: {$m->stock_total} | Sinopsis: {$sinopsis}";
         })->implode("\n");
 
+        $historialCompras = $this->obtenerHistorialCompras($request);
+        $seccionHistorial = $historialCompras
+            ? "\n\nHistorial de compras anteriores de este cliente (de más reciente a más antigua):\n{$historialCompras}\n\nUsá este historial SOLO para personalizar recomendaciones cuando el cliente esté comprando para sí mismo (si no aclara para quién es, asumí que es para él/ella). Si el cliente te dice explícitamente que es un regalo para otra persona (ej. \"mi tía\", \"mi sobrino\"), IGNORÁ este historial por completo y basate únicamente en lo que te cuenta sobre los gustos de esa otra persona."
+            : '';
+
         $systemPrompt = <<<PROMPT
         Sos el asistente de recomendaciones de PuroComic, una librería especializada en manga, cómics y novelas gráficas con tienda online.
 
@@ -125,7 +130,7 @@ class ChatbotController extends Controller
         Respondé siempre en español rioplatense, de forma corta y cercana (no más de 4-5 líneas por respuesta), como alguien que atiende el local y conoce bien el catálogo.
 
         Catálogo disponible en stock:
-        {$listaCatalogo}
+        {$listaCatalogo}{$seccionHistorial}
         PROMPT;
 
         try {
@@ -261,5 +266,37 @@ class ChatbotController extends Controller
             ->sortByDesc('stock_total')
             ->take(self::MAX_OBRAS_EN_CONTEXTO)
             ->values();
+    }
+
+    /**
+     * Últimos títulos comprados por el cliente logueado (si tiene ficha de Cliente
+     * asociada), para que la IA pueda personalizar recomendaciones cuando el
+     * cliente compra para sí mismo. Vacío para invitados o clientes sin historial.
+     */
+    private function obtenerHistorialCompras(Request $request): string
+    {
+        $user = $request->user();
+        $cliente = $user?->cliente;
+
+        if (!$cliente) {
+            return '';
+        }
+
+        $titulos = \App\Models\VentaDetalle::whereHas('venta', function ($q) use ($cliente) {
+                $q->where('cliente_id', $cliente->id)->where('estado', '!=', 'cancelado');
+            })
+            ->with('libro.master:id,titulo,categoria_id')
+            ->latest('id')
+            ->get()
+            ->pluck('libro.master.titulo')
+            ->filter()
+            ->unique()
+            ->take(10);
+
+        if ($titulos->isEmpty()) {
+            return '';
+        }
+
+        return $titulos->map(fn ($t) => "- {$t}")->implode("\n");
     }
 }
