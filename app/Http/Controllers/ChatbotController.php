@@ -36,16 +36,25 @@ class ChatbotController extends Controller
             return response()->json([
                 'reply' => "Alcanzaste el límite de {$limiteMensajes} mensajes para {$tipoUsuario} por cada " . self::LIMITE_HORAS . " horas. Podés volver a escribir en aproximadamente {$horasRestantes} hora(s)." . (!$esUsuarioLogueado ? " ¡Iniciá sesión para tener más mensajes!" : ""),
                 'limite_alcanzado' => true,
+                'mensajes_restantes' => 0,
+                'limite_total'       => $limiteMensajes,
+                'es_usuario_logueado' => $esUsuarioLogueado,
             ]);
         }
         RateLimiter::hit($rateLimitKey, self::LIMITE_HORAS * 3600);
 
+        $infoLimite = [
+            'mensajes_restantes'  => max(0, $limiteMensajes - RateLimiter::attempts($rateLimitKey)),
+            'limite_total'        => $limiteMensajes,
+            'es_usuario_logueado' => $esUsuarioLogueado,
+        ];
+
         $catalogo = $this->obtenerCatalogoEnStock();
 
         if ($catalogo->isEmpty()) {
-            return response()->json([
+            return response()->json(array_merge([
                 'reply' => 'Por el momento no tenemos stock cargado en el catálogo para recomendar. ¡Volvé a intentar más tarde!',
-            ]);
+            ], $infoLimite));
         }
 
         $geminiKey    = config('services.gemini.api_key');
@@ -53,9 +62,9 @@ class ChatbotController extends Controller
 
         // Si no hay API Key de IA configurada, funciona automáticamente en MODO ASISTENTE INTERNO (Default/Offline)
         if (!$geminiKey && !$anthropicKey) {
-            return response()->json([
+            return response()->json(array_merge([
                 'reply' => $this->responderModoSimulado($request->mensajes, $catalogo),
-            ]);
+            ], $infoLimite));
         }
 
         $listaCatalogo = $catalogo->map(function ($m) {
@@ -91,14 +100,14 @@ class ChatbotController extends Controller
                 $respuestaTexto = $this->llamarAnthropic($anthropicKey, $systemPrompt, $request->mensajes);
             }
 
-            return response()->json([
+            return response()->json(array_merge([
                 'reply' => $respuestaTexto ?: 'No se me ocurrió nada, ¿podés contarme un poco más sobre lo que buscás?',
-            ]);
+            ], $infoLimite));
         } catch (\Throwable $e) {
             Log::error('Chatbot: excepción al llamar a la API de IA, usando respuesta de respaldo', ['error' => $e->getMessage()]);
-            return response()->json([
+            return response()->json(array_merge([
                 'reply' => $this->responderModoSimulado($request->mensajes, $catalogo),
-            ], 200);
+            ], $infoLimite), 200);
         }
     }
 

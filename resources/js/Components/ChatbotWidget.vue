@@ -12,6 +12,8 @@ const cargando = ref(false);
 const input = ref('');
 const cuerpoRef = ref(null);
 const limiteAlcanzado = ref(false);
+const limiteTotal = ref(estaLogueado() ? 12 : 5);
+const mensajesRestantes = ref(limiteTotal.value);
 
 const mensajes = ref([
     { role: 'assistant', content: '¡Hola! 👋 Contame para quién es el libro que buscás y qué le gusta leer, y te recomiendo algo de nuestro catálogo.' },
@@ -72,6 +74,8 @@ const enviar = async () => {
         });
         mensajes.value.push({ role: 'assistant', content: res.data.reply });
         if (res.data.limite_alcanzado) limiteAlcanzado.value = true;
+        if (res.data.limite_total !== undefined) limiteTotal.value = res.data.limite_total;
+        if (res.data.mensajes_restantes !== undefined) mensajesRestantes.value = res.data.mensajes_restantes;
     } catch (e) {
         mensajes.value.push({ role: 'assistant', content: 'Tuve un problema para responder. ¿Podés intentar de nuevo en un momento?' });
     } finally {
@@ -112,10 +116,17 @@ const enviar = async () => {
                     </button>
                 </div>
 
-                <!-- Banner aviso para invitados (no logueados) -->
-                <div v-if="!estaLogueado()" class="bg-amber-500/10 border-b border-amber-500/20 px-3 py-1.5 text-[10px] text-amber-300 flex items-center justify-between shrink-0">
-                    <span>Modo invitado (5 respuestas/12h).</span>
-                    <Link :href="route('login')" class="font-bold underline text-white hover:text-amber-200">Iniciar sesión</Link>
+                <!-- Banner con contador de mensajes restantes -->
+                <div
+                    class="border-b px-3 py-1.5 text-[10px] flex items-center justify-between shrink-0"
+                    :class="estaLogueado() ? 'bg-white/5 border-white/10 text-white/50' : 'bg-amber-500/10 border-amber-500/20 text-amber-300'"
+                >
+                    <span>
+                        Te quedan <strong>{{ mensajesRestantes }}</strong> de {{ limiteTotal }} mensajes ({{ estaLogueado() ? 'tu cuenta' : 'invitado' }}, cada 12h).
+                    </span>
+                    <Link v-if="!estaLogueado()" :href="route('login')" class="font-bold underline text-white hover:text-amber-200 shrink-0 ml-2">
+                        Iniciar sesión (12/12h)
+                    </Link>
                 </div>
 
                 <!-- Mensajes -->
