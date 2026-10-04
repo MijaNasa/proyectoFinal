@@ -137,7 +137,7 @@ const enviar = async () => {
                         :class="m.role === 'user' ? 'justify-end' : 'justify-start'"
                     >
                         <div
-                            class="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-line"
+                            class="max-w-[85%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-line break-words"
                             :class="m.role === 'user'
                                 ? 'bg-brand-red text-white rounded-br-sm'
                                 : 'bg-white/5 border border-white/10 text-white/90 rounded-bl-sm'"
