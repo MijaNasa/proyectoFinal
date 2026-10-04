@@ -1,5 +1,5 @@
 <script setup>
-import { ref, nextTick } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 
 const MAX_CARACTERES = 300;
@@ -16,9 +16,31 @@ const limiteAlcanzado = ref(false);
 const limiteTotal = ref(estaLogueado() ? 12 : 5);
 const mensajesRestantes = ref(limiteTotal.value);
 
+const mensajeBienvenida = () => {
+    const base = '¡Hola! 👋 Contame para quién es el libro que buscás y qué le gusta leer, y te recomiendo algo de nuestro catálogo.';
+    const cuota = estaLogueado()
+        ? `💬 Tenés ${limiteTotal.value} mensajes cada 12 horas con tu cuenta.`
+        : `💬 Como invitado tenés ${limiteTotal.value} mensajes cada 12 horas. ¡Iniciá sesión para tener más!`;
+    return `${base}\n\n${cuota}`;
+};
+
 const mensajes = ref([
-    { role: 'assistant', content: '¡Hola! 👋 Contame para quién es el libro que buscás y qué le gusta leer, y te recomiendo algo de nuestro catálogo.' },
+    { role: 'assistant', content: mensajeBienvenida() },
 ]);
+
+// Si el usuario inicia o cierra sesion sin que la pagina se recargue (Inertia
+// navega sin reload), el widget no se desmonta y queda con el historial y los
+// contadores de la sesion anterior. Reiniciamos el chat cuando cambia el
+// usuario logueado para evitar mezclar contextos.
+watch(
+    () => page.props.auth?.user?.id ?? null,
+    () => {
+        limiteTotal.value = estaLogueado() ? 12 : 5;
+        mensajesRestantes.value = limiteTotal.value;
+        limiteAlcanzado.value = false;
+        mensajes.value = [{ role: 'assistant', content: mensajeBienvenida() }];
+    }
+);
 
 const sugerencias = [
     'Es un regalo para alguien que recién empieza a leer manga',

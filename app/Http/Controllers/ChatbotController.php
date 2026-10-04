@@ -67,9 +67,11 @@ class ChatbotController extends Controller
         if (RateLimiter::tooManyAttempts($rateLimitKey, $limiteMensajes)) {
             $segundosRestantes = RateLimiter::availableIn($rateLimitKey);
             $horasRestantes    = (int) ceil($segundosRestantes / 3600);
-            $tipoUsuario       = $esUsuarioLogueado ? 'tu cuenta' : 'invitado (IP)';
+            $reply = $esUsuarioLogueado
+                ? "Llegaste al máximo de {$limiteMensajes} mensajes de tu cuenta. Podés volver a escribir en aproximadamente {$horasRestantes} hora(s)."
+                : "Llegaste al máximo de {$limiteMensajes} mensajes como invitado. 🔒 Iniciá sesión para tener hasta " . self::LIMITE_MENSAJES_USER . " mensajes cada " . self::LIMITE_HORAS . " horas. Mientras tanto, podés volver a escribir en aproximadamente {$horasRestantes} hora(s).";
             return response()->json([
-                'reply' => "Alcanzaste el límite de {$limiteMensajes} mensajes para {$tipoUsuario} por cada " . self::LIMITE_HORAS . " horas. Podés volver a escribir en aproximadamente {$horasRestantes} hora(s)." . (!$esUsuarioLogueado ? " ¡Iniciá sesión para tener más mensajes!" : ""),
+                'reply' => $reply,
                 'limite_alcanzado' => true,
                 'mensajes_restantes' => 0,
                 'limite_total'       => $limiteMensajes,
