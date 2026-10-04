@@ -35,31 +35,33 @@ class ChatbotController extends Controller
 
     private function responderInterno(Request $request)
     {
-        // El limite de 200 caracteres es para lo que escribe el usuario, no para el
-        // historial completo: las respuestas del bot (y los mensajes de usuario ya
-        // validados en turnos anteriores) se reenvian tal cual en cada request, y
-        // las respuestas del bot habitualmente superan los 200 caracteres (listas
-        // de libros, links). Validarlas con el mismo limite rompia el chat apenas
-        // el bot contestaba algo largo: toda conversacion posterior fallaba.
-        $request->validate([
-            'mensajes'           => 'required|array|min:1|max:20',
-            'mensajes.*.role'    => 'required|in:user,assistant',
-            'mensajes.*.content' => 'required|string|max:4000',
-        ]);
-
-        $mensajesRequest = $request->mensajes;
-        $ultimoMensajeRequest = end($mensajesRequest);
-        if (($ultimoMensajeRequest['role'] ?? null) === 'user' && mb_strlen($ultimoMensajeRequest['content'] ?? '') > 200) {
-            return response()->json([
-                'reply' => 'Tu mensaje es demasiado largo (máximo 200 caracteres). ¿Podés acortarlo?',
-            ], 200);
-        }
-
         $esUsuarioLogueado = (bool) $request->user();
         $limiteMensajes    = $esUsuarioLogueado ? self::LIMITE_MENSAJES_USER : self::LIMITE_MENSAJES_GUEST;
         $rateLimitKey      = $esUsuarioLogueado
             ? 'chatbot:user:' . $request->user()->id
             : 'chatbot:ip:' . $this->resolverIpReal($request);
+
+        // El limite de 200 caracteres es para lo que escribe el usuario, no para el
+        // historial completo: las respuestas del bot se reenvian tal cual en cada
+        // request, y habitualmente superan los 200 caracteres (listas de libros,
+        // links). Validarlas con el mismo limite rompia el chat apenas el bot
+        // contestaba algo largo: toda conversacion posterior fallaba. Por eso el
+        // contenido del bot no tiene limite de longitud, y el techo total del lado
+        // del usuario escala con su cuota de mensajes (200 por cada uno permitido).
+        $request->validate([
+            'mensajes'           => 'required|array|min:1|max:20',
+            'mensajes.*.role'    => 'required|in:user,assistant',
+            'mensajes.*.content' => ['required', 'string', 'max:' . (200 * $limiteMensajes)],
+        ]);
+
+        $mensajesRequest = $request->mensajes;
+        foreach ($mensajesRequest as $m) {
+            if (($m['role'] ?? null) === 'user' && mb_strlen($m['content'] ?? '') > 200) {
+                return response()->json([
+                    'reply' => 'Tu mensaje es demasiado largo (máximo 200 caracteres). ¿Podés acortarlo?',
+                ], 200);
+            }
+        }
 
         if (RateLimiter::tooManyAttempts($rateLimitKey, $limiteMensajes)) {
             $segundosRestantes = RateLimiter::availableIn($rateLimitKey);
