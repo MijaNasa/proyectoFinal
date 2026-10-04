@@ -17,7 +17,7 @@ const limiteTotal = ref(estaLogueado() ? 12 : 5);
 const mensajesRestantes = ref(limiteTotal.value);
 
 const mensajeBienvenida = () => {
-    const base = '¡Hola! 👋 Contame para quién es el libro que buscás y qué le gusta leer, y te recomiendo algo de nuestro catálogo.';
+    const base = '¡Hola! 👋 Contame qué te gusta leer (o, si es un regalo, los gustos de esa persona) y te recomiendo algo de nuestro catálogo.';
     const cuota = estaLogueado()
         ? `💬 Tenés ${limiteTotal.value} mensajes cada 12 horas con tu cuenta.`
         : `💬 Como invitado tenés ${limiteTotal.value} mensajes cada 12 horas. ¡Iniciá sesión para tener más!`;
