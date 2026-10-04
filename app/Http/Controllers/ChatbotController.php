@@ -17,6 +17,25 @@ class ChatbotController extends Controller
 
     public function responder(Request $request)
     {
+        // Red de seguridad temporal: algo esta fallando entre el primer mensaje y
+        // los siguientes sin que el intento llegue a sumarse al RateLimiter, y no
+        // hay acceso a los logs de Render para verlo. Mientras se diagnostica, se
+        // devuelve el error real en vez de un 500 generico.
+        try {
+            return $this->responderInterno($request);
+        } catch (\Throwable $e) {
+            Log::error('Chatbot: excepción no capturada en responder()', [
+                'error' => $e->getMessage(),
+                'archivo' => $e->getFile() . ':' . $e->getLine(),
+            ]);
+            return response()->json([
+                'reply' => '[DEBUG TEMPORAL] Error real: ' . $e->getMessage() . ' en ' . basename($e->getFile()) . ':' . $e->getLine(),
+            ], 200);
+        }
+    }
+
+    private function responderInterno(Request $request)
+    {
         $request->validate([
             'mensajes'           => 'required|array|min:1|max:20',
             'mensajes.*.role'    => 'required|in:user,assistant',
