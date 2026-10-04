@@ -111,7 +111,7 @@ class ChatbotController extends Controller
 
         $historialCompras = $this->obtenerHistorialCompras($request);
         $seccionHistorial = $historialCompras
-            ? "\n\nHistorial de compras anteriores de este cliente (de más reciente a más antigua):\n{$historialCompras}\n\nUsá este historial SOLO para personalizar recomendaciones cuando el cliente esté comprando para sí mismo (si no aclara para quién es, asumí que es para él/ella). Si el cliente te dice explícitamente que es un regalo para otra persona (ej. \"mi tía\", \"mi sobrino\"), IGNORÁ este historial por completo y basate únicamente en lo que te cuenta sobre los gustos de esa otra persona."
+            ? "\n\nHistorial de compras anteriores de este cliente (de más reciente a más antigua):\n{$historialCompras}\n\nCriterio para usar este historial:\n- Si el cliente compra para sí mismo, o no aclara para quién es (asumí que es para él/ella en ese caso), usalo directamente para personalizar.\n- Si es un regalo para otra persona (ej. \"mi tía\", \"mi sobrino\"), priorizá SIEMPRE lo que te cuenta sobre los gustos de esa otra persona por encima del historial.\n- PERO si aun siendo un regalo el cliente pide explícitamente que te bases en sus propios gustos o lecturas (ej. \"algo parecido a lo que yo leí\", \"que se parezca a mis gustos\"), ahí sí usá el historial como referencia para elegir el regalo, combinándolo con lo que sepas de la otra persona."
             : '';
 
         $systemPrompt = <<<PROMPT
