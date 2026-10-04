@@ -11,6 +11,7 @@ const abierto = ref(false);
 const cargando = ref(false);
 const input = ref('');
 const cuerpoRef = ref(null);
+const textareaRef = ref(null);
 const limiteAlcanzado = ref(false);
 const limiteTotal = ref(estaLogueado() ? 12 : 5);
 const mensajesRestantes = ref(limiteTotal.value);
@@ -27,6 +28,7 @@ const sugerencias = [
 
 const usarSugerencia = (s) => {
     input.value = s;
+    nextTick(ajustarAltura);
 };
 
 const scrollAbajo = () => {
@@ -38,6 +40,13 @@ const scrollAbajo = () => {
 const toggle = () => {
     abierto.value = !abierto.value;
     if (abierto.value) scrollAbajo();
+};
+
+const ajustarAltura = () => {
+    const el = textareaRef.value;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 96) + 'px';
 };
 
 const formatearMensaje = (texto) => {
@@ -65,6 +74,7 @@ const enviar = async () => {
 
     mensajes.value.push({ role: 'user', content: texto });
     input.value = '';
+    nextTick(ajustarAltura);
     cargando.value = true;
     scrollAbajo();
 
@@ -171,15 +181,18 @@ const enviar = async () => {
 
                 <!-- Input -->
                 <form @submit.prevent="enviar" class="border-t border-white/10 p-3 shrink-0">
-                    <div class="flex items-center gap-2">
-                        <input
+                    <div class="flex items-end gap-2">
+                        <textarea
+                            ref="textareaRef"
                             v-model="input"
-                            type="text"
                             :maxlength="MAX_CARACTERES"
+                            rows="1"
                             placeholder="Escribí tu mensaje..."
                             :disabled="cargando || limiteAlcanzado"
-                            class="flex-1 bg-[#0A0A0A] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 disabled:opacity-50"
-                        />
+                            @input="ajustarAltura"
+                            @keydown.enter.exact.prevent="enviar"
+                            class="flex-1 resize-none max-h-24 overflow-y-auto bg-[#0A0A0A] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-white/30 focus:outline-none focus:border-brand-red/50 disabled:opacity-50"
+                        ></textarea>
                         <button
                             type="submit"
                             :disabled="cargando || limiteAlcanzado || !input.trim()"
