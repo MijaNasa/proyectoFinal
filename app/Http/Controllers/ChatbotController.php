@@ -14,6 +14,7 @@ class ChatbotController extends Controller
     private const LIMITE_MENSAJES_USER = 12;
     private const LIMITE_MENSAJES_GUEST = 5;
     private const LIMITE_HORAS = 12;
+    private const LIMITE_CARACTERES_MENSAJE = 300;
 
     public function responder(Request $request)
     {
@@ -41,24 +42,24 @@ class ChatbotController extends Controller
             ? 'chatbot:user:' . $request->user()->id
             : 'chatbot:ip:' . $this->resolverIpReal($request);
 
-        // El limite de 200 caracteres es para lo que escribe el usuario, no para el
+        // El limite de caracteres es para lo que escribe el usuario, no para el
         // historial completo: las respuestas del bot se reenvian tal cual en cada
-        // request, y habitualmente superan los 200 caracteres (listas de libros,
-        // links). Validarlas con el mismo limite rompia el chat apenas el bot
-        // contestaba algo largo: toda conversacion posterior fallaba. Por eso el
-        // contenido del bot no tiene limite de longitud, y el techo total del lado
-        // del usuario escala con su cuota de mensajes (200 por cada uno permitido).
+        // request, y habitualmente superan ese limite (listas de libros, links).
+        // Validarlas con el mismo limite rompia el chat apenas el bot contestaba
+        // algo largo: toda conversacion posterior fallaba. Por eso el contenido
+        // del bot no tiene limite de longitud, y el techo total del lado del
+        // usuario escala con su cuota de mensajes.
         $request->validate([
             'mensajes'           => 'required|array|min:1|max:20',
             'mensajes.*.role'    => 'required|in:user,assistant',
-            'mensajes.*.content' => ['required', 'string', 'max:' . (200 * $limiteMensajes)],
+            'mensajes.*.content' => ['required', 'string', 'max:' . (self::LIMITE_CARACTERES_MENSAJE * $limiteMensajes)],
         ]);
 
         $mensajesRequest = $request->mensajes;
         foreach ($mensajesRequest as $m) {
-            if (($m['role'] ?? null) === 'user' && mb_strlen($m['content'] ?? '') > 200) {
+            if (($m['role'] ?? null) === 'user' && mb_strlen($m['content'] ?? '') > self::LIMITE_CARACTERES_MENSAJE) {
                 return response()->json([
-                    'reply' => 'Tu mensaje es demasiado largo (máximo 200 caracteres). ¿Podés acortarlo?',
+                    'reply' => 'Tu mensaje es demasiado largo (máximo ' . self::LIMITE_CARACTERES_MENSAJE . ' caracteres). ¿Podés acortarlo?',
                 ], 200);
             }
         }

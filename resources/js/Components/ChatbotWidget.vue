@@ -2,7 +2,7 @@
 import { ref, nextTick } from 'vue';
 import { usePage, Link } from '@inertiajs/vue3';
 
-const MAX_CARACTERES = 200;
+const MAX_CARACTERES = 300;
 
 const page = usePage();
 const estaLogueado = () => !!page.props.auth?.user;
