@@ -256,8 +256,12 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         $geminiKey    = config('services.gemini.api_key');
         $anthropicKey = config('services.anthropic.api_key');
 
+        $ips = $request->ips();
+        $ipReal = !empty($ips) ? end($ips) : $request->ip();
+
         $resultado = [
             'ip_detectada'        => $request->ip(),
+            'ip_real_resuelta'    => $ipReal,
             'todas_las_ips'       => $request->ips(),
             'gemini_configurada'  => (bool) $geminiKey,
             'anthropic_configurada' => (bool) $anthropicKey,

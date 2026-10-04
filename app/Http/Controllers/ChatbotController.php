@@ -27,7 +27,7 @@ class ChatbotController extends Controller
         $limiteMensajes    = $esUsuarioLogueado ? self::LIMITE_MENSAJES_USER : self::LIMITE_MENSAJES_GUEST;
         $rateLimitKey      = $esUsuarioLogueado
             ? 'chatbot:user:' . $request->user()->id
-            : 'chatbot:ip:' . $request->ip();
+            : 'chatbot:ip:' . $this->resolverIpReal($request);
 
         if (RateLimiter::tooManyAttempts($rateLimitKey, $limiteMensajes)) {
             $segundosRestantes = RateLimiter::availableIn($rateLimitKey);
@@ -193,6 +193,18 @@ class ChatbotController extends Controller
             ->where('type', 'text')
             ->pluck('text')
             ->implode("\n");
+    }
+
+    /**
+     * $request->ip() devuelve el salto interno de Render (ej. 10.x.x.x), no la IP
+     * real del visitante: Render entrega las peticiones a traves de varios saltos
+     * de proxy (Cloudflare + su propio balanceador), y la IP real termina siendo
+     * la ULTIMA de la cadena en $request->ips(), no la primera.
+     */
+    private function resolverIpReal(Request $request): string
+    {
+        $ips = $request->ips();
+        return !empty($ips) ? end($ips) : $request->ip();
     }
 
     private function obtenerCatalogoEnStock()
