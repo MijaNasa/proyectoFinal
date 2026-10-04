@@ -17,10 +17,9 @@ class ChatbotController extends Controller
 
     public function responder(Request $request)
     {
-        // Red de seguridad temporal: algo esta fallando entre el primer mensaje y
-        // los siguientes sin que el intento llegue a sumarse al RateLimiter, y no
-        // hay acceso a los logs de Render para verlo. Mientras se diagnostica, se
-        // devuelve el error real en vez de un 500 generico.
+        // Red de seguridad: cualquier excepcion que escape de responderInterno()
+        // (ej. un request malformado) cae en una respuesta prolija en vez de un
+        // 500 que el widget muestra como "problema de red" sin mas contexto.
         try {
             return $this->responderInterno($request);
         } catch (\Throwable $e) {
@@ -29,18 +28,32 @@ class ChatbotController extends Controller
                 'archivo' => $e->getFile() . ':' . $e->getLine(),
             ]);
             return response()->json([
-                'reply' => '[DEBUG TEMPORAL] Error real: ' . $e->getMessage() . ' en ' . basename($e->getFile()) . ':' . $e->getLine(),
+                'reply' => 'No pude procesar tu mensaje. ¿Podés intentar de nuevo?',
             ], 200);
         }
     }
 
     private function responderInterno(Request $request)
     {
+        // El limite de 200 caracteres es para lo que escribe el usuario, no para el
+        // historial completo: las respuestas del bot (y los mensajes de usuario ya
+        // validados en turnos anteriores) se reenvian tal cual en cada request, y
+        // las respuestas del bot habitualmente superan los 200 caracteres (listas
+        // de libros, links). Validarlas con el mismo limite rompia el chat apenas
+        // el bot contestaba algo largo: toda conversacion posterior fallaba.
         $request->validate([
             'mensajes'           => 'required|array|min:1|max:20',
             'mensajes.*.role'    => 'required|in:user,assistant',
-            'mensajes.*.content' => 'required|string|max:200',
+            'mensajes.*.content' => 'required|string|max:4000',
         ]);
+
+        $mensajesRequest = $request->mensajes;
+        $ultimoMensajeRequest = end($mensajesRequest);
+        if (($ultimoMensajeRequest['role'] ?? null) === 'user' && mb_strlen($ultimoMensajeRequest['content'] ?? '') > 200) {
+            return response()->json([
+                'reply' => 'Tu mensaje es demasiado largo (máximo 200 caracteres). ¿Podés acortarlo?',
+            ], 200);
+        }
 
         $esUsuarioLogueado = (bool) $request->user();
         $limiteMensajes    = $esUsuarioLogueado ? self::LIMITE_MENSAJES_USER : self::LIMITE_MENSAJES_GUEST;
