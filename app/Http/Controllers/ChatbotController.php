@@ -65,11 +65,10 @@ class ChatbotController extends Controller
         }
 
         if (RateLimiter::tooManyAttempts($rateLimitKey, $limiteMensajes)) {
-            $segundosRestantes = RateLimiter::availableIn($rateLimitKey);
-            $horasRestantes    = (int) ceil($segundosRestantes / 3600);
+            $tiempoRestante = $this->formatearTiempoRestante(RateLimiter::availableIn($rateLimitKey));
             $reply = $esUsuarioLogueado
-                ? "Llegaste al máximo de {$limiteMensajes} mensajes de tu cuenta. Podés volver a escribir en aproximadamente {$horasRestantes} hora(s)."
-                : "Llegaste al máximo de {$limiteMensajes} mensajes como invitado. 🔒 Iniciá sesión para tener hasta " . self::LIMITE_MENSAJES_USER . " mensajes cada " . self::LIMITE_HORAS . " horas. Mientras tanto, podés volver a escribir en aproximadamente {$horasRestantes} hora(s).";
+                ? "Llegaste al máximo de {$limiteMensajes} mensajes de tu cuenta. Podés volver a escribir en aproximadamente {$tiempoRestante}."
+                : "Llegaste al máximo de {$limiteMensajes} mensajes como invitado. 🔒 Iniciá sesión para tener hasta " . self::LIMITE_MENSAJES_USER . " mensajes cada " . self::LIMITE_HORAS . " horas. Mientras tanto, podés volver a escribir en aproximadamente {$tiempoRestante}.";
             return response()->json([
                 'reply' => $reply,
                 'limite_alcanzado' => true,
@@ -256,6 +255,26 @@ class ChatbotController extends Controller
     {
         $ips = $request->ips();
         return !empty($ips) ? end($ips) : $request->ip();
+    }
+
+    /**
+     * Convierte segundos restantes en un texto "X hora(s) y Y minuto(s)",
+     * redondeando siempre hacia arriba al minuto para no decir "0 minutos"
+     * cuando en realidad faltan unos segundos.
+     */
+    private function formatearTiempoRestante(int $segundosRestantes): string
+    {
+        $minutosTotales = (int) ceil($segundosRestantes / 60);
+        $horas          = intdiv($minutosTotales, 60);
+        $minutos        = $minutosTotales % 60;
+
+        if ($horas > 0 && $minutos > 0) {
+            return "{$horas} hora(s) y {$minutos} minuto(s)";
+        }
+        if ($horas > 0) {
+            return "{$horas} hora(s)";
+        }
+        return "{$minutos} minuto(s)";
     }
 
     private function obtenerCatalogoEnStock()
