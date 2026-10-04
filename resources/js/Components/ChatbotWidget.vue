@@ -15,6 +15,21 @@ const textareaRef = ref(null);
 const limiteAlcanzado = ref(false);
 const limiteTotal = ref(estaLogueado() ? 12 : 5);
 const mensajesRestantes = ref(limiteTotal.value);
+let timerDesbloqueo = null;
+
+// El backend informa cuanto falta para que se reinicie la ventana de 12h.
+// Sin esto, una vez que limiteAlcanzado queda en true el input se deshabilita
+// para siempre: el usuario nunca puede volver a mandar un mensaje para que
+// el servidor le confirme que el limite ya se liberó.
+const programarDesbloqueo = (segundos) => {
+    if (timerDesbloqueo) clearTimeout(timerDesbloqueo);
+    if (!segundos || segundos <= 0) return;
+    timerDesbloqueo = setTimeout(() => {
+        limiteAlcanzado.value = false;
+        mensajesRestantes.value = limiteTotal.value;
+        timerDesbloqueo = null;
+    }, segundos * 1000);
+};
 
 const mensajeBienvenida = () => {
     const base = '¡Hola! 👋 Contame qué te gusta leer (o, si es un regalo, los gustos de esa persona) y te recomiendo algo de nuestro catálogo.';
@@ -35,6 +50,7 @@ const mensajes = ref([
 watch(
     () => page.props.auth?.user?.id ?? null,
     () => {
+        if (timerDesbloqueo) { clearTimeout(timerDesbloqueo); timerDesbloqueo = null; }
         limiteTotal.value = estaLogueado() ? 12 : 5;
         mensajesRestantes.value = limiteTotal.value;
         limiteAlcanzado.value = false;
@@ -105,9 +121,14 @@ const enviar = async () => {
             mensajes: mensajes.value,
         });
         mensajes.value.push({ role: 'assistant', content: res.data.reply });
-        if (res.data.limite_alcanzado) limiteAlcanzado.value = true;
         if (res.data.limite_total !== undefined) limiteTotal.value = res.data.limite_total;
         if (res.data.mensajes_restantes !== undefined) mensajesRestantes.value = res.data.mensajes_restantes;
+        if (res.data.limite_alcanzado) {
+            limiteAlcanzado.value = true;
+            programarDesbloqueo(res.data.segundos_restantes);
+        } else {
+            limiteAlcanzado.value = false;
+        }
     } catch (e) {
         mensajes.value.push({ role: 'assistant', content: 'Tuve un problema para responder. ¿Podés intentar de nuevo en un momento?' });
     } finally {

@@ -49,8 +49,13 @@ class ChatbotController extends Controller
         // algo largo: toda conversacion posterior fallaba. Por eso el contenido
         // del bot no tiene limite de longitud, y el techo total del lado del
         // usuario escala con su cuota de mensajes.
+        // El historial reenviado trae el saludo inicial + un ida-y-vuelta (user+
+        // assistant) por cada mensaje permitido, asi que el array puede crecer
+        // hasta 1 + limiteMensajes*2. Un max fijo mas chico que eso tiraba una
+        // ValidationException antes de llegar a la cuota real.
+        $maxMensajesEnHistorial = 1 + ($limiteMensajes * 2);
         $request->validate([
-            'mensajes'           => 'required|array|min:1|max:20',
+            'mensajes'           => "required|array|min:1|max:{$maxMensajesEnHistorial}",
             'mensajes.*.role'    => 'required|in:user,assistant',
             'mensajes.*.content' => ['required', 'string', 'max:' . (self::LIMITE_CARACTERES_MENSAJE * $limiteMensajes)],
         ]);
@@ -65,13 +70,15 @@ class ChatbotController extends Controller
         }
 
         if (RateLimiter::tooManyAttempts($rateLimitKey, $limiteMensajes)) {
-            $tiempoRestante = $this->formatearTiempoRestante(RateLimiter::availableIn($rateLimitKey));
+            $segundosRestantes = RateLimiter::availableIn($rateLimitKey);
+            $tiempoRestante    = $this->formatearTiempoRestante($segundosRestantes);
             $reply = $esUsuarioLogueado
                 ? "Llegaste al máximo de {$limiteMensajes} mensajes de tu cuenta. Podés volver a escribir en aproximadamente {$tiempoRestante}."
                 : "Llegaste al máximo de {$limiteMensajes} mensajes como invitado. 🔒 Iniciá sesión para tener hasta " . self::LIMITE_MENSAJES_USER . " mensajes cada " . self::LIMITE_HORAS . " horas. Mientras tanto, podés volver a escribir en aproximadamente {$tiempoRestante}.";
             return response()->json([
                 'reply' => $reply,
                 'limite_alcanzado' => true,
+                'segundos_restantes' => $segundosRestantes,
                 'mensajes_restantes' => 0,
                 'limite_total'       => $limiteMensajes,
                 'es_usuario_logueado' => $esUsuarioLogueado,
