@@ -242,7 +242,10 @@ class ChatbotController extends Controller
 
         if (!$response->successful()) {
             Log::error('Chatbot: error de la API de Anthropic', ['body' => $response->body()]);
-            throw new \RuntimeException('Error en API Anthropic: ' . $response->status());
+            // TEMPORAL: se incluye el body de la respuesta en el mensaje de la
+            // excepcion para poder ver la causa real desde /admin/debug-chatbot
+            // (que solo expone getMessage()). Sacar una vez diagnosticado.
+            throw new \RuntimeException('Error en API Anthropic: ' . $response->status() . ' - ' . $response->body());
         }
 
         $data  = $response->json();
