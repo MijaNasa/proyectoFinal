@@ -646,9 +646,12 @@ const initMap = () => {
             delete mapContainer.value._leaflet_id;
         }
         map = L.map(mapContainer.value).setView(originCoords, 13);
-        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-            attribution: '&copy; CartoDB &copy; OpenStreetMap',
-            maxZoom: 19,
+        // CartoDB (basemaps.cartocdn.com) dejo de servir tiles gratis sin API key
+        // (ahora pertenece a Stadia Maps y exige registro). Esri si sigue
+        // sirviendo este basemap oscuro gratis y sin key.
+        L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '&copy; Esri &mdash; Esri, DeLorme, NAVTEQ',
+            maxZoom: 16,
         }).addTo(map);
 
         const storeIcon = L.divIcon({
