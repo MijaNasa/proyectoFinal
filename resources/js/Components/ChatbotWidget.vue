@@ -6,30 +6,87 @@ const MAX_CARACTERES = 300;
 
 const page = usePage();
 const estaLogueado = () => !!page.props.auth?.user;
+const usuarioActualId = () => page.props.auth?.user?.id ?? null;
+
+// El widget vive dentro de PublicLayout, y al navegar entre paginas Inertia no
+// siempre mantiene esa instancia (depende de la pagina, se remonta de cero).
+// Persistimos el estado en sessionStorage (dura la pestaña, no entre pestañas
+// ni despues de cerrarla) para que el chat no "vuelva a cero" al cambiar de
+// pantalla dentro de la misma sesion.
+const STORAGE_KEY = 'puro_chatbot_v1';
+
+const cargarEstadoGuardado = () => {
+    try {
+        const raw = sessionStorage.getItem(STORAGE_KEY);
+        if (!raw) return null;
+        const data = JSON.parse(raw);
+        if (data.usuarioId !== usuarioActualId()) return null;
+        return data;
+    } catch {
+        return null;
+    }
+};
+
+const estadoGuardado = cargarEstadoGuardado();
 
 const abierto = ref(false);
 const cargando = ref(false);
 const input = ref('');
 const cuerpoRef = ref(null);
 const textareaRef = ref(null);
-const limiteAlcanzado = ref(false);
-const limiteTotal = ref(estaLogueado() ? 12 : 5);
-const mensajesRestantes = ref(limiteTotal.value);
+const limiteAlcanzado = ref(estadoGuardado?.limiteAlcanzado ?? false);
+const limiteTotal = ref(estadoGuardado?.limiteTotal ?? (estaLogueado() ? 12 : 5));
+const mensajesRestantes = ref(estadoGuardado?.mensajesRestantes ?? limiteTotal.value);
+const desbloqueaEn = ref(estadoGuardado?.desbloqueaEn ?? null);
 let timerDesbloqueo = null;
+
+const guardarEstado = () => {
+    try {
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify({
+            usuarioId: usuarioActualId(),
+            mensajes: mensajes.value,
+            limiteTotal: limiteTotal.value,
+            mensajesRestantes: mensajesRestantes.value,
+            limiteAlcanzado: limiteAlcanzado.value,
+            desbloqueaEn: desbloqueaEn.value,
+        }));
+    } catch {
+        // sessionStorage puede no estar disponible (modo privado, etc). No es critico.
+    }
+};
 
 // El backend informa cuanto falta para que se reinicie la ventana de 12h.
 // Sin esto, una vez que limiteAlcanzado queda en true el input se deshabilita
 // para siempre: el usuario nunca puede volver a mandar un mensaje para que
-// el servidor le confirme que el limite ya se liberó.
-const programarDesbloqueo = (segundos) => {
+// el servidor le confirme que el limite ya se liberó. Se guarda el momento
+// absoluto de desbloqueo (no solo un setTimeout) para que sobreviva si el
+// componente se remonta antes de que se cumpla el plazo.
+const programarDesbloqueo = (segundosDesdeAhora) => {
     if (timerDesbloqueo) clearTimeout(timerDesbloqueo);
-    if (!segundos || segundos <= 0) return;
+    if (segundosDesdeAhora !== null) {
+        desbloqueaEn.value = segundosDesdeAhora > 0 ? Date.now() + segundosDesdeAhora * 1000 : null;
+    }
+    if (!desbloqueaEn.value) return;
+
+    const restanteMs = desbloqueaEn.value - Date.now();
+    if (restanteMs <= 0) {
+        limiteAlcanzado.value = false;
+        mensajesRestantes.value = limiteTotal.value;
+        desbloqueaEn.value = null;
+        return;
+    }
     timerDesbloqueo = setTimeout(() => {
         limiteAlcanzado.value = false;
         mensajesRestantes.value = limiteTotal.value;
+        desbloqueaEn.value = null;
         timerDesbloqueo = null;
-    }, segundos * 1000);
+    }, restanteMs);
 };
+
+// Si quedo un desbloqueo pendiente de antes de remontarse, se retoma.
+if (limiteAlcanzado.value && desbloqueaEn.value) {
+    programarDesbloqueo(null);
+}
 
 const mensajeBienvenida = () => {
     const base = '¡Hola! 👋 Contame qué te gusta leer (o, si es un regalo, los gustos de esa persona) y te recomiendo algo de nuestro catálogo.';
@@ -39,9 +96,11 @@ const mensajeBienvenida = () => {
     return `${base}\n\n${cuota}`;
 };
 
-const mensajes = ref([
-    { role: 'assistant', content: mensajeBienvenida() },
-]);
+const mensajes = ref(
+    estadoGuardado?.mensajes ?? [{ role: 'assistant', content: mensajeBienvenida() }]
+);
+
+watch([mensajes, limiteTotal, mensajesRestantes, limiteAlcanzado, desbloqueaEn], guardarEstado, { deep: true });
 
 // Si el usuario inicia o cierra sesion sin que la pagina se recargue (Inertia
 // navega sin reload), el widget no se desmonta y queda con el historial y los
@@ -54,6 +113,7 @@ watch(
         limiteTotal.value = estaLogueado() ? 12 : 5;
         mensajesRestantes.value = limiteTotal.value;
         limiteAlcanzado.value = false;
+        desbloqueaEn.value = null;
         mensajes.value = [{ role: 'assistant', content: mensajeBienvenida() }];
     }
 );
@@ -128,6 +188,7 @@ const enviar = async () => {
             programarDesbloqueo(res.data.segundos_restantes);
         } else {
             limiteAlcanzado.value = false;
+            desbloqueaEn.value = null;
         }
     } catch (e) {
         mensajes.value.push({ role: 'assistant', content: 'Tuve un problema para responder. ¿Podés intentar de nuevo en un momento?' });
