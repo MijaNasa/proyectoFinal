@@ -231,7 +231,7 @@ class ChatbotController extends Controller
             'anthropic-version' => '2023-06-01',
             'content-type'      => 'application/json',
         ])->timeout(20)->post('https://api.anthropic.com/v1/messages', [
-            'model'      => config('services.anthropic.model', 'claude-3-5-haiku-latest'),
+            'model'      => config('services.anthropic.model', 'claude-haiku-4-5-20251001'),
             'max_tokens' => 450,
             'system'     => $systemPrompt,
             'messages'   => collect($mensajes)->map(fn($m) => [
@@ -242,10 +242,7 @@ class ChatbotController extends Controller
 
         if (!$response->successful()) {
             Log::error('Chatbot: error de la API de Anthropic', ['body' => $response->body()]);
-            // TEMPORAL: se incluye el body de la respuesta en el mensaje de la
-            // excepcion para poder ver la causa real desde /admin/debug-chatbot
-            // (que solo expone getMessage()). Sacar una vez diagnosticado.
-            throw new \RuntimeException('Error en API Anthropic: ' . $response->status() . ' - ' . $response->body());
+            throw new \RuntimeException('Error en API Anthropic: ' . $response->status());
         }
 
         $data  = $response->json();
