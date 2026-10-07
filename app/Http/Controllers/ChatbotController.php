@@ -246,7 +246,14 @@ class ChatbotController extends Controller
             'content-type'      => 'application/json',
         ])->timeout(20)->post('https://api.anthropic.com/v1/messages', [
             'model'      => config('services.anthropic.model', 'claude-sonnet-5-5'),
-            'max_tokens' => 450,
+            // Modelos a partir de Sonnet 5.5/Opus 5 corren "thinking" adaptativo
+            // por defecto, y esos tokens de razonamiento se cuentan dentro de
+            // max_tokens. Con un limite chico, el modelo se queda sin presupuesto
+            // pensando y nunca llega a escribir el texto visible (respuesta vacia).
+            // effort:low reduce ese razonamiento interno (alcanza de sobra para
+            // una recomendacion corta) y se sube el techo como colchon.
+            'max_tokens'     => 1024,
+            'output_config'  => ['effort' => 'low'],
             'system'     => $systemPrompt,
             'messages'   => collect($mensajes)->map(fn($m) => [
                 'role'    => $m['role'],
