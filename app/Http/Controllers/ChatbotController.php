@@ -122,6 +122,15 @@ class ChatbotController extends Controller
             ? "\n\nHistorial de compras anteriores de este cliente (de más reciente a más antigua):\n{$historialCompras}\n\nCriterio para usar este historial:\n- Si el cliente compra para sí mismo, o no aclara para quién es (asumí que es para él/ella en ese caso), usalo directamente para personalizar.\n- Si es un regalo para otra persona (ej. \"mi tía\", \"mi sobrino\"), priorizá SIEMPRE lo que te cuenta sobre los gustos de esa otra persona por encima del historial.\n- PERO si aun siendo un regalo el cliente pide explícitamente que te bases en sus propios gustos o lecturas (ej. \"algo parecido a lo que yo leí\", \"que se parezca a mis gustos\"), ahí sí usá el historial como referencia para elegir el regalo, combinándolo con lo que sepas de la otra persona.\n- En cualquier caso, lo que el cliente te diga explícitamente en la conversación actual (un género puntual, \"quiero probar algo distinto\", etc.) siempre tiene prioridad por sobre el historial: usalo como referencia de fondo, nunca para contradecir lo que te está pidiendo ahora."
             : '';
 
+        // Si le quedan pocos mensajes en esta ventana de 12h, que la IA se lo
+        // avise al cliente de forma natural para que aproveche lo que le queda
+        // contando todo junto, en vez de gastarlos de a poco con preguntas y
+        // quedarse sin mensajes a mitad de la recomendación.
+        $mensajesRestantes = $infoLimite['mensajes_restantes'];
+        $seccionLimite = $mensajesRestantes <= 2
+            ? "\n\nAviso: al usuario le quedan solo {$mensajesRestantes} mensaje(s) de {$limiteMensajes} en esta ventana de 12 horas. Si todavía no le diste una recomendación concreta, mencionaselo brevemente y de forma natural (sin ser alarmante) para que aproveche lo que le queda contándote todo junto (para quién es, qué le gusta, qué busca) en vez de ir de a poco, y priorizá cerrar con una recomendación útil aunque tengas que preguntar menos de lo ideal."
+            : '';
+
         $systemPrompt = <<<PROMPT
         Sos el asistente de recomendaciones de PuroComic, una librería especializada en manga, cómics y novelas gráficas con tienda online.
 
@@ -138,7 +147,7 @@ class ChatbotController extends Controller
         Respondé siempre en español rioplatense, de forma corta y cercana (no más de 4-5 líneas por respuesta), como alguien que atiende el local y conoce bien el catálogo.
 
         Catálogo disponible en stock:
-        {$listaCatalogo}{$seccionHistorial}
+        {$listaCatalogo}{$seccionHistorial}{$seccionLimite}
         PROMPT;
 
         try {
