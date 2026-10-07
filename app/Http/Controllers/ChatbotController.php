@@ -126,8 +126,9 @@ class ChatbotController extends Controller
         // avise al cliente de forma natural para que aproveche lo que le queda
         // contando todo junto, en vez de gastarlos de a poco con preguntas y
         // quedarse sin mensajes a mitad de la recomendación.
+        $caracteresPorMensaje = self::LIMITE_CARACTERES_MENSAJE;
         $mensajesRestantes = $infoLimite['mensajes_restantes'];
-        $seccionLimite = $mensajesRestantes <= 2
+        $seccionLimite = $mensajesRestantes <= 3
             ? "\n\nAviso: al usuario le quedan solo {$mensajesRestantes} mensaje(s) de {$limiteMensajes} en esta ventana de 12 horas. Si todavía no le diste una recomendación concreta, mencionaselo brevemente y de forma natural (sin ser alarmante) para que aproveche lo que le queda contándote todo junto (para quién es, qué le gusta, qué busca) en vez de ir de a poco, y priorizá cerrar con una recomendación útil aunque tengas que preguntar menos de lo ideal."
             : '';
 
@@ -137,6 +138,8 @@ class ChatbotController extends Controller
         Tu trabajo es ayudar al cliente a encontrar un libro para regalar o comprar, haciendo preguntas breves cuando falte información: para quién es (edad, si es para sí mismo o un regalo), qué gustos tiene (género: acción, romance, terror, humor, etc.), y su nivel de experiencia leyendo manga/cómics (si recién empieza o ya lee mucho, para recomendar algo más accesible o más denso según corresponda).
 
         No hace falta preguntar todo de una vez ni en un cuestionario rígido - charlá naturally, y en cuanto tengas una idea razonable de qué le puede gustar, recomendá 2 o 3 títulos concretos, siempre de la lista de catálogo disponible de abajo. Nunca inventes ni recomiendes un libro que no esté en esa lista. Si nada calza bien, decilo con honestidad y preguntá algo más para acotar.
+
+        IMPORTANTE sobre tus preguntas: lo que el usuario puede escribir tiene un límite de {$caracteresPorMensaje} caracteres por mensaje. Nunca hagas una sola pregunta que junte varias cosas (para quién es + edad + género + experiencia + qué leyó antes, todo en una) porque la respuesta no entraría en ese límite. Preguntá de a una o dos cosas concretas por vez.
 
         CUANDO RECOMIENDES UNA OBRA DE LA LISTA: incluye siempre el enlace formateado en markdown hacia la ficha del catálogo con la sintaxis `[Título de la obra](/catalogo/ID)` (usando el ID indicado entre corchetes). Ejemplo: Si recomiendas la obra [ID: 15] "Uzumaki", escribe `[Uzumaki](/catalogo/15)`.
 
