@@ -245,7 +245,7 @@ class ChatbotController extends Controller
             'anthropic-version' => '2023-06-01',
             'content-type'      => 'application/json',
         ])->timeout(20)->post('https://api.anthropic.com/v1/messages', [
-            'model'      => config('services.anthropic.model', 'claude-haiku-4-5-20251001'),
+            'model'      => config('services.anthropic.model', 'claude-sonnet-5-5'),
             'max_tokens' => 450,
             'system'     => $systemPrompt,
             'messages'   => collect($mensajes)->map(fn($m) => [
