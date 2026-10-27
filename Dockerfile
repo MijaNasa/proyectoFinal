@@ -1,12 +1,15 @@
-FROM php:8.2-apache
+FROM php:8.2.35-apache
 
-RUN apt-get update && apt-get install -y \
-    git curl libpng-dev libonig-dev libxml2-dev libzip-dev libpq-dev unzip \
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    ca-certificates git curl libpng-dev libonig-dev libxml2-dev libzip-dev libpq-dev unzip \
+    && update-ca-certificates \
     && docker-php-ext-install pdo pdo_mysql pdo_pgsql mbstring exif pcntl bcmath gd zip \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
     && apt-get install -y nodejs
+
+RUN php -v && node -v
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
