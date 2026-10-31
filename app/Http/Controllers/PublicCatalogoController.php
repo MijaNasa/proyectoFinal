@@ -78,6 +78,14 @@ class PublicCatalogoController extends Controller
             ->orderByDesc('count')
             ->get();
 
+        $obrasFiltro = (clone $facetBase)
+            ->join('libro_masters', 'libros.master_id', '=', 'libro_masters.id')
+            ->where('libro_masters.activo', true)
+            ->groupBy('libro_masters.id', 'libro_masters.titulo')
+            ->selectRaw('libro_masters.id, libro_masters.titulo as nombre, count(distinct libros.id) as count')
+            ->orderBy('libro_masters.titulo')
+            ->get();
+
         // 3. Filtro por Editorial (Proveedor) - Soporta múltiples seleccionados
         $proveedorIds = [];
         if ($request->filled('proveedor')) {
@@ -101,6 +109,17 @@ class PublicCatalogoController extends Controller
                 $query->whereHas('master', function ($q) use ($categoriaIds) {
                     $q->whereIn('categoria_id', $categoriaIds);
                 });
+            }
+        }
+
+        // 4b. Filtro por Serie (obra) - Soporta múltiples seleccionadas
+        $obraIds = [];
+        if ($request->filled('obra')) {
+            $rawObra = $request->input('obra');
+            $obraIds = is_array($rawObra) ? $rawObra : explode(',', (string)$rawObra);
+            $obraIds = array_values(array_filter(array_map('intval', $obraIds)));
+            if (!empty($obraIds)) {
+                $query->whereIn('libros.master_id', $obraIds);
             }
         }
 
@@ -142,7 +161,7 @@ class PublicCatalogoController extends Controller
         $query->withSum('stocks', 'cantidad_disponible');
 
         // Check if there are any search filters applied
-        $hasFilters = $request->filled('search') || !empty($categoriaIds) || 
+        $hasFilters = $request->filled('search') || !empty($categoriaIds) || !empty($obraIds) || 
                       $request->filled('autor') || !empty($proveedorIds) || 
                       $request->filled('idioma') || $request->filled('tipo') ||
                       $request->boolean('preventa') || $request->filled('precio_min') ||
@@ -183,8 +202,12 @@ class PublicCatalogoController extends Controller
                 break;
             case 'relevancia':
             default:
+                // Primero lo que tiene stock, después lo más vendido (ventas no canceladas)
+                // y, a igual cantidad, por serie y número de tomo.
                 $query->orderByRaw('(select coalesce(sum(cantidad_disponible), 0) from stocks where stocks.libro_id = libros.id) > 0 desc')
-                      ->latest('libros.id');
+                      ->orderByRaw("(select coalesce(sum(venta_detalles.cantidad), 0) from venta_detalles join ventas on ventas.id = venta_detalles.venta_id where venta_detalles.libro_id = libros.id and ventas.estado <> 'cancelado' and ventas.deleted_at is null) desc")
+                      ->orderBy('libros.master_id')
+                      ->orderBy('libros.numero_tomo');
                 break;
         }
 
@@ -203,6 +226,7 @@ class PublicCatalogoController extends Controller
             'preventas'         => $preventas,
             'proveedoresFiltro' => $proveedoresFiltro,
             'categoriasFiltro'  => $categoriasFiltro,
+            'obrasFiltro'       => $obrasFiltro,
             'precioRango'       => [
                 'min' => $minSugerido,
                 'max' => $maxSugerido,
@@ -216,6 +240,7 @@ class PublicCatalogoController extends Controller
                 'search'     => $request->input('search'),
                 'categoria'  => $categoriaIds,
                 'proveedor'  => $proveedorIds,
+                'obra'       => $obraIds,
                 'autor'      => $request->input('autor'),
                 'idioma'     => $request->input('idioma'),
                 'tipo'       => $request->input('tipo'),

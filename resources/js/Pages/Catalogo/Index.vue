@@ -3,6 +3,7 @@ import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, computed, reactive, watch, nextTick } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
+import HeroBanner from '@/Components/HeroBanner.vue';
 
 const props = defineProps({
     libros: Object,
@@ -12,6 +13,10 @@ const props = defineProps({
         default: () => []
     },
     categoriasFiltro: {
+        type: Array,
+        default: () => []
+    },
+    obrasFiltro: {
         type: Array,
         default: () => []
     },
@@ -66,6 +71,7 @@ const parseInitialArray = (val) => {
 const selected = reactive({
     categoria:  parseInitialArray(props.filters?.categoria),
     proveedor:  parseInitialArray(props.filters?.proveedor),
+    obra:       parseInitialArray(props.filters?.obra),
     autor:      props.filters?.autor      || null,
     idioma:     props.filters?.idioma     || null,
     tipo:       props.filters?.tipo       || null,
@@ -82,6 +88,7 @@ const applyFilters = () => {
         search:     search.value?.trim() || undefined,
         proveedor:  selected.proveedor.length ? selected.proveedor.join(',') : undefined,
         categoria:  selected.categoria.length ? selected.categoria.join(',') : undefined,
+        obra:       selected.obra.length ? selected.obra.join(',') : undefined,
         autor:      selected.autor      || undefined,
         idioma:     selected.idioma     || undefined,
         tipo:       selected.tipo       || undefined,
@@ -94,7 +101,7 @@ const applyFilters = () => {
         preserveState: true,
         preserveScroll: true,
         replace: true,
-        only: ['libros', 'preventas', 'proveedoresFiltro', 'categoriasFiltro', 'filters', 'flash'],
+        only: ['libros', 'preventas', 'proveedoresFiltro', 'categoriasFiltro', 'obrasFiltro', 'filters', 'flash'],
         onFinish: () => {
             isFiltering.value = false;
         },
@@ -119,6 +126,17 @@ const toggleCategoria = (id) => {
         selected.categoria.splice(idx, 1);
     } else {
         selected.categoria.push(numId);
+    }
+    applyFilters();
+};
+
+const toggleObra = (id) => {
+    const numId = Number(id);
+    const idx = selected.obra.indexOf(numId);
+    if (idx > -1) {
+        selected.obra.splice(idx, 1);
+    } else {
+        selected.obra.push(numId);
     }
     applyFilters();
 };
@@ -148,6 +166,7 @@ const limpiarFiltros = () => {
     search.value = '';
     selected.proveedor = [];
     selected.categoria = [];
+    selected.obra = [];
     selected.autor = null;
     selected.idioma = null;
     selected.tipo = null;
@@ -171,6 +190,7 @@ watch(() => props.filters, (newFilters) => {
     search.value        = newFilters.search || '';
     selected.categoria  = parseInitialArray(newFilters.categoria);
     selected.proveedor  = parseInitialArray(newFilters.proveedor);
+    selected.obra       = parseInitialArray(newFilters.obra);
     selected.autor      = newFilters.autor || null;
     selected.idioma     = newFilters.idioma || null;
     selected.tipo       = newFilters.tipo || null;
@@ -188,6 +208,7 @@ const hayFiltrosActivos = computed(() => {
         props.filters?.search ||
         selected.proveedor.length ||
         selected.categoria.length ||
+        selected.obra.length ||
         selected.precio_min ||
         selected.precio_max ||
         selected.solo_stock ||
@@ -205,12 +226,70 @@ const totalFiltrosAplicados = computed(() => {
     let count = 0;
     if (selected.proveedor.length) count += selected.proveedor.length;
     if (selected.categoria.length) count += selected.categoria.length;
+    if (selected.obra.length) count += selected.obra.length;
     if (selected.precio_min || selected.precio_max) count += 1;
     if (selected.solo_stock) count += 1;
     if (selected.preventa) count += 1;
     if (selected.tipo) count += 1;
     return count;
 });
+
+// ── Panel de filtros: secciones plegables, "ver más", rangos de precio y chips ──
+const LIMITE_OPCIONES = 5;
+const seccionAbierta = reactive({ disponibilidad: true, serie: true, categoria: true, editorial: true, precio: true });
+const verTodas = reactive({ serie: false, categoria: false, editorial: false });
+const toggleSeccion = (clave) => { seccionAbierta[clave] = !seccionAbierta[clave]; };
+const opcionesVisibles = (lista, clave) => (verTodas[clave] ? lista : (lista || []).slice(0, LIMITE_OPCIONES));
+
+const rangosPrecio = [
+    { etiqueta: 'Hasta $10.000', min: '', max: '10000' },
+    { etiqueta: '$10.000 a $20.000', min: '10000', max: '20000' },
+    { etiqueta: 'Más de $20.000', min: '20000', max: '' },
+];
+const rangoActivo = (r) => String(selected.precio_min || '') === r.min && String(selected.precio_max || '') === r.max;
+const aplicarRangoRapido = (r) => {
+    if (rangoActivo(r)) {
+        selected.precio_min = '';
+        selected.precio_max = '';
+    } else {
+        selected.precio_min = r.min;
+        selected.precio_max = r.max;
+    }
+    inputPrecioMin.value = selected.precio_min;
+    inputPrecioMax.value = selected.precio_max;
+    applyFilters();
+};
+
+const nombreDe = (lista, id) => (lista || []).find(x => Number(x.id) === Number(id))?.nombre ?? `#${id}`;
+const filtrosActivosChips = computed(() => {
+    const chips = [];
+    if (props.filters?.search) chips.push({ tipo: 'search', etiqueta: `“${props.filters.search}”` });
+    if (selected.solo_stock) chips.push({ tipo: 'solo_stock', etiqueta: 'En stock' });
+    if (selected.preventa) chips.push({ tipo: 'preventa', etiqueta: 'Preventas' });
+    selected.obra.forEach(id => chips.push({ tipo: 'obra', id, etiqueta: nombreDe(props.obrasFiltro, id) }));
+    selected.categoria.forEach(id => chips.push({ tipo: 'categoria', id, etiqueta: nombreDe(props.categoriasFiltro, id) }));
+    selected.proveedor.forEach(id => chips.push({ tipo: 'proveedor', id, etiqueta: nombreDe(props.proveedoresFiltro, id) }));
+    if (selected.precio_min || selected.precio_max) {
+        const desde = selected.precio_min ? fmt(selected.precio_min) : '';
+        const hasta = selected.precio_max ? fmt(selected.precio_max) : '';
+        chips.push({ tipo: 'precio', etiqueta: desde && hasta ? `${desde} a ${hasta}` : (desde ? `Desde ${desde}` : `Hasta ${hasta}`) });
+    }
+    return chips;
+});
+const quitarChip = (chip) => {
+    switch (chip.tipo) {
+        case 'search': limpiarSearch(); return;
+        case 'solo_stock': toggleSoloStock(); return;
+        case 'preventa': togglePreventa(); return;
+        case 'obra': toggleObra(chip.id); return;
+        case 'categoria': toggleCategoria(chip.id); return;
+        case 'proveedor': toggleProveedor(chip.id); return;
+        case 'precio':
+            selected.precio_min = ''; selected.precio_max = '';
+            inputPrecioMin.value = ''; inputPrecioMax.value = '';
+            applyFilters();
+    }
+};
 
 const getStockTotal = (libro) =>
     libro.stocks?.reduce((s, st) => s + (st.cantidad_disponible ?? 0), 0) ?? 0;
@@ -289,164 +368,141 @@ const onMouseMove = (e) => {
     <Head title="Catálogo de Libros - Puro Comic" />
 
     <PublicLayout>
-        <div class="page-catalogo page-catalogo-split flex flex-col lg:flex-row lg:h-[calc(100vh-134px)] lg:overflow-hidden bg-[#0d0d0f]">
+        <div class="page-catalogo bg-[#0d0d0f]">
+
+            <!-- Banner de promociones (solo en la portada del catálogo) -->
+            <HeroBanner v-if="esLandingCatalogo" :preventas="preventas || []" />
+
+            <!-- Contenedor alineado con el ancho del encabezado: filtros a la izquierda, productos a la derecha -->
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex gap-8 items-start">
 
             <!-- ───────────────────────────────────────────────────────── -->
             <!-- PANEL LATERAL IZQUIERDO: FILTROS (Desktop)                -->
             <!-- ───────────────────────────────────────────────────────── -->
-            <aside class="hidden lg:flex flex-col w-72 xl:w-80 shrink-0 h-full overflow-y-auto overscroll-contain filter-scrollbar bg-[#111114] border-r border-white/5 select-none">
+            <aside class="hidden lg:block w-60 xl:w-64 shrink-0 sticky top-6 max-h-[calc(100vh-3rem)] overflow-y-auto overscroll-contain filter-scrollbar select-none pr-2">
                 
                 <!-- Encabezado Sticky del Sidebar -->
-                <div class="sticky top-0 z-20 bg-[#111114]/95 backdrop-blur-md px-6 py-5 border-b border-white/5 flex items-center justify-between">
+                <div class="pb-4 border-b border-white/5 flex items-center justify-between">
                     <h3 class="text-xs font-extrabold uppercase tracking-wider text-white flex items-center gap-2">
                         <svg class="w-3.5 h-3.5 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                         </svg>
                         <span>Filtrar por</span>
                     </h3>
-                    <button
-                        v-if="hayFiltrosActivos"
-                        type="button"
-                        @click="limpiarFiltros"
-                        class="text-[11px] text-zinc-400 hover:text-white font-semibold underline transition-colors cursor-pointer"
-                    >
-                        Limpiar todo
-                    </button>
+                    <div class="flex items-center gap-3">
+                        <button
+                            v-if="hayFiltrosActivos"
+                            type="button"
+                            @click="limpiarFiltros"
+                            class="text-[11px] text-zinc-400 hover:text-white font-semibold underline transition-colors cursor-pointer"
+                        >
+                            Limpiar todo
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Contenedor scrollable con todos los filtros -->
-                <div class="p-6 space-y-6">
-                    <!-- 1. MARCA / EDITORIAL -->
-                    <div v-if="proveedoresFiltro?.length > 0" class="space-y-3">
-                        <div class="flex items-center justify-between">
-                            <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                                Marca / Editorial
-                            </h4>
-                            <span class="text-[10px] text-zinc-600 font-mono">{{ proveedoresFiltro.length }}</span>
-                        </div>
+                <div class="pt-1 space-y-1">
 
-                        <div class="space-y-1.5">
-                            <label 
-                                v-for="prov in proveedoresFiltro" 
-                                :key="prov.id" 
-                                class="flex items-center justify-between gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer py-1 group transition-colors"
-                            >
-                                <div class="flex items-center gap-2.5 min-w-0">
-                                    <input 
-                                        type="checkbox" 
-                                        :checked="selected.proveedor.includes(prov.id)"
-                                        @change="toggleProveedor(prov.id)"
-                                        class="w-4 h-4 rounded bg-[#0d0d0f] border border-white/20 text-red-600 focus:ring-0 focus:ring-offset-0 cursor-pointer transition-all"
-                                    />
-                                    <span class="truncate" :class="{ 'font-bold text-white': selected.proveedor.includes(prov.id) }">
-                                        {{ prov.nombre }}
-                                    </span>
-                                </div>
-                                <span class="text-[11px] text-zinc-500 font-mono shrink-0">({{ prov.count }})</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- 2. RANGO DE PRECIO -->
-                    <div class="space-y-3 pt-3 border-t border-white/5">
-                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                            Precio
-                        </h4>
-                        <div class="flex items-end gap-2">
-                            <div class="flex-1 min-w-0">
-                                <label class="text-[10px] uppercase font-bold text-zinc-500 block mb-1">Desde</label>
-                                <div class="relative">
-                                    <span class="absolute left-2.5 top-2 text-xs text-zinc-500 font-mono">$</span>
-                                    <input 
-                                        v-model="inputPrecioMin" 
-                                        type="number" 
-                                        :placeholder="String(precioRango?.min || 1000)" 
-                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl py-1.5 pl-6 pr-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-white/30 font-mono font-medium"
-                                        @keyup.enter="aplicarRangoPrecio"
-                                    />
-                                </div>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <label class="text-[10px] uppercase font-bold text-zinc-500 block mb-1">Hasta</label>
-                                <div class="relative">
-                                    <span class="absolute left-2.5 top-2 text-xs text-zinc-500 font-mono">$</span>
-                                    <input 
-                                        v-model="inputPrecioMax" 
-                                        type="number" 
-                                        :placeholder="String(precioRango?.max || 50000)" 
-                                        class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl py-1.5 pl-6 pr-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-white/30 font-mono font-medium"
-                                        @keyup.enter="aplicarRangoPrecio"
-                                    />
-                                </div>
-                            </div>
-                            <button 
-                                type="button" 
-                                @click="aplicarRangoPrecio" 
-                                class="p-2.5 bg-white hover:bg-zinc-200 text-black rounded-xl transition-all font-bold text-xs shadow-md active:scale-95 cursor-pointer shrink-0"
-                                title="Aplicar rango de precio"
-                            >
-                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- 3. CATEGORÍAS -->
-                    <div v-if="categoriasFiltro?.length > 0" class="space-y-3 pt-3 border-t border-white/5">
-                        <div class="flex items-center justify-between">
-                            <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                                Categoría
-                            </h4>
-                            <span class="text-[10px] text-zinc-600 font-mono">{{ categoriasFiltro.length }}</span>
-                        </div>
-
-                        <div class="space-y-1.5">
-                            <label 
-                                v-for="cat in categoriasFiltro" 
-                                :key="cat.id" 
-                                class="flex items-center justify-between gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer py-1 group transition-colors"
-                            >
-                                <div class="flex items-center gap-2.5 min-w-0">
-                                    <input 
-                                        type="checkbox" 
-                                        :checked="selected.categoria.includes(cat.id)"
-                                        @change="toggleCategoria(cat.id)"
-                                        class="w-4 h-4 rounded bg-[#0d0d0f] border border-white/20 text-red-600 focus:ring-0 focus:ring-offset-0 cursor-pointer transition-all"
-                                    />
-                                    <span class="truncate" :class="{ 'font-bold text-white': selected.categoria.includes(cat.id) }">
-                                        {{ cat.nombre }}
-                                    </span>
-                                </div>
-                                <span class="text-[11px] text-zinc-500 font-mono shrink-0">({{ cat.count }})</span>
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- 4. DISPONIBILIDAD -->
-                    <div class="space-y-2.5 pt-3 border-t border-white/5">
-                        <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-400">
-                            Disponibilidad
-                        </h4>
-                        <div class="space-y-2 select-none">
-                            <label class="flex items-center gap-2.5 text-xs text-zinc-300 hover:text-white cursor-pointer group">
-                                <input 
-                                    type="checkbox" 
-                                    :checked="selected.solo_stock"
-                                    @change="toggleSoloStock"
-                                    class="w-4 h-4 rounded bg-[#0d0d0f] border border-white/20 text-red-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                                />
+                    <!-- 1. DISPONIBILIDAD -->
+                    <div class="py-3">
+                        <button type="button" @click="toggleSeccion('disponibilidad')" class="w-full flex items-center justify-between cursor-pointer group">
+                            <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 group-hover:text-white transition-colors">Disponibilidad</h4>
+                            <svg class="w-3.5 h-3.5 text-zinc-500 transition-transform" :class="{ 'rotate-180': seccionAbierta.disponibilidad }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        <div v-show="seccionAbierta.disponibilidad" class="space-y-2 pt-3">
+                            <label class="flex items-center gap-2.5 text-xs text-zinc-300 hover:text-white cursor-pointer">
+                                <input type="checkbox" :checked="selected.solo_stock" @change="toggleSoloStock" class="w-4 h-4 rounded bg-[#0d0d0f] border border-white/20 text-red-600 focus:ring-0 focus:ring-offset-0 cursor-pointer" />
                                 <span :class="{ 'font-bold text-white': selected.solo_stock }">Solo en stock</span>
                             </label>
-                            <label class="flex items-center gap-2.5 text-xs text-zinc-300 hover:text-white cursor-pointer group">
-                                <input 
-                                    type="checkbox" 
-                                    :checked="selected.preventa"
-                                    @change="togglePreventa"
-                                    class="w-4 h-4 rounded bg-[#0d0d0f] border border-white/20 text-red-600 focus:ring-0 focus:ring-offset-0 cursor-pointer"
-                                />
+                            <label class="flex items-center gap-2.5 text-xs text-zinc-300 hover:text-white cursor-pointer">
+                                <input type="checkbox" :checked="selected.preventa" @change="togglePreventa" class="w-4 h-4 rounded bg-[#0d0d0f] border border-white/20 text-red-600 focus:ring-0 focus:ring-offset-0 cursor-pointer" />
                                 <span :class="{ 'font-bold text-white': selected.preventa }">Preventas activas</span>
                             </label>
+                        </div>
+                    </div>
+
+                    <!-- 2. SERIE, 3. CATEGORÍA y 4. EDITORIAL (misma estructura) -->
+                    <template v-for="grupo in [
+                        { clave: 'serie', titulo: 'Serie', lista: obrasFiltro, seleccion: selected.obra, toggle: toggleObra },
+                        { clave: 'categoria', titulo: 'Categoría', lista: categoriasFiltro, seleccion: selected.categoria, toggle: toggleCategoria },
+                        { clave: 'editorial', titulo: 'Editorial', lista: proveedoresFiltro, seleccion: selected.proveedor, toggle: toggleProveedor },
+                    ]" :key="grupo.clave">
+                        <div v-if="grupo.lista?.length > 0" class="py-3 border-t border-white/5">
+                            <button type="button" @click="toggleSeccion(grupo.clave)" class="w-full flex items-center justify-between cursor-pointer group">
+                                <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 group-hover:text-white transition-colors">
+                                    {{ grupo.titulo }}
+                                    <span v-if="grupo.seleccion.length" class="ml-1 text-red-500">({{ grupo.seleccion.length }})</span>
+                                </h4>
+                                <svg class="w-3.5 h-3.5 text-zinc-500 transition-transform" :class="{ 'rotate-180': seccionAbierta[grupo.clave] }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                            <div v-show="seccionAbierta[grupo.clave]" class="space-y-1.5 pt-3">
+                                <label
+                                    v-for="item in opcionesVisibles(grupo.lista, grupo.clave)"
+                                    :key="item.id"
+                                    class="flex items-center justify-between gap-2 text-xs text-zinc-300 hover:text-white cursor-pointer py-1 transition-colors"
+                                >
+                                    <div class="flex items-center gap-2.5 min-w-0">
+                                        <input
+                                            type="checkbox"
+                                            :checked="grupo.seleccion.includes(item.id)"
+                                            @change="grupo.toggle(item.id)"
+                                            class="w-4 h-4 rounded bg-[#0d0d0f] border border-white/20 text-red-600 focus:ring-0 focus:ring-offset-0 cursor-pointer transition-all"
+                                        />
+                                        <span class="truncate" :class="{ 'font-bold text-white': grupo.seleccion.includes(item.id) }">{{ item.nombre }}</span>
+                                    </div>
+                                    <span class="text-[11px] text-zinc-500 font-mono shrink-0">({{ item.count }})</span>
+                                </label>
+                                <button
+                                    v-if="grupo.lista.length > LIMITE_OPCIONES"
+                                    type="button"
+                                    @click="verTodas[grupo.clave] = !verTodas[grupo.clave]"
+                                    class="pt-1 text-[11px] font-semibold text-red-500 hover:text-red-400 cursor-pointer"
+                                >
+                                    {{ verTodas[grupo.clave] ? 'Ver menos' : `Ver ${grupo.lista.length - LIMITE_OPCIONES} más` }}
+                                </button>
+                            </div>
+                        </div>
+                    </template>
+
+                    <!-- 5. PRECIO -->
+                    <div class="py-3 border-t border-white/5">
+                        <button type="button" @click="toggleSeccion('precio')" class="w-full flex items-center justify-between cursor-pointer group">
+                            <h4 class="text-[11px] font-bold uppercase tracking-wider text-zinc-400 group-hover:text-white transition-colors">Precio</h4>
+                            <svg class="w-3.5 h-3.5 text-zinc-500 transition-transform" :class="{ 'rotate-180': seccionAbierta.precio }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        <div v-show="seccionAbierta.precio" class="space-y-3 pt-3">
+                            <div class="flex flex-wrap gap-2">
+                                <button
+                                    v-for="r in rangosPrecio"
+                                    :key="r.etiqueta"
+                                    type="button"
+                                    @click="aplicarRangoRapido(r)"
+                                    class="px-3 py-1.5 rounded-full text-[11px] font-semibold border transition-colors cursor-pointer"
+                                    :class="rangoActivo(r) ? 'bg-white text-black border-white' : 'bg-[#0d0d0f] text-zinc-300 border-white/10 hover:border-white/30 hover:text-white'"
+                                >
+                                    {{ r.etiqueta }}
+                                </button>
+                            </div>
+                            <div class="flex items-end gap-2">
+                                <div class="flex-1 min-w-0">
+                                    <label class="text-[10px] uppercase font-bold text-zinc-500 block mb-1">Desde</label>
+                                    <div class="relative">
+                                        <span class="absolute left-2.5 top-2 text-xs text-zinc-500 font-mono">$</span>
+                                        <input v-model="inputPrecioMin" type="number" :placeholder="String(precioRango?.min || 1000)" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl py-1.5 pl-6 pr-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-white/30 font-mono font-medium" @keyup.enter="aplicarRangoPrecio" />
+                                    </div>
+                                </div>
+                                <div class="flex-1 min-w-0">
+                                    <label class="text-[10px] uppercase font-bold text-zinc-500 block mb-1">Hasta</label>
+                                    <div class="relative">
+                                        <span class="absolute left-2.5 top-2 text-xs text-zinc-500 font-mono">$</span>
+                                        <input v-model="inputPrecioMax" type="number" :placeholder="String(precioRango?.max || 50000)" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl py-1.5 pl-6 pr-1.5 text-xs text-white placeholder-zinc-600 focus:outline-none focus:border-white/30 font-mono font-medium" @keyup.enter="aplicarRangoPrecio" />
+                                    </div>
+                                </div>
+                                <button type="button" @click="aplicarRangoPrecio" class="p-2.5 bg-white hover:bg-zinc-200 text-black rounded-xl transition-all font-bold text-xs shadow-md active:scale-95 cursor-pointer shrink-0" title="Aplicar rango de precio">
+                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" /></svg>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -455,58 +511,10 @@ const onMouseMove = (e) => {
             <!-- ───────────────────────────────────────────────────────── -->
             <!-- PANEL DERECHO: CATÁLOGO (Desktop scroll independiente)    -->
             <!-- ───────────────────────────────────────────────────────── -->
-            <div ref="catalogScrollRef" class="flex-1 min-w-0 h-full overflow-y-auto overscroll-contain custom-scrollbar flex flex-col justify-between">
+            <div ref="catalogScrollRef" class="flex-1 min-w-0">
                 <div>
-                    <!-- Hero Header con Barra de Búsqueda -->
-                    <div class="relative overflow-hidden py-10 sm:py-14 bg-gradient-to-b from-white/[0.04] to-transparent border-b border-white/5">
-                        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center space-y-4">
-                            <h1 class="text-3xl sm:text-4xl md:text-5xl font-extrabold tracking-tight uppercase leading-none text-white">
-                                Tu Próximo <span class="text-zinc-400 italic">Capítulo</span> Inicia Aquí
-                            </h1>
-                            <p class="text-zinc-400 text-xs sm:text-sm font-medium max-w-xl mx-auto">
-                                Explorá nuestro catálogo oficial de mangas, cómics importados y ediciones exclusivas.
-                            </p>
-                            
-                            <!-- Search Bar -->
-                            <div class="max-w-2xl mx-auto pt-1">
-                                <form @submit.prevent="applyFilters" class="relative flex items-center">
-                                    <span class="absolute left-5 text-zinc-500 pointer-events-none">
-                                        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                                        </svg>
-                                    </span>
-                                    <input
-                                        v-model="search"
-                                        type="text"
-                                        placeholder="¿Qué manga o cómic estás buscando? (ej. Demon Slayer, Batman, Ivrea...)"
-                                        class="w-full bg-[#131316] border border-white/10 rounded-2xl py-3.5 pl-14 pr-32 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 shadow-2xl transition-all font-medium"
-                                    >
-                                    <div class="absolute right-2 flex items-center gap-1">
-                                        <button
-                                            v-if="search"
-                                            type="button"
-                                            @click="limpiarSearch"
-                                            class="p-2 text-zinc-400 hover:text-white rounded-xl hover:bg-white/5 transition-all cursor-pointer"
-                                            title="Borrar búsqueda"
-                                        >
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            class="px-5 py-2 bg-white hover:bg-zinc-200 text-black font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-md active:scale-95 cursor-pointer"
-                                        >
-                                            BUSCAR
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Contenedor del Catálogo y Grilla -->
-                    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+                    <div class="space-y-8">
                         
                         <!-- Preventas Activas (Carrusel superior) -->
                         <div v-if="preventas?.length > 0" class="space-y-4">
@@ -640,6 +648,22 @@ const onMouseMove = (e) => {
                             </div>
                         </div>
 
+                        <!-- Filtros activos como etiquetas -->
+                        <div v-if="filtrosActivosChips.length" class="flex flex-wrap items-center gap-2 -mt-4">
+                            <button
+                                v-for="(chip, i) in filtrosActivosChips"
+                                :key="chip.tipo + (chip.id ?? '') + i"
+                                type="button"
+                                @click="quitarChip(chip)"
+                                class="inline-flex items-center gap-1.5 pl-3 pr-2 py-1 rounded-full bg-white/5 border border-white/10 text-[11px] font-semibold text-zinc-200 hover:border-red-500/60 hover:text-white transition-colors cursor-pointer"
+                                :title="`Quitar ${chip.etiqueta}`"
+                            >
+                                <span class="truncate max-w-[180px]">{{ chip.etiqueta }}</span>
+                                <svg class="w-3 h-3 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                            <button type="button" @click="limpiarFiltros" class="text-[11px] font-semibold text-zinc-400 hover:text-white underline cursor-pointer">Limpiar todo</button>
+                        </div>
+
                         <!-- Barra de carga reactiva / sutil en transiciones -->
                         <div class="h-0.5 w-full overflow-hidden rounded-full bg-white/5 transition-opacity duration-300" :class="{ 'opacity-100': isFiltering, 'opacity-0': !isFiltering }">
                             <div class="h-full bg-gradient-to-r from-red-600 via-rose-400 to-red-600 w-full animate-pulse"></div>
@@ -767,7 +791,7 @@ const onMouseMove = (e) => {
                 </div>
 
                 <!-- Features Footer (Solo visible en la landing inicial del catálogo, se oculta al filtrar o entrar en pestañas) -->
-                <div v-if="esLandingCatalogo" class="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pb-12 pt-4">
+                <div v-if="esLandingCatalogo" class="w-full pb-12 pt-12">
                     <section class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-white/5">
                         <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl space-y-3">
                             <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400">01. Envíos</span>
@@ -792,6 +816,7 @@ const onMouseMove = (e) => {
                         </div>
                     </section>
                 </div>
+            </div>
             </div>
         </div>
 
@@ -928,14 +953,6 @@ const onMouseMove = (e) => {
     font-family: 'Montserrat', sans-serif !important;
 }
 
-/* Bloqueo de scroll exterior en desktop para permitir que solo los paneles internos tengan scroll independiente */
-@media (min-width: 1024px) {
-    html:has(.page-catalogo-split),
-    body:has(.page-catalogo-split) {
-        overflow: hidden !important;
-        height: 100vh !important;
-    }
-}
 
 .filter-scrollbar,
 .custom-scrollbar {
