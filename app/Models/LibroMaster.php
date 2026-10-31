@@ -26,6 +26,16 @@ class LibroMaster extends Model
 
     public function getPortadaUrlAttribute(): string
     {
+        // Si algún tomo tiene su portada en public/images/portadas, la obra usa la del primer tomo.
+        $tomos = $this->relationLoaded('libros')
+            ? $this->libros->sortBy(fn($l) => (float) $l->numero_tomo)
+            : $this->libros()->get(['id', 'isbn', 'numero_tomo'])->sortBy(fn($l) => (float) $l->numero_tomo);
+        foreach ($tomos as $tomo) {
+            if ($local = Libro::portadaLocalPorIsbn($tomo->isbn)) {
+                return $local;
+            }
+        }
+
         $portada = strtolower(trim((string)$this->portada));
 
         if ($this->portada && $portada !== '' && $portada !== 'null' && !str_contains($portada, 'no-cover') && !str_contains($portada, 'default') && !str_contains($portada, 'generico') && !str_contains($portada, 'generica')) {

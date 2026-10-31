@@ -20,8 +20,34 @@ class Libro extends Model
 
     protected $appends = ['tiene_historial', 'portada_url'];
 
+    /**
+     * Portada guardada en public/images/portadas con el ISBN como nombre de archivo.
+     * Viaja con el código (no depende del disco de Render) y tiene prioridad sobre
+     * cualquier otra portada.
+     */
+    public static function portadaLocalPorIsbn(?string $isbn): ?string
+    {
+        $isbn = trim((string) $isbn);
+        if ($isbn === '') {
+            return null;
+        }
+
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $relativa = "images/portadas/{$isbn}.{$ext}";
+            if (file_exists(public_path($relativa))) {
+                return asset($relativa);
+            }
+        }
+
+        return null;
+    }
+
     public function getPortadaUrlAttribute(): string
     {
+        if ($local = self::portadaLocalPorIsbn($this->isbn)) {
+            return $local;
+        }
+
         $portada = strtolower(trim((string)$this->portada));
 
         if ($this->portada && $portada !== '' && $portada !== 'null' && !str_contains($portada, 'no-cover') && !str_contains($portada, 'default') && !str_contains($portada, 'generico') && !str_contains($portada, 'generica')) {
