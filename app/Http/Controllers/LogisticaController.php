@@ -416,4 +416,93 @@ class LogisticaController extends Controller
             return back()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
         }
     }
+
+    /**
+     * Traslada de una vez el stock disponible de TODOS los libros de una
+     * sucursal a otra (o la mitad). Pensado para casos como cerrar/vaciar una
+     * sucursal o reforzar otra de golpe, sin tener que hacerlo libro por
+     * libro desde el alta manual de movimientos.
+     */
+    public function trasladoMasivo(Request $request)
+    {
+        $user = $request->user();
+        if (!$user->esAdmin()) {
+            abort(403, 'Solo un administrador puede trasladar stock masivamente entre sucursales.');
+        }
+
+        $request->validate([
+            'sucursal_origen_id'  => 'required|exists:sucursales,id|different:sucursal_destino_id',
+            'sucursal_destino_id' => 'required|exists:sucursales,id',
+            'modo'                => 'required|in:todo,mitad',
+        ]);
+
+        $origenId  = (int) $request->sucursal_origen_id;
+        $destinoId = (int) $request->sucursal_destino_id;
+        $modo      = $request->modo;
+
+        $stocksOrigen = Stock::where('sucursal_id', $origenId)
+            ->where('cantidad_disponible', '>', 0)
+            ->get();
+
+        if ($stocksOrigen->isEmpty()) {
+            return back()->withErrors(['error' => 'La sucursal de origen no tiene stock disponible para trasladar.']);
+        }
+
+        try {
+            DB::beginTransaction();
+
+            $sucOrigen  = Sucursal::find($origenId);
+            $sucDestino = Sucursal::find($destinoId);
+            $etiquetaModo = $modo === 'mitad' ? 'la mitad' : 'todo';
+
+            $movimientoSalida = MovimientoStock::create([
+                'tipo'                => 'egreso_manual',
+                'sucursal_origen_id'  => $origenId,
+                'sucursal_destino_id' => null,
+                'user_id'             => $user->id,
+                'motivo'              => "Traslado masivo ({$etiquetaModo} el stock) hacia {$sucDestino?->nombre}",
+            ]);
+            $movimientoEntrada = MovimientoStock::create([
+                'tipo'                => 'ingreso_manual',
+                'sucursal_origen_id'  => null,
+                'sucursal_destino_id' => $destinoId,
+                'user_id'             => $user->id,
+                'motivo'              => "Traslado masivo ({$etiquetaModo} el stock) desde {$sucOrigen?->nombre}",
+            ]);
+
+            $librosTrasladados = 0;
+
+            foreach ($stocksOrigen as $stockOrigen) {
+                $cantidad = $modo === 'mitad'
+                    ? intdiv($stockOrigen->cantidad_disponible, 2)
+                    : $stockOrigen->cantidad_disponible;
+
+                if ($cantidad <= 0) {
+                    continue;
+                }
+
+                $stockDestino = Stock::firstOrCreate(
+                    ['libro_id' => $stockOrigen->libro_id, 'sucursal_id' => $destinoId],
+                    ['cantidad_disponible' => 0, 'cantidad_reservada' => 0]
+                );
+                $stockDestino->increment('cantidad_disponible', $cantidad);
+                $stockOrigen->decrement('cantidad_disponible', $cantidad);
+
+                $movimientoSalida->detalles()->create(['libro_id' => $stockOrigen->libro_id, 'cantidad' => $cantidad]);
+                $movimientoEntrada->detalles()->create(['libro_id' => $stockOrigen->libro_id, 'cantidad' => $cantidad]);
+                $librosTrasladados++;
+            }
+
+            DB::commit();
+
+            if ($librosTrasladados === 0) {
+                return back()->withErrors(['error' => 'No había cantidades enteras para trasladar (quedó todo en 0 al dividir por la mitad).']);
+            }
+
+            return back()->with('message', "Se trasladaron {$librosTrasladados} título(s) de {$sucOrigen?->nombre} a {$sucDestino?->nombre}.");
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return back()->withErrors(['error' => 'Error: ' . $e->getMessage()]);
+        }
+    }
 }

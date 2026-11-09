@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm, Link, router } from '@inertiajs/vue3';
+import { Head, useForm, Link, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, onMounted } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
@@ -15,8 +15,42 @@ const props = defineProps({
     filters: Object,
 });
 
+const page = usePage();
+const esAdmin = computed(() => !!page.props.auth?.esAdmin);
+
 const isModalOpen = ref(false);
 const expandedRow = ref(null);
+
+const showTrasladoMasivoModal = ref(false);
+const trasladoMasivoForm = useForm({
+    sucursal_origen_id: '',
+    sucursal_destino_id: '',
+    modo: 'todo',
+});
+
+const submitTrasladoMasivo = () => {
+    const origen = props.sucursales.find(s => s.id === Number(trasladoMasivoForm.sucursal_origen_id));
+    const destino = props.sucursales.find(s => s.id === Number(trasladoMasivoForm.sucursal_destino_id));
+    const cuanto = trasladoMasivoForm.modo === 'mitad' ? 'LA MITAD del' : 'TODO el';
+
+    darkSwal.fire({
+        title: '¿Confirmar traslado masivo?',
+        text: `Se va a mover ${cuanto} stock disponible de ${origen?.nombre ?? 'origen'} hacia ${destino?.nombre ?? 'destino'}. Esta acción no se puede deshacer automáticamente.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, trasladar',
+        cancelButtonText: 'Cancelar',
+    }).then((result) => {
+        if (!result.isConfirmed) return;
+        trasladoMasivoForm.post(route('logistica.traslado-masivo'), {
+            preserveScroll: true,
+            onSuccess: () => {
+                showTrasladoMasivoModal.value = false;
+                trasladoMasivoForm.reset();
+            },
+        });
+    });
+};
 
 // ── Filtros ───────────────────────────────────────────────
 const desde      = ref(props.filters?.desde || '');
@@ -326,15 +360,27 @@ const editarCosto = async (detalle) => {
                 <div>
                     <h2 class="text-2xl font-bold text-white tracking-tight uppercase">HISTORIAL DE LOGÍSTICA</h2>
                 </div>
-                <button 
-                    @click="isModalOpen = true" 
-                    class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
-                >
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
-                    </svg>
-                    <span>Nuevo Movimiento</span>
-                </button>
+                <div class="flex items-center gap-2">
+                    <button
+                        v-if="esAdmin"
+                        @click="showTrasladoMasivoModal = true"
+                        class="px-5 py-2.5 rounded-xl bg-white/5 hover:bg-white/10 text-white font-bold text-xs transition-all border border-white/10 flex items-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4M16 17H4m0 0l4 4m-4-4l4-4" />
+                        </svg>
+                        <span>Traslado Masivo</span>
+                    </button>
+                    <button
+                        @click="isModalOpen = true"
+                        class="px-5 py-2.5 rounded-xl bg-white hover:bg-zinc-200 text-black font-bold text-xs transition-all shadow-md active:scale-95 flex items-center gap-2"
+                    >
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                        </svg>
+                        <span>Nuevo Movimiento</span>
+                    </button>
+                </div>
             </div>
         </template>
 
@@ -741,6 +787,72 @@ const editarCosto = async (detalle) => {
                                 <button type="button" @click="isModalOpen = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
                                 <button type="submit" :disabled="form.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
                                    <span>{{ form.processing ? 'PROCESANDO...' : 'CONFIRMAR OPERACIÓN' }}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
+
+        <Teleport to="body">
+            <div v-if="showTrasladoMasivoModal" class="page-logistica">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showTrasladoMasivoModal = false"></div>
+                <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
+                    <div class="relative w-full max-w-lg bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
+
+                        <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                Traslado Masivo de Stock
+                            </h3>
+                            <button @click="showTrasladoMasivoModal = false" class="text-zinc-400 hover:text-white transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <form @submit.prevent="submitTrasladoMasivo" class="p-6 space-y-4">
+                            <p class="text-xs text-zinc-400 leading-relaxed">
+                                Mueve de una sola vez el stock disponible de TODOS los libros desde una sucursal de origen a una de destino. Queda registrado en el historial como un movimiento de egreso e ingreso manual.
+                            </p>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 mb-1">Sucursal Origen *</label>
+                                <select v-model="trasladoMasivoForm.sucursal_origen_id" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" :class="{'border-rose-500': trasladoMasivoForm.errors.sucursal_origen_id}">
+                                    <option value="" disabled>Seleccionar sucursal de origen...</option>
+                                    <option v-for="s in sucursales" :key="s.id" :value="s.id" class="text-white bg-[#131316]">{{ s.nombre }}</option>
+                                </select>
+                                <p v-if="trasladoMasivoForm.errors.sucursal_origen_id" class="text-rose-400 text-xs font-semibold mt-1">{{ trasladoMasivoForm.errors.sucursal_origen_id }}</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 mb-1">Sucursal Destino *</label>
+                                <select v-model="trasladoMasivoForm.sucursal_destino_id" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30" :class="{'border-rose-500': trasladoMasivoForm.errors.sucursal_destino_id}">
+                                    <option value="" disabled>Seleccionar sucursal de destino...</option>
+                                    <option v-for="s in sucursales" :key="s.id" :value="s.id" class="text-white bg-[#131316]">{{ s.nombre }}</option>
+                                </select>
+                                <p v-if="trasladoMasivoForm.errors.sucursal_destino_id" class="text-rose-400 text-xs font-semibold mt-1">{{ trasladoMasivoForm.errors.sucursal_destino_id }}</p>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 mb-2">¿Cuánto trasladar?</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button type="button" @click="trasladoMasivoForm.modo = 'todo'"
+                                        class="px-4 py-2.5 rounded-xl text-xs font-bold border transition-all"
+                                        :class="trasladoMasivoForm.modo === 'todo' ? 'bg-white text-black border-white' : 'bg-[#131316] text-zinc-300 border-white/10 hover:border-white/20'">
+                                        Todo el stock
+                                    </button>
+                                    <button type="button" @click="trasladoMasivoForm.modo = 'mitad'"
+                                        class="px-4 py-2.5 rounded-xl text-xs font-bold border transition-all"
+                                        :class="trasladoMasivoForm.modo === 'mitad' ? 'bg-white text-black border-white' : 'bg-[#131316] text-zinc-300 border-white/10 hover:border-white/20'">
+                                        La mitad
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
+                                <button type="button" @click="showTrasladoMasivoModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
+                                <button type="submit" :disabled="trasladoMasivoForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                    <span>{{ trasladoMasivoForm.processing ? 'PROCESANDO...' : 'CONTINUAR' }}</span>
                                 </button>
                             </div>
                         </form>

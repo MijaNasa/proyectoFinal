@@ -154,6 +154,7 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         Route::post('logistica/enviar/{traslado}', [LogisticaController::class, 'registrarEnvioVenta'])->name('logistica.enviar');
         Route::post('logistica/recibir/{traslado}', [LogisticaController::class, 'registrarRecepcionVenta'])->name('logistica.recibir');
         Route::put('logistica/detalle/{id}/costo', [LogisticaController::class, 'updateCostoDetalle'])->name('logistica.updateCosto');
+        Route::post('logistica/traslado-masivo', [LogisticaController::class, 'trasladoMasivo'])->name('logistica.traslado-masivo');
     });
 
     // Clientes
