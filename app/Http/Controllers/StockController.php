@@ -12,9 +12,11 @@ class StockController extends Controller
 {
     public function index(Request $request)
     {
-        $sucursalId = $request->user()->sucursalRestringidaId();
-        // Si el empleado esta restringido a una sucursal, ignoramos el filtro que venga por query string.
-        $sucursalFiltro = $sucursalId ?: $request->input('sucursal_id');
+        // La consulta de stock es visible para todas las sucursales (cualquier
+        // empleado puede necesitar saber si otra sucursal tiene algo disponible),
+        // a diferencia de las acciones de alta/edicion de stock, que si siguen
+        // restringidas a la sucursal propia del empleado (ver store/update mas abajo).
+        $sucursalFiltro = $request->input('sucursal_id');
 
         $query = \App\Models\LibroMaster::query()
             ->with([
@@ -50,7 +52,7 @@ class StockController extends Controller
 
         return inertia('Stocks/Index', [
             'obras' => $obras,
-            'sucursales' => \App\Models\Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
+            'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre']),
             'libros' => \App\Models\Libro::with([
                     'master:id,titulo,autor_id',
                     'master.autor:id,apellido',
@@ -69,7 +71,7 @@ class StockController extends Controller
                         'autor'  => $l->master?->autor?->apellido ?? '',
                     ];
                 }),
-            'stocksExistentes' => \App\Models\Stock::select(['id', 'libro_id', 'sucursal_id', 'cantidad_disponible'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->get(),
+            'stocksExistentes' => \App\Models\Stock::select(['id', 'libro_id', 'sucursal_id', 'cantidad_disponible'])->get(),
             'filters' => $request->only(['search', 'sucursal_id']),
         ]);
     }
