@@ -45,6 +45,7 @@ class HandleInertiaRequests extends Middleware
             'auth' => [
                 'user'      => $user?->only(['id', 'name', 'apellido', 'email', 'created_at', 'dni', 'telefono']),
                 'empleado'  => $user?->empleado ? [
+                    'id' => $user->empleado->id,
                     'sucursal_id' => $user->empleado->sucursal_id,
                     'sucursal' => $user->empleado->sucursal ? $user->empleado->sucursal->only(['id', 'nombre']) : null,
                 ] : null,
