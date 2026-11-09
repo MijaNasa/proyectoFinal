@@ -142,6 +142,9 @@ class OrdenCompraController extends Controller
             'proveedor_id'           => 'required|exists:proveedores,id',
             'sucursal_id'            => 'required|exists:sucursales,id',
             'observaciones'          => 'nullable|string',
+            'pagada'                 => 'nullable|boolean',
+            'condicion_pago'         => 'nullable|in:cuenta_corriente,contado',
+            'metodo_pago'            => 'nullable|in:Efectivo,Transferencia,Tarjeta',
             'items'                  => 'required|array|min:1',
             'items.*.libro_id'       => 'required|exists:libros,id',
             'items.*.cantidad'       => 'required|integer|min:1',
@@ -154,12 +157,23 @@ class OrdenCompraController extends Controller
 
         $total = collect($request->items)->sum(fn($i) => $i['cantidad'] * $i['precio_unitario']);
 
-        \DB::transaction(function () use ($request, $ordenesCompra, $total) {
+        // Estado financiero ANTES de este update, para reconciliar la deuda
+        // del proveedor y el movimiento de caja segun como cambie.
+        $eraPagada  = $ordenesCompra->condicion_pago === 'contado';
+        $totalViejo = (float) $ordenesCompra->total;
+
+        $nuevaPagada   = $request->boolean('pagada') || $request->input('condicion_pago') === 'contado';
+        $condicionPago = $nuevaPagada ? 'contado' : 'cuenta_corriente';
+        $metodoPago    = $nuevaPagada ? ($request->input('metodo_pago') ?: 'Efectivo') : null;
+
+        \DB::transaction(function () use ($request, $ordenesCompra, $total, $eraPagada, $totalViejo, $nuevaPagada, $condicionPago, $metodoPago) {
             $ordenesCompra->update([
                 'proveedor_id'           => $request->proveedor_id,
                 'sucursal_id'            => $request->sucursal_id,
                 'total'                  => $total,
                 'observaciones'          => $request->observaciones,
+                'condicion_pago'         => $condicionPago,
+                'metodo_pago'            => $metodoPago,
             ]);
 
             $ordenesCompra->items()->delete();
@@ -171,6 +185,47 @@ class OrdenCompraController extends Controller
                     'precio_unitario' => $item['precio_unitario'],
                     'subtotal'        => $item['cantidad'] * $item['precio_unitario'],
                 ]);
+            }
+
+            $proveedor = \App\Models\Proveedor::find($request->proveedor_id);
+            if (!$proveedor) {
+                return;
+            }
+
+            if (!$eraPagada && $nuevaPagada) {
+                // Pasa de cuenta corriente a pagada: se cancela la deuda que
+                // se habia cargado al crearla y se registra el egreso real.
+                $proveedor->decrement('deuda_actual', $totalViejo);
+                \App\Models\Transaccion::create([
+                    'tipo'                 => 'egreso',
+                    'monto'                => $total,
+                    'metodo_pago'          => $metodoPago ?: 'Efectivo',
+                    'fecha'                => now(),
+                    'sucursal_id'          => $request->sucursal_id,
+                    'transaccionable_id'   => $proveedor->id,
+                    'transaccionable_type' => \App\Models\Proveedor::class,
+                    'descripcion'          => "Pago al contado por Orden de Compra {$ordenesCompra->numero_orden}",
+                    'user_id'              => \Auth::id(),
+                ]);
+            } elseif ($eraPagada && !$nuevaPagada) {
+                // Pasa de pagada a cuenta corriente: se vuelve a cargar la
+                // deuda. El egreso ya registrado queda como esta (es un hecho
+                // historico real; revertirlo es una correccion contable aparte).
+                $proveedor->increment('deuda_actual', $total);
+            } elseif (!$eraPagada && !$nuevaPagada && $total !== $totalViejo) {
+                // Sigue a cuenta corriente pero cambio el monto de la orden.
+                $proveedor->increment('deuda_actual', $total - $totalViejo);
+            } elseif ($eraPagada && $nuevaPagada && $total !== $totalViejo) {
+                // Sigue pagada pero cambio el monto: se corrige el egreso ya
+                // registrado para esta orden (se identifica por la descripcion,
+                // ya que la Transaccion no guarda una referencia directa a la OC).
+                \App\Models\Transaccion::where('transaccionable_type', \App\Models\Proveedor::class)
+                    ->where('transaccionable_id', $proveedor->id)
+                    ->where('tipo', 'egreso')
+                    ->where('descripcion', "Pago al contado por Orden de Compra {$ordenesCompra->numero_orden}")
+                    ->latest()
+                    ->first()
+                    ?->update(['monto' => $total]);
             }
         });
 
