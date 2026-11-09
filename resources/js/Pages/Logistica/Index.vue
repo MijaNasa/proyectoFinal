@@ -13,6 +13,7 @@ const props = defineProps({
     trasladosARecibir: Array,
     trasladosEsperandoEnvio: Array,
     filters: Object,
+    _debugScoping: Object,
 });
 
 const isModalOpen = ref(false);
@@ -341,6 +342,11 @@ const editarCosto = async (detalle) => {
         <div class="py-8 page-logistica">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
+                <!-- TEMPORAL: diagnostico de scoping por sucursal, sacar despues -->
+                <div v-if="_debugScoping" class="bg-fuchsia-500/10 border border-fuchsia-500/30 rounded-xl p-3 text-xs font-mono text-fuchsia-200">
+                    DEBUG: {{ JSON.stringify(_debugScoping) }}
+                </div>
+
                 <!-- Traslados por Ventas Pendientes -->
                 <div v-if="trasladosAEnviar.length > 0 || trasladosARecibir.length > 0 || trasladosEsperandoEnvio.length > 0" class="space-y-6">
                     <h3 class="text-sm font-bold uppercase tracking-wider text-white">
@@ -490,14 +496,14 @@ const editarCosto = async (detalle) => {
                                             <div class="text-xs font-medium text-zinc-400">{{ formatHora(mov.created_at) }}</div>
                                         </td>
                                         <td class="p-4 font-semibold text-zinc-300">
-                                            <template v-if="mov.tipo === 'transferencia'">
+                                            <template v-if="mov.tipo === 'TRANSFERENCIA_SALIDA' || mov.tipo === 'TRANSFERENCIA_ENTRADA'">
                                                 <div class="flex flex-col gap-0.5 text-xs font-semibold">
                                                     <div>Desde: <span class="text-white font-bold">{{ formatSucursalHeader(mov.origen?.nombre) || 'N/A' }}</span></div>
                                                     <div>Hacia: <span class="text-white font-bold">{{ formatSucursalHeader(mov.destino?.nombre) || 'N/A' }}</span></div>
                                                 </div>
                                             </template>
                                             <template v-else>
-                                                <span class="text-sm font-semibold text-zinc-300">{{ formatSucursalHeader(mov.tipo === 'egreso_manual' || mov.tipo === 'TRANSFERENCIA_SALIDA' ? mov.origen?.nombre : mov.destino?.nombre) || 'General' }}</span>
+                                                <span class="text-sm font-semibold text-zinc-300">{{ formatSucursalHeader(mov.tipo === 'egreso_manual' ? mov.origen?.nombre : mov.destino?.nombre) || 'General' }}</span>
                                             </template>
                                         </td>
                                         <td class="p-4 text-center">

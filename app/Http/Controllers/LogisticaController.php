@@ -18,7 +18,19 @@ class LogisticaController extends Controller
         // Limpiar notificaciones de traslados cuyas transferencias ya hayan sido completadas
         TrasladoPendienteVenta::marcarLeidasSiCompletado();
 
-        $sucursalId = $request->user()->sucursalRestringidaId();
+        $user = $request->user();
+        $sucursalId = $user->sucursalRestringidaId();
+
+        // TEMPORAL: diagnostico para ver por que el historial no se esta
+        // restringiendo bien por sucursal. Sacar una vez identificada la causa.
+        $debugScoping = [
+            'user_id' => $user->id,
+            'esAdmin' => $user->esAdmin(),
+            'esGerente' => $user->esGerente(),
+            'empleado_id' => $user->empleado?->id,
+            'empleado_sucursal_id' => $user->empleado?->sucursal_id,
+            'sucursalRestringidaId' => $sucursalId,
+        ];
 
         $filterDesde      = $request->input('desde');
         $filterHasta      = $request->input('hasta');
@@ -120,6 +132,7 @@ class LogisticaController extends Controller
                 'sucursal_id' => $filterSucursalId,
                 'tipo' => $filterTipo,
             ],
+            '_debugScoping' => $debugScoping, // TEMPORAL
         ]);
     }
 
