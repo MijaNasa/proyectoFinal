@@ -488,9 +488,33 @@ class RutaRepartoController extends Controller
         ]);
 
         DB::transaction(function () use ($request, $rutasReparto) {
-            foreach ($request->orden as $index => $paradaId) {
-                // $index starts at 0, so order is $index + 1
-                $rutasReparto->paradas()->where('id', $paradaId)->update(['orden' => $index + 1]);
+            // Varios pedidos acumulados consolidados en un mismo envio son la
+            // MISMA direccion (mismas coordenadas exactas) repartidas en
+            // paradas separadas. Si el reordenamiento manual las separa (ej.
+            // metiendo otra entrega en el medio), el repartidor termina
+            // yendo y volviendo al mismo lugar. Se reagrupan las que
+            // compartan coordenadas exactas, respetando el orden elegido
+            // para cada grupo.
+            $paradas = $rutasReparto->paradas()
+                ->whereIn('id', $request->orden)
+                ->get(['id', 'latitud', 'longitud'])
+                ->keyBy('id');
+
+            $grupos = [];
+            foreach ($request->orden as $paradaId) {
+                $p = $paradas->get($paradaId);
+                $key = ($p && $p->latitud !== null && $p->longitud !== null)
+                    ? $p->latitud . ',' . $p->longitud
+                    : 'sin_coordenadas_' . $paradaId;
+                $grupos[$key][] = $paradaId;
+            }
+
+            $index = 0;
+            foreach ($grupos as $idsDelGrupo) {
+                foreach ($idsDelGrupo as $paradaId) {
+                    $index++;
+                    $rutasReparto->paradas()->where('id', $paradaId)->update(['orden' => $index]);
+                }
             }
         });
 
