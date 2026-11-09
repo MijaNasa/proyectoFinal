@@ -28,7 +28,34 @@ watch(() => props.ruta.paradas, (newVal) => {
     localParadas.value = [...(newVal || [])];
 }, { immediate: true, deep: true });
 
-const draggedIndex = ref(null);
+// Varios pedidos acumulados consolidados en un mismo envio generan paradas
+// separadas (una por venta) con la misma direccion exacta. En la lista de
+// gestion (admin/gerente) se fusionan en una sola tarjeta por direccion,
+// igual que en la tarjeta de "Proxima Parada" del Modo Reparto.
+const gruposLista = computed(() => {
+    const grupos = [];
+    const indicePorClave = new Map();
+    localParadas.value.forEach((p) => {
+        const clave = (p.latitud !== null && p.latitud !== undefined && p.longitud !== null && p.longitud !== undefined)
+            ? `${p.latitud},${p.longitud}`
+            : `sola_${p.id}`;
+        if (!indicePorClave.has(clave)) {
+            indicePorClave.set(clave, grupos.length);
+            grupos.push({ clave, paradas: [p] });
+        } else {
+            grupos[indicePorClave.get(clave)].paradas.push(p);
+        }
+    });
+    return grupos;
+});
+
+const gruposExpandidos = ref(new Set());
+const toggleGrupoExpandido = (clave) => {
+    if (gruposExpandidos.value.has(clave)) gruposExpandidos.value.delete(clave);
+    else gruposExpandidos.value.add(clave);
+};
+
+const draggedIndex = ref(null); // indice de GRUPO (ver gruposLista), no de parada individual
 
 const darkSwal = Swal.mixin({
     background: '#131316',
@@ -69,17 +96,25 @@ const onDragOver = (event) => {
 const onDrop = (index) => {
     const fromIndex = draggedIndex.value;
     draggedIndex.value = null;
-    
+
     if (fromIndex === null || fromIndex === index) return;
-    if (localParadas.value[fromIndex]?.estado === 'entregada' || localParadas.value[index]?.estado === 'entregada') return;
-    
-    const draggedItem = localParadas.value[fromIndex];
-    localParadas.value.splice(fromIndex, 1);
-    localParadas.value.splice(index, 0, draggedItem);
-    
-    // Update local order
-    localParadas.value.forEach((p, i) => { p.orden = i + 1; });
-    
+
+    const grupos = gruposLista.value;
+    const grupoOrigen = grupos[fromIndex];
+    const grupoDestino = grupos[index];
+    if (!grupoOrigen || !grupoDestino) return;
+    if (grupoOrigen.paradas.some(p => p.estado === 'entregada') || grupoDestino.paradas.some(p => p.estado === 'entregada')) return;
+
+    const nuevosGrupos = [...grupos];
+    nuevosGrupos.splice(fromIndex, 1);
+    nuevosGrupos.splice(index, 0, grupoOrigen);
+
+    // Aplanar los grupos de vuelta a una lista plana de paradas, preservando
+    // el orden interno de cada grupo (las de la misma direccion quedan juntas).
+    const nuevoOrden = nuevosGrupos.flatMap(g => g.paradas);
+    nuevoOrden.forEach((p, i) => { p.orden = i + 1; });
+    localParadas.value = nuevoOrden;
+
     // Send to backend
     guardarNuevoOrden();
 };
@@ -1254,71 +1289,97 @@ watch(paradaActiva, () => {
                             </div>
 
                             <div class="flex-1 overflow-y-auto space-y-3 pr-1">
-                                <div v-for="(parada, idx) in localParadas" :key="parada.id"
-                                     :draggable="canOperar && ruta.estado !== 'finalizada' && parada.estado !== 'entregada'"
-                                     @dragstart="(canOperar && ruta.estado !== 'finalizada' && parada.estado !== 'entregada') && onDragStart(idx, $event)"
-                                     @dragend="onDragEnd"
-                                     @dragenter="onDragEnter"
-                                     @dragover="onDragOver"
-                                     @drop="(canOperar && ruta.estado !== 'finalizada' && parada.estado !== 'entregada') && onDrop(idx)"
-                                     class="p-4 border rounded-2xl flex items-center justify-between gap-4 transition-all group"
-                                     :class="[
-                                         parada.estado === 'entregada' 
-                                             ? 'opacity-40 bg-white/[0.02] border-white/5 cursor-default' 
-                                             : 'bg-[#0d0d0f] border-white/5 hover:border-white/20',
-                                         (canOperar && ruta.estado !== 'finalizada' && parada.estado !== 'entregada') ? 'cursor-grab active:cursor-grabbing' : ''
-                                     ]">
-                                    <div class="flex items-center gap-3 min-w-0 flex-1">
-                                        <div class="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0"
-                                             :class="parada.estado === 'entregada' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-white/5 border border-white/10 text-white'">
-                                            <span v-if="parada.estado === 'entregada'">✓</span>
-                                            <span v-else>{{ parada.orden }}</span>
+                                <div v-for="(grupo, idx) in gruposLista" :key="grupo.clave" class="space-y-2">
+                                    <div
+                                         :draggable="canOperar && ruta.estado !== 'finalizada' && !grupo.paradas.some(p => p.estado === 'entregada')"
+                                         @dragstart="(canOperar && ruta.estado !== 'finalizada' && !grupo.paradas.some(p => p.estado === 'entregada')) && onDragStart(idx, $event)"
+                                         @dragend="onDragEnd"
+                                         @dragenter="onDragEnter"
+                                         @dragover="onDragOver"
+                                         @drop="(canOperar && ruta.estado !== 'finalizada' && !grupo.paradas.some(p => p.estado === 'entregada')) && onDrop(idx)"
+                                         class="p-4 border rounded-2xl flex items-center justify-between gap-4 transition-all group"
+                                         :class="[
+                                             grupo.paradas[0].estado === 'entregada'
+                                                 ? 'opacity-40 bg-white/[0.02] border-white/5 cursor-default'
+                                                 : 'bg-[#0d0d0f] border-white/5 hover:border-white/20',
+                                             (canOperar && ruta.estado !== 'finalizada' && !grupo.paradas.some(p => p.estado === 'entregada')) ? 'cursor-grab active:cursor-grabbing' : ''
+                                         ]">
+                                        <div class="flex items-center gap-3 min-w-0 flex-1">
+                                            <div class="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0"
+                                                 :class="grupo.paradas[0].estado === 'entregada' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-white/5 border border-white/10 text-white'">
+                                                <span v-if="grupo.paradas[0].estado === 'entregada'">✓</span>
+                                                <span v-else>{{ grupo.paradas[0].orden }}</span>
+                                            </div>
+                                            <div class="min-w-0 flex-1">
+                                                <div class="text-sm font-bold transition-colors truncate"
+                                                     :class="grupo.paradas[0].estado === 'entregada' ? 'text-zinc-400' : 'text-white group-hover:text-zinc-200'"
+                                                     :title="splitDireccion(grupo.paradas[0].venta?.direccion_envio).principal">
+                                                    {{ splitDireccion(grupo.paradas[0].venta?.direccion_envio).principal }}
+                                                </div>
+                                                <div class="text-xs text-zinc-400 font-medium truncate">
+                                                    <template v-if="grupo.paradas.length === 1">
+                                                        <span class="font-bold" :class="grupo.paradas[0].estado === 'entregada' ? 'text-zinc-300' : 'text-white'">Venta #{{ grupo.paradas[0].venta?.id }}</span> &bull; Cliente: {{ obtenerNombreCliente(grupo.paradas[0].venta) }}
+                                                    </template>
+                                                    <button v-else type="button" @click.stop="toggleGrupoExpandido(grupo.clave)" class="font-bold text-amber-300 hover:text-amber-200 cursor-pointer">
+                                                        📦 {{ grupo.paradas.length }} pedidos en esta dirección {{ gruposExpandidos.has(grupo.clave) ? '▲' : '▼' }}
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div class="min-w-0 flex-1">
-                                            <div class="text-sm font-bold transition-colors truncate"
-                                                 :class="parada.estado === 'entregada' ? 'text-zinc-400' : 'text-white group-hover:text-zinc-200'"
-                                                 :title="splitDireccion(parada.venta?.direccion_envio).principal">
-                                                {{ splitDireccion(parada.venta?.direccion_envio).principal }}
+
+                                        <div class="flex items-center gap-2 shrink-0">
+                                            <!-- Si ya fue entregada, badge estático no editable -->
+                                            <div v-if="grupo.paradas[0].estado === 'entregada'"
+                                                 class="px-3 py-1 rounded-xl text-xs font-semibold border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 cursor-default select-none flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                                                 title="Entrega confirmada (no modificable)">
+                                                <span>✓</span>
+                                                <span>Entregada</span>
                                             </div>
-                                            <div class="text-xs text-zinc-400 font-medium truncate">
-                                                <span class="font-bold" :class="parada.estado === 'entregada' ? 'text-zinc-300' : 'text-white'">Venta #{{ parada.venta?.id }}</span> &bull; Cliente: {{ obtenerNombreCliente(parada.venta) }}
+                                            <!-- Si la ruta está activa y el usuario puede operar -->
+                                            <button v-else-if="canOperar && ruta.activa && ruta.estado !== 'finalizada'"
+                                                    @click="abrirEstadoModal(grupo.paradas[0])"
+                                                    class="px-3 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer hover:brightness-110 whitespace-nowrap shrink-0"
+                                                    :class="estadoConfig[grupo.paradas[0].estado]?.color">
+                                                {{ estadoConfig[grupo.paradas[0].estado]?.label }}
+                                            </button>
+                                            <!-- Si la ruta aún no se inició o no puede operar -->
+                                            <div v-else
+                                                 class="px-3 py-1 rounded-xl text-xs font-semibold border transition-all cursor-default select-none whitespace-nowrap shrink-0 opacity-75"
+                                                 :class="estadoConfig[grupo.paradas[0].estado]?.color"
+                                                 :title="!ruta.activa ? 'Debes iniciar la ruta de reparto para actualizar estados' : ''">
+                                                {{ estadoConfig[grupo.paradas[0].estado]?.label }}
                                             </div>
+
+                                            <button @click="abrirVentaDetalle(grupo.paradas[0])" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer shrink-0" title="Ver detalle">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                            </button>
+                                            <button v-if="ruta.estado === 'pendiente' && canGestionar && grupo.paradas.length === 1 && grupo.paradas[0].estado !== 'entregada'" @click="quitarParada(grupo.paradas[0])" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer shrink-0" title="Quitar">
+                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <div class="flex items-center gap-2 shrink-0">
-                                        <!-- Si ya fue entregada, badge estático no editable -->
-                                        <div v-if="parada.estado === 'entregada'" 
-                                             class="px-3 py-1 rounded-xl text-xs font-semibold border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 cursor-default select-none flex items-center gap-1.5 whitespace-nowrap shrink-0"
-                                             title="Entrega confirmada (no modificable)">
-                                            <span>✓</span>
-                                            <span>Entregada</span>
+                                    <!-- Detalle expandido: cada pedido del grupo por separado -->
+                                    <div v-if="grupo.paradas.length > 1 && gruposExpandidos.has(grupo.clave)" class="ml-4 pl-4 border-l-2 border-amber-500/20 space-y-2">
+                                        <div v-for="p in grupo.paradas" :key="p.id" class="flex items-center justify-between gap-3 text-xs py-2 px-3 rounded-xl bg-white/[0.02] border border-white/5">
+                                            <div class="min-w-0 flex-1 truncate">
+                                                <span class="font-bold text-white">Venta #{{ p.venta?.id }}</span>
+                                                <span class="text-zinc-400"> &bull; Cliente: {{ obtenerNombreCliente(p.venta) }}</span>
+                                                <span v-if="p.estado === 'entregada'" class="text-emerald-400 font-semibold"> &bull; Entregada</span>
+                                            </div>
+                                            <div class="flex items-center gap-1.5 shrink-0">
+                                                <button @click="abrirVentaDetalle(p)" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg transition-all cursor-pointer" title="Ver detalle">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                                </button>
+                                                <button v-if="ruta.estado === 'pendiente' && canGestionar && p.estado !== 'entregada'" @click="quitarParada(p)" class="p-1.5 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all cursor-pointer" title="Quitar">
+                                                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                                </button>
+                                            </div>
                                         </div>
-                                        <!-- Si la ruta está activa y el usuario puede operar -->
-                                        <button v-else-if="canOperar && ruta.activa && ruta.estado !== 'finalizada'" 
-                                                @click="abrirEstadoModal(parada)" 
-                                                class="px-3 py-1 rounded-xl text-xs font-semibold border transition-all cursor-pointer hover:brightness-110 whitespace-nowrap shrink-0" 
-                                                :class="estadoConfig[parada.estado]?.color">
-                                            {{ estadoConfig[parada.estado]?.label }}
-                                        </button>
-                                        <!-- Si la ruta aún no se inició o no puede operar -->
-                                        <div v-else 
-                                             class="px-3 py-1 rounded-xl text-xs font-semibold border transition-all cursor-default select-none whitespace-nowrap shrink-0 opacity-75" 
-                                             :class="estadoConfig[parada.estado]?.color"
-                                             :title="!ruta.activa ? 'Debes iniciar la ruta de reparto para actualizar estados' : ''">
-                                            {{ estadoConfig[parada.estado]?.label }}
-                                        </div>
-
-                                        <button @click="abrirVentaDetalle(parada)" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer shrink-0" title="Ver detalle">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                        </button>
-                                        <button v-if="ruta.estado === 'pendiente' && canGestionar && parada.estado !== 'entregada'" @click="quitarParada(parada)" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer shrink-0" title="Quitar">
-                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                                        </button>
                                     </div>
                                 </div>
 
-                                <div v-if="localParadas.length === 0" class="h-48 flex items-center justify-center text-zinc-500 text-sm font-semibold italic">
+                                <div v-if="gruposLista.length === 0" class="h-48 flex items-center justify-center text-zinc-500 text-sm font-semibold italic">
                                     No hay entregas asignadas a esta ruta
                                 </div>
                             </div>
