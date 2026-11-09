@@ -884,6 +884,14 @@ class CheckoutController extends Controller
                 $usuariosNotificar = \App\Notifications\TrasladoPendienteVenta::destinatarios($fresh);
                 \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
             }
+
+            // Si esta venta es el cobro de envio de pedidos acumulados (no
+            // tiene items propios), no hay nada que "preparar": se marca
+            // finalizada y recien ahi se consolidan los pedidos que esperaban.
+            if ($fresh->consolida_venta_ids) {
+                $fresh->update(['estado' => 'finalizado']);
+                $fresh->procesarConsolidacionAcumuladosSiCorresponde();
+            }
         });
     }
 

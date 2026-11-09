@@ -780,6 +780,11 @@ class VentaController extends Controller
                     'estado' => $nuevoEstado,
                     'pago_expira_at' => null
                 ]);
+
+                if ($fresh->consolida_venta_ids) {
+                    $fresh->update(['estado' => 'finalizado']);
+                    $fresh->procesarConsolidacionAcumuladosSiCorresponde();
+                }
             });
         } catch (\Throwable $e) {
             \Log::error('confirmarPago: excepción', [

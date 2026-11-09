@@ -61,7 +61,7 @@ class Venta extends Model
         'pago_expira_at', 'payment_id',
         'origen', 'motivo_pendiente', 'metodo_pago', 'comprobante_path',
         'latitud', 'longitud',
-        'tracking_code', 'costo_envio'
+        'tracking_code', 'costo_envio', 'consolida_venta_ids'
     ];
 
     protected $casts = [
@@ -126,6 +126,32 @@ class Venta extends Model
     public function transacciones(): MorphMany
     {
         return $this->morphMany(Transaccion::class, 'transaccionable');
+    }
+
+    /**
+     * Si esta venta es el cobro del envio de pedidos acumulados (ver
+     * MiCuentaController::consolidarAcumulados), una vez que SU pago se
+     * confirma (Mercado Pago aprobado o transferencia confirmada por un
+     * empleado) se consolidan recien ahi las ventas que quedaron en espera.
+     */
+    public function procesarConsolidacionAcumuladosSiCorresponde(): void
+    {
+        if (!$this->consolida_venta_ids) {
+            return;
+        }
+
+        $ids = array_filter(array_map('intval', explode(',', $this->consolida_venta_ids)));
+        if (!empty($ids) && $this->cliente) {
+            $this->cliente->consolidarAcumulados(
+                $this->tipo_envio,
+                $this->direccion_envio,
+                $this->latitud,
+                $this->longitud,
+                $ids
+            );
+        }
+
+        $this->update(['consolida_venta_ids' => null]);
     }
 
     public function paradas(): \Illuminate\Database\Eloquent\Relations\HasMany

@@ -1,6 +1,6 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed, watch, onUnmounted } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
@@ -223,6 +223,7 @@ const addressSelected = ref(false);
 const piso = ref('');
 const depto = ref('');
 const cp = ref('');
+const medioPagoConsolidar = ref('Tarjeta');
 const latitudConsolidar = ref(null);
 const longitudConsolidar = ref(null);
 const comentarioConsolidar = ref('');
@@ -369,10 +370,12 @@ watch(direccionInput, (val) => {
 onUnmounted(() => clearTimeout(debounceTimerConsolidar));
 
 const puedeSolicitarEnvio = computed(() => {
-    return direccionInput.value.trim().length > 0
+    const direccionOk = direccionInput.value.trim().length > 0
         && !!provincia.value
         && !!localidadEfectiva.value
         && cp.value.trim().length > 0;
+    if (!direccionOk) return false;
+    return esEnvioLocal.value || !!medioPagoConsolidar.value;
 });
 
 const consolidarForm = useForm({
@@ -380,6 +383,7 @@ const consolidarForm = useForm({
     direccion_envio: '',
     latitud: null,
     longitud: null,
+    medio_pago: null,
 });
 
 const solicitarEnvioAcumulados = () => {
@@ -390,6 +394,7 @@ const solicitarEnvioAcumulados = () => {
     depto.value = '';
     cp.value = '';
     comentarioConsolidar.value = '';
+    medioPagoConsolidar.value = 'Tarjeta';
     resetearCamposDireccion();
     showConsolidarModal.value = true;
 };
@@ -409,18 +414,18 @@ const submitConsolidar = () => {
     consolidarForm.direccion_envio = direccion;
     consolidarForm.latitud         = latitudConsolidar.value;
     consolidarForm.longitud        = longitudConsolidar.value;
+    consolidarForm.medio_pago      = esEnvioLocal.value ? null : medioPagoConsolidar.value;
 
     consolidarForm.post(route('mi-cuenta.consolidar-acumulados'), {
         preserveScroll: true,
         onSuccess: () => {
             showConsolidarModal.value = false;
+            const mensaje = usePage().props.flash?.message || 'Solicitaste el envío de tus pedidos acumulados.';
             consolidarForm.reset();
             darkSwal.fire({
                 title: '¡Listo!',
-                text: 'Solicitaste el envío de tus pedidos acumulados.',
+                text: mensaje,
                 icon: 'success',
-                timer: 1800,
-                showConfirmButton: false,
             });
         },
     });
@@ -976,12 +981,35 @@ const submitConsolidar = () => {
                                 <input v-model="comentarioConsolidar" type="text" placeholder="Ej: Tocar timbre fuerte. Dejar en portería" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
                             </div>
 
+                            <!-- Cobro del envio fuera del Gran Rosario -->
+                            <div v-if="!esEnvioLocal" class="space-y-3 pt-2 border-t border-white/5">
+                                <p class="text-xs text-amber-400 font-semibold">
+                                    El envío por Correo Nacional tiene un costo de {{ formatPrecio(50000) }}, a pagar aparte.
+                                </p>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">¿Cómo pagás el envío? *</label>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <button type="button" @click="medioPagoConsolidar = 'Tarjeta'"
+                                        class="px-4 py-2.5 rounded-xl text-xs font-bold border transition-all"
+                                        :class="medioPagoConsolidar === 'Tarjeta' ? 'bg-white text-black border-white' : 'bg-[#131316] text-zinc-300 border-white/10 hover:border-white/20'">
+                                        Mercado Pago
+                                    </button>
+                                    <button type="button" @click="medioPagoConsolidar = 'Transferencia'"
+                                        class="px-4 py-2.5 rounded-xl text-xs font-bold border transition-all"
+                                        :class="medioPagoConsolidar === 'Transferencia' ? 'bg-white text-black border-white' : 'bg-[#131316] text-zinc-300 border-white/10 hover:border-white/20'">
+                                        Transferencia
+                                    </button>
+                                </div>
+                                <p v-if="medioPagoConsolidar === 'Transferencia'" class="text-zinc-400 text-[11px] leading-relaxed">
+                                    Después de confirmar, vas a poder subir el comprobante desde "Mis Pedidos".
+                                </p>
+                            </div>
+
                             <p v-if="consolidarForm.errors.direccion_envio" class="text-rose-400 text-xs font-semibold mt-1">{{ consolidarForm.errors.direccion_envio }}</p>
 
                             <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
                                 <button type="button" @click="showConsolidarModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
                                 <button type="submit" :disabled="consolidarForm.processing || !puedeSolicitarEnvio" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
-                                    <span>{{ consolidarForm.processing ? 'Enviando...' : 'Confirmar envío' }}</span>
+                                    <span>{{ consolidarForm.processing ? 'Enviando...' : (!esEnvioLocal && medioPagoConsolidar === 'Tarjeta' ? 'Pagar envío con Mercado Pago' : 'Confirmar envío') }}</span>
                                 </button>
                             </div>
                         </form>

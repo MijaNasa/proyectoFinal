@@ -192,27 +192,129 @@ class MiCuentaController extends Controller
 
     /**
      * El propio cliente solicita el envio de todos sus pedidos acumulados
-     * juntos, en vez de que un empleado tenga que hacerlo por el.
+     * juntos, en vez de que un empleado tenga que hacerlo por el. Si el envio
+     * cae fuera del Gran Rosario (Correo Nacional) tiene un costo fijo que se
+     * cobra aparte, con el mismo circuito de pago que una compra online -
+     * los pedidos recien se consolidan cuando ESE pago se confirma.
      */
     public function consolidarAcumulados(Request $request)
     {
         $request->validate([
+            'modo'            => 'required|in:domicilio,correo_nacional',
             'direccion_envio' => 'required|string|max:255',
             'latitud'         => 'nullable|numeric|between:-90,90',
             'longitud'        => 'nullable|numeric|between:-180,180',
+            'medio_pago'      => 'required_if:modo,correo_nacional|nullable|in:Tarjeta,Transferencia',
         ]);
 
-        $cliente = Auth::user()->cliente;
+        $user = Auth::user();
+        $cliente = $user->cliente;
         if (!$cliente) {
             abort(403);
         }
 
-        $cantidad = $cliente->consolidarAcumulados('domicilio', $request->direccion_envio, $request->latitud, $request->longitud);
+        if ($request->modo === 'domicilio') {
+            $cantidad = $cliente->consolidarAcumulados('domicilio', $request->direccion_envio, $request->latitud, $request->longitud);
 
-        if ($cantidad === 0) {
+            if ($cantidad === 0) {
+                return back()->withErrors(['error' => 'No tenés pedidos acumulados pendientes de envío.']);
+            }
+
+            return back()->with('message', "Se solicitó el envío de {$cantidad} pedido(s) acumulado(s). Te vamos a avisar cuando esté en camino.");
+        }
+
+        // Correo Nacional: hay un costo de envio fijo a cobrar antes de despachar.
+        $idsAcumulados = $cliente->ventas()
+            ->where('motivo_pendiente', 'Acumulación')
+            ->pluck('id')
+            ->toArray();
+
+        if (empty($idsAcumulados)) {
             return back()->withErrors(['error' => 'No tenés pedidos acumulados pendientes de envío.']);
         }
 
-        return back()->with('message', "Se solicitó el envío de {$cantidad} pedido(s) acumulado(s). Te vamos a avisar cuando esté en camino.");
+        $costoEnvio = 50000;
+        $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first() ?? \App\Models\Sucursal::first();
+
+        $ventaEnvio = Venta::create([
+            'fecha'               => now(),
+            'cliente_id'          => $cliente->id,
+            'user_id'             => $user->id,
+            'sucursal_id'         => $sucursalPrincipal?->id,
+            'tipo'                => 'online',
+            'total'               => $costoEnvio,
+            'costo_envio'         => $costoEnvio,
+            'estado'              => 'pendiente_pago',
+            'tipo_envio'          => 'correo_nacional',
+            'direccion_envio'     => $request->direccion_envio,
+            'latitud'             => $request->latitud,
+            'longitud'            => $request->longitud,
+            'metodo_pago'         => $request->medio_pago,
+            'consolida_venta_ids' => implode(',', $idsAcumulados),
+            'pago_expira_at'      => now()->addHours($request->medio_pago === 'Transferencia' ? 12 : 6),
+        ]);
+
+        if ($request->medio_pago === 'Transferencia') {
+            return back()->with('message', 'Generamos el cobro del envío. Subí el comprobante de transferencia desde "Mis Pedidos" para confirmar el despacho.');
+        }
+
+        // Mercado Pago
+        $mpToken = config('services.mercadopago.access_token');
+        if (empty($mpToken)) {
+            if (config('app.env') === 'local' || config('app.debug')) {
+                \Log::info("MiCuenta: MP_ACCESS_TOKEN no configurado en local. Simulando pago de envío aprobado para venta #{$ventaEnvio->id}");
+                $ventaEnvio->update(['estado' => 'finalizado']);
+                $ventaEnvio->procesarConsolidacionAcumuladosSiCorresponde();
+                return back()->with('message', 'Envío confirmado (modo simulado, sin Mercado Pago configurado).');
+            }
+            $ventaEnvio->update(['estado' => 'cancelado']);
+            return back()->withErrors(['error' => 'El pago con Mercado Pago no está disponible temporalmente. Probá con Transferencia Bancaria.']);
+        }
+
+        try {
+            $baseUrl = config('services.mercadopago.tunnel_url') ?? config('app.url');
+
+            $preferenceData = [
+                'items' => [[
+                    'id'          => 'envio_acumulados_' . $ventaEnvio->id,
+                    'title'       => 'Envío de pedidos acumulados #' . $ventaEnvio->id,
+                    'quantity'    => 1,
+                    'unit_price'  => (float) $costoEnvio,
+                    'currency_id' => 'ARS',
+                ]],
+                'payer'              => ['email' => $user->email],
+                'external_reference' => (string) $ventaEnvio->id,
+                'notification_url'   => $baseUrl . '/checkout/webhook',
+                'back_urls'          => [
+                    'success' => $baseUrl . '/checkout/success',
+                    'failure' => $baseUrl . '/checkout/failure',
+                    'pending' => $baseUrl . '/checkout/pending',
+                ],
+            ];
+
+            $response = \Illuminate\Support\Facades\Http::timeout(15)
+                ->withToken($mpToken)
+                ->post('https://api.mercadopago.com/checkout/preferences', $preferenceData);
+
+            if (!$response->successful()) {
+                throw new \RuntimeException('MP API error: ' . $response->body());
+            }
+
+            $preference = $response->json();
+            $ventaEnvio->update(['payment_id' => $preference['id']]);
+
+            $url = config('services.mercadopago.sandbox')
+                ? $preference['sandbox_init_point']
+                : $preference['init_point'];
+
+            return Inertia::location($url);
+        } catch (\Exception $e) {
+            $ventaEnvio->update(['estado' => 'cancelado']);
+            \Log::error('MiCuenta: error al crear preferencia MP para envío de acumulados', [
+                'venta_id' => $ventaEnvio->id,
+                'error'    => $e->getMessage(),
+            ]);
+            return back()->withErrors(['error' => 'Error al conectar con Mercado Pago. Probá con Transferencia Bancaria.']);
+        }
     }
 }

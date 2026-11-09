@@ -61,10 +61,11 @@ class Cliente extends Model
      *
      * @return int cantidad de pedidos consolidados
      */
-    public function consolidarAcumulados(string $modo, ?string $direccionEnvio = null, ?float $latitud = null, ?float $longitud = null): int
+    public function consolidarAcumulados(string $modo, ?string $direccionEnvio = null, ?float $latitud = null, ?float $longitud = null, ?array $soloIds = null): int
     {
         $ventas = $this->ventas()
             ->where('motivo_pendiente', 'Acumulación')
+            ->when($soloIds, fn($q) => $q->whereIn('id', $soloIds))
             ->lockForUpdate()
             ->get();
 
