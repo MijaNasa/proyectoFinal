@@ -1,10 +1,9 @@
 <script setup>
 import PublicLayout from '@/Layouts/PublicLayout.vue';
 import { Head, Link, useForm, router } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch, onUnmounted } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
-import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     pedidos: Object,
@@ -195,24 +194,222 @@ const tieneAcumulados = computed(() => {
     return props.pedidos.data.some(p => p.estado === 'acumulado');
 });
 
+// --- Solicitar envío de acumulados: mismo formulario de dirección que el
+// checkout (provincia/localidad/autocompletado de Photon/CP), para respetar
+// que un cliente pueda pedir el envío a otra provincia y que quede marcado
+// como Correo Nacional igual que en una compra nueva, no solo "domicilio".
 const showConsolidarModal = ref(false);
+
+const provincias = [
+    'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Ciudad Autónoma de Buenos Aires',
+    'Córdoba', 'Corrientes', 'Entre Ríos', 'Formosa', 'Jujuy', 'La Pampa', 'La Rioja',
+    'Mendoza', 'Misiones', 'Neuquén', 'Río Negro', 'Salta', 'San Juan', 'San Luis',
+    'Santa Cruz', 'Santa Fe', 'Santiago del Estero', 'Tierra del Fuego', 'Tucumán'
+];
+
+// Gran Rosario: zona de reparto local sin recargo de envío
+const localidadesSantaFe = [
+    'Rosario', 'Funes', 'Roldán', 'Pérez', 'Granadero Baigorria',
+    'Villa Gobernador Gálvez', 'San Lorenzo', 'Capitán Bermúdez',
+    'Puerto General San Martín', 'Fray Luis Beltrán',
+];
+
+const provincia = ref('Santa Fe');
+const localidad = ref('');
+const otraLocalidadSantaFe = ref('');
+const direccionInput = ref('');
+const direccionFormatted = ref('');
+const addressSelected = ref(false);
+const piso = ref('');
+const depto = ref('');
+const cp = ref('');
+const latitudConsolidar = ref(null);
+const longitudConsolidar = ref(null);
+const comentarioConsolidar = ref('');
+
+const sugerencias = ref([]);
+const mostrarSugerencias = ref(false);
+const buscandoDireccion = ref(false);
+let debounceTimerConsolidar = null;
+let ultimaConsultaIdConsolidar = 0;
+
+const localidadEfectiva = computed(() => {
+    if (provincia.value === 'Santa Fe') {
+        if (localidad.value === '__otra__') return otraLocalidadSantaFe.value.trim();
+        return localidad.value.trim();
+    }
+    return localidad.value.trim();
+});
+
+const esEnvioLocal = computed(() => {
+    return provincia.value === 'Santa Fe' && localidadesSantaFe.includes(localidad.value);
+});
+
+const direccionHabilitada = computed(() => {
+    if (provincia.value === 'Santa Fe') {
+        if (localidad.value === '__otra__') return !!otraLocalidadSantaFe.value.trim();
+        return !!localidad.value;
+    }
+    return !!provincia.value;
+});
+
+const normalizar = (str) => (str || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(new RegExp('[̀-ͯ]', 'g'), '');
+
+const coincideLocalidad = (f) => {
+    const loc = localidadEfectiva.value;
+    if (!loc) return true;
+    const p = f.properties;
+    const objetivo = normalizar(loc);
+    const candidatos = [p.city, p.district, p.county].filter(Boolean).map(normalizar);
+    return candidatos.some(c => c.includes(objetivo) || objetivo.includes(c));
+};
+
+const buscarDirecciones = async (query) => {
+    if (query.trim().length < 3 || !direccionHabilitada.value) {
+        sugerencias.value = [];
+        mostrarSugerencias.value = false;
+        return;
+    }
+
+    const consultaId = ++ultimaConsultaIdConsolidar;
+    buscandoDireccion.value = true;
+    try {
+        const contexto = [query, localidadEfectiva.value, provincia.value, 'Argentina'].filter(Boolean).join(', ');
+        const params = new URLSearchParams({
+            q: contexto,
+            limit: '8',
+            lat: '-32.9468',
+            lon: '-60.6393',
+        });
+        const res = await fetch(`https://photon.komoot.io/api/?${params.toString()}`);
+        const data = await res.json();
+        if (consultaId !== ultimaConsultaIdConsolidar) return;
+        const features = data.features || [];
+        const filtradas = features.filter(coincideLocalidad);
+        sugerencias.value = filtradas.length > 0 ? filtradas : features;
+        mostrarSugerencias.value = sugerencias.value.length > 0;
+    } catch {
+        sugerencias.value = [];
+        mostrarSugerencias.value = false;
+    } finally {
+        if (consultaId === ultimaConsultaIdConsolidar) buscandoDireccion.value = false;
+    }
+};
+
+const formatearSugerencia = (f) => {
+    const p = f.properties;
+    const calle = p.street || p.name || '';
+    const conAltura = p.housenumber ? `${calle} ${p.housenumber}` : calle;
+    return [conAltura, p.city, p.state].filter(Boolean).join(', ');
+};
+
+const seleccionarSugerencia = (f) => {
+    const p = f.properties;
+    const texto = formatearSugerencia(f);
+    direccionInput.value = texto;
+    direccionFormatted.value = texto;
+    addressSelected.value = true;
+    sugerencias.value = [];
+    mostrarSugerencias.value = false;
+
+    const [lon, lat] = f.geometry?.coordinates ?? [];
+    latitudConsolidar.value = lat ?? null;
+    longitudConsolidar.value = lon ?? null;
+
+    if (provincia.value !== 'Santa Fe') {
+        localidad.value = p.city || p.district || p.county || provincia.value;
+    } else if (localidad.value === '__otra__' && !otraLocalidadSantaFe.value.trim()) {
+        otraLocalidadSantaFe.value = p.city || p.district || p.county || '';
+    }
+    if (p.postcode) {
+        cp.value = p.postcode;
+    }
+};
+
+const resetearCamposDireccion = () => {
+    direccionInput.value = '';
+    direccionFormatted.value = '';
+    addressSelected.value = false;
+    latitudConsolidar.value = null;
+    longitudConsolidar.value = null;
+    sugerencias.value = [];
+    mostrarSugerencias.value = false;
+};
+
+watch(provincia, () => {
+    localidad.value = '';
+    otraLocalidadSantaFe.value = '';
+    cp.value = '';
+    resetearCamposDireccion();
+});
+
+watch(localidad, (val) => {
+    if (val !== '__otra__') otraLocalidadSantaFe.value = '';
+    resetearCamposDireccion();
+});
+
+watch(otraLocalidadSantaFe, resetearCamposDireccion);
+
+watch(direccionInput, (val) => {
+    if (addressSelected.value && val !== direccionFormatted.value) {
+        addressSelected.value = false;
+        direccionFormatted.value = '';
+        latitudConsolidar.value = null;
+        longitudConsolidar.value = null;
+    }
+    clearTimeout(debounceTimerConsolidar);
+    if (!addressSelected.value) {
+        debounceTimerConsolidar = setTimeout(() => buscarDirecciones(val), 400);
+    }
+});
+
+onUnmounted(() => clearTimeout(debounceTimerConsolidar));
+
+const puedeSolicitarEnvio = computed(() => {
+    return direccionInput.value.trim().length > 0
+        && !!provincia.value
+        && !!localidadEfectiva.value
+        && cp.value.trim().length > 0;
+});
+
 const consolidarForm = useForm({
+    modo: 'domicilio',
     direccion_envio: '',
     latitud: null,
     longitud: null,
 });
 
-const onSeleccionarDireccionConsolidar = (f) => {
-    const [lon, lat] = f.geometry?.coordinates ?? [];
-    consolidarForm.latitud = lat ?? null;
-    consolidarForm.longitud = lon ?? null;
-};
-
 const solicitarEnvioAcumulados = () => {
+    provincia.value = 'Santa Fe';
+    localidad.value = '';
+    otraLocalidadSantaFe.value = '';
+    piso.value = '';
+    depto.value = '';
+    cp.value = '';
+    comentarioConsolidar.value = '';
+    resetearCamposDireccion();
     showConsolidarModal.value = true;
 };
 
 const submitConsolidar = () => {
+    if (!puedeSolicitarEnvio.value) return;
+
+    let direccion = direccionFormatted.value || direccionInput.value.trim();
+    if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
+    if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
+    if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
+    if (localidadEfectiva.value) direccion += `, ${localidadEfectiva.value}`;
+    if (provincia.value)    direccion += `, ${provincia.value}`;
+    if (comentarioConsolidar.value.trim()) direccion += ` | Obs: ${comentarioConsolidar.value.trim()}`;
+
+    consolidarForm.modo            = esEnvioLocal.value ? 'domicilio' : 'correo_nacional';
+    consolidarForm.direccion_envio = direccion;
+    consolidarForm.latitud         = latitudConsolidar.value;
+    consolidarForm.longitud        = longitudConsolidar.value;
+
     consolidarForm.post(route('mi-cuenta.consolidar-acumulados'), {
         preserveScroll: true,
         onSuccess: () => {
@@ -689,21 +886,101 @@ const submitConsolidar = () => {
                                 Te enviamos todos tus pedidos acumulados juntos, pagando un solo envío.
                             </p>
 
-                            <div>
-                                <label class="block text-xs font-semibold text-zinc-400 mb-1">Dirección de envío *</label>
-                                <DireccionAutocomplete
-                                    v-model="consolidarForm.direccion_envio"
-                                    @select="onSeleccionarDireccionConsolidar"
-                                    class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30"
-                                    :class="{ 'border-rose-500': consolidarForm.errors.direccion_envio }"
-                                    placeholder="Ej: San Martín 123, Rosario..."
-                                />
-                                <p v-if="consolidarForm.errors.direccion_envio" class="text-rose-400 text-xs font-semibold mt-1">{{ consolidarForm.errors.direccion_envio }}</p>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Provincia *</label>
+                                    <select v-model="provincia" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-white/30 font-semibold uppercase tracking-wider">
+                                        <option value="" disabled>-- Provincia --</option>
+                                        <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Localidad *</label>
+                                    <div v-if="provincia === 'Santa Fe'" class="space-y-2">
+                                        <select v-model="localidad" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-white/30 font-semibold uppercase tracking-wider">
+                                            <option value="" disabled>-- Seleccioná tu Localidad --</option>
+                                            <optgroup label="Gran Rosario (Reparto local - Sin cargo)">
+                                                <option v-for="l in localidadesSantaFe" :key="l" :value="l">{{ l }}</option>
+                                            </optgroup>
+                                            <optgroup label="Resto de la Provincia">
+                                                <option value="__otra__">📦 Otra localidad de Santa Fe (Correo Nacional)</option>
+                                            </optgroup>
+                                        </select>
+                                        <input v-if="localidad === '__otra__'" v-model="otraLocalidadSantaFe" type="text" placeholder="Escribí tu localidad" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                                    </div>
+                                    <input v-else v-model="localidad" type="text" placeholder="Ej: Córdoba Capital, Mendoza..." class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                                </div>
                             </div>
+
+                            <!-- Banners informativos según zona de envío -->
+                            <div v-if="provincia === 'Santa Fe' && localidad && localidad !== '__otra__'" class="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-xs font-semibold flex items-center gap-2">
+                                <span class="text-base shrink-0">🛵</span>
+                                <span>Zona Gran Rosario: <strong>reparto local sin cargo de envío</strong>.</span>
+                            </div>
+                            <div v-else-if="(provincia === 'Santa Fe' && localidad === '__otra__') || (provincia && provincia !== 'Santa Fe')" class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs font-medium flex items-center gap-2">
+                                <span class="text-base shrink-0">📦</span>
+                                <span>Se despacha mediante <strong>Correo Nacional</strong> a domicilio.</span>
+                            </div>
+
+                            <!-- Autocomplete de calle -->
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Calle y Número *</label>
+                                <div class="relative">
+                                    <input
+                                        v-model="direccionInput"
+                                        type="text"
+                                        :disabled="!direccionHabilitada"
+                                        :placeholder="direccionHabilitada ? 'Buscá tu dirección...' : (provincia === 'Santa Fe' ? (localidad === '__otra__' ? 'Escribí primero el nombre de tu localidad' : 'Elegí primero la localidad') : 'Elegí primero la provincia')"
+                                        autocomplete="off"
+                                        @focus="mostrarSugerencias = sugerencias.length > 0"
+                                        @blur="setTimeout(() => mostrarSugerencias = false, 150)"
+                                        class="w-full bg-[#131316] border rounded-xl px-4 py-2.5 pr-10 text-xs text-white placeholder-zinc-500 focus:outline-none transition-all disabled:opacity-40 disabled:cursor-not-allowed font-medium"
+                                        :class="addressSelected ? 'border-emerald-500/60 focus:border-emerald-500' : 'border-white/10 focus:border-white/30'"
+                                    />
+                                    <svg v-if="addressSelected" class="absolute right-3 top-3 w-4 h-4 text-emerald-400 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                                    </svg>
+                                    <svg v-else-if="buscandoDireccion" class="absolute right-3 top-3 w-4 h-4 text-zinc-400 animate-spin pointer-events-none" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                                    </svg>
+                                    <ul v-if="mostrarSugerencias && sugerencias.length" class="absolute z-20 mt-1 w-full bg-[#131316] border border-white/10 rounded-xl shadow-2xl overflow-hidden">
+                                        <li v-for="(f, idx) in sugerencias" :key="idx" @mousedown.prevent="seleccionarSugerencia(f)" class="px-4 py-2.5 text-xs text-zinc-300 hover:bg-white/5 hover:text-white cursor-pointer border-t border-white/5 first:border-t-0 font-medium">
+                                            {{ formatearSugerencia(f) }}
+                                        </li>
+                                    </ul>
+                                </div>
+                                <p v-if="!addressSelected && direccionInput.length > 2" class="text-amber-400 text-[10px] mt-1.5 font-semibold uppercase tracking-wider">
+                                    Seleccioná una dirección de la lista emergente
+                                </p>
+                            </div>
+
+                            <!-- Piso, Depto, CP -->
+                            <div class="grid grid-cols-3 gap-3">
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Piso <span class="text-zinc-500 normal-case">(opc)</span></label>
+                                    <input v-model="piso" type="text" placeholder="Ej: 3" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Depto <span class="text-zinc-500 normal-case">(opc)</span></label>
+                                    <input v-model="depto" type="text" placeholder="Ej: B" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">CP <span class="text-brand-red">*</span></label>
+                                    <input v-model="cp" type="text" placeholder="Ej: 2000" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Comentarios y Referencias</label>
+                                <input v-model="comentarioConsolidar" type="text" placeholder="Ej: Tocar timbre fuerte. Dejar en portería" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                            </div>
+
+                            <p v-if="consolidarForm.errors.direccion_envio" class="text-rose-400 text-xs font-semibold mt-1">{{ consolidarForm.errors.direccion_envio }}</p>
 
                             <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
                                 <button type="button" @click="showConsolidarModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
-                                <button type="submit" :disabled="consolidarForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                <button type="submit" :disabled="consolidarForm.processing || !puedeSolicitarEnvio" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
                                     <span>{{ consolidarForm.processing ? 'Enviando...' : 'Confirmar envío' }}</span>
                                 </button>
                             </div>
