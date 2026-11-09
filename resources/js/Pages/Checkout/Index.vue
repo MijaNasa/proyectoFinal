@@ -195,7 +195,10 @@ watch(tipoEnvio, (val) => {
     sucursalCorreoInput.value = '';
     sugerencias.value = [];
     mostrarSugerencias.value = false;
-    if (['domicilio', 'correo_sucursal'].includes(val)) {
+    if (['domicilio', 'correo_sucursal', 'acumulacion'].includes(val)) {
+        // Acumulacion siempre termina en un envio: todos los pedidos acumulados
+        // quedan fisicamente en la Central, para no tener que trasladarlos
+        // despues desde donde sea que el cliente los haya elegido acumular.
         sucursalId.value = props.sucursal_principal_id || props.sucursales?.[0]?.id || '';
     } else {
         sucursalId.value = props.sucursales?.[0]?.id || '';
@@ -560,9 +563,9 @@ const confirmar = () => {
                             </div>
 
                             <!-- Selector de Sucursal -->
-                            <div class="mt-6 pt-4 border-t border-white/5" v-if="tipoEnvio === 'retiro' || tipoEnvio === 'acumulacion'">
+                            <div class="mt-6 pt-4 border-t border-white/5" v-if="tipoEnvio === 'retiro'">
                                 <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
-                                    Sucursal para Retiro / Acumulación *
+                                    Sucursal para Retiro *
                                 </label>
                                 <select
                                     v-model="sucursalId"
@@ -573,6 +576,24 @@ const confirmar = () => {
                                         📍 {{ suc.nombre }}
                                     </option>
                                 </select>
+                            </div>
+
+                            <div class="mt-6 pt-4 border-t border-white/5" v-if="tipoEnvio === 'acumulacion'">
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">
+                                    Sucursal de Acumulación
+                                </label>
+                                <select
+                                    v-model="sucursalId"
+                                    disabled
+                                    class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-4 py-3 text-sm text-white font-semibold uppercase tracking-wider opacity-60 cursor-not-allowed"
+                                >
+                                    <option v-for="suc in sucursales" :key="suc.id" :value="suc.id">
+                                        📍 {{ suc.nombre }}
+                                    </option>
+                                </select>
+                                <p class="text-zinc-500 text-[11px] mt-1.5 font-medium">
+                                    Los pedidos acumulados se guardan en nuestra sucursal central hasta coordinar el envío conjunto.
+                                </p>
                             </div>
                             
                             <div v-if="(tipoEnvio === 'retiro' || tipoEnvio === 'acumulacion') && sucursalId && !sucursales.find(s => s.id === sucursalId)?.tiene_stock_local" class="mt-3 p-4 bg-amber-400/10 border border-amber-400/20 rounded-xl flex items-start gap-3">

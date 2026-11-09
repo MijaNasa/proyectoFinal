@@ -187,7 +187,10 @@ class CheckoutController extends Controller
         $sucursal_id = $request->sucursal_id;
         
         $costo_envio = 0;
-        if (in_array($request->tipo_envio, ['domicilio', 'correo_nacional', 'correo_sucursal'])) {
+        // Acumulacion siempre termina en un envio conjunto: se fuerza a la
+        // Central igual que domicilio/correo, sin importar que sucursal haya
+        // llegado en el request (defensa por si se saltea el select del front).
+        if (in_array($request->tipo_envio, ['domicilio', 'correo_nacional', 'correo_sucursal', 'acumulacion'])) {
             $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first();
             if ($sucursalPrincipal) {
                 $sucursal_id = $sucursalPrincipal->id;
