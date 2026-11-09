@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, usePage, router } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, nextTick } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 
@@ -62,7 +62,10 @@ const form = useForm({
 const isEditing = ref(false);
 const showModal = ref(false);
 
+const inicializandoForm = ref(false);
+
 const openModal = (empleado = null) => {
+    inicializandoForm.value = true;
     if (empleado) {
         isEditing.value = true;
         form.id = empleado.id;
@@ -82,6 +85,11 @@ const openModal = (empleado = null) => {
         form.fecha_ingreso = new Date().toISOString().substr(0, 10);
     }
     showModal.value = true;
+    // El watch de form.cargo_id fuerza la sucursal a Central cuando el cargo
+    // es REPARTIDOR - pero eso solo debe pasar si el usuario ELIGE Repartidor
+    // mientras edita, no al precargar los datos de un repartidor existente
+    // (que podia tener otra sucursal asignada de antes de esta regla).
+    nextTick(() => { inicializandoForm.value = false; });
 };
 
 const submit = () => {
@@ -301,7 +309,7 @@ const isRepartidorCargo = computed(() => {
 });
 
 watch(() => form.cargo_id, (newCargoId) => {
-    if (!newCargoId) return;
+    if (!newCargoId || inicializandoForm.value) return;
     const c = props.cargos?.find(item => item.id === Number(newCargoId));
     if (c?.nombre === 'REPARTIDOR' && sucursalPrincipal.value) {
         form.sucursal_id = sucursalPrincipal.value.id;
