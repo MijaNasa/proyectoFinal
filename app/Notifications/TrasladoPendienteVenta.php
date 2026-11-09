@@ -36,6 +36,26 @@ class TrasladoPendienteVenta extends Notification
     }
 
     /**
+     * A quien le llega esta notificacion: Admins (siempre) + Gerentes, pero
+     * solo de las sucursales realmente involucradas en el traslado (destino
+     * de la venta y origen de cada TransferenciaStock pendiente). Antes se
+     * notificaba a TODOS los gerentes del sistema sin importar la sucursal.
+     */
+    public static function destinatarios(Venta $venta)
+    {
+        $sucursalesRelevantes = TransferenciaStock::where('venta_id', $venta->id)
+            ->pluck('sucursal_origen_id')
+            ->push($venta->sucursal_id)
+            ->filter()
+            ->unique()
+            ->values();
+
+        return \App\Models\User::where('activo', true)->get()->filter(
+            fn($u) => $u->esAdmin() || ($u->esGerente() && $u->empleado && $sucursalesRelevantes->contains($u->empleado->sucursal_id))
+        );
+    }
+
+    /**
      * Marca automáticamente como leídas las notificaciones de traslados de ventas
      * cuando ya no quedan transferencias pendientes para esa venta.
      */

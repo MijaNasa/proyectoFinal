@@ -881,7 +881,7 @@ class CheckoutController extends Controller
             }
 
             if ($requiereTraslados) {
-                $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
+                $usuariosNotificar = \App\Notifications\TrasladoPendienteVenta::destinatarios($fresh);
                 \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
             }
         });

@@ -771,7 +771,7 @@ class VentaController extends Controller
                             ->where('estado', 'pendiente')
                             ->update(['estado' => 'pendiente_envio']);
 
-                        $usuariosNotificar = \App\Models\User::where('activo', true)->get()->filter(fn($u) => $u->esAdmin() || $u->esGerente());
+                        $usuariosNotificar = \App\Notifications\TrasladoPendienteVenta::destinatarios($fresh);
                         \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));
                     }
                 }
