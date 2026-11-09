@@ -49,6 +49,20 @@ const gruposLista = computed(() => {
     return grupos;
 });
 
+// Numero de parada que se muestra al usuario: la posicion del grupo (1, 2, 3...)
+// y no el campo 'orden' crudo de la base de datos, que cuenta cada pedido
+// acumulado como una fila separada y queda inflado despues de un grupo con
+// varios pedidos (ej: un grupo de 3 hace que el siguiente arranque en 4 en
+// vez de 2). Se usa igual en la Lista Clasica, el mapa y el Modo Reparto.
+const numeroVisiblePorParadaId = computed(() => {
+    const map = new Map();
+    gruposLista.value.forEach((grupo, idx) => {
+        grupo.paradas.forEach(p => map.set(p.id, idx + 1));
+    });
+    return map;
+});
+const numeroVisible = (parada) => numeroVisiblePorParadaId.value.get(parada?.id) ?? parada?.orden;
+
 const gruposExpandidos = ref(new Set());
 const toggleGrupoExpandido = (clave) => {
     if (gruposExpandidos.value.has(clave)) gruposExpandidos.value.delete(clave);
@@ -653,7 +667,7 @@ const marcarEnCaminoDirecto = (parada) => {
             onSuccess: () => {
                 darkSwal.fire({
                     title: '¡En camino!',
-                    text: mensajeConCascada(`Iniciaste el recorrido hacia la parada #${parada.orden}.`),
+                    text: mensajeConCascada(`Iniciaste el recorrido hacia la parada #${numeroVisible(parada)}.`),
                     icon: 'success',
                 });
             }
@@ -823,6 +837,7 @@ const updateMap = () => {
         gruposMapa.forEach((paradasGrupo) => {
             const p = paradasGrupo[0];
             const cantidad = paradasGrupo.length;
+            const numero = numeroVisible(p);
             const color = estadoConfig[p.estado]?.hex || '#facc15';
             const isActiva = Boolean(paradaActiva.value && paradasGrupo.some(pp => pp.id === paradaActiva.value.id) && vistaModoReparto.value);
             const iconHtml = `
@@ -830,7 +845,7 @@ const updateMap = () => {
                     ${isActiva ? '<span class="absolute w-8 h-8 rounded-full bg-emerald-400/40 animate-ping"></span>' : ''}
                     <div class="relative w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] text-black shadow-xl border ${isActiva ? 'border-2 border-white ring-2 ring-emerald-400 scale-110' : 'border-black'}"
                          style="background-color: ${color};">
-                        ${p.estado === 'entregada' ? '✓' : p.orden}
+                        ${p.estado === 'entregada' ? '✓' : numero}
                     </div>
                     ${cantidad > 1 ? `<div class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white text-black text-[8px] font-bold flex items-center justify-center border border-black">${cantidad}</div>` : ''}
                 </div>
@@ -845,7 +860,7 @@ const updateMap = () => {
             const marker = L.marker([p.latitud, p.longitud], { icon }).addTo(map);
             const { principal, obs } = splitDireccion(p.venta?.direccion_envio);
             const detallePedidos = cantidad > 1 ? `<br><span class="text-black text-xs font-bold">${cantidad} pedidos en esta parada</span>` : '';
-            marker.bindPopup(`<b class="text-black uppercase text-xs">Parada ${p.orden}</b><br><span class="text-black text-xs">${principal}</span>${detallePedidos}${obs ? `<br><span class="text-amber-600 text-xs font-bold">🔔 ${obs}</span>` : ''}`);
+            marker.bindPopup(`<b class="text-black uppercase text-xs">Parada ${numero}</b><br><span class="text-black text-xs">${principal}</span>${detallePedidos}${obs ? `<br><span class="text-amber-600 text-xs font-bold">🔔 ${obs}</span>` : ''}`);
             marker.on('click', () => {
                 if (vistaModoReparto.value) {
                     seleccionarParadaEnFoco(p);
@@ -1124,7 +1139,7 @@ watch(paradaActiva, () => {
                                         <div class="flex items-center gap-2 min-w-0">
                                             <span class="px-3 py-1 bg-white/5 text-zinc-300 border border-white/10 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shrink-0">
                                                 <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
-                                                <span>PARADA #{{ paradaActiva.orden }}</span>
+                                                <span>PARADA #{{ numeroVisible(paradaActiva) }}</span>
                                             </span>
                                             <span v-if="paradasAgrupadas.length === 1" class="px-2.5 py-1 bg-white/5 text-zinc-300 border border-white/10 rounded-xl text-xs font-bold whitespace-nowrap shrink-0">
                                                 Venta #{{ paradaActiva.venta?.id }}
@@ -1346,7 +1361,7 @@ watch(paradaActiva, () => {
                                             <div class="w-7 h-7 rounded-xl flex items-center justify-center font-bold text-xs shrink-0"
                                                  :class="grupo.paradas[0].estado === 'entregada' ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' : 'bg-white/5 border border-white/10 text-white'">
                                                 <span v-if="grupo.paradas[0].estado === 'entregada'">✓</span>
-                                                <span v-else>{{ grupo.paradas[0].orden }}</span>
+                                                <span v-else>{{ numeroVisible(grupo.paradas[0]) }}</span>
                                             </div>
                                             <div class="min-w-0 flex-1">
                                                 <div class="text-sm font-bold transition-colors truncate"
