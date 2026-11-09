@@ -107,7 +107,30 @@ const formatNombreRuta = (nombre) => {
     return nombre;
 };
 
-const contarEntregadas = (paradas) => (paradas || []).filter(p => p.estado === 'entregada').length;
+// Varios pedidos acumulados a la misma direccion son paradas distintas en la
+// base de datos pero una sola entrega real; se cuentan agrupadas por
+// coordenadas para no inflar el numero de "paradas" de la ruta.
+const agruparParadasPorDireccion = (paradas) => {
+    const grupos = [];
+    const indicePorClave = new Map();
+    (paradas || []).forEach((p) => {
+        const clave = (p.latitud !== null && p.latitud !== undefined && p.longitud !== null && p.longitud !== undefined)
+            ? `${p.latitud},${p.longitud}`
+            : `sola_${p.id}`;
+        if (!indicePorClave.has(clave)) {
+            indicePorClave.set(clave, grupos.length);
+            grupos.push([p]);
+        } else {
+            grupos[indicePorClave.get(clave)].push(p);
+        }
+    });
+    return grupos;
+};
+
+const contarParadasUnicas = (paradas) => agruparParadasPorDireccion(paradas).length;
+
+const contarGruposEntregados = (paradas) =>
+    agruparParadasPorDireccion(paradas).filter(grupo => grupo.every(p => p.estado === 'entregada')).length;
 
 const formatFecha = (f) => {
     if (!f) return '—';
@@ -233,7 +256,7 @@ const formatFecha = (f) => {
                                     <td class="p-4">
                                         <div class="font-bold text-white tracking-tight">{{ formatNombreRuta(ruta.nombre) }}</div>
                                         <div class="text-xs text-zinc-400 font-medium mt-0.5">
-                                            {{ (ruta.paradas?.length ?? 0) === 1 ? '1 parada' : `${ruta.paradas?.length ?? 0} paradas` }}
+                                            {{ contarParadasUnicas(ruta.paradas) === 1 ? '1 parada' : `${contarParadasUnicas(ruta.paradas)} paradas` }}{{ (ruta.paradas?.length ?? 0) !== contarParadasUnicas(ruta.paradas) ? ` (${ruta.paradas.length} ventas)` : '' }}
                                         </div>
                                     </td>
                                     <td class="p-4 text-sm font-semibold text-zinc-300">
@@ -245,12 +268,12 @@ const formatFecha = (f) => {
                                     <td class="p-4 text-center">
                                         <div v-if="ruta.paradas?.length" class="flex flex-col items-center gap-1.5">
                                             <span class="text-xs font-semibold text-emerald-400">
-                                                {{ contarEntregadas(ruta.paradas) }}/{{ ruta.paradas.length }} entregadas
+                                                {{ contarGruposEntregados(ruta.paradas) }}/{{ contarParadasUnicas(ruta.paradas) }} entregadas
                                             </span>
                                             <div class="w-24 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5">
                                                 <div
                                                     class="h-full bg-emerald-400 rounded-full transition-all"
-                                                    :style="{ width: (contarEntregadas(ruta.paradas) / ruta.paradas.length * 100) + '%' }"
+                                                    :style="{ width: (contarGruposEntregados(ruta.paradas) / contarParadasUnicas(ruta.paradas) * 100) + '%' }"
                                                 ></div>
                                             </div>
                                         </div>

@@ -1009,7 +1009,7 @@ watch(paradaActiva, () => {
                     <div>
                         <div class="flex justify-between items-center mb-2">
                             <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Progreso</span>
-                            <span class="text-xs font-semibold text-zinc-400">Total: {{ counts.total }} Paradas</span>
+                            <span class="text-xs font-semibold text-zinc-400">Total: {{ gruposLista.length }} Paradas{{ counts.total !== gruposLista.length ? ` · ${counts.total} Ventas` : '' }}</span>
                         </div>
                         
                         <div class="relative w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/5">
