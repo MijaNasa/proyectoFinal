@@ -189,4 +189,30 @@ class MiCuentaController extends Controller
 
         return back()->with('message', 'Comprobante eliminado exitosamente.');
     }
+
+    /**
+     * El propio cliente solicita el envio de todos sus pedidos acumulados
+     * juntos, en vez de que un empleado tenga que hacerlo por el.
+     */
+    public function consolidarAcumulados(Request $request)
+    {
+        $request->validate([
+            'direccion_envio' => 'required|string|max:255',
+            'latitud'         => 'nullable|numeric|between:-90,90',
+            'longitud'        => 'nullable|numeric|between:-180,180',
+        ]);
+
+        $cliente = Auth::user()->cliente;
+        if (!$cliente) {
+            abort(403);
+        }
+
+        $cantidad = $cliente->consolidarAcumulados('domicilio', $request->direccion_envio, $request->latitud, $request->longitud);
+
+        if ($cantidad === 0) {
+            return back()->withErrors(['error' => 'No tenés pedidos acumulados pendientes de envío.']);
+        }
+
+        return back()->with('message', "Se solicitó el envío de {$cantidad} pedido(s) acumulado(s). Te vamos a avisar cuando esté en camino.");
+    }
 }

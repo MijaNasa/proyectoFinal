@@ -68,6 +68,7 @@ Route::get('/pedidos/{venta}/comprobante-pdf', [VentaController::class, 'generar
 Route::middleware('auth')->group(function () {
     Route::get('/mi-cuenta', [MiCuentaController::class, 'index'])->name('mi-cuenta.index');
     Route::put('/mi-cuenta/password', [MiCuentaController::class, 'updatePassword'])->name('mi-cuenta.password');
+    Route::post('/mi-cuenta/consolidar-acumulados', [MiCuentaController::class, 'consolidarAcumulados'])->name('mi-cuenta.consolidar-acumulados');
 });
 
 Route::get('/', function () {

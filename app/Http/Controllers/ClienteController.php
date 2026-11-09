@@ -317,34 +317,12 @@ class ClienteController extends Controller
             'longitud' => 'nullable|numeric|between:-180,180',
         ]);
 
-        \DB::transaction(function () use ($cliente, $request) {
-            $ventas = Venta::where('cliente_id', $cliente->id)
-                ->where('motivo_pendiente', 'Acumulación')
-                ->lockForUpdate()
-                ->get();
-
-            foreach ($ventas as $venta) {
-                $datos = [
-                    // Antes quedaba con tipo_envio = 'acumulacion' para siempre, lo
-                    // que hacia que RutaRepartoController (que filtra estrictamente
-                    // por tipo_envio = 'domicilio') nunca lo mostrara disponible
-                    // para armar una ruta de reparto.
-                    'tipo_envio' => $request->modo,
-                    'motivo_pendiente' => null, // Ya no está en acumulación
-                ];
-
-                if ($request->modo === 'retiro') {
-                    $datos['estado'] = 'listo_para_retiro';
-                } else {
-                    $datos['estado'] = 'en_preparacion';
-                    $datos['direccion_envio'] = $request->direccion_envio;
-                    $datos['latitud'] = $request->latitud;
-                    $datos['longitud'] = $request->longitud;
-                }
-
-                $venta->update($datos);
-            }
-        });
+        $cliente->consolidarAcumulados(
+            $request->modo,
+            $request->direccion_envio,
+            $request->latitud,
+            $request->longitud
+        );
 
         $mensaje = $request->modo === 'retiro'
             ? 'Pedidos consolidados y listos para retirar en sucursal.'

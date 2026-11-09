@@ -4,6 +4,7 @@ import { Head, Link, useForm, router } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import Swal from 'sweetalert2';
 import { decodeLabel } from '@/composables/useDecodeLabel';
+import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     pedidos: Object,
@@ -194,11 +195,37 @@ const tieneAcumulados = computed(() => {
     return props.pedidos.data.some(p => p.estado === 'acumulado');
 });
 
+const showConsolidarModal = ref(false);
+const consolidarForm = useForm({
+    direccion_envio: '',
+    latitud: null,
+    longitud: null,
+});
+
+const onSeleccionarDireccionConsolidar = (f) => {
+    const [lon, lat] = f.geometry?.coordinates ?? [];
+    consolidarForm.latitud = lat ?? null;
+    consolidarForm.longitud = lon ?? null;
+};
+
 const solicitarEnvioAcumulados = () => {
-    darkSwal.fire({
-        title: 'Próximamente',
-        text: 'La funcionalidad para solicitar el envío de pedidos acumulados estará disponible pronto.',
-        icon: 'info',
+    showConsolidarModal.value = true;
+};
+
+const submitConsolidar = () => {
+    consolidarForm.post(route('mi-cuenta.consolidar-acumulados'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            showConsolidarModal.value = false;
+            consolidarForm.reset();
+            darkSwal.fire({
+                title: '¡Listo!',
+                text: 'Solicitaste el envío de tus pedidos acumulados.',
+                icon: 'success',
+                timer: 1800,
+                showConfirmButton: false,
+            });
+        },
     });
 };
 </script>
@@ -641,6 +668,50 @@ const solicitarEnvioAcumulados = () => {
 
             </div>
         </div>
+
+        <Teleport to="body">
+            <div v-if="showConsolidarModal">
+                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showConsolidarModal = false"></div>
+                <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
+                    <div class="relative w-full max-w-lg bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
+
+                        <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
+                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
+                                Solicitar envío de pedidos acumulados
+                            </h3>
+                            <button @click="showConsolidarModal = false" class="text-zinc-400 hover:text-white transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+
+                        <form @submit.prevent="submitConsolidar" class="p-6 space-y-4">
+                            <p class="text-xs text-zinc-400 leading-relaxed">
+                                Te enviamos todos tus pedidos acumulados juntos, pagando un solo envío.
+                            </p>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-zinc-400 mb-1">Dirección de envío *</label>
+                                <DireccionAutocomplete
+                                    v-model="consolidarForm.direccion_envio"
+                                    @select="onSeleccionarDireccionConsolidar"
+                                    class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30"
+                                    :class="{ 'border-rose-500': consolidarForm.errors.direccion_envio }"
+                                    placeholder="Ej: San Martín 123, Rosario..."
+                                />
+                                <p v-if="consolidarForm.errors.direccion_envio" class="text-rose-400 text-xs font-semibold mt-1">{{ consolidarForm.errors.direccion_envio }}</p>
+                            </div>
+
+                            <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
+                                <button type="button" @click="showConsolidarModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
+                                <button type="submit" :disabled="consolidarForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                    <span>{{ consolidarForm.processing ? 'Enviando...' : 'Confirmar envío' }}</span>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </PublicLayout>
 </template>
 

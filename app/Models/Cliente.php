@@ -52,4 +52,46 @@ class Cliente extends Model
     {
         return $this->morphMany(Transaccion::class, 'transaccionable');
     }
+
+    /**
+     * Consolida los pedidos en estado de Acumulacion de este cliente en una
+     * sola entrega (envio a domicilio o retiro en sucursal). Usado tanto por
+     * el empleado/gerente desde la ficha del cliente como por el propio
+     * cliente desde "Mis Pedidos" en Mi Cuenta.
+     *
+     * @return int cantidad de pedidos consolidados
+     */
+    public function consolidarAcumulados(string $modo, ?string $direccionEnvio = null, ?float $latitud = null, ?float $longitud = null): int
+    {
+        $ventas = $this->ventas()
+            ->where('motivo_pendiente', 'Acumulación')
+            ->lockForUpdate()
+            ->get();
+
+        if ($ventas->isEmpty()) {
+            return 0;
+        }
+
+        \DB::transaction(function () use ($ventas, $modo, $direccionEnvio, $latitud, $longitud) {
+            foreach ($ventas as $venta) {
+                $datos = [
+                    'tipo_envio' => $modo,
+                    'motivo_pendiente' => null,
+                ];
+
+                if ($modo === 'retiro') {
+                    $datos['estado'] = 'listo_para_retiro';
+                } else {
+                    $datos['estado'] = 'en_preparacion';
+                    $datos['direccion_envio'] = $direccionEnvio;
+                    $datos['latitud'] = $latitud;
+                    $datos['longitud'] = $longitud;
+                }
+
+                $venta->update($datos);
+            }
+        });
+
+        return $ventas->count();
+    }
 }
