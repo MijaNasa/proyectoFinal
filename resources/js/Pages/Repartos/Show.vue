@@ -284,9 +284,15 @@ const ejecutarSubmitEstado = (parada) => {
     if (!targetParada) return;
     estadoForm.patch(
         route('rutas-reparto.actualizar-parada', { rutas_reparto: props.ruta.id, parada: targetParada.id }),
-        { 
+        {
             preserveScroll: true,
-            onSuccess: cerrarEstadoModal 
+            onSuccess: () => {
+                cerrarEstadoModal();
+                const mensaje = usePage().props.flash?.message;
+                if (mensaje) {
+                    darkSwal.fire({ title: '¡Listo!', text: mensaje, icon: 'success' });
+                }
+            }
         }
     );
 };
@@ -549,6 +555,16 @@ const getWazeUrl = (parada) => {
     return `https://waze.com/ul?q=${encodeURIComponent(dir)}&navigate=yes`;
 };
 
+// Varios pedidos acumulados en una misma direccion generan paradas separadas
+// que se resuelven todas juntas al confirmar una (ver RutaRepartoController).
+// Esto hace explicito ese efecto en el mensaje, en vez de dejar que parezca
+// que "entregó de más" sin ninguna explicación.
+const mensajeConCascada = (base) => {
+    const extra = usePage().props.flash?.message || '';
+    const match = extra.match(/Se aplic[oó] el mismo cambio a (\d+) pedido\(s\) m[aá]s en esta misma direcci[oó]n/);
+    return match ? `${base} También se aplicó a ${match[1]} pedido(s) más en esta misma dirección.` : base;
+};
+
 const marcarEnCaminoDirecto = (parada) => {
     if (!parada || !props.ruta.activa) return;
     router.patch(
@@ -559,10 +575,8 @@ const marcarEnCaminoDirecto = (parada) => {
             onSuccess: () => {
                 darkSwal.fire({
                     title: '¡En camino!',
-                    text: `Iniciaste el recorrido hacia la parada #${parada.orden}.`,
+                    text: mensajeConCascada(`Iniciaste el recorrido hacia la parada #${parada.orden}.`),
                     icon: 'success',
-                    timer: 1500,
-                    showConfirmButton: false,
                 });
             }
         }
@@ -590,10 +604,8 @@ const marcarEntregadaDirecto = (parada) => {
                         paradaEnFocoId.value = null;
                         darkSwal.fire({
                             title: '¡Entrega confirmada!',
-                            text: `La venta #${ventaId} se registró como entregada.`,
+                            text: mensajeConCascada(`La venta #${ventaId} se registró como entregada.`),
                             icon: 'success',
-                            timer: 1600,
-                            showConfirmButton: false,
                         });
                     }
                 }
@@ -622,6 +634,10 @@ const reportarFallidaDirecto = (parada) => {
                     preserveScroll: true,
                     onSuccess: () => {
                         paradaEnFocoId.value = null;
+                        const extra = mensajeConCascada('');
+                        if (extra) {
+                            darkSwal.fire({ title: 'Entrega fallida registrada', text: extra.trim(), icon: 'info' });
+                        }
                     }
                 }
             );

@@ -280,7 +280,9 @@ class RutaRepartoController extends Controller
             'observaciones' => 'nullable|string|max:500',
         ]);
 
-        DB::transaction(function () use ($request, $parada) {
+        $cantidadHermanas = 0;
+
+        DB::transaction(function () use ($request, $parada, &$cantidadHermanas) {
             $fresh = ParadaReparto::lockForUpdate()->find($parada->id);
 
             if ($fresh->estado === 'entregada') {
@@ -319,6 +321,8 @@ class RutaRepartoController extends Controller
                     ->whereIn('estado', ['pendiente', 'en camino'])
                     ->get();
 
+                $cantidadHermanas = $paradasMismaDireccion->count();
+
                 foreach ($paradasMismaDireccion as $hermana) {
                     $hermana->update([
                         'estado'        => $request->estado,
@@ -332,14 +336,18 @@ class RutaRepartoController extends Controller
             }
         });
 
+        $mensaje = $cantidadHermanas > 0
+            ? "Estado actualizado. Se aplicó el mismo cambio a {$cantidadHermanas} pedido(s) más en esta misma dirección."
+            : 'Estado actualizado';
+
         // Verificar si quedan paradas sin finalizar
         $todasFinalizadas = !$rutasReparto->paradas()->whereIn('estado', ['pendiente', 'en camino'])->exists();
         if ($todasFinalizadas && $rutasReparto->estado !== 'finalizada') {
             $rutasReparto->update(['activa' => false, 'estado' => 'finalizada']);
-            return back()->with('message', 'Estado actualizado. La ruta se ha finalizado automáticamente.');
+            return back()->with('message', $mensaje . ' La ruta se ha finalizado automáticamente.');
         }
 
-        return back()->with('message', 'Estado actualizado');
+        return back()->with('message', $mensaje);
     }
 
     public function optimizarRuta(RutaReparto $rutasReparto)
