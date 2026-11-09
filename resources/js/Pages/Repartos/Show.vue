@@ -409,6 +409,24 @@ const formatFecha = (f) =>
 
 const ventaDetalle = ref(null);
 const abrirVentaDetalle = (parada) => { ventaDetalle.value = { ...parada.venta, _paradaEstado: parada.estado, _paradaObservaciones: parada.observaciones }; };
+// Entrega con varios pedidos a la misma direccion (acumulados consolidados):
+// se muestra el detalle de cada venta por separado, no solo la primera.
+const abrirDetalleGrupo = (grupo) => {
+    if (!grupo || grupo.paradas.length === 1) {
+        abrirVentaDetalle(grupo.paradas[0]);
+        return;
+    }
+    const ventas = grupo.paradas.map(p => p.venta).filter(Boolean);
+    const observaciones = grupo.paradas.map(p => p.observaciones).filter(Boolean).join(' / ') || null;
+    ventaDetalle.value = {
+        ...ventas[0],
+        id: ventas.map(v => v.id).join(', '),
+        _paradaEstado: grupo.paradas[0].estado,
+        _paradaObservaciones: observaciones,
+        _esGrupo: true,
+        _ventas: ventas,
+    };
+};
 const cerrarVentaDetalle = () => { ventaDetalle.value = null; };
 const contarItemsVenta = (venta) => {
     if (!venta?.detalles) return 0;
@@ -786,9 +804,27 @@ const updateMap = () => {
             latlngs = [originCoords, ...validParadas.map(p => [p.latitud, p.longitud]), originCoords];
         }
 
+        // Varias paradas en la misma direccion exacta (acumulados consolidados)
+        // se dibujan como un unico marcador, con el numero representativo que
+        // se ve en el listado (el de la primera parada del grupo), en vez de
+        // N marcadores superpuestos mostrando numeros distintos.
+        const gruposMapa = [];
+        const indicePorClaveMapa = new Map();
         validParadas.forEach((p) => {
+            const clave = `${p.latitud},${p.longitud}`;
+            if (!indicePorClaveMapa.has(clave)) {
+                indicePorClaveMapa.set(clave, gruposMapa.length);
+                gruposMapa.push([p]);
+            } else {
+                gruposMapa[indicePorClaveMapa.get(clave)].push(p);
+            }
+        });
+
+        gruposMapa.forEach((paradasGrupo) => {
+            const p = paradasGrupo[0];
+            const cantidad = paradasGrupo.length;
             const color = estadoConfig[p.estado]?.hex || '#facc15';
-            const isActiva = Boolean(paradaActiva.value && p.id === paradaActiva.value.id && vistaModoReparto.value);
+            const isActiva = Boolean(paradaActiva.value && paradasGrupo.some(pp => pp.id === paradaActiva.value.id) && vistaModoReparto.value);
             const iconHtml = `
                 <div class="relative flex items-center justify-center">
                     ${isActiva ? '<span class="absolute w-8 h-8 rounded-full bg-emerald-400/40 animate-ping"></span>' : ''}
@@ -796,6 +832,7 @@ const updateMap = () => {
                          style="background-color: ${color};">
                         ${p.estado === 'entregada' ? '✓' : p.orden}
                     </div>
+                    ${cantidad > 1 ? `<div class="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-white text-black text-[8px] font-bold flex items-center justify-center border border-black">${cantidad}</div>` : ''}
                 </div>
             `;
             const icon = L.divIcon({
@@ -807,7 +844,8 @@ const updateMap = () => {
 
             const marker = L.marker([p.latitud, p.longitud], { icon }).addTo(map);
             const { principal, obs } = splitDireccion(p.venta?.direccion_envio);
-            marker.bindPopup(`<b class="text-black uppercase text-xs">Parada ${p.orden}</b><br><span class="text-black text-xs">${principal}</span>${obs ? `<br><span class="text-amber-600 text-xs font-bold">🔔 ${obs}</span>` : ''}`);
+            const detallePedidos = cantidad > 1 ? `<br><span class="text-black text-xs font-bold">${cantidad} pedidos en esta parada</span>` : '';
+            marker.bindPopup(`<b class="text-black uppercase text-xs">Parada ${p.orden}</b><br><span class="text-black text-xs">${principal}</span>${detallePedidos}${obs ? `<br><span class="text-amber-600 text-xs font-bold">🔔 ${obs}</span>` : ''}`);
             marker.on('click', () => {
                 if (vistaModoReparto.value) {
                     seleccionarParadaEnFoco(p);
@@ -1350,7 +1388,7 @@ watch(paradaActiva, () => {
                                                 {{ estadoConfig[grupo.paradas[0].estado]?.label }}
                                             </div>
 
-                                            <button @click="abrirVentaDetalle(grupo.paradas[0])" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer shrink-0" title="Ver detalle">
+                                            <button @click="abrirDetalleGrupo(grupo)" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all cursor-pointer shrink-0" title="Ver detalle">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
                                             <button v-if="ruta.estado === 'pendiente' && canGestionar && grupo.paradas.length === 1 && grupo.paradas[0].estado !== 'entregada'" @click="quitarParada(grupo.paradas[0])" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all cursor-pointer shrink-0" title="Quitar">
@@ -1461,7 +1499,7 @@ watch(paradaActiva, () => {
                         <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
                             <div>
                                 <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-                                    Detalle de Venta #{{ ventaDetalle.id }}
+                                    {{ ventaDetalle._esGrupo ? `Detalle de la entrega (${ventaDetalle._ventas.length} pedidos)` : `Detalle de Venta #${ventaDetalle.id}` }}
                                 </h3>
                                 <p class="text-xs text-zinc-400 font-medium mt-0.5">
                                     Cliente: <span class="text-white font-bold">{{ obtenerNombreCliente(ventaDetalle) }}</span>
@@ -1491,7 +1529,7 @@ watch(paradaActiva, () => {
                                 </div>
                             </div>
 
-                            <div class="pt-4 border-t border-white/5">
+                            <div v-if="!ventaDetalle._esGrupo" class="pt-4 border-t border-white/5">
                                 <h4 class="text-xs font-semibold text-zinc-400 mb-3">
                                     Productos a entregar ({{ contarItemsVenta(ventaDetalle) }})
                                 </h4>
@@ -1499,6 +1537,23 @@ watch(paradaActiva, () => {
                                     <div v-for="d in ventaDetalle.detalles" :key="d.id" class="flex items-center justify-between text-xs text-white font-bold py-2 border-b border-white/5 last:border-none">
                                         <span>{{ formatNombreLibro(d.libro) }}</span>
                                         <span class="text-zinc-400 font-mono">x{{ d.cantidad }}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-else class="pt-4 border-t border-white/5 space-y-4">
+                                <h4 class="text-xs font-semibold text-zinc-400">
+                                    Pedidos incluidos en esta entrega ({{ ventaDetalle._ventas.length }})
+                                </h4>
+                                <div v-for="v in ventaDetalle._ventas" :key="v.id" class="p-3 bg-white/[0.02] border border-white/5 rounded-xl">
+                                    <div class="text-xs font-bold text-white mb-2">
+                                        Venta #{{ v.id }} &bull; {{ contarItemsVenta(v) }} items
+                                    </div>
+                                    <div class="space-y-1.5">
+                                        <div v-for="d in v.detalles" :key="d.id" class="flex items-center justify-between text-xs text-white font-bold py-1 border-b border-white/5 last:border-none">
+                                            <span>{{ formatNombreLibro(d.libro) }}</span>
+                                            <span class="text-zinc-400 font-mono">x{{ d.cantidad }}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -65,8 +65,14 @@ class Cliente extends Model
     {
         // Acumulacion es exclusivamente para coordinar un envio conjunto
         // (domicilio local o Correo Nacional); no existe un modo "retiro".
+        // Solo se consolidan ventas con el pago ya confirmado (estado
+        // 'acumulado'): una venta en Acumulación nace en 'pendiente_pago' y
+        // recien pasa a 'acumulado' cuando confirmarPago() la confirma (o
+        // cuando llega el traslado de stock, si hizo falta). Si todavia esta
+        // impaga, se queda afuera y espera el proximo intento de envio.
         $ventas = $this->ventas()
             ->where('motivo_pendiente', 'Acumulación')
+            ->where('estado', 'acumulado')
             ->when($soloIds, fn($q) => $q->whereIn('id', $soloIds))
             ->lockForUpdate()
             ->get();
