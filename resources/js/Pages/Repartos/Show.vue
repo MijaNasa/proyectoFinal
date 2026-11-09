@@ -467,6 +467,31 @@ const seleccionarParadaEnFoco = (parada) => {
     centrarEnParada(parada);
 };
 
+// Varios pedidos acumulados consolidados en un mismo envio son la misma
+// direccion repartida en paradas separadas (una por venta). Para que la
+// tarjeta de "Proxima Parada" no muestre solo una y deje a las demas
+// "escondidas" (se resuelven solas por el cascade del backend, pero sin
+// que se vea por que), se agrupan aca todas las que comparten exactamente
+// las mismas coordenadas que la parada activa.
+const paradasAgrupadas = computed(() => {
+    if (!paradaActiva.value) return [];
+    const activa = paradaActiva.value;
+    if (activa.latitud === null || activa.longitud === null) return [activa];
+
+    const hermanas = localParadas.value.filter(p =>
+        p.id !== activa.id && p.latitud === activa.latitud && p.longitud === activa.longitud
+    );
+
+    return [activa, ...hermanas];
+});
+
+const mostrarDetalleGrupo = ref(false);
+watch(paradaActiva, () => { mostrarDetalleGrupo.value = false; });
+
+const totalItemsGrupo = computed(() =>
+    paradasAgrupadas.value.reduce((sum, p) => sum + contarItemsVenta(p.venta), 0)
+);
+
 const centrarEnParada = (parada) => {
     if (!map || !parada || !parada.latitud || !parada.longitud) return;
     map.flyTo([parada.latitud, parada.longitud], 16, { animate: true, duration: 1 });
@@ -1028,9 +1053,14 @@ watch(paradaActiva, () => {
                                                 <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
                                                 <span>PARADA #{{ paradaActiva.orden }}</span>
                                             </span>
-                                            <span class="px-2.5 py-1 bg-white/5 text-zinc-300 border border-white/10 rounded-xl text-xs font-bold whitespace-nowrap shrink-0">
+                                            <span v-if="paradasAgrupadas.length === 1" class="px-2.5 py-1 bg-white/5 text-zinc-300 border border-white/10 rounded-xl text-xs font-bold whitespace-nowrap shrink-0">
                                                 Venta #{{ paradaActiva.venta?.id }}
                                             </span>
+                                            <button v-else type="button" @click="mostrarDetalleGrupo = !mostrarDetalleGrupo"
+                                                class="px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer hover:bg-amber-500/20 transition-all flex items-center gap-1.5">
+                                                <span>📦 {{ paradasAgrupadas.length }} pedidos en esta dirección</span>
+                                                <span>{{ mostrarDetalleGrupo ? '▲' : '▼' }}</span>
+                                            </button>
                                         </div>
                                         <div class="flex items-center gap-2 shrink-0">
                                             <!-- Botón optimizar ruta idéntico al de lista completa -->
@@ -1099,25 +1129,44 @@ watch(paradaActiva, () => {
                                                 <span>Artículos a entregar</span>
                                             </span>
                                             <span class="bg-white/10 text-white font-bold px-2 py-0.5 rounded-md text-[11px]">
-                                                {{ contarItemsVenta(paradaActiva.venta) }} unid.
+                                                {{ totalItemsGrupo }} unid.{{ paradasAgrupadas.length > 1 ? ` (${paradasAgrupadas.length} pedidos)` : '' }}
                                             </span>
                                         </div>
-                                        <div class="space-y-1.5 max-h-40 overflow-y-auto pr-0.5">
-                                            <div 
-                                                v-for="d in paradaActiva.venta?.detalles" 
-                                                :key="d.id" 
-                                                class="flex items-center justify-between gap-3 text-xs py-1.5 px-2.5 rounded-lg bg-white/[0.02] border border-white/5"
-                                            >
-                                                <div class="truncate flex-1 min-w-0">
-                                                    <span class="font-semibold text-white truncate block">{{ formatNombreLibro(d.libro) }}</span>
-                                                    <span class="text-[10px] text-zinc-500 font-mono" v-if="d.libro?.isbn">ISBN: {{ d.libro.isbn }}</span>
+
+                                        <!-- Agrupado y colapsado: resumen nomas, el detalle esta en el boton de arriba -->
+                                        <p v-if="paradasAgrupadas.length > 1 && !mostrarDetalleGrupo" class="text-xs text-zinc-500 italic">
+                                            Tocá "{{ paradasAgrupadas.length }} pedidos en esta dirección" arriba para ver el detalle de cada uno.
+                                        </p>
+
+                                        <!-- Sin agrupar (caso normal), o agrupado y desplegado: detalle por venta -->
+                                        <template v-else>
+                                            <div v-for="p in paradasAgrupadas" :key="p.id" class="space-y-1.5">
+                                                <div v-if="paradasAgrupadas.length > 1" class="text-[11px] font-bold text-amber-300 uppercase tracking-wider pt-1">
+                                                    Pedido #{{ p.venta?.id }}
                                                 </div>
-                                                <span class="px-2 py-0.5 bg-white/10 text-white font-bold text-xs rounded shrink-0">
-                                                    x{{ d.cantidad }}
-                                                </span>
+                                                <div class="space-y-1.5 max-h-40 overflow-y-auto pr-0.5">
+                                                    <div
+                                                        v-for="d in p.venta?.detalles"
+                                                        :key="d.id"
+                                                        class="flex items-center justify-between gap-3 text-xs py-1.5 px-2.5 rounded-lg bg-white/[0.02] border border-white/5"
+                                                    >
+                                                        <div class="truncate flex-1 min-w-0">
+                                                            <span class="font-semibold text-white truncate block">{{ formatNombreLibro(d.libro) }}</span>
+                                                            <span class="text-[10px] text-zinc-500 font-mono" v-if="d.libro?.isbn">ISBN: {{ d.libro.isbn }}</span>
+                                                        </div>
+                                                        <span class="px-2 py-0.5 bg-white/10 text-white font-bold text-xs rounded shrink-0">
+                                                            x{{ d.cantidad }}
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
-                                        </div>
+                                        </template>
                                     </div>
+
+                                    <!-- Aviso de que la accion se aplica a todo el grupo -->
+                                    <p v-if="paradasAgrupadas.length > 1" class="text-xs text-zinc-500 italic -mt-1">
+                                        Las acciones de abajo (en camino / entregada / fallida) se aplican a los {{ paradasAgrupadas.length }} pedidos de esta dirección juntos.
+                                    </p>
                                 </div>
 
                                 <!-- Sección Inferior: Acciones de Entrega y Cierre de Ruta -->
