@@ -53,8 +53,14 @@ class LogisticaController extends Controller
                 $sq->where('sucursal_origen_id', $filterSucursalId)
                    ->orWhere('sucursal_destino_id', $filterSucursalId);
             }))
-            ->when($filterTipo, fn($q) => $q->where('tipo', $filterTipo))
-            ->latest()
+            ->when($filterTipo, fn($q) => $q->where('tipo', $filterTipo));
+
+        // TEMPORAL: ver filas reales devueltas para confirmar si realmente hay
+        // fuga de otras sucursales o es solo un tema de interpretacion visual.
+        $debugScoping['filterSucursalId_recibido'] = $filterSucursalId;
+        $debugScoping['filas'] = (clone $movimientos)->latest()->limit(20)->get(['id', 'tipo', 'sucursal_origen_id', 'sucursal_destino_id'])->toArray();
+
+        $movimientos = $movimientos->latest()
             ->paginate(15)
             ->withQueryString();
 
