@@ -63,6 +63,8 @@ class Cliente extends Model
      */
     public function consolidarAcumulados(string $modo, ?string $direccionEnvio = null, ?float $latitud = null, ?float $longitud = null, ?array $soloIds = null): int
     {
+        // Acumulacion es exclusivamente para coordinar un envio conjunto
+        // (domicilio local o Correo Nacional); no existe un modo "retiro".
         $ventas = $this->ventas()
             ->where('motivo_pendiente', 'Acumulación')
             ->when($soloIds, fn($q) => $q->whereIn('id', $soloIds))
@@ -75,21 +77,14 @@ class Cliente extends Model
 
         \DB::transaction(function () use ($ventas, $modo, $direccionEnvio, $latitud, $longitud) {
             foreach ($ventas as $venta) {
-                $datos = [
+                $venta->update([
                     'tipo_envio' => $modo,
                     'motivo_pendiente' => null,
-                ];
-
-                if ($modo === 'retiro') {
-                    $datos['estado'] = 'listo_para_retiro';
-                } else {
-                    $datos['estado'] = 'en_preparacion';
-                    $datos['direccion_envio'] = $direccionEnvio;
-                    $datos['latitud'] = $latitud;
-                    $datos['longitud'] = $longitud;
-                }
-
-                $venta->update($datos);
+                    'estado' => 'en_preparacion',
+                    'direccion_envio' => $direccionEnvio,
+                    'latitud' => $latitud,
+                    'longitud' => $longitud,
+                ]);
             }
         });
 

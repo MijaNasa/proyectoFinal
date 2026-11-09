@@ -316,9 +316,12 @@ class ClienteController extends Controller
 
     public function consolidarPedidos(Request $request, Cliente $cliente)
     {
+        // Acumulacion es exclusivamente para coordinar un envio conjunto (ese
+        // es el motivo de ser de la funcionalidad); no ofrece retiro en
+        // sucursal como alternativa.
         $request->validate([
-            'modo' => 'required|in:domicilio,retiro',
-            'direccion_envio' => 'required_if:modo,domicilio|string|max:255',
+            'modo' => 'required|in:domicilio',
+            'direccion_envio' => 'required|string|max:255',
             'latitud' => 'nullable|numeric|between:-90,90',
             'longitud' => 'nullable|numeric|between:-180,180',
         ]);
@@ -330,11 +333,7 @@ class ClienteController extends Controller
             $request->longitud
         );
 
-        $mensaje = $request->modo === 'retiro'
-            ? 'Pedidos consolidados y listos para retirar en sucursal.'
-            : 'Pedidos consolidados y listos para reparto.';
-
-        return back()->with('message', $mensaje);
+        return back()->with('message', 'Pedidos consolidados y listos para reparto.');
     }
 
     public function destroyCanceladas(Cliente $cliente)

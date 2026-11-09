@@ -898,22 +898,6 @@ const estadoConfig = {
                                 </div>
                                 
                                 <div>
-                                    <label class="block text-xs font-semibold text-zinc-400 mb-2">¿Cómo entrega este pedido?</label>
-                                    <div class="grid grid-cols-2 gap-3">
-                                        <button type="button" @click="consolidarForm.modo = 'domicilio'"
-                                            class="px-4 py-2.5 rounded-xl text-xs font-bold border transition-all"
-                                            :class="consolidarForm.modo === 'domicilio' ? 'bg-white text-black border-white' : 'bg-[#131316] text-zinc-300 border-white/10 hover:border-white/20'">
-                                            Envío a domicilio
-                                        </button>
-                                        <button type="button" @click="consolidarForm.modo = 'retiro'"
-                                            class="px-4 py-2.5 rounded-xl text-xs font-bold border transition-all"
-                                            :class="consolidarForm.modo === 'retiro' ? 'bg-white text-black border-white' : 'bg-[#131316] text-zinc-300 border-white/10 hover:border-white/20'">
-                                            Retiro en sucursal
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div v-if="consolidarForm.modo === 'domicilio'">
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Dirección de Envío Consolidada *</label>
                                     <DireccionAutocomplete
                                         v-model="consolidarForm.direccion_envio"
@@ -927,9 +911,6 @@ const estadoConfig = {
                                     </p>
                                     <p v-if="consolidarForm.errors.direccion_envio" class="text-rose-400 text-xs font-semibold mt-1">{{ consolidarForm.errors.direccion_envio }}</p>
                                 </div>
-                                <p v-else class="text-xs text-zinc-500 font-medium">
-                                    El cliente va a retirar todos estos pedidos juntos en la sucursal.
-                                </p>
                             </div>
 
                             <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
