@@ -247,6 +247,37 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         ]));
     })->name('admin.debug-ventas-mp');
 
+    // Utilidad temporal de diagnostico: ver las coordenadas exactas de las paradas
+    // de una ruta, para confirmar si varias "mismas direcciones" realmente tienen
+    // lat/lon identicos o si hay una diferencia chica que rompe la optimizacion.
+    // Solo lectura, admin-only. Uso: /admin/debug-paradas?ruta_id=123
+    Route::get('admin/debug-paradas', function (\Illuminate\Http\Request $request) {
+        if (!$request->user()->esAdmin()) {
+            abort(403);
+        }
+
+        $rutaId = $request->query('ruta_id');
+        if (!$rutaId) {
+            return response()->json(['error' => 'Falta el parametro ruta_id. Uso: ?ruta_id=123']);
+        }
+
+        $paradas = \App\Models\ParadaReparto::where('ruta_reparto_id', $rutaId)
+            ->with('venta:id,cliente_id,direccion_envio')
+            ->orderBy('orden')
+            ->get(['id', 'venta_id', 'orden', 'estado', 'latitud', 'longitud']);
+
+        return response()->json($paradas->map(fn ($p) => [
+            'parada_id'  => $p->id,
+            'orden'      => $p->orden,
+            'estado'     => $p->estado,
+            'venta_id'   => $p->venta_id,
+            'cliente_id' => $p->venta?->cliente_id,
+            'direccion'  => $p->venta?->direccion_envio,
+            'latitud'    => $p->latitud,
+            'longitud'   => $p->longitud,
+        ]));
+    })->name('admin.debug-paradas');
+
     // Utilidad temporal de diagnostico: probar la API de IA del chatbot en vivo
     // (Gemini/Anthropic) sin depender de los logs de Render. Solo lectura, admin-only.
     Route::get('admin/debug-chatbot', function (\Illuminate\Http\Request $request) {
