@@ -13,7 +13,6 @@ const props = defineProps({
     trasladosARecibir: Array,
     trasladosEsperandoEnvio: Array,
     filters: Object,
-    _debugScoping: Object,
 });
 
 const isModalOpen = ref(false);
@@ -341,11 +340,6 @@ const editarCosto = async (detalle) => {
 
         <div class="py-8 page-logistica">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
-
-                <!-- TEMPORAL: diagnostico de scoping por sucursal, sacar despues -->
-                <div v-if="_debugScoping" class="bg-fuchsia-500/10 border border-fuchsia-500/30 rounded-xl p-3 text-xs font-mono text-fuchsia-200">
-                    DEBUG: {{ JSON.stringify(_debugScoping) }}
-                </div>
 
                 <!-- Traslados por Ventas Pendientes -->
                 <div v-if="trasladosAEnviar.length > 0 || trasladosARecibir.length > 0 || trasladosEsperandoEnvio.length > 0" class="space-y-6">

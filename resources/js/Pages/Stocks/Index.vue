@@ -257,6 +257,23 @@ const getObraTotal = (obra) => {
     return total;
 };
 
+// El "Total Disponible" suma todas las sucursales: un vendedor podia ver
+// "80 u." y asumir que su propia sucursal lo tiene, cuando en realidad podia
+// tener 0 y las 80 estar todas en otro lado. Esta columna muestra solo lo
+// que hay en SU sucursal, visible sin tener que expandir la obra.
+const miSucursalId = page.props.auth?.empleado?.sucursal_id ?? null;
+const miSucursalNombre = page.props.auth?.empleado?.sucursal?.nombre ?? null;
+
+const getObraTotalEnSucursal = (obra) => {
+    if (!miSucursalId) return 0;
+    let total = 0;
+    obra.libros.forEach(tomo => {
+        const st = tomo.stocks.find(s => s.sucursal_id === miSucursalId);
+        if (st) total += st.cantidad_disponible;
+    });
+    return total;
+};
+
 const getTomoStock = (tomo, suc_id) => {
     const st = tomo.stocks.find(s => s.sucursal_id === suc_id);
     return st ? st.cantidad_disponible : 0;
@@ -319,6 +336,7 @@ const formatSucursalHeader = (nombre) => {
                                     <th class="p-4 w-12 text-center"></th>
                                     <th class="p-4 w-1/2">Obra</th>
                                     <th class="p-4 w-1/4">Autor</th>
+                                    <th v-if="miSucursalId" class="p-4 w-1/5 text-center text-amber-400">En {{ formatSucursalHeader(miSucursalNombre) }}</th>
                                     <th class="p-4 w-1/4 text-center">Total Disponible</th>
                                 </tr>
                             </thead>
@@ -342,6 +360,11 @@ const formatSucursalHeader = (nombre) => {
                                                 {{ obra.autor ? ((obra.autor.nombre ? obra.autor.nombre + ' ' : '') + obra.autor.apellido) : '-' }}
                                             </div>
                                         </td>
+                                        <td v-if="miSucursalId" class="p-4 text-center">
+                                            <span class="text-base font-bold" :class="getObraTotalEnSucursal(obra) > 0 ? 'text-amber-400' : 'text-rose-500'">
+                                                {{ getObraTotalEnSucursal(obra) }} u.
+                                            </span>
+                                        </td>
                                         <td class="p-4 text-center">
                                             <span class="text-base font-bold" :class="getObraTotal(obra) > 0 ? 'text-white' : 'text-zinc-600'">
                                                 {{ getObraTotal(obra) }} u.
@@ -351,7 +374,7 @@ const formatSucursalHeader = (nombre) => {
 
                                     <!-- Tomos Sub-table (Expanded) -->
                                     <tr v-if="expandedObras.includes(obra.id)">
-                                        <td colspan="4" class="p-0 border-b border-white/5 bg-[#0d0d0f]">
+                                        <td :colspan="miSucursalId ? 5 : 4" class="p-0 border-b border-white/5 bg-[#0d0d0f]">
                                             <div class="p-4 pl-12 border-l-4 border-white/20 overflow-x-auto">
                                                 <table class="w-full text-left table-fixed min-w-[600px]">
                                                     <thead>
@@ -385,7 +408,7 @@ const formatSucursalHeader = (nombre) => {
                                     </tr>
                                 </template>
                                 <tr v-if="obras.data.length === 0">
-                                    <td colspan="4" class="p-12 text-center text-zinc-500 italic">
+                                    <td :colspan="miSucursalId ? 5 : 4" class="p-12 text-center text-zinc-500 italic">
                                         No se registraron existencias para los criterios seleccionados
                                     </td>
                                 </tr>

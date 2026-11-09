@@ -21,21 +21,33 @@ class LogisticaController extends Controller
         $user = $request->user();
         $sucursalId = $user->sucursalRestringidaId();
 
-        // TEMPORAL: diagnostico para ver por que el historial no se esta
-        // restringiendo bien por sucursal. Sacar una vez identificada la causa.
-        $debugScoping = [
-            'user_id' => $user->id,
-            'esAdmin' => $user->esAdmin(),
-            'esGerente' => $user->esGerente(),
-            'empleado_id' => $user->empleado?->id,
-            'empleado_sucursal_id' => $user->empleado?->sucursal_id,
-            'sucursalRestringidaId' => $sucursalId,
-        ];
-
         $filterDesde      = $request->input('desde');
         $filterHasta      = $request->input('hasta');
         $filterSucursalId = $request->input('sucursal_id');
         $filterTipo       = $request->input('tipo');
+
+        // Cada traslado por venta genera DOS filas en el historial: una
+        // TRANSFERENCIA_SALIDA (cuando el origen despacha) y una
+        // TRANSFERENCIA_ENTRADA (cuando el destino confirma recepcion), ambas
+        // con el mismo origen/destino. Si solo miramos "origen = X OR destino
+        // = X", cada sucursal ve LAS DOS filas, incluida la que describe la
+        // accion de la OTRA sucursal (ej. Funes veia "Envio por Venta" aunque
+        // esa accion la hizo Cordoba). Por eso la SALIDA solo es relevante
+        // para quien la origino, y la ENTRADA solo para quien la recibio.
+        $scopeSucursal = function ($q, $id) {
+            $q->where(function ($sq) use ($id) {
+                $sq->where(function ($sq2) use ($id) {
+                    $sq2->where('tipo', 'TRANSFERENCIA_SALIDA')->where('sucursal_origen_id', $id);
+                })->orWhere(function ($sq2) use ($id) {
+                    $sq2->where('tipo', 'TRANSFERENCIA_ENTRADA')->where('sucursal_destino_id', $id);
+                })->orWhere(function ($sq2) use ($id) {
+                    $sq2->whereNotIn('tipo', ['TRANSFERENCIA_SALIDA', 'TRANSFERENCIA_ENTRADA'])
+                        ->where(function ($sq3) use ($id) {
+                            $sq3->where('sucursal_origen_id', $id)->orWhere('sucursal_destino_id', $id);
+                        });
+                });
+            });
+        };
 
         $movimientos = MovimientoStock::with([
             'detalles.libro.master',
@@ -43,24 +55,12 @@ class LogisticaController extends Controller
             'destino',
             'user'
         ])
-            ->when($sucursalId, fn($q) => $q->where(function ($sq) use ($sucursalId) {
-                $sq->where('sucursal_origen_id', $sucursalId)
-                   ->orWhere('sucursal_destino_id', $sucursalId);
-            }))
+            ->when($sucursalId, fn($q) => $scopeSucursal($q, $sucursalId))
             ->when($filterDesde, fn($q) => $q->whereDate('created_at', '>=', $filterDesde))
             ->when($filterHasta, fn($q) => $q->whereDate('created_at', '<=', $filterHasta))
-            ->when($filterSucursalId, fn($q) => $q->where(function ($sq) use ($filterSucursalId) {
-                $sq->where('sucursal_origen_id', $filterSucursalId)
-                   ->orWhere('sucursal_destino_id', $filterSucursalId);
-            }))
-            ->when($filterTipo, fn($q) => $q->where('tipo', $filterTipo));
-
-        // TEMPORAL: ver filas reales devueltas para confirmar si realmente hay
-        // fuga de otras sucursales o es solo un tema de interpretacion visual.
-        $debugScoping['filterSucursalId_recibido'] = $filterSucursalId;
-        $debugScoping['filas'] = (clone $movimientos)->latest()->limit(20)->get(['id', 'tipo', 'sucursal_origen_id', 'sucursal_destino_id'])->toArray();
-
-        $movimientos = $movimientos->latest()
+            ->when($filterSucursalId, fn($q) => $scopeSucursal($q, $filterSucursalId))
+            ->when($filterTipo, fn($q) => $q->where('tipo', $filterTipo))
+            ->latest()
             ->paginate(15)
             ->withQueryString();
 
@@ -138,7 +138,6 @@ class LogisticaController extends Controller
                 'sucursal_id' => $filterSucursalId,
                 'tipo' => $filterTipo,
             ],
-            '_debugScoping' => $debugScoping, // TEMPORAL
         ]);
     }
 
