@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, Link, useForm, router } from '@inertiajs/vue3';
+import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 import Swal from 'sweetalert2';
@@ -54,6 +54,7 @@ const showPagoModal = ref(false);
 const pagoForm = useForm({
     monto: '',
     metodo_pago: 'Efectivo',
+    sucursal_id: usePage().props.auth?.empleado?.sucursal_id ?? '',
     fecha_real: new Date().toISOString().split('T')[0],
     descripcion: ''
 });
@@ -823,21 +824,30 @@ const estadoConfig = {
                                             <option value="Transferencia" class="bg-[#131316]">Transferencia</option>
                                             <option value="Tarjeta" class="bg-[#131316]">Tarjeta</option>
                                             <option value="Débito" class="bg-[#131316]">Débito</option>
-                                            <option value="Mercado Pago" class="bg-[#131316]">Mercado Pago</option>
+                                            <option value="Cuenta Corriente" class="bg-[#131316]">Cuenta Corriente</option>
                                         </select>
                                     </div>
                                     <div>
-                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Fecha Real *</label>
-                                        <input 
-                                            type="date" 
-                                            v-model="pagoForm.fecha_real" 
-                                            @click="triggerDatePicker"
-                                            class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer"
-                                            :class="{ 'border-rose-500': pagoForm.errors.fecha_real }"
-                                            required
-                                        >
-                                        <p v-if="pagoForm.errors.fecha_real" class="text-rose-400 text-xs font-semibold mt-1">{{ pagoForm.errors.fecha_real }}</p>
+                                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Sucursal *</label>
+                                        <select v-model="pagoForm.sucursal_id" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-white/30 cursor-pointer" :class="{ 'border-rose-500': pagoForm.errors.sucursal_id }">
+                                            <option value="" disabled class="bg-[#131316]">Seleccionar...</option>
+                                            <option v-for="s in sucursales" :key="s.id" :value="s.id" class="bg-[#131316]">{{ s.nombre }}</option>
+                                        </select>
+                                        <p v-if="pagoForm.errors.sucursal_id" class="text-rose-400 text-xs font-semibold mt-1">{{ pagoForm.errors.sucursal_id }}</p>
                                     </div>
+                                </div>
+
+                                <div>
+                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Fecha Real *</label>
+                                    <input
+                                        type="date"
+                                        v-model="pagoForm.fecha_real"
+                                        @click="triggerDatePicker"
+                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer"
+                                        :class="{ 'border-rose-500': pagoForm.errors.fecha_real }"
+                                        required
+                                    >
+                                    <p v-if="pagoForm.errors.fecha_real" class="text-rose-400 text-xs font-semibold mt-1">{{ pagoForm.errors.fecha_real }}</p>
                                 </div>
 
                                 <div>

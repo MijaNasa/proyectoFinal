@@ -225,9 +225,15 @@ class ClienteController extends Controller
         $request->validate([
             'monto'       => 'required|numeric|min:0.01',
             'metodo_pago' => 'required|in:Efectivo,Transferencia,Tarjeta,Débito,Cuenta Corriente',
+            'sucursal_id' => 'required|exists:sucursales,id',
             'fecha_real'  => 'required|date|before_or_equal:today',
             'descripcion' => 'nullable|string|max:255',
         ]);
+
+        $sucursalRestringida = auth()->user()->sucursalRestringidaId();
+        if ($sucursalRestringida && (int) $request->sucursal_id !== $sucursalRestringida) {
+            abort(403, 'Solo podés registrar pagos en tu propia sucursal.');
+        }
 
         DB::transaction(function () use ($request, $cliente) {
             $cliente->increment('saldo_actual', $request->monto);
@@ -245,7 +251,7 @@ class ClienteController extends Controller
                 'monto'                => $request->monto,
                 'metodo_pago'          => $request->metodo_pago,
                 'fecha'                => now(),
-                'sucursal_id'          => auth()->user()->empleado?->sucursal_id,
+                'sucursal_id'          => $request->sucursal_id,
                 'transaccionable_id'   => $cliente->id,
                 'transaccionable_type' => Cliente::class,
                 'descripcion'          => $descripcion,
