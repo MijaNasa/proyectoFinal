@@ -276,6 +276,17 @@ class CheckoutController extends Controller
             }
         } else {
             $cliente = \App\Models\Cliente::where('user_id', $userId)->first();
+            if (!$cliente) {
+                // Usuario logueado que compra por primera vez online (ej. un
+                // empleado/admin sin perfil de Cliente todavia): sin esto, la
+                // venta queda con cliente_id null y nunca aparece en "Mis
+                // Pedidos" para nadie, aunque la compra se haya pagado bien.
+                $tipoCliente = \App\Models\TipoCliente::where('codigo', 'PART')->first();
+                $cliente = \App\Models\User::find($userId)->cliente()->create([
+                    'tipo_cliente_id' => $tipoCliente ? $tipoCliente->id : 1,
+                    'saldo_actual'    => 0,
+                ]);
+            }
         }
 
         $clienteId = $cliente ? $cliente->id : null;

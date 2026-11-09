@@ -251,6 +251,45 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         ]);
     })->name('admin.debug-mis-pedidos');
 
+    // Correccion puntual temporal: crea el perfil de Cliente para el admin
+    // logueado si no lo tiene, y vincula a el las ventas ONLINE que ya hizo
+    // con su propio user_id pero quedaron con cliente_id null (por el bug
+    // ya corregido en CheckoutController). Solo actua sobre el propio
+    // usuario que la ejecuta, es idempotente (se puede correr mas de una vez
+    // sin romper nada). Admin-only.
+    Route::get('admin/fix-mi-cliente', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+        if (!$user->esAdmin()) {
+            abort(403);
+        }
+
+        $cliente = $user->cliente;
+        $creado = false;
+        if (!$cliente) {
+            $tipoCliente = \App\Models\TipoCliente::where('codigo', 'PART')->first();
+            $cliente = $user->cliente()->create([
+                'tipo_cliente_id' => $tipoCliente?->id ?: 1,
+                'saldo_actual'    => 0,
+            ]);
+            $creado = true;
+        }
+
+        $ventasCorregidas = \App\Models\Venta::where('user_id', $user->id)
+            ->where('tipo', 'online')
+            ->whereNull('cliente_id')
+            ->get();
+
+        foreach ($ventasCorregidas as $venta) {
+            $venta->update(['cliente_id' => $cliente->id]);
+        }
+
+        return response()->json([
+            'cliente_creado_ahora' => $creado,
+            'cliente_id' => $cliente->id,
+            'ventas_vinculadas' => $ventasCorregidas->pluck('id'),
+        ]);
+    })->name('admin.fix-mi-cliente');
+
     // Utilidad temporal de diagnostico: ver por que un pedido de Mercado Pago no quedo
     // reflejado como pagado. Se puede borrar despues de usarla. Solo lectura.
     Route::get('admin/debug-ventas-mp', function (\Illuminate\Http\Request $request) {
