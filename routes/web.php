@@ -221,6 +221,36 @@ Route::middleware(['auth', 'admin_or_empleado'])->group(function () {
         Route::get('reportes/prediccion/datos', [PrediccionDemandaController::class, 'datos'])->name('reportes.prediccion.datos');
     });
 
+    // Utilidad temporal de diagnostico: ver por que "Mis Pedidos" de un admin no
+    // muestra sus propios pedidos. Solo lectura, admin-only.
+    Route::get('admin/debug-mis-pedidos', function (\Illuminate\Http\Request $request) {
+        if (!$request->user()->esAdmin()) {
+            abort(403);
+        }
+
+        $user = $request->user();
+
+        $clientesConEsteUserId = \App\Models\Cliente::where('user_id', $user->id)
+            ->get(['id', 'user_id', 'saldo_actual']);
+
+        $clienteResuelto = $user->cliente;
+
+        $ventasDeEseCliente = $clienteResuelto
+            ? \App\Models\Venta::where('cliente_id', $clienteResuelto->id)
+                ->get(['id', 'cliente_id', 'estado', 'total', 'fecha'])
+            : collect();
+
+        return response()->json([
+            'user_id' => $user->id,
+            'user_email' => $user->email,
+            'esAdmin' => $user->esAdmin(),
+            'empleado_id' => $user->empleado?->id,
+            'clientes_con_este_user_id' => $clientesConEsteUserId,
+            'cliente_resuelto_por_hasOne' => $clienteResuelto ? ['id' => $clienteResuelto->id, 'user_id' => $clienteResuelto->user_id] : null,
+            'ventas_de_ese_cliente_id' => $ventasDeEseCliente,
+        ]);
+    })->name('admin.debug-mis-pedidos');
+
     // Utilidad temporal de diagnostico: ver por que un pedido de Mercado Pago no quedo
     // reflejado como pagado. Se puede borrar despues de usarla. Solo lectura.
     Route::get('admin/debug-ventas-mp', function (\Illuminate\Http\Request $request) {
