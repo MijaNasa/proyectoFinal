@@ -11,6 +11,7 @@ const props = defineProps({
     libros: Array,
     trasladosAEnviar: Array,
     trasladosARecibir: Array,
+    trasladosEsperandoEnvio: Array,
     filters: Object,
 });
 
@@ -341,7 +342,7 @@ const editarCosto = async (detalle) => {
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 space-y-6">
 
                 <!-- Traslados por Ventas Pendientes -->
-                <div v-if="trasladosAEnviar.length > 0 || trasladosARecibir.length > 0" class="space-y-6">
+                <div v-if="trasladosAEnviar.length > 0 || trasladosARecibir.length > 0 || trasladosEsperandoEnvio.length > 0" class="space-y-6">
                     <h3 class="text-sm font-bold uppercase tracking-wider text-white">
                         Traslados Pendientes por Ventas
                     </h3>
@@ -392,6 +393,26 @@ const editarCosto = async (detalle) => {
                                         <Link :href="route('logistica.recibir', t.id)" method="post" as="button" preserve-scroll class="px-4 py-2 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95">
                                             Confirmar Recepción
                                         </Link>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Esperando que el origen lo despache (solo informativo) -->
+                        <div v-if="trasladosEsperandoEnvio.length > 0" class="bg-[#131316] border border-sky-500/20 rounded-2xl overflow-hidden shadow-xl">
+                            <div class="bg-sky-500/10 p-4 border-b border-sky-500/20 flex items-center justify-between">
+                                <h4 class="text-xs font-semibold uppercase tracking-wider text-sky-400">Esperando Despacho</h4>
+                                <span class="bg-sky-500/20 border border-sky-500/30 text-sky-300 text-xs font-bold px-2.5 py-0.5 rounded-lg">{{ trasladosEsperandoEnvio.length }} pendientes</span>
+                            </div>
+                            <div class="divide-y divide-white/5">
+                                <div v-for="t in trasladosEsperandoEnvio" :key="t.id" class="p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+                                    <div>
+                                        <div class="text-sm font-bold text-white">{{ t.libro?.master?.titulo }} - Tomo {{ t.libro?.numero_tomo || 'Único' }}</div>
+                                        <div class="text-xs text-zinc-400 mt-1"><strong class="text-white font-bold">Venta #{{ t.venta_id }}</strong> | Todavía no lo despachó: <span class="text-zinc-200 font-semibold">{{ formatSucursalHeader(t.sucursal_origen?.nombre) }}</span></div>
+                                    </div>
+                                    <div class="text-center px-3">
+                                        <span class="block text-xs uppercase font-semibold text-zinc-400">Cant</span>
+                                        <span class="text-sm font-bold text-sky-400">{{ t.cantidad }}</span>
                                     </div>
                                 </div>
                             </div>

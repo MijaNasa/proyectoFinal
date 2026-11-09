@@ -311,7 +311,8 @@ class ClienteController extends Controller
     public function consolidarPedidos(Request $request, Cliente $cliente)
     {
         $request->validate([
-            'direccion_envio' => 'required|string|max:255',
+            'modo' => 'required|in:domicilio,retiro',
+            'direccion_envio' => 'required_if:modo,domicilio|string|max:255',
             'latitud' => 'nullable|numeric|between:-90,90',
             'longitud' => 'nullable|numeric|between:-180,180',
         ]);
@@ -323,17 +324,33 @@ class ClienteController extends Controller
                 ->get();
 
             foreach ($ventas as $venta) {
-                $venta->update([
-                    'estado' => 'en_preparacion',
-                    'direccion_envio' => $request->direccion_envio,
-                    'latitud' => $request->latitud,
-                    'longitud' => $request->longitud,
+                $datos = [
+                    // Antes quedaba con tipo_envio = 'acumulacion' para siempre, lo
+                    // que hacia que RutaRepartoController (que filtra estrictamente
+                    // por tipo_envio = 'domicilio') nunca lo mostrara disponible
+                    // para armar una ruta de reparto.
+                    'tipo_envio' => $request->modo,
                     'motivo_pendiente' => null, // Ya no está en acumulación
-                ]);
+                ];
+
+                if ($request->modo === 'retiro') {
+                    $datos['estado'] = 'listo_para_retiro';
+                } else {
+                    $datos['estado'] = 'en_preparacion';
+                    $datos['direccion_envio'] = $request->direccion_envio;
+                    $datos['latitud'] = $request->latitud;
+                    $datos['longitud'] = $request->longitud;
+                }
+
+                $venta->update($datos);
             }
         });
 
-        return back()->with('message', 'Pedidos consolidados y listos para reparto.');
+        $mensaje = $request->modo === 'retiro'
+            ? 'Pedidos consolidados y listos para retirar en sucursal.'
+            : 'Pedidos consolidados y listos para reparto.';
+
+        return back()->with('message', $mensaje);
     }
 
     public function destroyCanceladas(Cliente $cliente)

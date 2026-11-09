@@ -92,12 +92,28 @@ class LogisticaController extends Controller
             ->where('estado', 'en_transito')
             ->get();
 
+        // Traslados que todavia no salieron de la sucursal de origen, pero que
+        // esta sucursal (destino) va a recibir: antes el destino no se enteraba
+        // de nada hasta que el origen marcaba el envio. Esto es solo informativo
+        // (no hay accion posible todavia, por eso no tiene boton de confirmar).
+        $trasladosEsperandoEnvio = TransferenciaStock::with(['libro.master', 'sucursalOrigen', 'sucursalDestino', 'venta'])
+            ->whereNotNull('venta_id')
+            ->whereHas('venta', function($q) {
+                $q->where('estado', '!=', 'cancelado');
+            })
+            ->when(!$esAdmin, function($q) use ($sucursalId) {
+                return $q->where('sucursal_destino_id', $sucursalId);
+            })
+            ->where('estado', 'pendiente_envio')
+            ->get();
+
         return inertia('Logistica/Index', [
             'movimientos' => $movimientos,
             'sucursales' => Sucursal::where('activo', true)->when($sucursalId, fn($q) => $q->where('id', $sucursalId))->get(['id', 'nombre']),
             'libros' => $libros,
             'trasladosAEnviar' => $trasladosAEnviar,
             'trasladosARecibir' => $trasladosARecibir,
+            'trasladosEsperandoEnvio' => $trasladosEsperandoEnvio,
             'filters' => [
                 'desde' => $filterDesde,
                 'hasta' => $filterHasta,
