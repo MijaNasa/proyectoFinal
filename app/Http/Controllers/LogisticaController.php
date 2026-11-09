@@ -353,6 +353,13 @@ class LogisticaController extends Controller
                     if ($venta && $venta->estado === 'esperando_traslado') {
                         if ($venta->tipo_envio === 'domicilio') {
                             $venta->update(['estado' => 'en_preparacion']);
+                        } elseif ($venta->tipo_envio === 'acumulacion') {
+                            // Una venta en acumulacion que necesito traslado no
+                            // queda lista para retirar - vuelve a "acumulado",
+                            // esperando que el cliente/empleado decida envio o
+                            // retiro mas adelante (igual que si nunca hubiera
+                            // necesitado traslado).
+                            $venta->update(['estado' => 'acumulado']);
                         } else {
                             $venta->update(['estado' => 'listo_para_retiro']);
                         }

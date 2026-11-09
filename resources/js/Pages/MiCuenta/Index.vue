@@ -172,7 +172,6 @@ const estadoConfig = {
     en_preparacion:     { label: 'En preparación',     bgDot: 'bg-sky-400' },
     esperando_traslado: { label: 'Esperando traslado', bgDot: 'bg-purple-400' },
     listo_para_retiro:  { label: 'Listo para retiro',  bgDot: 'bg-emerald-400' },
-    listo_para_retirar: { label: 'Listo para retiro',  bgDot: 'bg-emerald-400' },
     acumulado:          { label: 'Acumulado',          bgDot: 'bg-amber-400' },
     enviado:            { label: 'Enviado',             bgDot: 'bg-indigo-400' },
     entregado:          { label: 'Entregado',           bgDot: 'bg-emerald-400' },
@@ -458,7 +457,7 @@ const solicitarEnvioAcumulados = () => {
                             </div>
 
                             <!-- Banner Listo para retirar -->
-                            <div v-if="pedido.estado === 'listo_para_retirar' && ['retiro', 'acumulacion'].includes(pedido.tipo_envio)" class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-start gap-3 mt-4">
+                            <div v-if="pedido.estado === 'listo_para_retiro' && ['retiro', 'acumulacion'].includes(pedido.tipo_envio)" class="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl flex items-start gap-3 mt-4">
                                 <span class="text-xl">🎉</span>
                                 <div>
                                     <p class="text-emerald-400 font-bold text-xs uppercase tracking-wider">¡Tu pedido está listo!</p>
