@@ -610,6 +610,21 @@ class OrdenCompraController extends Controller
         }
 
         \DB::transaction(function () use ($ordenesCompra) {
+            $proveedor = $ordenesCompra->proveedor;
+            if ($proveedor) {
+                if ($ordenesCompra->condicion_pago === 'contado') {
+                    // Se cancela el egreso que se habia registrado al pagarla al contado.
+                    \App\Models\Transaccion::where('transaccionable_type', \App\Models\Proveedor::class)
+                        ->where('transaccionable_id', $proveedor->id)
+                        ->where('tipo', 'egreso')
+                        ->where('descripcion', "Pago al contado por Orden de Compra {$ordenesCompra->numero_orden}")
+                        ->delete();
+                } else {
+                    // Estaba a cuenta corriente: se retira la deuda que se habia cargado al crearla.
+                    $proveedor->decrement('deuda_actual', $ordenesCompra->total);
+                }
+            }
+
             $ordenesCompra->update(['estado' => 'cancelada']);
             $ordenesCompra->delete();
         });
