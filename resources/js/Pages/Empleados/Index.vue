@@ -10,8 +10,12 @@ const props = defineProps({
     sucursales: Array,
     cargos: Array,
     stats: Object,
-    filters: Object
+    filters: Object,
+    miSucursalId: [Number, String, null]
 });
+
+const page = usePage();
+const esAdmin = computed(() => !!page.props.auth?.esAdmin);
 
 const darkSwal = Swal.mixin({
     background: '#131316',
@@ -35,12 +39,22 @@ const triggerDatePicker = (e) => {
 
 const search = ref(props.filters?.search || '');
 const estadoFiltro = ref(props.filters?.estado || 'activos');
+const cargoFiltro = ref(props.filters?.cargo_id || '');
+const sucursalFiltro = ref(props.filters?.sucursal_id || '');
 
 const cambiarFiltro = (nuevoEstado) => {
     estadoFiltro.value = nuevoEstado;
     router.get(
         route('empleados.index'),
-        { search: search.value, estado: nuevoEstado },
+        { search: search.value, estado: nuevoEstado, cargo_id: cargoFiltro.value, sucursal_id: sucursalFiltro.value },
+        { preserveState: true, preserveScroll: true }
+    );
+};
+
+const aplicarFiltrosExtra = () => {
+    router.get(
+        route('empleados.index'),
+        { search: search.value, estado: estadoFiltro.value, cargo_id: cargoFiltro.value, sucursal_id: sucursalFiltro.value },
         { preserveState: true, preserveScroll: true }
     );
 };
@@ -83,6 +97,11 @@ const openModal = (empleado = null) => {
         isEditing.value = false;
         form.reset();
         form.fecha_ingreso = new Date().toISOString().substr(0, 10);
+        // Un Gerente solo puede dar de alta empleados en su propia sucursal:
+        // se la precargamos directamente, no tiene sentido dejarlo elegir otra.
+        if (!esAdmin.value && props.miSucursalId) {
+            form.sucursal_id = props.miSucursalId;
+        }
     }
     showModal.value = true;
     // El watch de form.cargo_id fuerza la sucursal a Central cuando el cargo
@@ -93,6 +112,23 @@ const openModal = (empleado = null) => {
 };
 
 const submit = () => {
+    if (mostrarAvisoCambioSucursal.value) {
+        darkSwal.fire({
+            title: '¿Mover a otra sucursal?',
+            text: 'Después de guardar este cambio, vas a dejar de poder ver o gestionar a este empleado desde tu cuenta.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Sí, mover de todos modos',
+            cancelButtonText: 'Cancelar',
+        }).then((result) => {
+            if (result.isConfirmed) ejecutarSubmit();
+        });
+        return;
+    }
+    ejecutarSubmit();
+};
+
+const ejecutarSubmit = () => {
     const onError = () => {
         darkSwal.fire({
             title: 'Revisá los datos',
@@ -204,7 +240,7 @@ const reactivarEmpleado = (emp) => {
 };
 
 const handleSearch = () => {
-    router.get(route('empleados.index'), { search: search.value, estado: estadoFiltro.value }, {
+    router.get(route('empleados.index'), { search: search.value, estado: estadoFiltro.value, cargo_id: cargoFiltro.value, sucursal_id: sucursalFiltro.value }, {
         preserveState: true,
         replace: true,
         preserveScroll: true
@@ -300,6 +336,17 @@ const resetearPassword = () => {
 
 const sucursalPrincipal = computed(() => {
     return props.sucursales?.find(s => s.es_principal) || props.sucursales?.[0];
+});
+
+// Un Gerente elige libremente la sucursal solo al EDITAR (puede reubicar a un
+// empleado existente a otra sucursal); al CREAR, siempre es la suya.
+const puedeElegirSucursalLibremente = computed(() => esAdmin.value || isEditing.value);
+
+// Si un Gerente mueve a un empleado a otra sucursal, deja de poder verlo o
+// gestionarlo (la lista y las acciones quedan restringidas a su sucursal).
+const mostrarAvisoCambioSucursal = computed(() => {
+    if (esAdmin.value || !isEditing.value || !props.miSucursalId) return false;
+    return form.sucursal_id && Number(form.sucursal_id) !== Number(props.miSucursalId);
 });
 
 const isRepartidorCargo = computed(() => {
@@ -403,6 +450,24 @@ const colorCargo = (nombre) => {
                                 {{ stats?.total_todos ?? 0 }}
                             </span>
                         </button>
+                    </div>
+                </div>
+
+                <!-- Filtros extra: Cargo + Sucursal (solo Admin) -->
+                <div class="bg-[#131316] border border-white/5 rounded-2xl p-4 flex flex-col md:flex-row items-center gap-4 shadow-xl">
+                    <div class="w-full md:w-56">
+                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Filtrar por cargo</label>
+                        <select v-model="cargoFiltro" @change="aplicarFiltrosExtra" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer">
+                            <option value="">Todos los cargos</option>
+                            <option v-for="c in cargos" :key="c.id" :value="c.id">{{ c.nombre }}</option>
+                        </select>
+                    </div>
+                    <div v-if="esAdmin" class="w-full md:w-56">
+                        <label class="block text-xs font-semibold text-zinc-400 mb-1">Filtrar por sucursal</label>
+                        <select v-model="sucursalFiltro" @change="aplicarFiltrosExtra" class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2 text-xs font-semibold text-white focus:outline-none focus:border-white/30 cursor-pointer">
+                            <option value="">Todas las sucursales</option>
+                            <option v-for="s in sucursales" :key="s.id" :value="s.id">{{ s.nombre }}</option>
+                        </select>
                     </div>
                 </div>
 
@@ -568,7 +633,7 @@ const colorCargo = (nombre) => {
                                     </div>
                                     <div>
                                         <label class="block text-xs font-semibold text-zinc-400 mb-1">Sucursal Destino *</label>
-                                        <select v-model="form.sucursal_id" :disabled="isRepartidorCargo" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30" :class="{'border-rose-500': form.errors.sucursal_id, 'opacity-60 cursor-not-allowed bg-[#131316]/50': isRepartidorCargo, 'cursor-pointer': !isRepartidorCargo}">
+                                        <select v-model="form.sucursal_id" :disabled="isRepartidorCargo || !puedeElegirSucursalLibremente" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30" :class="{'border-rose-500': form.errors.sucursal_id, 'opacity-60 cursor-not-allowed bg-[#131316]/50': isRepartidorCargo || !puedeElegirSucursalLibremente, 'cursor-pointer': !isRepartidorCargo && puedeElegirSucursalLibremente}">
                                             <option value="" disabled class="bg-[#131316] text-zinc-400">Seleccionar Sucursal</option>
                                             <option v-for="s in sucursales" :key="s.id" :value="s.id" class="bg-[#131316] text-white">
                                                 {{ s.nombre }}{{ s.es_principal ? ' (Central)' : '' }}
@@ -577,6 +642,13 @@ const colorCargo = (nombre) => {
                                         <p v-if="isRepartidorCargo" class="text-amber-400/90 text-[11px] font-medium mt-1.5 flex items-center gap-1.5">
                                             <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                             Los repartidores operan exclusivamente desde la Sucursal Central.
+                                        </p>
+                                        <p v-else-if="!puedeElegirSucursalLibremente" class="text-zinc-500 text-[11px] font-medium mt-1.5">
+                                            Solo podés dar de alta empleados en tu propia sucursal.
+                                        </p>
+                                        <p v-else-if="mostrarAvisoCambioSucursal" class="text-amber-400/90 text-[11px] font-medium mt-1.5 flex items-center gap-1.5">
+                                            <svg class="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                            Ojo: al guardar, este empleado pasa a otra sucursal — vas a dejar de poder verlo o gestionarlo desde tu cuenta.
                                         </p>
                                         <p v-if="form.errors.sucursal_id" class="text-rose-400 text-xs font-semibold mt-1">{{ form.errors.sucursal_id }}</p>
                                     </div>

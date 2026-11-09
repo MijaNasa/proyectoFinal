@@ -11,17 +11,36 @@ use Illuminate\Http\Request;
 class EmpleadoController extends Controller
 {
     /**
+     * Recursos Humanos es solo para Admin y Gerente. Vendedores, Repartidores
+     * y cualquier otro cargo no deben poder gestionar empleados aunque el
+     * permiso dinamico 'empleados.acceder' llegara a estar mal configurado.
+     */
+    private function verificarAccesoRH(\App\Models\User $user): void
+    {
+        if (!$user->esAdmin() && !$user->esGerente()) {
+            abort(403, 'Recursos Humanos es exclusivo de Administradores y Gerentes.');
+        }
+    }
+
+    /**
      * Display a listing of the resource.
      */
     public function index(Request $request)
     {
+        $user = $request->user();
+        $this->verificarAccesoRH($user);
+
+        $sucursalId = $user->sucursalRestringidaId();
+
         $estado = $request->get('estado', 'activos'); // activos | inactivos | bajas | todos
 
         $query = Empleado::query()->with([
             'user',
             'sucursal',
             'cargos' => fn($q) => $q->whereNull('empleados_cargos.fecha_hasta'),
-        ]);
+        ])
+            // Un Gerente solo ve el personal de su propia sucursal. Admin ve todo.
+            ->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId));
 
         if ($estado === 'bajas' || $estado === 'inactivos') {
             $query->onlyTrashed();
@@ -41,13 +60,28 @@ class EmpleadoController extends Controller
             });
         }
 
+        $filterCargoId = $request->input('cargo_id');
+        if (filled($filterCargoId)) {
+            $query->whereHas('cargos', function ($q) use ($filterCargoId) {
+                $q->where('cargo_id', $filterCargoId)->whereNull('empleados_cargos.fecha_hasta');
+            });
+        }
+
+        // El filtro de sucursal solo tiene sentido para Admin: un Gerente ya
+        // esta restringido a la suya, filtrar no cambiaria nada.
+        $filterSucursalId = $user->esAdmin() ? $request->input('sucursal_id') : null;
+        if (filled($filterSucursalId)) {
+            $query->where('sucursal_id', $filterSucursalId);
+        }
+
         $empleados = $query->latest()->paginate(10)->withQueryString();
 
+        $statsBase = Empleado::query()->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId));
         $stats = [
-            'total_activos'   => Empleado::count(),
-            'total_inactivos' => Empleado::onlyTrashed()->count(),
-            'total_bajas'     => Empleado::onlyTrashed()->count(),
-            'total_todos'     => Empleado::withTrashed()->count(),
+            'total_activos'   => (clone $statsBase)->count(),
+            'total_inactivos' => (clone $statsBase)->onlyTrashed()->count(),
+            'total_bajas'     => (clone $statsBase)->onlyTrashed()->count(),
+            'total_todos'     => (clone $statsBase)->withTrashed()->count(),
         ];
 
         return inertia('Empleados/Index', [
@@ -55,10 +89,13 @@ class EmpleadoController extends Controller
             'sucursales' => \App\Models\Sucursal::where('activo', true)->get(['id', 'nombre', 'es_principal']),
             'cargos'     => Cargo::where('activo', true)->orderBy('nombre')->get(['id', 'nombre']),
             'filters'    => [
-                'search' => $request->search ?? '',
-                'estado' => $estado,
+                'search'      => $request->search ?? '',
+                'estado'      => $estado,
+                'cargo_id'    => $filterCargoId ?? '',
+                'sucursal_id' => $filterSucursalId ?? '',
             ],
             'stats'      => $stats,
+            'miSucursalId' => $sucursalId,
         ]);
     }
 
@@ -67,7 +104,17 @@ class EmpleadoController extends Controller
      */
     public function store(StoreEmpleadoRequest $request)
     {
-        \DB::transaction(function() use ($request) {
+        $userAuth = $request->user();
+        $this->verificarAccesoRH($userAuth);
+
+        if ($request->filled('cargo_id')) {
+            $cargoSolicitado = Cargo::find($request->cargo_id);
+            if ($cargoSolicitado && $cargoSolicitado->nombre === 'ADMIN' && !$userAuth->esAdmin()) {
+                abort(403, 'Solo un administrador puede asignar el cargo ADMIN.');
+            }
+        }
+
+        \DB::transaction(function() use ($request, $userAuth) {
             $user = \App\Models\User::create([
                 'name' => $request->name,
                 'email' => $request->email,
@@ -78,11 +125,12 @@ class EmpleadoController extends Controller
                 'activo' => true,
             ]);
 
-            $legajo = $request->filled('legajo') 
-                ? $request->legajo 
+            $legajo = $request->filled('legajo')
+                ? $request->legajo
                 : ('LEG-' . str_pad($user->id, 4, '0', STR_PAD_LEFT));
 
-            $sucursalId = $request->sucursal_id;
+            // Un Gerente solo puede dar de alta empleados en su propia sucursal.
+            $sucursalId = $userAuth->esAdmin() ? $request->sucursal_id : $userAuth->empleado?->sucursal_id;
             if ($request->filled('cargo_id')) {
                 $cargo = Cargo::find($request->cargo_id);
                 if ($cargo && $cargo->nombre === 'REPARTIDOR') {
@@ -116,9 +164,17 @@ class EmpleadoController extends Controller
     public function update(UpdateEmpleadoRequest $request, Empleado $empleado)
     {
         $userAuth = $request->user();
+        $this->verificarAccesoRH($userAuth);
 
         if (!$userAuth->esAdmin() && $userAuth->empleado?->sucursal_id !== $empleado->sucursal_id) {
             abort(403, 'Solo podés editar empleados de tu sucursal.');
+        }
+
+        if ($request->filled('cargo_id')) {
+            $cargoSolicitado = Cargo::find($request->cargo_id);
+            if ($cargoSolicitado && $cargoSolicitado->nombre === 'ADMIN' && !$userAuth->esAdmin()) {
+                abort(403, 'Solo un administrador puede asignar el cargo ADMIN.');
+            }
         }
 
         \DB::transaction(function() use ($request, $empleado) {
@@ -183,6 +239,7 @@ class EmpleadoController extends Controller
     public function destroy(Empleado $empleado)
     {
         $userAuth = request()->user();
+        $this->verificarAccesoRH($userAuth);
 
         if (!$userAuth->esAdmin() && $userAuth->empleado?->sucursal_id !== $empleado->sucursal_id) {
             abort(403, 'Solo podés dar de baja a empleados de tu sucursal.');
@@ -222,6 +279,7 @@ class EmpleadoController extends Controller
     {
         $empleado = Empleado::withTrashed()->findOrFail($id);
         $userAuth = $request->user();
+        $this->verificarAccesoRH($userAuth);
 
         if (!$userAuth->esAdmin() && $userAuth->empleado?->sucursal_id !== $empleado->sucursal_id) {
             abort(403, 'Solo podés reactivar empleados de tu sucursal.');
@@ -242,6 +300,7 @@ class EmpleadoController extends Controller
     public function resetearPassword(Request $request, Empleado $empleado)
     {
         $user = $request->user();
+        $this->verificarAccesoRH($user);
 
         if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $empleado->sucursal_id) {
             abort(403, 'Solo podés gestionar empleados de tu sucursal.');
@@ -258,6 +317,7 @@ class EmpleadoController extends Controller
         $request->validate(['cargo_id' => 'required|exists:cargos,id']);
 
         $user = $request->user();
+        $this->verificarAccesoRH($user);
 
         if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $empleado->sucursal_id) {
             abort(403, 'Solo podés asignar cargos a empleados de tu sucursal.');
@@ -289,6 +349,7 @@ class EmpleadoController extends Controller
     public function desasignarCargo(Request $request, Empleado $empleado, Cargo $cargo)
     {
         $user = $request->user();
+        $this->verificarAccesoRH($user);
 
         if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $empleado->sucursal_id) {
             abort(403, 'Solo podés gestionar empleados de tu sucursal.');
