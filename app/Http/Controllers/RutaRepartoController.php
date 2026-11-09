@@ -305,6 +305,31 @@ class RutaRepartoController extends Controller
             if ($estadoVenta && $fresh->venta) {
                 $fresh->venta->update(['estado' => $estadoVenta]);
             }
+
+            // Varios pedidos acumulados consolidados en un mismo envio
+            // terminan como paradas separadas (una por venta), pero son la
+            // MISMA casa/direccion (mismas coordenadas exactas). Al resolver
+            // una, se resuelven todas las de esa misma parada fisica, para
+            // que el repartidor no tenga que marcar cada paquete por separado.
+            if ($fresh->latitud !== null && $fresh->longitud !== null) {
+                $paradasMismaDireccion = ParadaReparto::where('ruta_reparto_id', $fresh->ruta_reparto_id)
+                    ->where('id', '!=', $fresh->id)
+                    ->where('latitud', $fresh->latitud)
+                    ->where('longitud', $fresh->longitud)
+                    ->whereIn('estado', ['pendiente', 'en camino'])
+                    ->get();
+
+                foreach ($paradasMismaDireccion as $hermana) {
+                    $hermana->update([
+                        'estado'        => $request->estado,
+                        'observaciones' => $request->observaciones ?? $hermana->observaciones,
+                    ]);
+
+                    if ($estadoVenta && $hermana->venta) {
+                        $hermana->venta->update(['estado' => $estadoVenta]);
+                    }
+                }
+            }
         });
 
         // Verificar si quedan paradas sin finalizar
