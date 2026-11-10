@@ -42,7 +42,8 @@ class SuscripcionController extends Controller
                     'autor:id,nombre,apellido',
                     'categoria:id,nombre',
                     'proveedor:id,nombre_empresa',
-                    'libros:id,master_id,numero_tomo',
+                    // isbn y portada hacen falta para la portada de la serie (portada por ISBN del primer tomo)
+                    'libros:id,master_id,numero_tomo,isbn,portada',
                     'suscripciones' => function ($sq) use ($search) {
                         $sq->with(['cliente.user:id,name,apellido,email,dni', 'sucursal:id,nombre']);
                         if ($search) {
