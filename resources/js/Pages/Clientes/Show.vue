@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 import Swal from 'sweetalert2';
 
@@ -113,6 +113,17 @@ const submitEdit = () => {
 const totalPagado = computed(() =>
     (props.pagos || []).filter(p => p.metodo_pago !== 'Saldo a favor').reduce((t, p) => t + Number(p.monto || 0), 0)
 );
+
+// Paginado de pagos en la misma pantalla (no recarga ni cambia de pestaña)
+const PAGOS_POR_PAGINA = 15;
+const paginaPagos = ref(1);
+const totalPaginasPagos = computed(() => Math.max(1, Math.ceil((props.pagos || []).length / PAGOS_POR_PAGINA)));
+// Si se anula un pago y la ultima pagina queda vacia, volver a la anterior
+watch(totalPaginasPagos, (total) => { if (paginaPagos.value > total) paginaPagos.value = total; });
+const pagosPagina = computed(() => {
+    const inicio = (paginaPagos.value - 1) * PAGOS_POR_PAGINA;
+    return (props.pagos || []).slice(inicio, inicio + PAGOS_POR_PAGINA);
+});
 
 const eliminarPago = (pago) => {
     darkSwal.fire({
@@ -606,7 +617,7 @@ const estadoConfig = {
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-white/5 text-sm">
-                                    <tr v-for="pago in pagos" :key="(pago.venta_id ? 'v' : 'c') + pago.id" class="hover:bg-white/[0.02] transition-colors">
+                                    <tr v-for="pago in pagosPagina" :key="(pago.venta_id ? 'v' : 'c') + pago.id" class="hover:bg-white/[0.02] transition-colors">
                                         <td class="p-4 text-xs font-semibold text-zinc-300">{{ formatFecha(pago.fecha) }}</td>
                                         <td class="p-4 text-xs font-mono">
                                             <Link v-if="pago.venta_id" :href="route('ventas.index', { view: pago.venta_id, search: pago.venta_id })" class="text-white hover:underline">#TK-{{ String(pago.venta_id).padStart(6, '0') }}</Link>
@@ -618,9 +629,10 @@ const estadoConfig = {
                                             </span>
                                         </td>
                                         <td class="p-4 text-xs text-zinc-400 italic">{{ pago.descripcion }}</td>
-                                        <td class="p-4 text-right font-bold text-emerald-400">
+                                        <td class="p-4 text-right font-bold">
                                             <div class="flex items-center justify-end gap-3">
-                                                <span>{{ formatCurrency(pago.monto) }}</span>
+                                                <!-- Verde: pago cargado a la cuenta (suma). Rojo: pago de un pedido (resta). -->
+                                                <span :class="pago.venta_id ? 'text-rose-400' : 'text-emerald-400'">{{ pago.venta_id ? '−' : '+' }}{{ formatCurrency(pago.monto) }}</span>
                                                 <button v-if="pago.anulable" @click="eliminarPago(pago)" title="Anular pago" class="p-1 text-zinc-500 hover:text-rose-400 transition-colors">
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                 </button>
@@ -629,6 +641,12 @@ const estadoConfig = {
                                     </tr>
                                 </tbody>
                             </table>
+                        </div>
+                        <!-- Paginado (15 por pagina) -->
+                        <div v-if="totalPaginasPagos > 1" class="flex items-center justify-between gap-3 p-4 border-t border-white/5 text-xs font-semibold">
+                            <button type="button" @click="paginaPagos--" :disabled="paginaPagos === 1" class="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">Anterior</button>
+                            <span class="text-zinc-400">Página {{ paginaPagos }} de {{ totalPaginasPagos }}</span>
+                            <button type="button" @click="paginaPagos++" :disabled="paginaPagos === totalPaginasPagos" class="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">Siguiente</button>
                         </div>
                     </div>
                 </div>
