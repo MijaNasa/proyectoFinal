@@ -18,13 +18,9 @@ class VentaController extends Controller
         $ventaView = null;
         $tab = $request->get('tab', 'activas');
 
+        // El detalle solo se abre solo cuando viene ?view= (links de notificaciones
+        // o de un envio conjunto). Buscar un numero solo filtra la lista.
         $targetId = $request->input('view');
-        if (!$targetId && $request->filled('search')) {
-            $cleaned = trim(str_replace(['#', 'TK-', 'tk-', 'Tk-', 'tK-'], '', $request->search));
-            if (is_numeric($cleaned)) {
-                $targetId = (int)$cleaned;
-            }
-        }
 
         if ($targetId) {
             $targetVenta = Venta::with(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones'])
@@ -94,6 +90,13 @@ class VentaController extends Controller
             'total_finalizadas'=> Venta::whereIn('estado', ['finalizado', 'enviado'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
             'total_canceladas' => Venta::where('estado', 'cancelado')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
         ];
+
+        // Marcar los pedidos que viajan dentro de un cobro de envio (Correo Nacional)
+        $mapaEnvio = Venta::mapaEnvioConjunto();
+        $ventas->getCollection()->each(fn ($v) => $v->setAttribute('envio_conjunto_id', $mapaEnvio[$v->id] ?? null));
+        if ($ventaView) {
+            $ventaView->setAttribute('envio_conjunto_id', $mapaEnvio[$ventaView->id] ?? null);
+        }
 
         return inertia('Ventas/Index', [
             'ventas'     => $ventas,
@@ -618,8 +621,20 @@ class VentaController extends Controller
     {
         $user = \Auth::user();
 
+        // Un pedido que viaja dentro de un cobro de envio se gestiona desde ese cobro
+        if ($cobro = $venta->cobroEnvioQueLaIncluye()) {
+            return back()->with('error', 'Este pedido viaja en el envío #TK-' . str_pad($cobro->id, 6, '0', STR_PAD_LEFT) . '. El estado y el código de seguimiento se gestionan desde ese cobro.');
+        }
+
+        // En un cobro de envio ya despachado se puede corregir el codigo de
+        // seguimiento (ej: el paquete volvio y se reenvio) sin ser Administrador.
+        $soloCambiaTrackingDeCobro = $venta->esCobroEnvio()
+            && $venta->estado === 'enviado'
+            && (!$request->filled('estado') || $request->estado === $venta->estado)
+            && (!$request->filled('direccion_envio') || $request->direccion_envio === $venta->direccion_envio);
+
         // Si la venta ya está finalizada, cancelada o enviada, solo un Administrador puede alterarla
-        if (in_array($venta->estado, ['finalizado', 'cancelado', 'enviado']) && !$user->esAdmin()) {
+        if (in_array($venta->estado, ['finalizado', 'cancelado', 'enviado']) && !$user->esAdmin() && !$soloCambiaTrackingDeCobro) {
             return back()->with('error', 'Solo un Administrador puede modificar una venta enviada, concluida o cancelada.');
         }
 
@@ -707,19 +722,26 @@ class VentaController extends Controller
         }
 
         if (!empty($updates)) {
-            $venta->update($updates);
+            \DB::transaction(function () use ($venta, $updates) {
+                $venta->update($updates);
 
-            // Si la venta ya estaba asignada a una parada de reparto, propagar las coordenadas nuevas
-            if (isset($updates['latitud'], $updates['longitud'])) {
-                $venta->paradas()->update(['latitud' => $updates['latitud'], 'longitud' => $updates['longitud']]);
-            }
+                // Si la venta ya estaba asignada a una parada de reparto, propagar las coordenadas nuevas
+                if (isset($updates['latitud'], $updates['longitud'])) {
+                    $venta->paradas()->update(['latitud' => $updates['latitud'], 'longitud' => $updates['longitud']]);
+                }
+
+                // Cobro de envio: el codigo y el estado se copian a los pedidos que incluye
+                if ($venta->esCobroEnvio()) {
+                    $venta->propagarEnvioAPedidosIncluidos();
+                }
+            });
         }
 
         $freshVenta = $venta->fresh(['cliente.user', 'user', 'sucursal', 'detalles.libro.master', 'transacciones']);
 
         return back()->with([
             'message'      => 'Estado de venta actualizado.',
-            'updatedVenta' => $freshVenta,
+            'updatedVenta' => $freshVenta->setAttribute('envio_conjunto_id', $freshVenta->cobroEnvioQueLaIncluye()?->id),
         ]);
     }
 
@@ -792,7 +814,8 @@ class VentaController extends Controller
                 $fresh->intentarLiberarPreventa();
 
                 if ($fresh->consolida_venta_ids) {
-                    $fresh->update(['estado' => 'finalizado']);
+                    // El cobro queda como "el paquete" del envio: ahi se carga el codigo
+                    $fresh->update(['estado' => 'en_preparacion']);
                     $fresh->procesarConsolidacionAcumuladosSiCorresponde();
                 }
             });

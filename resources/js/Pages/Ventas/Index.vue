@@ -31,6 +31,8 @@ const esEstadoRestringido = computed(() => {
 
 const puedeModificarEstadoManual = computed(() => {
     if (!selectedVenta.value) return true;
+    // Un pedido que viaja dentro de un cobro de envio se gestiona desde ese cobro
+    if (selectedVenta.value.envio_conjunto_id) return false;
     if (esEstadoRestringido.value && !esAdmin.value) {
         return false;
     }
@@ -601,6 +603,11 @@ const pedidosIncluidos = (v) => v?.consolida_venta_ids
     ? String(v.consolida_venta_ids).split(',').map(n => parseInt(n, 10)).filter(Boolean)
     : [];
 
+// En un cobro ya despachado se puede corregir el codigo (ej: reenvio) aunque no sea admin
+const puedeEditarTrackingCobro = computed(() =>
+    esCobroEnvio(selectedVenta.value) && selectedVenta.value.estado === 'enviado'
+);
+
 const viewVenta = (venta) => {
     selectedVenta.value = venta;
     estadoForm.estado = venta.estado;
@@ -633,7 +640,7 @@ const cambiarEstado = async () => {
         (estadoForm.tracking_code || '') === (selectedVenta.value.tracking_code || '')
     ) return;
 
-    if (!puedeModificarEstadoManual.value) {
+    if (!puedeModificarEstadoManual.value && !puedeEditarTrackingCobro.value) {
         darkSwal.fire({
             title: 'Acción Restringida',
             text: 'Este estado solo puede ser modificado por un Administrador o mediante eventos del sistema (Logística / Preventas).',
@@ -1452,8 +1459,21 @@ onMounted(() => {
                                     </span>
                                 </div>
 
+                                <!-- Pedido incluido en un cobro de envio: todo se gestiona desde el cobro -->
+                                <div v-if="selectedVenta.envio_conjunto_id" class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200 flex flex-wrap items-center gap-2 font-medium">
+                                    <span>🔒 Este pedido viaja en el envío</span>
+                                    <Link :href="route('ventas.index', { view: selectedVenta.envio_conjunto_id, search: selectedVenta.envio_conjunto_id })" class="font-mono font-bold text-white underline hover:text-indigo-300">#TK-{{ String(selectedVenta.envio_conjunto_id).padStart(6, '0') }}</Link>
+                                    <span>. El estado y el código de seguimiento se gestionan desde ese cobro.</span>
+                                </div>
+
+                                <!-- Cobro de envio: lo que se cargue aca se copia a los pedidos incluidos -->
+                                <div v-if="esCobroEnvio(selectedVenta)" class="p-3 bg-white/[0.03] border border-white/10 rounded-xl text-xs text-zinc-300 font-medium">
+                                    El estado y el código de seguimiento de este envío se copian a los {{ pedidosIncluidos(selectedVenta).length }} pedidos incluidos.
+                                    <span v-if="puedeEditarTrackingCobro"> Si el paquete se reenvía, podés corregir el código y se actualiza en todos.</span>
+                                </div>
+
                                 <!-- Banner Informativo para Estados Restringidos -->
-                                <div v-if="esEstadoRestringido && !esAdmin" class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-center gap-2 font-medium">
+                                <div v-if="esEstadoRestringido && !esAdmin && !selectedVenta.envio_conjunto_id && !puedeEditarTrackingCobro" class="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-300 flex items-center gap-2 font-medium">
                                     <svg class="w-4 h-4 text-amber-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                     </svg>
@@ -1487,7 +1507,7 @@ onMounted(() => {
                                         <input 
                                             type="text" 
                                             v-model="estadoForm.tracking_code" 
-                                            :disabled="(selectedVenta.estado === 'enviado' && !esAdmin) || !puedeModificarEstadoManual" 
+                                            :disabled="!puedeEditarTrackingCobro && ((selectedVenta.estado === 'enviado' && !esAdmin) || !puedeModificarEstadoManual)" 
                                             placeholder="Ej: SD321876451AR" 
                                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-zinc-800/40" 
                                         />

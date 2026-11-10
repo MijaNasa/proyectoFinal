@@ -404,6 +404,24 @@ const getVentaUrl = (notif) => {
                                             Ir a Logística
                                         </Link>
                                     </template>
+                                    <template v-else-if="notif.data.type === 'solicitud_envio_acumulados'">
+                                        <p class="text-sm font-semibold text-white leading-relaxed">
+                                            {{ notif.data.message }}
+                                        </p>
+                                        <Link
+                                            :href="notif.data.cobro_id ? route('ventas.index', { view: notif.data.cobro_id, search: notif.data.cobro_id }) : notif.data.url"
+                                            class="inline-flex items-center gap-2 text-xs font-semibold text-zinc-200 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 mt-2"
+                                        >
+                                            {{ notif.data.cobro_id ? 'Ver cobro de envío' : 'Ver cliente' }}
+                                        </Link>
+                                    </template>
+                                    <!-- Cualquier otro aviso con mensaje propio: se muestra tal cual -->
+                                    <template v-else-if="notif.data.message && !notif.data.libro_titulo">
+                                        <p class="text-sm font-semibold text-white leading-relaxed">
+                                            {{ notif.data.message }}
+                                        </p>
+                                        <Link v-if="notif.data.url" :href="notif.data.url" class="inline-flex items-center gap-2 text-xs font-semibold text-zinc-200 hover:text-white transition-colors bg-white/5 hover:bg-white/10 px-3.5 py-1.5 rounded-xl border border-white/10 mt-2">Ver</Link>
+                                    </template>
                                     <template v-else>
                                         <p class="text-sm font-semibold text-white leading-relaxed">
                                             El tomo <span class="text-white font-bold">{{ notif.data.libro_titulo }}</span> 

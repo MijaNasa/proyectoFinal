@@ -303,7 +303,7 @@ class MiCuentaController extends Controller
         if (empty($mpToken)) {
             if (config('app.env') === 'local' || config('app.debug')) {
                 \Log::info("MiCuenta: MP_ACCESS_TOKEN no configurado en local. Simulando pago de envío aprobado para venta #{$ventaEnvio->id}");
-                $ventaEnvio->update(['estado' => 'finalizado']);
+                $ventaEnvio->update(['estado' => 'en_preparacion']);
                 $ventaEnvio->procesarConsolidacionAcumuladosSiCorresponde();
                 return back()->with('message', 'Envío confirmado (modo simulado, sin Mercado Pago configurado).');
             }

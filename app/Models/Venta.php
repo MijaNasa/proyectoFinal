@@ -233,6 +233,76 @@ class Venta extends Model
         return true;
     }
 
+    /**
+     * Cobro del envio de pedidos acumulados (Correo Nacional): no tiene
+     * productos propios y guarda en consolida_venta_ids que pedidos incluye.
+     * Funciona como "el paquete": su estado y su codigo de seguimiento se
+     * copian a todos los pedidos incluidos.
+     */
+    public function esCobroEnvio(): bool
+    {
+        return !empty($this->consolida_venta_ids);
+    }
+
+    public function idsPedidosIncluidos(): array
+    {
+        return $this->consolida_venta_ids
+            ? array_values(array_filter(array_map('intval', explode(',', $this->consolida_venta_ids))))
+            : [];
+    }
+
+    /** Cobro de envio (no cancelado) que incluye a esta venta, si existe. */
+    public function cobroEnvioQueLaIncluye(): ?Venta
+    {
+        return static::whereNotNull('consolida_venta_ids')
+            ->where('estado', '!=', 'cancelado')
+            ->where('id', '!=', $this->id)
+            ->whereRaw("(',' || consolida_venta_ids || ',') LIKE ?", ['%,' . $this->id . ',%'])
+            ->first();
+    }
+
+    /** Mapa [id de pedido => id del cobro de envio que lo incluye], para listados. */
+    public static function mapaEnvioConjunto(): array
+    {
+        $mapa = [];
+        static::whereNotNull('consolida_venta_ids')
+            ->where('estado', '!=', 'cancelado')
+            ->get(['id', 'consolida_venta_ids'])
+            ->each(function ($cobro) use (&$mapa) {
+                foreach ($cobro->idsPedidosIncluidos() as $id) {
+                    $mapa[$id] = $cobro->id;
+                }
+            });
+        return $mapa;
+    }
+
+    /**
+     * Copia el codigo de seguimiento y el estado de despacho del cobro a los
+     * pedidos que incluye. "Enviado" despacha a todos; volver a "En
+     * preparacion" (por ejemplo, si el paquete volvio al local) los regresa.
+     */
+    public function propagarEnvioAPedidosIncluidos(): void
+    {
+        $ids = $this->idsPedidosIncluidos();
+        if (empty($ids)) {
+            return;
+        }
+
+        $pedidos = static::whereIn('id', $ids)->where('estado', '!=', 'cancelado')->get();
+
+        foreach ($pedidos as $pedido) {
+            $cambios = ['tracking_code' => $this->tracking_code];
+
+            if ($this->estado === 'enviado' && in_array($pedido->estado, ['en_preparacion', 'enviado'])) {
+                $cambios['estado'] = 'enviado';
+            } elseif ($this->estado === 'en_preparacion' && $pedido->estado === 'enviado') {
+                $cambios['estado'] = 'en_preparacion';
+            }
+
+            $pedido->update($cambios);
+        }
+    }
+
     public function paradas(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\ParadaReparto::class);

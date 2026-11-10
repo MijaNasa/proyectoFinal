@@ -37,6 +37,7 @@ class SolicitudEnvioAcumulados extends Notification
             return [
                 'type'     => 'solicitud_envio_acumulados',
                 'title'    => 'Solicitud de envío de acumulados',
+                'cobro_id' => $this->cobroEnvio->id,
                 'message'  => "{$nombre} solicitó el envío por Correo Nacional de {$pedidos}. Falta confirmar el pago del envío (Pedido #{$this->cobroEnvio->id}).",
                 'url'      => "/ventas?view={$this->cobroEnvio->id}&search={$this->cobroEnvio->id}",
                 'venta_id' => $this->cobroEnvio->id,
