@@ -11,10 +11,21 @@ use Inertia\Inertia;
 
 class MiCuentaController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
         $user = Auth::user();
         $cliente = $user->cliente;
+
+        // Dos pestañas: pendientes (todo lo que no termino) y finalizados.
+        // Los cancelados no se le muestran al cliente.
+        $pestana = $request->input('pestana') === 'finalizados' ? 'finalizados' : 'pendientes';
+        $basePedidos = fn () => Venta::query()
+            ->when($cliente, fn($q) => $q->where('cliente_id', $cliente->id), fn($q) => $q->whereRaw('1 = 0'))
+            ->where('estado', '!=', 'cancelado');
+        $conteoPedidos = [
+            'pendientes'  => $basePedidos()->where('estado', '!=', 'finalizado')->count(),
+            'finalizados' => $basePedidos()->where('estado', 'finalizado')->count(),
+        ];
 
         // Las ventas de un cliente se identifican por cliente_id, no por user_id:
         // en una venta presencial user_id es el empleado que la cobró, no el
@@ -36,11 +47,13 @@ class MiCuentaController extends Controller
         $pedidos = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
             ->when($cliente, fn($q) => $q->where('cliente_id', $cliente->id), fn($q) => $q->whereRaw('1 = 0'))
             ->where('estado', '!=', 'cancelado')
-            // Los finalizados van al final; el resto, del mas nuevo al mas viejo
-            ->orderByRaw("CASE WHEN estado = 'finalizado' THEN 1 ELSE 0 END")
+            ->when($pestana === 'finalizados',
+                fn($q) => $q->where('estado', 'finalizado'),
+                fn($q) => $q->where('estado', '!=', 'finalizado'))
             ->latest('fecha')
             ->latest('id')
             ->paginate(10)
+            ->withQueryString()
             ->through(fn($v) => [
                 'id'         => $v->id,
                 'es_cobro_envio'    => $v->detalles->isEmpty() && (float) $v->costo_envio > 0,
@@ -90,6 +103,8 @@ class MiCuentaController extends Controller
 
         return Inertia::render('MiCuenta/Index', [
             'pedidos' => $pedidos,
+            'pestana' => $pestana,
+            'conteoPedidos' => $conteoPedidos,
             'acumuladosListos' => $acumuladosListos,
             'pagos'   => $pagos,
             'usuario' => [

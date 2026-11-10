@@ -8,6 +8,8 @@ import { decodeLabel } from '@/composables/useDecodeLabel';
 const props = defineProps({
     pedidos: Object,
     acumuladosListos: { type: Array, default: () => [] },
+    pestana: { type: String, default: 'pendientes' },
+    conteoPedidos: { type: Object, default: () => ({ pendientes: 0, finalizados: 0 }) },
     pagos: Array,
     usuario: Object,
     saldoCuenta: [Number, String],
@@ -29,7 +31,14 @@ const darkSwal = Swal.mixin({
     }
 });
 
-const tab = ref('perfil');
+// Si la URL ya trae la pestaña de pedidos o una pagina, se abre directo en "Mis pedidos"
+const _params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '');
+const tab = ref(_params.has('pestana') || _params.has('page') ? 'pedidos' : 'perfil');
+
+const cambiarPestanaPedidos = (p) => {
+    if (p === props.pestana) return;
+    router.get(route('mi-cuenta.index'), { pestana: p }, { preserveState: true, preserveScroll: true });
+};
 const expandedPedidos = ref([]);
 
 const togglePedidoExpand = (id) => {
@@ -174,7 +183,7 @@ const estadoConfig = {
     esperando_traslado: { label: 'Esperando traslado', bgDot: 'bg-purple-400' },
     listo_para_retiro:  { label: 'Listo para retiro',  bgDot: 'bg-emerald-400' },
     acumulado:          { label: 'Acumulado',          bgDot: 'bg-amber-400' },
-    enviado:            { label: 'Enviado',             bgDot: 'bg-indigo-400' },
+    enviado:            { label: 'En camino',           bgDot: 'bg-indigo-400' },
     entregado:          { label: 'Entregado',           bgDot: 'bg-emerald-400' },
     retirado:           { label: 'Retirado',            bgDot: 'bg-emerald-400' },
     completada:         { label: 'Completada',          bgDot: 'bg-emerald-400' },
@@ -485,8 +494,8 @@ const submitConsolidar = () => {
                         :class="tab === 'pedidos' ? 'bg-white text-black shadow-md' : 'text-zinc-400 hover:text-white bg-transparent'"
                     >
                         <span>MIS PEDIDOS</span>
-                        <span v-if="pedidos.total" class="text-xs px-2 py-0.5 rounded-xl font-bold font-mono" :class="tab === 'pedidos' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'">
-                            {{ pedidos.total }}
+                        <span v-if="conteoPedidos.pendientes" class="text-xs px-2 py-0.5 rounded-xl font-bold font-mono" :class="tab === 'pedidos' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'">
+                            {{ conteoPedidos.pendientes }}
                         </span>
                     </button>
                     <button
@@ -593,8 +602,25 @@ const submitConsolidar = () => {
             <!-- Tab: Mis Pedidos -->
             <div v-if="tab === 'pedidos'" class="space-y-6">
 
+                <!-- Pestañas: pendientes / finalizados -->
+                <div class="flex gap-2">
+                    <button
+                        v-for="p in [{ key: 'pendientes', label: 'Pendientes' }, { key: 'finalizados', label: 'Finalizados' }]"
+                        :key="p.key"
+                        type="button"
+                        @click="cambiarPestanaPedidos(p.key)"
+                        class="px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2"
+                        :class="pestana === p.key ? 'bg-white text-black border-white shadow-md' : 'bg-[#131316] text-zinc-400 border-white/10 hover:text-white'"
+                    >
+                        <span>{{ p.label }}</span>
+                        <span class="font-mono text-[11px] px-1.5 rounded-md" :class="pestana === p.key ? 'bg-black/10' : 'bg-white/10 text-white'">{{ conteoPedidos[p.key] }}</span>
+                    </button>
+                </div>
+
                 <div v-if="!pedidos.data.length" class="bg-[#131316] border border-white/5 rounded-2xl p-12 text-center text-zinc-500 italic space-y-4">
-                    <p>Todavía no hiciste ningún pedido. Explorá el catálogo y hacé tu primera compra.</p>
+                    <p v-if="pestana === 'finalizados'">Todavía no tenés pedidos finalizados.</p>
+                    <p v-else-if="conteoPedidos.finalizados">No tenés pedidos pendientes. Podés ver tus compras anteriores en "Finalizados".</p>
+                    <p v-else>Todavía no hiciste ningún pedido. Explorá el catálogo y hacé tu primera compra.</p>
                     <Link :href="route('catalogo.index')" class="inline-block px-5 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 not-italic">
                         Ver Catálogo
                     </Link>
@@ -603,7 +629,7 @@ const submitConsolidar = () => {
                 <div v-else class="space-y-4">
 
                     <!-- Banner de Acumulados -->
-                    <div v-if="tieneAcumulados" class="bg-[#131316] border border-amber-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                    <div v-if="tieneAcumulados && pestana === 'pendientes'" class="bg-[#131316] border border-amber-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
                         <div>
                             <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">Pedidos Acumulados</h3>
                             <p class="text-zinc-400 text-xs font-medium">

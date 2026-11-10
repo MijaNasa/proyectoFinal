@@ -11,8 +11,17 @@ const props = defineProps({
     sucursales: Array
 });
 
+// Fecha de HOY en la hora local (toISOString usa UTC: despues de las 21 hs
+// en Argentina ya devolvia el dia siguiente)
+const hoyLocal = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const cierreExistente = ref(null);
+
 const form = useForm({
-    fecha: new Date().toISOString().substr(0, 10),
+    fecha: hoyLocal(),
     sucursal_id: '',
     monto_esperado: 0,
     monto_real: 0,
@@ -43,7 +52,8 @@ const darkSwal = Swal.mixin({
 const openModal = () => {
     form.reset();
     form.monto_real = '';
-    form.fecha = new Date().toISOString().substr(0, 10);
+    form.fecha = hoyLocal();
+    cierreExistente.value = null;
     if (userSucursalId) {
         form.sucursal_id = userSucursalId;
     }
@@ -192,7 +202,19 @@ const submit = () => {
         });
         return;
     }
+    if (cierreExistente.value) {
+        darkSwal.fire({
+            title: 'Caja ya cerrada',
+            text: 'Ya se hizo el cierre de caja de este día para esta sucursal.',
+            icon: 'info'
+        });
+        return;
+    }
     form.post(route('cierre-cajas.store'), {
+        onError: (errs) => {
+            const msg = errs.fecha || errs.sucursal_id || errs.monto_real || 'No se pudo registrar el cierre.';
+            darkSwal.fire({ title: 'No se pudo cerrar la caja', text: msg, icon: 'warning' });
+        },
         onSuccess: () => {
             showModal.value = false;
             darkSwal.fire({
@@ -219,12 +241,15 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
                 params: { sucursal_id: newSucursal, fecha: newFecha }
             });
             form.monto_esperado = response.data.monto_sistema;
+            cierreExistente.value = response.data.cierre_existente || null;
         } catch (error) {
             console.error('Error fetching system amount', error);
             form.monto_esperado = 0;
+            cierreExistente.value = null;
         }
     } else {
         form.monto_esperado = 0;
+        cierreExistente.value = null;
     }
 });
 </script>
@@ -360,6 +385,17 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
                                 </div>
                             </div>
 
+                            <!-- Ya hay un cierre para ese dia y sucursal -->
+                            <div v-if="cierreExistente" class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200 font-medium space-y-1">
+                                <p class="font-bold text-amber-300">Ya se hizo el cierre de caja de este día.</p>
+                                <p>
+                                    Lo registró {{ cierreExistente.usuario || 'un usuario' }}<span v-if="cierreExistente.hora"> a las {{ cierreExistente.hora }}</span>,
+                                    con {{ formatCurrency(cierreExistente.monto_real) }} en efectivo.
+                                    Para hacer uno nuevo, un administrador tiene que reabrir la caja desde el historial.
+                                </p>
+                            </div>
+                            <p v-if="form.errors.fecha" class="text-xs text-rose-400 font-semibold">{{ form.errors.fecha }}</p>
+
                             <div class="space-y-4 pt-4 border-t border-white/5">
                                 <div>
                                     <label class="block text-xs font-semibold text-zinc-400 mb-1">Monto Esperado (Solo Efectivo) — Automático</label>
@@ -385,7 +421,7 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
 
                             <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
                                 <button type="button" @click="showModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
-                                <button type="submit" :disabled="form.processing || form.monto_real === null || form.monto_real === '' || form.monto_real === undefined" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-30">
+                                <button type="submit" :disabled="!!cierreExistente || form.processing || form.monto_real === null || form.monto_real === '' || form.monto_real === undefined" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-30">
                                    <span>{{ form.processing ? 'PROCESANDO...' : 'FINALIZAR CIERRE' }}</span>
                                 </button>
                             </div>

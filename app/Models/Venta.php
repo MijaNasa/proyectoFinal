@@ -278,8 +278,8 @@ class Venta extends Model
 
     /**
      * Copia el codigo de seguimiento y el estado de despacho del cobro a los
-     * pedidos que incluye. "Enviado" despacha a todos; volver a "En
-     * preparacion" (por ejemplo, si el paquete volvio al local) los regresa.
+     * pedidos que incluye. Al despachar (Finalizado con codigo) finaliza a
+     * todos; si despues se corrige el codigo, se actualiza en todos.
      */
     public function propagarEnvioAPedidosIncluidos(): void
     {
@@ -293,7 +293,10 @@ class Venta extends Model
         foreach ($pedidos as $pedido) {
             $cambios = ['tracking_code' => $this->tracking_code];
 
-            if ($this->estado === 'enviado' && in_array($pedido->estado, ['en_preparacion', 'enviado'])) {
+            if ($this->estado === 'finalizado' && in_array($pedido->estado, ['en_preparacion', 'enviado'])) {
+                // Correo despachado (con codigo): los pedidos tambien quedan finalizados
+                $cambios['estado'] = 'finalizado';
+            } elseif ($this->estado === 'enviado' && in_array($pedido->estado, ['en_preparacion', 'enviado'])) {
                 $cambios['estado'] = 'enviado';
             } elseif ($this->estado === 'en_preparacion' && $pedido->estado === 'enviado') {
                 $cambios['estado'] = 'en_preparacion';

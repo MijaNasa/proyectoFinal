@@ -30,7 +30,7 @@ class VentaController extends Controller
             if ($targetVenta) {
                 $ventaView = $targetVenta;
                 if (!$request->filled('tab') && !$request->filled('estados')) {
-                    if (in_array($targetVenta->estado, ['finalizado', 'enviado'])) {
+                    if ($targetVenta->estado === 'finalizado') {
                         $tab = 'finalizadas';
                     } elseif ($targetVenta->estado === 'cancelado') {
                         $tab = 'canceladas';
@@ -67,9 +67,10 @@ class VentaController extends Controller
             if ($tab === 'canceladas') {
                 $query->where('estado', 'cancelado');
             } elseif ($tab === 'finalizadas') {
-                $query->whereIn('estado', ['finalizado', 'enviado']);
+                $query->where('estado', 'finalizado');
             } else {
-                $query->whereNotIn('estado', ['cancelado', 'finalizado', 'enviado']);
+                // "Enviado" = en camino con el repartidor: sigue activa hasta que se entrega
+                $query->whereNotIn('estado', ['cancelado', 'finalizado']);
             }
         }
 
@@ -86,8 +87,8 @@ class VentaController extends Controller
             'ventas_hoy'       => (int)   $statsHoy->cantidad,
             'recaudacion'      => (float) $statsHoy->recaudacion,
             'promedio_ticket'  => (float) $statsHoy->promedio,
-            'total_activas'    => Venta::whereNotIn('estado', ['cancelado', 'finalizado', 'enviado'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
-            'total_finalizadas'=> Venta::whereIn('estado', ['finalizado', 'enviado'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'total_activas'    => Venta::whereNotIn('estado', ['cancelado', 'finalizado'])->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
+            'total_finalizadas'=> Venta::where('estado', 'finalizado')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
             'total_canceladas' => Venta::where('estado', 'cancelado')->when($sucursalId, fn($q) => $q->where('sucursal_id', $sucursalId))->count(),
         ];
 
@@ -626,10 +627,12 @@ class VentaController extends Controller
             return back()->with('error', 'Este pedido viaja en el envío #TK-' . str_pad($cobro->id, 6, '0', STR_PAD_LEFT) . '. El estado y el código de seguimiento se gestionan desde ese cobro.');
         }
 
-        // En un cobro de envio ya despachado se puede corregir el codigo de
+        $esCorreo = in_array($venta->tipo_envio, ['correo_nacional', 'correo_sucursal']);
+
+        // En un envio por correo ya despachado se puede corregir el codigo de
         // seguimiento (ej: el paquete volvio y se reenvio) sin ser Administrador.
-        $soloCambiaTrackingDeCobro = $venta->esCobroEnvio()
-            && $venta->estado === 'enviado'
+        $soloCambiaTrackingDeCobro = $esCorreo
+            && in_array($venta->estado, ['enviado', 'finalizado'])
             && (!$request->filled('estado') || $request->estado === $venta->estado)
             && (!$request->filled('direccion_envio') || $request->direccion_envio === $venta->direccion_envio);
 
@@ -719,6 +722,21 @@ class VentaController extends Controller
         // Si mandan el tracking (desde el panel de la venta de correo o envío)
         if ($request->exists('tracking_code')) {
             $updates['tracking_code'] = $request->filled('tracking_code') ? trim($request->tracking_code) : null;
+        }
+
+        // Correo: no hay evento de entrega, asi que despachar = finalizar. Al guardar
+        // con el codigo de seguimiento cargado, la venta pasa sola a Finalizado.
+        $esCorreoFinal = in_array($updates['tipo_envio'] ?? $venta->tipo_envio, ['correo_nacional', 'correo_sucursal']);
+        $trackingFinal = array_key_exists('tracking_code', $updates) ? $updates['tracking_code'] : $venta->tracking_code;
+        $estadoFinal   = $updates['estado'] ?? $venta->estado;
+
+        if ($esCorreoFinal) {
+            if ($estadoFinal === 'enviado' && !$trackingFinal) {
+                return back()->with('error', 'Cargá el código de seguimiento para despachar el envío por correo.');
+            }
+            if ($trackingFinal && in_array($estadoFinal, ['en_preparacion', 'enviado'])) {
+                $updates['estado'] = 'finalizado';
+            }
         }
 
         if (!empty($updates)) {

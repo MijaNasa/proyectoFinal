@@ -322,7 +322,8 @@ const abrirEstadoModal = (parada) => {
     if (!props.ruta.activa || props.ruta.estado === 'finalizada') return;
     if (parada.estado === 'entregada') return;
     paradaEditando.value = parada;
-    estadoForm.estado = parada.estado;
+    // "En camino" no se elige a mano (se marca al iniciar el viaje): solo entregada o fallida
+    estadoForm.estado = ['entregada', 'fallida'].includes(parada.estado) ? parada.estado : '';
     estadoForm.observaciones = parada.observaciones ?? '';
 };
 
@@ -1479,7 +1480,7 @@ watch(paradaActiva, () => {
 
                         <form @submit.prevent="submitEstado" class="p-6 space-y-4">
                             <div class="grid grid-cols-2 gap-2">
-                                <button v-for="opt in ['en camino', 'entregada', 'fallida']" :key="opt"
+                                <button v-for="opt in ['entregada', 'fallida']" :key="opt"
                                         type="button" @click="estadoForm.estado = opt"
                                         class="py-2.5 rounded-xl border text-xs font-semibold transition-all capitalize"
                                         :class="estadoForm.estado === opt ? estadoConfig[opt]?.color + ' border-current' : 'border-white/10 text-zinc-400 hover:text-white bg-[#131316]'">
@@ -1494,7 +1495,7 @@ watch(paradaActiva, () => {
 
                             <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
                                 <button type="button" @click="cerrarEstadoModal" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
-                                <button type="submit" :disabled="estadoForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95">
+                                <button type="submit" :disabled="estadoForm.processing || !['entregada', 'fallida'].includes(estadoForm.estado)" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-40">
                                     <span>Confirmar</span>
                                 </button>
                             </div>

@@ -72,6 +72,9 @@ const estadoOpcionesFiltradas = computed(() => {
     return estadoOpciones.filter(e => {
         if (!e.tipos.includes(selectedVenta.value.tipo)) return false;
         if (estadoActual === 'enviado' && e.value === 'finalizado') return false;
+        // Correo: no se pasa a "Enviado"; al guardar con el codigo se finaliza solo
+        if (['correo_nacional', 'correo_sucursal'].includes(selectedVenta.value.tipo_envio)
+            && e.value === 'enviado' && estadoActual !== 'enviado') return false;
         if (e.value === estadoActual) return true;
         return permitidos.includes(e.value);
     });
@@ -604,8 +607,13 @@ const pedidosIncluidos = (v) => v?.consolida_venta_ids
     : [];
 
 // En un cobro ya despachado se puede corregir el codigo (ej: reenvio) aunque no sea admin
+// En un envio por correo ya despachado se puede corregir el codigo (ej: reenvio) aunque no sea admin
+const esVentaCorreo = computed(() =>
+    ['correo_nacional', 'correo_sucursal'].includes(selectedVenta.value?.tipo_envio)
+);
 const puedeEditarTrackingCobro = computed(() =>
-    esCobroEnvio(selectedVenta.value) && selectedVenta.value.estado === 'enviado'
+    esVentaCorreo.value && ['enviado', 'finalizado'].includes(selectedVenta.value.estado)
+    && !selectedVenta.value.envio_conjunto_id
 );
 
 const viewVenta = (venta) => {
@@ -1511,6 +1519,12 @@ onMounted(() => {
                                             placeholder="Ej: SD321876451AR" 
                                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-zinc-800/40" 
                                         />
+                                        <p v-if="esVentaCorreo && ['en_preparacion', 'enviado'].includes(selectedVenta.estado) && !selectedVenta.envio_conjunto_id" class="text-[11px] text-zinc-500 mt-1.5">
+                                            Al guardar con el código cargado, el envío pasa a Finalizado<span v-if="esCobroEnvio(selectedVenta)"> junto con los pedidos incluidos</span>.
+                                        </p>
+                                        <p v-else-if="puedeEditarTrackingCobro && !selectedVenta.envio_conjunto_id" class="text-[11px] text-zinc-500 mt-1.5">
+                                            Podés corregir el código si el paquete se reenvía.
+                                        </p>
                                     </div>
                                 </div>
                             </div>

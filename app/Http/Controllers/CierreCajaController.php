@@ -37,13 +37,9 @@ class CierreCajaController extends Controller
             abort(403);
         }
 
-        $yaExiste = CierreCaja::where('sucursal_id', $request->sucursal_id)
-            ->where('fecha', $request->fecha)
-            ->exists();
-
-        if ($yaExiste) {
+        if ($this->cierreExistente($request->sucursal_id, $request->fecha)) {
             return back()->withErrors([
-                'fecha' => 'Ya existe un cierre de caja para esta sucursal en esa fecha.',
+                'fecha' => 'Ya se hizo el cierre de caja de esta sucursal para el ' . \Carbon\Carbon::parse($request->fecha)->format('d/m/Y') . '. Para hacer uno nuevo, un administrador tiene que reabrir la caja.',
             ]);
         }
 
@@ -76,9 +72,26 @@ class CierreCajaController extends Controller
             abort(403);
         }
 
+        $cierre = $this->cierreExistente($request->sucursal_id, $request->fecha);
+
         return response()->json([
-            'monto_sistema' => $this->calcularMontoEsperado($request->sucursal_id, $request->fecha),
+            'monto_sistema'    => $this->calcularMontoEsperado($request->sucursal_id, $request->fecha),
+            // Si ya hay cierre ese dia, el formulario lo avisa y no deja guardar otro
+            'cierre_existente' => $cierre ? [
+                'id'         => $cierre->id,
+                'usuario'    => trim(($cierre->user->name ?? '') . ' ' . ($cierre->user->apellido ?? '')),
+                'monto_real' => (float) $cierre->monto_real,
+                'hora'       => $cierre->created_at?->timezone(config('app.timezone'))->format('H:i'),
+            ] : null,
         ]);
+    }
+
+    private function cierreExistente(int|string $sucursalId, string $fecha): ?CierreCaja
+    {
+        return CierreCaja::with('user:id,name,apellido')
+            ->where('sucursal_id', $sucursalId)
+            ->whereDate('fecha', $fecha)
+            ->first();
     }
 
     private function calcularMontoEsperado(int|string $sucursalId, string $fecha): float
