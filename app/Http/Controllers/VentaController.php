@@ -803,6 +803,9 @@ class VentaController extends Controller
 
                 if ($tienePreventas) {
                     $nuevoEstado = 'en_preventa';
+                    // Pago confirmado: si hace falta un traslado, arranca ya, en
+                    // paralelo con la espera de la preventa.
+                    $fresh->activarTrasladosPendientes();
                 } else {
                     // Verify if there are pending transfers
                     $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $fresh->id)->exists();

@@ -206,31 +206,52 @@ class Venta extends Model
             $stocks[$libroId]->decrement('cantidad_disponible', $cantidad);
         }
 
-        $tieneTraslados = TransferenciaStock::where('venta_id', $this->id)->exists();
-        $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
+        // El traslado (si hacia falta) corre en paralelo con la preventa: si ya
+        // llego, la venta queda lista; si todavia no, espera el traslado.
+        $trasladosPorLlegar = TransferenciaStock::where('venta_id', $this->id)
+            ->whereNotIn('estado', ['completado', 'cancelado'])
+            ->exists();
 
-        if (!$tieneTraslados) {
-            if ($this->tipo_envio === 'retiro') {
-                $nuevoEstado = 'listo_para_retiro';
-            } elseif ($this->tipo_envio === 'acumulacion') {
-                $nuevoEstado = 'acumulado';
-            }
-        }
+        $this->update(['estado' => $trasladosPorLlegar ? 'esperando_traslado' : $this->estadoListoParaEntregar()]);
 
-        $this->update(['estado' => $nuevoEstado]);
-
-        if ($tieneTraslados) {
-            TransferenciaStock::where('venta_id', $this->id)
-                ->where('estado', 'pendiente')
-                ->update(['estado' => 'pendiente_envio']);
-        }
-
-        if ($tieneTraslados && $notificarTraslados) {
-            $usuariosNotificar = \App\Notifications\TrasladoPendienteVenta::destinatarios($this);
-            \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($this));
+        if ($trasladosPorLlegar) {
+            // Por si alguno seguia en espera (no deberia, se activan al confirmar el pago)
+            $this->activarTrasladosPendientes($notificarTraslados);
         }
 
         return true;
+    }
+
+    /**
+     * Estado al que pasa la venta cuando ya tiene todo (stock, preventa y
+     * traslados): retiro -> listo para retirar; acumulacion -> acumulado;
+     * cualquier envio (reparto o correo) -> en preparacion.
+     */
+    public function estadoListoParaEntregar(): string
+    {
+        return match ($this->tipo_envio) {
+            'retiro'      => 'listo_para_retiro',
+            'acumulacion' => 'acumulado',
+            default       => 'en_preparacion',
+        };
+    }
+
+    /**
+     * Activa los traslados de esta venta que estaban en espera (se crean asi
+     * mientras el pago no esta confirmado) para que aparezcan en Logistica.
+     * Se llama al confirmar el pago, aunque la venta tenga una preventa:
+     * el tomo viaja mientras se espera la preventa.
+     */
+    public function activarTrasladosPendientes(bool $notificar = true): void
+    {
+        $activados = TransferenciaStock::where('venta_id', $this->id)
+            ->where('estado', 'pendiente')
+            ->update(['estado' => 'pendiente_envio']);
+
+        if ($activados > 0 && $notificar) {
+            $usuariosNotificar = \App\Notifications\TrasladoPendienteVenta::destinatarios($this);
+            \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($this));
+        }
     }
 
     /**

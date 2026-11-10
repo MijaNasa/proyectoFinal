@@ -350,19 +350,12 @@ class LogisticaController extends Controller
 
                 if ($pendingTransfers === 0) {
                     $venta = \App\Models\Venta::find($traslado->venta_id);
+                    // Si la venta todavia espera una preventa, no se toca: avanza sola
+                    // cuando llegue la preventa (el traslado ya va a estar completo).
                     if ($venta && $venta->estado === 'esperando_traslado') {
-                        if ($venta->tipo_envio === 'domicilio') {
-                            $venta->update(['estado' => 'en_preparacion']);
-                        } elseif ($venta->tipo_envio === 'acumulacion') {
-                            // Una venta en acumulacion que necesito traslado no
-                            // queda lista para retirar - vuelve a "acumulado",
-                            // esperando que el cliente/empleado decida envio o
-                            // retiro mas adelante (igual que si nunca hubiera
-                            // necesitado traslado).
-                            $venta->update(['estado' => 'acumulado']);
-                        } else {
-                            $venta->update(['estado' => 'listo_para_retiro']);
-                        }
+                        // retiro -> listo para retirar; acumulacion -> acumulado;
+                        // reparto o correo -> en preparacion
+                        $venta->update(['estado' => $venta->estadoListoParaEntregar()]);
                     }
 
                     TrasladoPendienteVenta::marcarLeidasSiCompletado($traslado->venta_id);

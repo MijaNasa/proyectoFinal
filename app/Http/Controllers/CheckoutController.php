@@ -573,6 +573,12 @@ class CheckoutController extends Controller
                     }
                 }
 
+                // Pagado en el momento (saldo a favor): los traslados arrancan ya,
+                // tambien si la venta espera una preventa (van en paralelo).
+                if ($estado !== 'pendiente_pago') {
+                    $venta->activarTrasladosPendientes();
+                }
+
                 // Si la preventa ya tiene stock en la sucursal, se libera en el momento
                 if ($estado === 'en_preventa') {
                     $venta->intentarLiberarPreventa();
