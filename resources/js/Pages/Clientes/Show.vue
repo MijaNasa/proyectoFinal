@@ -7,10 +7,8 @@ import Swal from 'sweetalert2';
 
 const props = defineProps({
     cliente: Object,
-    ventas:  Object,
+    ventas:  Array,
     canceladas: Object,
-    filtroCompras: { type: String, default: 'todas' },
-    conteoCompras: { type: Object, default: () => ({ todas: 0, pendientes: 0, acumulados: 0, finalizadas: 0 }) },
     pagos:   Array,
     stats:   Object,
     libro_masters: Array,
@@ -50,9 +48,31 @@ const toggleCompra = (id) => {
     else comprasAbiertas.value.push(id);
 };
 
+// Filtro y paginado en la pantalla, al instante (sin recargar)
+const filtroCompras = ref('todas');
+const cumpleFiltro = (v, f) => {
+    if (f === 'pendientes')  return v.estado !== 'finalizado';
+    if (f === 'acumulados')  return v.motivo_pendiente === 'Acumulación';
+    if (f === 'finalizadas') return v.estado === 'finalizado';
+    return true;
+};
+const conteoCompras = computed(() => Object.fromEntries(
+    filtrosCompras.map(f => [f.key, (props.ventas || []).filter(v => cumpleFiltro(v, f.key)).length])
+));
+const comprasFiltradas = computed(() => (props.ventas || []).filter(v => cumpleFiltro(v, filtroCompras.value)));
+
+const COMPRAS_POR_PAGINA = 15;
+const paginaCompras = ref(1);
+const totalPaginasCompras = computed(() => Math.max(1, Math.ceil(comprasFiltradas.value.length / COMPRAS_POR_PAGINA)));
+const comprasPagina = computed(() => {
+    const inicio = (paginaCompras.value - 1) * COMPRAS_POR_PAGINA;
+    return comprasFiltradas.value.slice(inicio, inicio + COMPRAS_POR_PAGINA);
+});
+watch(totalPaginasCompras, (total) => { if (paginaCompras.value > total) paginaCompras.value = total; });
+
 const cambiarFiltroCompras = (f) => {
-    if (f === props.filtroCompras) return;
-    router.get(route('clientes.show', props.cliente.id), { filtro: f, tabActiva: 'compras' }, { preserveState: true, preserveScroll: true });
+    filtroCompras.value = f;
+    paginaCompras.value = 1;
 };
 
 const cambiarTab = (tab) => {
@@ -464,13 +484,13 @@ const estadoConfig = {
                         </button>
                     </div>
 
-                    <div v-if="ventas.data.length === 0" class="bg-[#131316] border border-white/5 rounded-2xl p-12 text-center text-zinc-500 italic">
+                    <div v-if="comprasFiltradas.length === 0" class="bg-[#131316] border border-white/5 rounded-2xl p-12 text-center text-zinc-500 italic">
                         {{ filtroCompras === 'todas' ? 'Este cliente no tiene compras registradas.' : 'No hay compras con este filtro.' }}
                     </div>
 
                     <div v-else class="space-y-4">
                         <div
-                            v-for="venta in ventas.data"
+                            v-for="venta in comprasPagina"
                             :key="venta.id"
                             class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl"
                         >
@@ -516,16 +536,11 @@ const estadoConfig = {
                             </div>
                         </div>
 
-                        <!-- Paginación ventas -->
-                        <div v-if="ventas.links?.length > 3" class="flex justify-center gap-2 mt-6">
-                            <Link
-                                v-for="link in ventas.links"
-                                :key="link.label"
-                                :href="(link.url || '#') + '&tabActiva=compras'"
-                                class="px-4 py-2 rounded-xl border border-white/5 transition-all text-xs font-semibold"
-                                :class="{'bg-white text-black border-white shadow-md': link.active, 'text-zinc-500 hover:text-white bg-white/5': !link.active && link.url, 'text-zinc-600 cursor-not-allowed': !link.url}"
-                                v-html="decodeLabel(link.label)"
-                            ></Link>
+                        <!-- Paginado (15 por pagina, sin recargar) -->
+                        <div v-if="totalPaginasCompras > 1" class="flex items-center justify-between gap-3 mt-6 text-xs font-semibold">
+                            <button type="button" @click="paginaCompras--" :disabled="paginaCompras === 1" class="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">Anterior</button>
+                            <span class="text-zinc-400">Página {{ paginaCompras }} de {{ totalPaginasCompras }}</span>
+                            <button type="button" @click="paginaCompras++" :disabled="paginaCompras === totalPaginasCompras" class="px-4 py-2 rounded-xl border border-white/10 bg-white/5 text-zinc-300 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed">Siguiente</button>
                         </div>
                     </div>
                 </div>

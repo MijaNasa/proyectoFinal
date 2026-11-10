@@ -171,38 +171,19 @@ class ClienteController extends Controller
             ->with('message', 'Cliente actualizado con éxito');
     }
 
-    public function show(Request $request, Cliente $cliente)
+    public function show(Cliente $cliente)
     {
         $cliente->load(['user', 'tipoCliente', 'suscripciones.serie', 'suscripciones.sucursal']);
 
-        // Compras con filtro (todas / pendientes / acumulados / finalizadas). Las
-        // canceladas siguen en su pestaña aparte.
-        $filtro = in_array($request->input('filtro'), ['pendientes', 'acumulados', 'finalizadas'])
-            ? $request->input('filtro')
-            : 'todas';
-        $baseCompras = fn () => Venta::where('cliente_id', $cliente->id)->where('estado', '!=', 'cancelado');
-        $aplicarFiltro = function ($q, $f) {
-            return match ($f) {
-                'pendientes'  => $q->where('estado', '!=', 'finalizado'),
-                'acumulados'  => $q->where('motivo_pendiente', 'Acumulación'),
-                'finalizadas' => $q->where('estado', 'finalizado'),
-                default       => $q,
-            };
-        };
-        $conteoCompras = [];
-        foreach (['todas', 'pendientes', 'acumulados', 'finalizadas'] as $f) {
-            $conteoCompras[$f] = $aplicarFiltro($baseCompras(), $f)->count();
-        }
-
-        $ventas = $aplicarFiltro(
-            Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
-                ->where('cliente_id', $cliente->id)
-                ->where('estado', '!=', 'cancelado'),
-            $filtro
-        )
+        // Todas las compras no canceladas: el filtro (todas / pendientes /
+        // acumulados / finalizadas) y el paginado se hacen en la pantalla, sin
+        // recargar. Las canceladas siguen en su pestaña aparte.
+        $ventas = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
+            ->where('cliente_id', $cliente->id)
+            ->where('estado', '!=', 'cancelado')
             ->latest('fecha')
-            ->paginate(15)
-            ->withQueryString();
+            ->latest('id')
+            ->get();
 
         $canceladas = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
             ->where('cliente_id', $cliente->id)
@@ -250,8 +231,8 @@ class ClienteController extends Controller
         $ultima_compra = Venta::where('cliente_id', $cliente->id)->latest('fecha')->value('fecha');
 
         $stats = [
-            'total_comprado' => (float) $baseCompras()->sum('total'),
-            'cantidad_ventas' => $conteoCompras['todas'],
+            'total_comprado' => (float) $ventas->sum('total'),
+            'cantidad_ventas' => $ventas->count(),
             'total_pagado' => $totalPagado,
             'ultima_compra' => $ultima_compra,
         ];
@@ -260,8 +241,6 @@ class ClienteController extends Controller
             'cliente' => $cliente,
             'ventas' => $ventas,
             'canceladas' => $canceladas,
-            'filtroCompras' => $filtro,
-            'conteoCompras' => $conteoCompras,
             'pagos' => $pagos,
             'stats' => $stats,
             'libro_masters' => \App\Models\LibroMaster::orderBy('titulo')->get(['id', 'titulo']),
