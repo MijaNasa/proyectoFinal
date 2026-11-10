@@ -4,7 +4,6 @@ import { Head, Link, useForm, router, usePage } from '@inertiajs/vue3';
 import { ref, computed } from 'vue';
 import { decodeLabel } from '@/composables/useDecodeLabel';
 import Swal from 'sweetalert2';
-import DireccionAutocomplete from '@/Components/DireccionAutocomplete.vue';
 
 const props = defineProps({
     cliente: Object,
@@ -68,37 +67,6 @@ const submitPago = () => {
             darkSwal.fire({
                 title: '¡Pago registrado!',
                 text: 'El pago fue registrado y el saldo actualizado.',
-                icon: 'success',
-                timer: 1500,
-                showConfirmButton: false
-            });
-        }
-    });
-};
-
-const showConsolidarModal = ref(false);
-const consolidarForm = useForm({
-    modo: 'domicilio',
-    direccion_envio: '',
-    latitud: null,
-    longitud: null,
-});
-
-const onSeleccionarDireccionConsolidar = (f) => {
-    const [lon, lat] = f.geometry?.coordinates ?? [];
-    consolidarForm.latitud  = lat ?? null;
-    consolidarForm.longitud = lon ?? null;
-};
-
-const submitConsolidar = () => {
-    consolidarForm.post(route('clientes.consolidar', props.cliente.id), {
-        preserveScroll: true,
-        onSuccess: () => {
-            showConsolidarModal.value = false;
-            consolidarForm.reset();
-            darkSwal.fire({
-                title: '¡Consolidado!',
-                text: 'Los pedidos fueron agrupados correctamente.',
                 icon: 'success',
                 timer: 1500,
                 showConfirmButton: false
@@ -312,6 +280,7 @@ const estadoConfig = {
     en_preparacion:     { label: 'En preparación',     bgDot: 'bg-sky-400' },
     esperando_traslado: { label: 'Esperando traslado', bgDot: 'bg-purple-400' },
     listo_para_retiro:  { label: 'Listo para retiro',  bgDot: 'bg-emerald-400' },
+    acumulado:          { label: 'Acumulado',          bgDot: 'bg-amber-400' },
     enviado:            { label: 'Enviado',             bgDot: 'bg-indigo-400' },
     entregado:          { label: 'Entregado',           bgDot: 'bg-emerald-400' },
     retirado:           { label: 'Retirado',            bgDot: 'bg-emerald-400' },
@@ -576,12 +545,6 @@ const estadoConfig = {
                     </div>
                     
                     <div v-else class="space-y-4">
-                        <div class="flex justify-end mb-2">
-                            <button @click="showConsolidarModal = true" class="px-5 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95">
-                                GENERAR ENVÍO CONSOLIDADO ({{ acumulados.length }} TICKETS)
-                            </button>
-                        </div>
-                        
                         <div v-for="venta in acumulados" :key="venta.id" class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/5 bg-white/[0.01]">
                                 <div class="flex items-center gap-3">
@@ -867,56 +830,6 @@ const estadoConfig = {
                                 <button type="button" @click="showPagoModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
                                 <button type="submit" :disabled="pagoForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
                                     <span>CONFIRMAR PAGO</span>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </Teleport>
-
-        <!-- Modal Consolidar Pedidos -->
-        <Teleport to="body">
-            <div v-if="showConsolidarModal" class="page-clientes">
-                <div class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md" @click="showConsolidarModal = false" />
-                <div class="fixed inset-0 z-[110] flex items-center justify-center p-4 pointer-events-none">
-                    <div class="relative w-full max-w-lg bg-[#0d0d0f] border border-white/10 rounded-2xl overflow-y-auto max-h-[85vh] shadow-2xl pointer-events-auto">
-                        <div class="bg-[#131316] p-6 border-b border-white/5 flex justify-between items-center">
-                            <h3 class="text-sm font-bold text-white uppercase tracking-wider">
-                                Generar Consolidado
-                            </h3>
-                            <button @click="showConsolidarModal = false" class="text-zinc-400 hover:text-white transition-colors">
-                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
-                            </button>
-                        </div>
-                        
-                        <form @submit.prevent="submitConsolidar" class="p-6 space-y-4">
-                            <div class="space-y-4">
-                                <div class="bg-[#131316] border border-white/5 p-4 rounded-xl">
-                                    <p class="text-xs font-semibold text-zinc-400 mb-1">Total a consolidar:</p>
-                                    <p class="text-2xl font-bold text-white">{{ acumulados.length }} Tickets</p>
-                                </div>
-                                
-                                <div>
-                                    <label class="block text-xs font-semibold text-zinc-400 mb-1">Dirección de Envío Consolidada *</label>
-                                    <DireccionAutocomplete
-                                        v-model="consolidarForm.direccion_envio"
-                                        @select="onSeleccionarDireccionConsolidar"
-                                        class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white font-medium focus:outline-none focus:border-white/30"
-                                        :class="{ 'border-rose-500': consolidarForm.errors.direccion_envio }"
-                                        placeholder="Ej: San Martín 123, CABA..."
-                                    />
-                                    <p class="text-xs text-zinc-500 font-medium mt-2">
-                                        Ingresá o verificá la dirección a la cual se enviarán todos estos pedidos.
-                                    </p>
-                                    <p v-if="consolidarForm.errors.direccion_envio" class="text-rose-400 text-xs font-semibold mt-1">{{ consolidarForm.errors.direccion_envio }}</p>
-                                </div>
-                            </div>
-
-                            <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
-                                <button type="button" @click="showConsolidarModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
-                                <button type="submit" :disabled="consolidarForm.processing" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
-                                    <span>Confirmar</span>
                                 </button>
                             </div>
                         </form>
