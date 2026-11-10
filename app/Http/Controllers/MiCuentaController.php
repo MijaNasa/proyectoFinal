@@ -44,7 +44,7 @@ class MiCuentaController extends Controller
                 });
         }
 
-        $pedidos = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
+        $pedidos = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre', 'transacciones'])
             ->when($cliente, fn($q) => $q->where('cliente_id', $cliente->id), fn($q) => $q->whereRaw('1 = 0'))
             ->where('estado', '!=', 'cancelado')
             ->when($pestana === 'finalizados',
@@ -57,6 +57,9 @@ class MiCuentaController extends Controller
             ->through(fn($v) => [
                 'id'         => $v->id,
                 'es_cobro_envio'    => $v->detalles->isEmpty() && (float) $v->costo_envio > 0,
+                // Pago con saldo a favor (total o parcial) y lo que falta pagar
+                'pagado_saldo'      => (float) $v->transacciones->where('tipo', 'ingreso')->where('metodo_pago', 'Cuenta Corriente')->sum('monto'),
+                'restante'          => max(0, round((float) $v->total - (float) $v->transacciones->where('tipo', 'ingreso')->sum('monto'), 2)),
                 'pedidos_incluidos' => $v->consolida_venta_ids
                     ? array_values(array_filter(array_map('intval', explode(',', $v->consolida_venta_ids))))
                     : [],

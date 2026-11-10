@@ -14,7 +14,7 @@ const whatsappUrl = computed(() => {
     const phone = props.whatsappNumber || '5493414245566';
     const cleanPhone = phone.replace(/\D/g, '');
     const clientName = props.venta.cliente_nombre ? ` de ${props.venta.cliente_nombre}` : '';
-    const text = encodeURIComponent(`¡Hola Puro Cómic! Te adjunto el comprobante de transferencia para mi pedido #${props.venta.id}${clientName} por ${formatPrecio(props.venta.total)}.`);
+    const text = encodeURIComponent(`¡Hola Puro Cómic! Te adjunto el comprobante de transferencia para mi pedido #${props.venta.id}${clientName} por ${formatPrecio(props.venta.saldo_usado > 0 ? props.venta.restante : props.venta.total)}.`);
     return `https://wa.me/${cleanPhone}?text=${text}`;
 });
 
@@ -164,9 +164,19 @@ const config = computed(() => {
                             </span>
                         </div>
                         <div class="flex justify-between items-baseline pt-3 border-t border-white/5">
-                            <span class="text-sm font-bold uppercase tracking-wider text-white">Total Abonado</span>
+                            <span class="text-sm font-bold uppercase tracking-wider text-white">{{ venta.saldo_usado > 0 ? 'Total del Pedido' : 'Total Abonado' }}</span>
                             <span class="text-2xl font-bold font-mono text-white">{{ formatPrecio(venta.total) }}</span>
                         </div>
+                        <template v-if="venta.saldo_usado > 0">
+                            <div class="flex justify-between items-center text-emerald-400 font-semibold">
+                                <span>Pagado con saldo a favor</span>
+                                <span class="font-mono font-bold">{{ formatPrecio(venta.saldo_usado) }}</span>
+                            </div>
+                            <div v-if="venta.restante > 0" class="flex justify-between items-center">
+                                <span class="text-zinc-300 font-semibold">{{ venta.metodo_pago === 'Transferencia' ? 'Resta transferir' : 'Resta abonar' }}</span>
+                                <span class="font-mono font-bold text-white">{{ formatPrecio(venta.restante) }}</span>
+                            </div>
+                        </template>
                     </div>
                 </div>
 
@@ -176,7 +186,9 @@ const config = computed(() => {
                         <span class="text-2xl">🏦</span>
                         <div>
                             <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400">Datos Bancarios para Transferencia</h3>
-                            <p class="text-zinc-400 text-xs mt-0.5">Transferí el monto total para procesar el despacho de tu pedido.</p>
+                            <p class="text-zinc-400 text-xs mt-0.5">
+                                Transferí {{ venta.saldo_usado > 0 ? formatPrecio(venta.restante) + ' (el resto ya lo pagaste con tu saldo)' : 'el monto total' }} para procesar el despacho de tu pedido.
+                            </p>
                         </div>
                     </div>
 

@@ -142,6 +142,7 @@ class CheckoutController extends Controller
             'latitud'               => 'nullable|numeric|between:-90,90',
             'longitud'              => 'nullable|numeric|between:-180,180',
             'medio_pago'            => 'required|in:Efectivo,Tarjeta,Transferencia,Cuenta Corriente',
+            'usar_saldo'            => 'nullable|boolean',
         ];
         
         $messages = [
@@ -412,6 +413,24 @@ class CheckoutController extends Controller
                     $estado = 'pendiente_pago'; // Se reserva stock abajo
                 }
 
+                // Saldo a favor parcial: se usa todo el saldo disponible y el resto
+                // se paga con el medio elegido (Mercado Pago cobra solo la diferencia;
+                // en transferencia/efectivo, al confirmar el pago se registra lo que falta).
+                // Solo para clientes con sesion iniciada y saldo positivo.
+                if ($request->boolean('usar_saldo') && Auth::check() && $cliente && $request->medio_pago !== 'Cuenta Corriente') {
+                    $saldoDisponible = (float) \App\Models\Cliente::whereKey($cliente->id)->lockForUpdate()->value('saldo_actual');
+                    if ($saldoDisponible > 0) {
+                        $montoCC = round(min($saldoDisponible, $total), 2);
+                        if ($montoCC >= $total) {
+                            // El saldo alcanzo para todo (por ejemplo, si cambio desde que cargo la pagina)
+                            $montoMercadoPago = 0;
+                            $estado = 'en_preparacion';
+                        } elseif ($request->medio_pago === 'Tarjeta') {
+                            $montoMercadoPago = round($total - $montoCC, 2);
+                        }
+                    }
+                }
+
                 $venta = Venta::create([
                     'fecha'           => now(),
                     'cliente_id'      => $clienteId,
@@ -449,7 +468,9 @@ class CheckoutController extends Controller
                         'metodo_pago'  => 'Cuenta Corriente',
                         'sucursal_id'  => $sucursal_id,
                         'user_id'      => $userId,
-                        'descripcion'  => "[Pedido Online #{$venta->id}] - Cobrado de Cuenta Corriente",
+                        'descripcion'  => $montoCC < $total
+                            ? "[Pedido Online #{$venta->id}] - Pago parcial con saldo a favor"
+                            : "[Pedido Online #{$venta->id}] - Cobrado de Cuenta Corriente",
                     ]);
                     $cliente->decrement('saldo_actual', $montoCC);
                 }
@@ -459,10 +480,11 @@ class CheckoutController extends Controller
                 if ($estado === 'en_preparacion' || $estado === 'esperando_traslado') {
                     $debeDescontar = true;
                 } elseif (in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) {
-                    // Si es Transferencia o Efectivo y tiene preventa, no descontamos stock aún
-                    if (!$tienePreventas) {
-                        $debeDescontar = true;
-                    }
+                    // Se reservan los tomos con stock aunque el pedido tambien tenga
+                    // preventas ($requerido no incluye las preventas: esas se descuentan
+                    // cuando llega la mercaderia). Antes no se descontaba nada y los
+                    // tomos normales quedaban vendidos sin salir del stock.
+                    $debeDescontar = true;
                 }
 
                 if ($debeDescontar) {
@@ -580,6 +602,7 @@ class CheckoutController extends Controller
                 \Log::info("Checkout: MP_ACCESS_TOKEN no configurado en entorno local. Simulando checkout exitoso para venta #{$venta->id}");
                 return redirect()->route('checkout.success', ['external_reference' => $venta->id]);
             }
+            $venta->devolverSaldoUsado();
             $venta->update(['estado' => 'cancelado']);
             return back()->withErrors([
                 'medio_pago' => 'El pago con Mercado Pago no está disponible temporalmente. Por favor seleccioná Transferencia Bancaria.'
@@ -602,7 +625,7 @@ class CheckoutController extends Controller
                 $items = [
                     [
                         'id'          => 'remainder_' . $venta->id,
-                        'title'       => 'Pago excedente del pedido #' . $venta->id,
+                        'title'       => 'Saldo restante del pedido #' . $venta->id,
                         'quantity'    => 1,
                         'unit_price'  => (float) $montoMercadoPago,
                         'currency_id' => 'ARS',
@@ -643,6 +666,7 @@ class CheckoutController extends Controller
             return Inertia::location($url);
 
         } catch (\Exception $e) {
+            $venta->devolverSaldoUsado();
             $venta->update(['estado' => 'cancelado']);
             \Log::error('Checkout: error al crear preferencia MP', [
                 'venta_id' => $venta->id,
@@ -702,6 +726,8 @@ class CheckoutController extends Controller
                 'cliente_nombre'   => trim(($venta->user?->name ?? $venta->cliente?->user?->name ?? '') . ' ' . ($venta->user?->apellido ?? $venta->cliente?->user?->apellido ?? '')),
                 'guest_dni'        => $venta->user?->dni ?? $venta->cliente?->user?->dni,
                 'guest_email'      => $venta->user?->email ?? $venta->cliente?->user?->email,
+                'saldo_usado'      => (float) $venta->transacciones()->where('tipo', 'ingreso')->where('metodo_pago', 'Cuenta Corriente')->sum('monto'),
+                'restante'         => max(0, round($venta->total - $venta->transacciones()->where('tipo', 'ingreso')->sum('monto'), 2)),
             ] : null,
         ]);
     }
@@ -729,6 +755,8 @@ class CheckoutController extends Controller
                 'cliente_nombre'   => trim(($venta->user?->name ?? $venta->cliente?->user?->name ?? '') . ' ' . ($venta->user?->apellido ?? $venta->cliente?->user?->apellido ?? '')),
                 'guest_dni'        => $venta->user?->dni ?? $venta->cliente?->user?->dni,
                 'guest_email'      => $venta->user?->email ?? $venta->cliente?->user?->email,
+                'saldo_usado'      => (float) $venta->transacciones()->where('tipo', 'ingreso')->where('metodo_pago', 'Cuenta Corriente')->sum('monto'),
+                'restante'         => max(0, round($venta->total - $venta->transacciones()->where('tipo', 'ingreso')->sum('monto'), 2)),
             ] : null,
         ]);
     }
@@ -882,11 +910,13 @@ class CheckoutController extends Controller
 
             // Registrar el ingreso de Mercado Pago: sin esto, el comprobante y la caja
             // nunca ven el pago real (calculan el saldo pendiente en base a Transaccion).
-            if (!$fresh->transacciones()->where('tipo', 'ingreso')->exists()) {
+            // Si parte se pago con saldo a favor, se registra solo lo que faltaba.
+            $restanteMp = round($fresh->total - $fresh->transacciones()->where('tipo', 'ingreso')->sum('monto'), 2);
+            if ($restanteMp > 0) {
                 $fresh->transacciones()->create([
                     'fecha'        => now(),
                     'tipo'         => 'ingreso',
-                    'monto'        => $fresh->total,
+                    'monto'        => $restanteMp,
                     'metodo_pago'  => 'Mercado Pago',
                     'sucursal_id'  => $fresh->sucursal_id,
                     'user_id'      => $fresh->user_id,

@@ -311,6 +311,28 @@ class Venta extends Model
         return $this->hasMany(\App\Models\ParadaReparto::class);
     }
 
+    /**
+     * Devuelve al cliente el saldo de cuenta corriente que se uso para pagar
+     * esta venta (pago total o parcial con saldo a favor). Se usa cuando el
+     * pedido se cancela antes de que se tocara el stock (ej: fallo al abrir
+     * Mercado Pago).
+     */
+    public function devolverSaldoUsado(): void
+    {
+        if (!$this->cliente) {
+            return;
+        }
+
+        $monto = (float) $this->transacciones()
+            ->where('tipo', 'ingreso')
+            ->where('metodo_pago', 'Cuenta Corriente')
+            ->sum('monto');
+
+        if ($monto > 0) {
+            $this->cliente->increment('saldo_actual', $monto);
+        }
+    }
+
     public function cancelarConRestitucionDeStock()
     {
         if ($this->estado === 'cancelado') {
@@ -319,8 +341,25 @@ class Venta extends Model
 
         // Si la venta está asociada a traslados (TransferenciaStock)
         $traslados = \App\Models\TransferenciaStock::where('venta_id', $this->id)->get();
-        
+
+        $this->loadMissing('detalles.libro');
+
+        // Solo se devuelve al stock lo que realmente se desconto:
+        // - Online con Mercado Pago todavia sin aprobar: no se desconto nada
+        //   (el stock se descuenta recien cuando MP aprueba el pago).
+        // - Tomos en preventa: se descuentan recien cuando la preventa se libera,
+        //   asi que mientras la venta siga pendiente o esperando preventa, no se devuelven.
+        $mpSinAprobar = $this->tipo === 'online'
+            && $this->estado === 'pendiente_pago'
+            && !in_array($this->metodo_pago, ['Efectivo', 'Transferencia', 'Cuenta Corriente']);
+        $preventaSinLiberar = in_array($this->estado, ['pendiente_pago', 'en_preventa']);
+
         foreach ($this->detalles as $detalle) {
+            $esPreventa = $this->tipo === 'online' && $detalle->libro && $detalle->libro->permite_preventa;
+            if ($esPreventa ? $preventaSinLiberar : $mpSinAprobar) {
+                continue;
+            }
+
             $trasladado = $traslados->where('libro_id', $detalle->libro_id)->sum('cantidad');
             $local = $detalle->cantidad - $trasladado;
             

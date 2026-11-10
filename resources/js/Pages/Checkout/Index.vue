@@ -95,6 +95,16 @@ const totalFinal = computed(() => {
     return Math.max(0, base) + costoEnvio.value;
 });
 
+// --- Saldo a favor (cuenta corriente) ---
+// Se puede usar aunque no alcance: se descuenta todo el saldo y el resto se
+// paga con el medio elegido. Si alcanza para todo, no hace falta otro medio.
+const saldoNum      = computed(() => Number(props.saldo_actual || 0));
+const usarSaldo     = ref(false);
+const saldoAplicado = computed(() => usarSaldo.value ? Math.min(Math.max(saldoNum.value, 0), totalFinal.value) : 0);
+const restanteAPagar = computed(() => Math.max(0, Math.round((totalFinal.value - saldoAplicado.value) * 100) / 100));
+const saldoCubreTodo = computed(() => usarSaldo.value && saldoAplicado.value > 0 && restanteAPagar.value <= 0);
+const pagaConMercadoPago = computed(() => !saldoCubreTodo.value && medioPago.value === 'Tarjeta');
+
 const direccionHabilitada = computed(() => {
     if (provincia.value === 'Santa Fe') {
         if (localidad.value === '__otra__') return !!otraLocalidadSantaFe.value.trim();
@@ -349,7 +359,8 @@ const confirmar = () => {
         direccion_envio:       (tipoEnvio.value === 'domicilio' || tipoEnvio.value === 'correo_sucursal') ? direccion : null,
         latitud:               tipoEnvio.value === 'domicilio' ? latitud.value : null,
         longitud:              tipoEnvio.value === 'domicilio' ? longitud.value : null,
-        medio_pago:            medioPago.value,
+        medio_pago:            saldoCubreTodo.value ? 'Cuenta Corriente' : medioPago.value,
+        usar_saldo:            usarSaldo.value && saldoAplicado.value > 0 && !saldoCubreTodo.value,
         guest_nombre:          isAuthenticated.value ? null : guestNombre.value,
         guest_apellido:        isAuthenticated.value ? null : guestApellido.value,
         guest_dni:             isAuthenticated.value ? null : guestDni.value,
@@ -844,7 +855,30 @@ const confirmar = () => {
                                 Método de Pago
                             </h2>
 
-                            <div class="space-y-3">
+                            <!-- Usar saldo a favor -->
+                            <label
+                                v-if="$page.props.auth?.user && saldoNum > 0"
+                                class="flex items-start gap-4 p-4 mb-3 rounded-xl border cursor-pointer transition-all"
+                                :class="usarSaldo ? 'border-emerald-500/40 bg-emerald-500/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
+                            >
+                                <input type="checkbox" v-model="usarSaldo" class="mt-1 accent-white" />
+                                <div class="flex-1">
+                                    <p class="font-bold text-sm text-white">🏛️ Usar mi saldo a favor</p>
+                                    <p class="text-zinc-400 text-xs mt-0.5">
+                                        Tenés <span class="text-emerald-400 font-bold font-mono">{{ formatPrecio(saldoNum) }}</span> disponibles.
+                                    </p>
+                                    <p v-if="usarSaldo && !saldoCubreTodo" class="text-xs text-zinc-300 mt-1.5">
+                                        Pagás <span class="font-bold font-mono text-emerald-400">{{ formatPrecio(saldoAplicado) }}</span> con tu saldo y
+                                        <span class="font-bold font-mono text-white">{{ formatPrecio(restanteAPagar) }}</span> con el medio que elijas abajo.
+                                    </p>
+                                    <p v-else-if="saldoCubreTodo" class="text-xs text-emerald-400 font-semibold mt-1.5">
+                                        Tu saldo cubre el total del pedido.
+                                    </p>
+                                </div>
+                            </label>
+
+                            <div v-if="!saldoCubreTodo" class="space-y-3">
+                                <p v-if="usarSaldo" class="text-xs font-semibold text-zinc-400">¿Cómo pagás los {{ formatPrecio(restanteAPagar) }} restantes?</p>
                                 <label
                                     class="flex items-start gap-4 p-4 rounded-xl border cursor-pointer transition-all"
                                     :class="medioPago === 'Tarjeta' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f] hover:border-white/20'"
@@ -891,34 +925,13 @@ const confirmar = () => {
                                     </div>
                                 </label>
 
-                                <label
-                                    v-if="$page.props.auth?.user"
-                                    class="flex items-start gap-4 p-4 rounded-xl border transition-all"
-                                    :class="[
-                                        medioPago === 'Cuenta Corriente' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#0d0d0f]',
-                                        (saldo_actual < total) ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:border-white/20'
-                                    ]"
-                                >
-                                    <input
-                                        type="radio"
-                                        v-model="medioPago"
-                                        value="Cuenta Corriente"
-                                        class="mt-1 accent-white"
-                                        :disabled="saldo_actual < total"
-                                    />
-                                    <div class="flex-1">
-                                        <p class="font-bold text-sm text-white" :class="{ 'text-zinc-400': saldo_actual < total }">🏛️ Cuenta Corriente</p>
-                                        <p class="text-zinc-400 text-xs mt-0.5">
-                                            Usá tu saldo a favor: <span class="text-emerald-400 font-bold font-mono">{{ formatPrecio(saldo_actual) }}</span>.
-                                        </p>
-                                        <p v-if="saldo_actual < total" class="text-rose-400 font-bold text-xs mt-1 uppercase tracking-wider">
-                                            Saldo insuficiente
-                                        </p>
-                                    </div>
-                                </label>
+                                <!-- Saldo de cuenta corriente (con sesion) -->
+                                <div v-if="$page.props.auth?.user && saldoNum < 0" class="p-4 rounded-xl border border-rose-500/20 bg-rose-500/5 text-xs text-rose-300 font-medium leading-relaxed">
+                                    Tenés un saldo pendiente de <span class="font-bold font-mono">{{ formatPrecio(Math.abs(saldoNum)) }}</span> en tu cuenta corriente. Podés cancelarlo en el local.
+                                </div>
 
                                 <div
-                                    v-else
+                                    v-if="!$page.props.auth?.user"
                                     class="flex items-start gap-4 p-4 rounded-xl border border-white/10 bg-[#0d0d0f]/60 opacity-80"
                                 >
                                     <div class="mt-0.5 text-base">🏛️</div>
@@ -937,7 +950,7 @@ const confirmar = () => {
 
                             <!-- Advertencia 12h Efectivo -->
                             <transition name="fade">
-                                <div v-if="medioPago === 'Efectivo'" class="mt-4 bg-amber-400/10 border border-amber-400/20 p-4 rounded-xl flex items-start gap-3">
+                                <div v-if="medioPago === 'Efectivo' && !saldoCubreTodo" class="mt-4 bg-amber-400/10 border border-amber-400/20 p-4 rounded-xl flex items-start gap-3">
                                     <span class="text-lg shrink-0">⏳</span>
                                     <div>
                                         <h4 class="text-amber-400 font-bold text-xs uppercase tracking-wider mb-1">Tu reserva expira en 12hs</h4>
@@ -954,10 +967,10 @@ const confirmar = () => {
                         <!-- Info de confirmación y seguridad -->
                         <div class="bg-[#131316] border border-white/5 rounded-2xl p-6 shadow-xl">
                             <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
-                                {{ (medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta'))) ? 'Pasarela de Mercado Pago' : 'Confirmación de Compra' }}
+                                {{ pagaConMercadoPago ? 'Pasarela de Mercado Pago' : 'Confirmación de Compra' }}
                             </p>
                             <p class="text-zinc-400 text-xs leading-relaxed">
-                                {{ (medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta'))) ? 'Al hacer clic en confirmar, serás redirigido a la pasarela oficial de Mercado Pago para procesar tu transacción.' : 'Al hacer clic en confirmar, se registrará el pedido en nuestro sistema y comenzará el procesamiento de despacho.' }}
+                                {{ pagaConMercadoPago ? 'Al hacer clic en confirmar, serás redirigido a la pasarela oficial de Mercado Pago para procesar tu transacción.' : 'Al hacer clic en confirmar, se registrará el pedido en nuestro sistema y comenzará el procesamiento de despacho.' }}
                             </p>
                             <div class="flex items-center gap-2 mt-4">
                                 <svg class="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -1027,6 +1040,17 @@ const confirmar = () => {
                                     <span class="text-sm font-bold uppercase tracking-wider text-white">Total Final</span>
                                     <span class="text-2xl sm:text-3xl font-bold font-mono text-white">{{ formatPrecio(totalFinal) }}</span>
                                 </div>
+
+                                <template v-if="saldoAplicado > 0">
+                                    <div class="flex justify-between items-center text-xs text-emerald-400 font-semibold">
+                                        <span>Saldo a favor aplicado</span>
+                                        <span class="font-mono font-bold">-{{ formatPrecio(saldoAplicado) }}</span>
+                                    </div>
+                                    <div class="flex justify-between items-baseline">
+                                        <span class="text-xs font-bold uppercase tracking-wider text-zinc-300">A pagar ahora</span>
+                                        <span class="text-xl font-bold font-mono text-white">{{ formatPrecio(restanteAPagar) }}</span>
+                                    </div>
+                                </template>
                             </div>
 
                             <!-- Botón de Confirmación -->
@@ -1044,7 +1068,7 @@ const confirmar = () => {
                                         {{
                                             procesando 
                                                 ? 'Procesando...' 
-                                                : ((medioPago === 'Tarjeta' || (medioPago === 'Cuenta Corriente' && (saldo_actual - total) < 0 && (metodoPagoExcedente === 'Tarjeta')))
+                                                : (pagaConMercadoPago
                                                     ? 'Pagar con Mercado Pago'
                                                     : 'Confirmar Compra')
                                         }}

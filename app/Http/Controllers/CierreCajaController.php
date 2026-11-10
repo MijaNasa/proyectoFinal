@@ -39,7 +39,7 @@ class CierreCajaController extends Controller
 
         if ($this->cierreExistente($request->sucursal_id, $request->fecha)) {
             return back()->withErrors([
-                'fecha' => 'Ya se hizo el cierre de caja de esta sucursal para el ' . \Carbon\Carbon::parse($request->fecha)->format('d/m/Y') . '. Para hacer uno nuevo, un administrador tiene que reabrir la caja.',
+                'fecha' => 'Ya se hizo el cierre de caja de esta sucursal para el ' . \Carbon\Carbon::parse($request->fecha)->format('d/m/Y') . '. Si te equivocaste, eliminá el cierre anterior desde el historial y volvé a crearlo.',
             ]);
         }
 
@@ -114,11 +114,18 @@ class CierreCajaController extends Controller
     public function destroy(CierreCaja $cierreCaja)
     {
         $user = \Auth::user();
-        if (!$user->esAdmin() && !$user->esGerente()) {
-            abort(403, 'Sólo los administradores pueden reabrir una caja.');
-        }
-        if (!$user->esAdmin() && $user->empleado?->sucursal_id !== $cierreCaja->sucursal_id) {
-            abort(403, 'No podés reabrir la caja de otra sucursal.');
+
+        // Admin: cualquier cierre. Gerente: los de su sucursal.
+        // Empleado: solo el cierre de HOY de su sucursal (para corregir un error
+        // eliminandolo y volviendo a crearlo); los dias anteriores no.
+        if (!$user->esAdmin()) {
+            if ($user->empleado?->sucursal_id !== $cierreCaja->sucursal_id) {
+                abort(403, 'No podés eliminar el cierre de caja de otra sucursal.');
+            }
+            $esDeHoy = substr((string) $cierreCaja->fecha, 0, 10) === now(config('app.timezone'))->toDateString();
+            if (!$user->esGerente() && !$esDeHoy) {
+                abort(403, 'Solo podés eliminar el cierre de caja de hoy. Para días anteriores, pedíselo a un administrador.');
+            }
         }
 
         $cierreCaja->delete();

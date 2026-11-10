@@ -57,6 +57,7 @@ const openModal = () => {
     if (userSucursalId) {
         form.sucursal_id = userSucursalId;
     }
+    cargarDatosCierre(form.sucursal_id, form.fecha);
     showModal.value = true;
 };
 
@@ -168,13 +169,17 @@ const verDetalleCierre = async (cierre) => {
     }
 };
 
+// Admin/gerente: cualquier cierre. Empleado: solo el de hoy de su sucursal.
+const puedeEliminarCierre = (cierre) =>
+    isAdmin || (String(cierre.sucursal_id) === String(userSucursalId) && String(cierre.fecha).substring(0, 10) === hoyLocal());
+
 const deleteCierre = (id) => {
     darkSwal.fire({
-        title: '¿Reabrir Caja?',
-        text: 'Al eliminar el cierre, el estado de la caja de ese día volverá a estar "Abierta".',
+        title: '¿Eliminar el cierre?',
+        text: 'La caja de ese día vuelve a quedar abierta y podés hacer el cierre de nuevo.',
         icon: 'warning',
         showCancelButton: true,
-        confirmButtonText: 'Sí, Reabrir',
+        confirmButtonText: 'Sí, eliminar',
         cancelButtonText: 'Cancelar'
     }).then((result) => {
         if (result.isConfirmed) {
@@ -182,7 +187,7 @@ const deleteCierre = (id) => {
                 preserveScroll: true,
                 onSuccess: () => {
                     darkSwal.fire({
-                        title: 'Caja Reabierta',
+                        title: 'Cierre eliminado',
                         icon: 'success',
                         timer: 1500,
                         showConfirmButton: false
@@ -233,8 +238,9 @@ const formatCurrency = (value) => {
     return new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
 };
 
-// Auto-calcular monto del sistema
-watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
+// Trae el monto del sistema y si ya hay un cierre ese dia. Se llama al abrir
+// el formulario (aunque la sucursal y la fecha no hayan cambiado) y al cambiarlas.
+const cargarDatosCierre = async (newSucursal, newFecha) => {
     if (newSucursal && newFecha) {
         try {
             const response = await axios.get(route('cierre-cajas.monto-sistema'), {
@@ -251,7 +257,9 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
         form.monto_esperado = 0;
         cierreExistente.value = null;
     }
-});
+};
+
+watch(() => [form.sucursal_id, form.fecha], ([s, f]) => cargarDatosCierre(s, f));
 </script>
 
 <template>
@@ -317,7 +325,7 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
                                             <button @click="verDetalleCierre(cierre)" class="p-2 text-zinc-400 hover:text-white hover:bg-white/5 rounded-xl transition-all" title="Ver Auditoría Completa">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                                             </button>
-                                            <button v-if="isAdmin" @click="deleteCierre(cierre.id)" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" title="Eliminar Cierre / Reabrir Caja">
+                                            <button v-if="puedeEliminarCierre(cierre)" @click="deleteCierre(cierre.id)" class="p-2 text-zinc-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all" title="Eliminar Cierre / Reabrir Caja">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                             </button>
                                         </div>
@@ -385,16 +393,10 @@ watch(() => [form.sucursal_id, form.fecha], async ([newSucursal, newFecha]) => {
                                 </div>
                             </div>
 
-                            <!-- Ya hay un cierre para ese dia y sucursal -->
-                            <div v-if="cierreExistente" class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200 font-medium space-y-1">
-                                <p class="font-bold text-amber-300">Ya se hizo el cierre de caja de este día.</p>
-                                <p>
-                                    Lo registró {{ cierreExistente.usuario || 'un usuario' }}<span v-if="cierreExistente.hora"> a las {{ cierreExistente.hora }}</span>,
-                                    con {{ formatCurrency(cierreExistente.monto_real) }} en efectivo.
-                                    Para hacer uno nuevo, un administrador tiene que reabrir la caja desde el historial.
-                                </p>
+                            <!-- Ya hay un cierre para ese dia y sucursal: se avisa al abrir y no deja guardar -->
+                            <div v-if="cierreExistente" class="p-4 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-200 font-medium">
+                                Ya se hizo el cierre de caja de hoy para esta sucursal. Si te equivocaste, eliminá el cierre anterior desde el historial y volvé a crearlo.
                             </div>
-                            <p v-if="form.errors.fecha" class="text-xs text-rose-400 font-semibold">{{ form.errors.fecha }}</p>
 
                             <div class="space-y-4 pt-4 border-t border-white/5">
                                 <div>

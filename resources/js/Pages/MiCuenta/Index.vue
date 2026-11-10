@@ -471,7 +471,6 @@ const submitConsolidar = () => {
                     <p class="text-xs font-bold uppercase tracking-wider text-zinc-400">
                         {{ Number(saldoCuenta) < 0 ? 'Deuda en cuenta corriente' : 'Saldo a favor' }}
                     </p>
-                    <p class="text-[11px] text-zinc-500 mt-0.5">Incluye compras en local abonadas con cuenta corriente.</p>
                 </div>
                 <p class="text-xl font-bold font-mono" :class="Number(saldoCuenta) < 0 ? 'text-rose-400' : 'text-emerald-400'">
                     {{ formatPrecio(Math.abs(Number(saldoCuenta))) }}
@@ -730,6 +729,12 @@ const submitConsolidar = () => {
                                     </span>
                                     <span class="font-bold font-mono text-zinc-400 ml-4 shrink-0">{{ formatPrecio(item.subtotal) }}</span>
                                 </div>
+                            </div>
+
+                            <!-- Pago con saldo a favor -->
+                            <div v-if="pedido.pagado_saldo > 0" class="flex flex-wrap justify-between gap-2 text-xs pt-2 border-t border-white/5">
+                                <span class="text-emerald-400 font-semibold">Pagado con saldo a favor: <span class="font-mono">{{ formatPrecio(pedido.pagado_saldo) }}</span></span>
+                                <span v-if="pedido.estado === 'pendiente_pago' && pedido.restante > 0" class="text-zinc-300 font-semibold">Resta abonar: <span class="font-mono text-white">{{ formatPrecio(pedido.restante) }}</span></span>
                             </div>
 
                             <!-- Banner Listo para retirar -->

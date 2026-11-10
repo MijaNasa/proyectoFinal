@@ -1468,10 +1468,8 @@ onMounted(() => {
                                 </div>
 
                                 <!-- Pedido incluido en un cobro de envio: todo se gestiona desde el cobro -->
-                                <div v-if="selectedVenta.envio_conjunto_id" class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200 flex flex-wrap items-center gap-2 font-medium">
-                                    <span>🔒 Este pedido viaja en el envío</span>
-                                    <Link :href="route('ventas.index', { view: selectedVenta.envio_conjunto_id, search: selectedVenta.envio_conjunto_id })" class="font-mono font-bold text-white underline hover:text-indigo-300">#TK-{{ String(selectedVenta.envio_conjunto_id).padStart(6, '0') }}</Link>
-                                    <span>. El estado y el código de seguimiento se gestionan desde ese cobro.</span>
+                                <div v-if="selectedVenta.envio_conjunto_id" class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-xs text-indigo-200 font-medium">
+                                    🔒 Este pedido viaja en el envío <Link :href="route('ventas.index', { view: selectedVenta.envio_conjunto_id, search: selectedVenta.envio_conjunto_id })" class="font-mono font-bold text-white underline hover:text-indigo-300 whitespace-nowrap">#TK-{{ String(selectedVenta.envio_conjunto_id).padStart(6, '0') }}</Link>: el estado y el código se gestionan desde ese cobro.
                                 </div>
 
                                 <!-- Cobro de envio: lo que se cargue aca se copia a los pedidos incluidos -->
@@ -1519,12 +1517,6 @@ onMounted(() => {
                                             placeholder="Ej: SD321876451AR" 
                                             class="w-full bg-[#0d0d0f] border border-white/10 rounded-xl px-3.5 py-2.5 text-xs font-semibold text-white focus:outline-none focus:border-white/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:bg-zinc-800/40" 
                                         />
-                                        <p v-if="esVentaCorreo && ['en_preparacion', 'enviado'].includes(selectedVenta.estado) && !selectedVenta.envio_conjunto_id" class="text-[11px] text-zinc-500 mt-1.5">
-                                            Al guardar con el código cargado, el envío pasa a Finalizado<span v-if="esCobroEnvio(selectedVenta)"> junto con los pedidos incluidos</span>.
-                                        </p>
-                                        <p v-else-if="puedeEditarTrackingCobro && !selectedVenta.envio_conjunto_id" class="text-[11px] text-zinc-500 mt-1.5">
-                                            Podés corregir el código si el paquete se reenvía.
-                                        </p>
                                     </div>
                                 </div>
                             </div>
