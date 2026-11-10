@@ -431,6 +431,14 @@ class CheckoutController extends Controller
                     }
                 }
 
+                // Pagado al instante con saldo a favor (total) y con tomos en preventa:
+                // la venta espera la preventa igual que si se pagara por otro medio.
+                // Antes pasaba directo a preparacion/acumulado sin descontar la
+                // preventa, y al cancelarla se sumaba stock que nunca se habia restado.
+                if ($estado === 'en_preparacion' && $tienePreventas) {
+                    $estado = 'en_preventa';
+                }
+
                 $venta = Venta::create([
                     'fecha'           => now(),
                     'cliente_id'      => $clienteId,
@@ -477,7 +485,7 @@ class CheckoutController extends Controller
 
                 // Si se resolvió el pago inmediatamente o si es Efectivo/Transferencia (reserva), hacer los traslados y descuentos
                 $debeDescontar = false;
-                if ($estado === 'en_preparacion' || $estado === 'esperando_traslado') {
+                if (in_array($estado, ['en_preparacion', 'esperando_traslado', 'en_preventa'])) {
                     $debeDescontar = true;
                 } elseif (in_array($request->medio_pago, ['Efectivo', 'Transferencia'])) {
                     // Se reservan los tomos con stock aunque el pedido tambien tenga
@@ -562,6 +570,11 @@ class CheckoutController extends Controller
                             }
                         }
                     }
+                }
+
+                // Si la preventa ya tiene stock en la sucursal, se libera en el momento
+                if ($estado === 'en_preventa') {
+                    $venta->intentarLiberarPreventa();
                 }
 
                 return [
