@@ -333,7 +333,12 @@ class Venta extends Model
         }
     }
 
-    public function cancelarConRestitucionDeStock()
+    /**
+     * @param bool $acreditarOtrosPagos Si es true, lo pagado por otros medios
+     *   (transferencia, Mercado Pago, efectivo) tambien se acredita como saldo a
+     *   favor. Lo pagado con saldo de cuenta corriente vuelve siempre.
+     */
+    public function cancelarConRestitucionDeStock(bool $acreditarOtrosPagos = false)
     {
         if ($this->estado === 'cancelado') {
             return;
@@ -380,11 +385,17 @@ class Venta extends Model
             $t->update(['estado' => 'cancelado', 'motivo' => 'Venta cancelada']);
         }
 
-        // Devolver saldo si usó cuenta corriente
+        // Devolver saldo: lo pagado con cuenta corriente vuelve siempre; lo pagado
+        // por otros medios solo si el empleado elige acreditarlo como saldo a favor
+        // (si se le devolvio el dinero por afuera, no se acredita).
         if ($this->cliente) {
-            $montoPagado = $this->transacciones()->where('tipo', 'ingreso')->sum('monto');
-            if ($montoPagado > 0) {
-                $this->cliente->increment('saldo_actual', $montoPagado);
+            $ingresos = $this->transacciones()->where('tipo', 'ingreso');
+            $montoADevolver = (float) (clone $ingresos)->where('metodo_pago', 'Cuenta Corriente')->sum('monto');
+            if ($acreditarOtrosPagos) {
+                $montoADevolver += (float) (clone $ingresos)->where('metodo_pago', '!=', 'Cuenta Corriente')->sum('monto');
+            }
+            if ($montoADevolver > 0) {
+                $this->cliente->increment('saldo_actual', $montoADevolver);
             }
         }
 

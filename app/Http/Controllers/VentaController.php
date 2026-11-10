@@ -665,9 +665,12 @@ class VentaController extends Controller
         }
 
         if ($request->estado === 'cancelado' && $venta->estado !== 'cancelado') {
-            \DB::transaction(function () use ($venta) {
+            // Lo pagado por otros medios se acredita como saldo a favor solo si el
+            // empleado lo elige (si se le devolvio el dinero por afuera, no).
+            $acreditarSaldo = $request->boolean('acreditar_saldo');
+            \DB::transaction(function () use ($venta, $acreditarSaldo) {
                 $fresh = $venta->fresh();
-                $fresh->cancelarConRestitucionDeStock();
+                $fresh->cancelarConRestitucionDeStock($acreditarSaldo);
             });
             return back()->with('message', 'Venta cancelada y stock revertido.');
         }

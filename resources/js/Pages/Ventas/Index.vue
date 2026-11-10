@@ -106,7 +106,7 @@ const darkSwal = Swal.mixin({
     }
 });
 
-const estadoForm = useForm({ estado: '', direccion_envio: null, latitud: null, longitud: null, tracking_code: null });
+const estadoForm = useForm({ estado: '', direccion_envio: null, latitud: null, longitud: null, tracking_code: null, acreditar_saldo: false });
 
 const onSeleccionarDireccionVenta = (f) => {
     const [lon, lat] = f.geometry?.coordinates ?? [];
@@ -659,19 +659,37 @@ const cambiarEstado = async () => {
     }
 
     if (estadoForm.estado === 'cancelado' && selectedVenta.value.estado !== 'cancelado') {
-        const { isConfirmed } = await darkSwal.fire({
+        // Pagos ya registrados: lo pagado con saldo vuelve siempre; lo pagado por
+        // otros medios se puede acreditar como saldo a favor (o no, si se devolvio por afuera)
+        const ingresos = (selectedVenta.value.transacciones || []).filter(t => t.tipo === 'ingreso');
+        const pagadoConSaldo = ingresos.filter(t => t.metodo_pago === 'Cuenta Corriente').reduce((s, t) => s + parseFloat(t.monto), 0);
+        const pagadoOtros = ingresos.filter(t => t.metodo_pago !== 'Cuenta Corriente').reduce((s, t) => s + parseFloat(t.monto), 0);
+        const puedeAcreditar = !!selectedVenta.value.cliente_id && pagadoOtros > 0;
+
+        let texto = 'Esta acción anulará la venta y devolverá el stock de los artículos.';
+        if (selectedVenta.value.cliente_id && pagadoConSaldo > 0) {
+            texto += ` Los ${formatCurrency(pagadoConSaldo)} pagados con saldo vuelven a la cuenta del cliente.`;
+        }
+
+        const result = await darkSwal.fire({
             title: '¿Confirmar cancelación?',
-            text: 'Esta acción anulará la venta y devolverá el stock de todos los artículos.',
+            text: texto,
             icon: 'warning',
+            ...(puedeAcreditar ? {
+                input: 'checkbox',
+                inputValue: 1,
+                inputPlaceholder: `Acreditar ${formatCurrency(pagadoOtros)} como saldo a favor del cliente`,
+            } : {}),
             showCancelButton: true,
             confirmButtonText: 'Sí, cancelar',
             cancelButtonText: 'No, mantener',
         });
         
-        if (!isConfirmed) {
+        if (!result.isConfirmed) {
             estadoForm.estado = selectedVenta.value.estado;
             return;
         }
+        estadoForm.acreditar_saldo = puedeAcreditar && !!result.value;
     } else if (estadoForm.estado === 'finalizado' && selectedVenta.value.estado !== 'finalizado') {
         const { isConfirmed } = await darkSwal.fire({
             title: '¿Marcar como Finalizado?',
