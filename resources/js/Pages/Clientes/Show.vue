@@ -109,6 +109,11 @@ const submitEdit = () => {
     });
 };
 
+// Total cobrado (sin lo pagado con saldo a favor, que ya se conto al cargar el saldo)
+const totalPagado = computed(() =>
+    (props.pagos || []).filter(p => p.metodo_pago !== 'Saldo a favor').reduce((t, p) => t + Number(p.monto || 0), 0)
+);
+
 const eliminarPago = (pago) => {
     darkSwal.fire({
         title: '¿Anular este pago?',
@@ -571,7 +576,11 @@ const estadoConfig = {
 
                 <!-- Tab: Pagos -->
                 <div v-if="tabActiva === 'pagos'">
-                    <div class="flex justify-end mb-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3 mb-3">
+                        <p v-if="pagos.length" class="text-xs font-semibold text-zinc-400">
+                            Total pagado: <span class="text-emerald-400 font-bold font-mono">{{ formatCurrency(totalPagado) }}</span>
+                        </p>
+                        <span v-else></span>
                         <a :href="route('clientes.pdf', cliente.id)" target="_blank" class="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-semibold border border-white/10 transition-all flex items-center gap-1.5 shadow-sm">
                             <svg class="w-4 h-4 text-zinc-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
@@ -590,14 +599,19 @@ const estadoConfig = {
                                 <thead>
                                     <tr class="bg-white/[0.02] text-xs font-semibold uppercase tracking-wider text-zinc-400 border-b border-white/5">
                                         <th class="p-4">Fecha</th>
+                                        <th class="p-4">Pedido</th>
                                         <th class="p-4">Método</th>
                                         <th class="p-4">Descripción</th>
                                         <th class="p-4 text-right">Monto</th>
                                     </tr>
                                 </thead>
                                 <tbody class="divide-y divide-white/5 text-sm">
-                                    <tr v-for="pago in pagos" :key="pago.id" class="hover:bg-white/[0.02] transition-colors">
+                                    <tr v-for="pago in pagos" :key="(pago.venta_id ? 'v' : 'c') + pago.id" class="hover:bg-white/[0.02] transition-colors">
                                         <td class="p-4 text-xs font-semibold text-zinc-300">{{ formatFecha(pago.fecha) }}</td>
+                                        <td class="p-4 text-xs font-mono">
+                                            <Link v-if="pago.venta_id" :href="route('ventas.index', { view: pago.venta_id, search: pago.venta_id })" class="text-white hover:underline">#TK-{{ String(pago.venta_id).padStart(6, '0') }}</Link>
+                                            <span v-else class="text-zinc-500 font-sans">Cuenta corriente</span>
+                                        </td>
                                         <td class="p-4">
                                             <span class="px-2.5 py-1 bg-white/5 rounded-xl border border-white/5 text-xs font-semibold text-zinc-300">
                                                 {{ pago.metodo_pago }}
@@ -607,7 +621,7 @@ const estadoConfig = {
                                         <td class="p-4 text-right font-bold text-emerald-400">
                                             <div class="flex items-center justify-end gap-3">
                                                 <span>{{ formatCurrency(pago.monto) }}</span>
-                                                <button @click="eliminarPago(pago)" title="Anular pago" class="p-1 text-zinc-500 hover:text-rose-400 transition-colors">
+                                                <button v-if="pago.anulable" @click="eliminarPago(pago)" title="Anular pago" class="p-1 text-zinc-500 hover:text-rose-400 transition-colors">
                                                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1 1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                                 </button>
                                             </div>

@@ -194,17 +194,49 @@ class ClienteController extends Controller
             ->latest('fecha')
             ->get();
 
-        $pagos = $cliente->transacciones()
+        // Historial de pagos completo (igual que el PDF): pagos a cuenta corriente
+        // cargados desde la ficha (se pueden anular) + pagos de cada pedido no
+        // cancelado (solo informativos; se gestionan desde la venta).
+        $pagosCuenta = $cliente->transacciones()
             ->where('tipo', 'ingreso')
-            ->latest()
-            ->get();
+            ->get()
+            ->map(fn ($t) => [
+                'id'          => $t->id,
+                'fecha'       => $t->fecha,
+                'metodo_pago' => $t->metodo_pago,
+                'descripcion' => $t->descripcion ?: 'Pago de cuenta corriente',
+                'monto'       => (float) $t->monto,
+                'venta_id'    => null,
+                'anulable'    => true,
+            ]);
+
+        $pagosPedidos = Transaccion::where('tipo', 'ingreso')
+            ->where('transaccionable_type', Venta::class)
+            ->whereIn('transaccionable_id', Venta::where('cliente_id', $cliente->id)->where('estado', '!=', 'cancelado')->select('id'))
+            ->get()
+            ->map(fn ($t) => [
+                'id'          => $t->id,
+                'fecha'       => $t->fecha,
+                // Lo pagado con saldo no es plata nueva: se muestra como "Saldo a favor"
+                'metodo_pago' => $t->metodo_pago === 'Cuenta Corriente' ? 'Saldo a favor' : $t->metodo_pago,
+                'descripcion' => $t->descripcion,
+                'monto'       => (float) $t->monto,
+                'venta_id'    => $t->transaccionable_id,
+                'anulable'    => false,
+            ]);
+
+        $pagos = $pagosCuenta->concat($pagosPedidos)->sortByDesc('fecha')->values();
+
+        // Total efectivamente cobrado: no suma lo pagado con saldo a favor, porque
+        // esa plata ya se conto cuando se cargo el pago a la cuenta corriente.
+        $totalPagado = $pagos->where('metodo_pago', '!=', 'Saldo a favor')->sum('monto');
 
         $ultima_compra = Venta::where('cliente_id', $cliente->id)->latest('fecha')->value('fecha');
 
         $stats = [
             'total_comprado' => $ventas->sum('total'),
             'cantidad_ventas' => $ventas->total(),
-            'total_pagado' => $pagos->sum('monto'),
+            'total_pagado' => $totalPagado,
             'ultima_compra' => $ultima_compra,
         ];
 
