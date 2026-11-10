@@ -7,6 +7,7 @@ import { decodeLabel } from '@/composables/useDecodeLabel';
 
 const props = defineProps({
     pedidos: Object,
+    acumuladosListos: { type: Array, default: () => [] },
     pagos: Array,
     usuario: Object,
     saldoCuenta: [Number, String],
@@ -189,10 +190,11 @@ const getTipoEnvioLabel = (tipo, tipoVenta) => {
     return 'Envío a domicilio';
 };
 
-const tieneAcumulados = computed(() => {
-    if (!props.pedidos?.data) return false;
-    return props.pedidos.data.some(p => p.estado === 'acumulado');
-});
+// Se calcula en el backend con TODOS los pedidos, no solo los de la pagina actual
+const tieneAcumulados = computed(() => props.acumuladosListos.length > 0);
+const totalLibrosAcumulados = computed(() =>
+    props.acumuladosListos.reduce((t, p) => t + p.items.reduce((s, i) => s + Number(i.cantidad || 0), 0), 0)
+);
 
 // --- Solicitar envío de acumulados: mismo formulario de dirección que el
 // checkout (provincia/localidad/autocompletado de Photon/CP), para respetar
@@ -604,7 +606,9 @@ const submitConsolidar = () => {
                     <div v-if="tieneAcumulados" class="bg-[#131316] border border-amber-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
                         <div>
                             <h3 class="text-xs font-bold uppercase tracking-wider text-amber-400 mb-1">Pedidos Acumulados</h3>
-                            <p class="text-zinc-400 text-xs font-medium">Tenés pedidos guardados en sucursal. Solicitá el envío para recibirlos todos juntos pagando un solo envío.</p>
+                            <p class="text-zinc-400 text-xs font-medium">
+                                Tenés {{ acumuladosListos.length }} {{ acumuladosListos.length === 1 ? 'pedido listo' : 'pedidos listos' }} para enviar. Solicitá el envío para recibirlos todos juntos pagando un solo envío.
+                            </p>
                         </div>
                         <button @click="solicitarEnvioAcumulados" class="px-5 py-2.5 bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 whitespace-nowrap">
                             Solicitar Envío
@@ -634,6 +638,8 @@ const submitConsolidar = () => {
                                         <span class="text-white font-mono font-bold text-base tracking-tight">
                                             #TK-{{ String(pedido.id).padStart(6, '0') }}
                                         </span>
+                                        <span v-if="pedido.es_cobro_envio" class="text-[10px] font-bold uppercase tracking-wider text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-md">Envío de pedidos acumulados</span>
+                                        <span v-else-if="pedido.envio_conjunto_id" class="text-[10px] font-bold uppercase tracking-wider text-zinc-300 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md">Incluido en envío #TK-{{ String(pedido.envio_conjunto_id).padStart(6, '0') }}</span>
 
                                         <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
                                             <span class="w-2 h-2 rounded-full shrink-0" :class="estadoConfig[pedido.estado]?.bgDot || 'bg-zinc-500'"></span>
@@ -670,12 +676,27 @@ const submitConsolidar = () => {
 
                         <!-- Collapsible Order Details Content -->
                         <div v-if="expandedPedidos.includes(pedido.id)" class="border-t border-white/5 bg-[#0d0d0f] p-5 space-y-4">
-                            <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5 pb-2">
+                            <!-- Cobro del envio de acumulados: muestra que pedidos incluye -->
+                            <template v-if="pedido.es_cobro_envio">
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5 pb-2">
+                                    Envío por Correo Nacional de {{ pedido.pedidos_incluidos.length }} {{ pedido.pedidos_incluidos.length === 1 ? 'pedido' : 'pedidos' }}
+                                </h4>
+                                <div class="flex justify-between items-center text-sm py-1.5">
+                                    <span class="text-zinc-300 font-medium">Costo del envío</span>
+                                    <span class="font-bold font-mono text-zinc-400 ml-4 shrink-0">{{ formatPrecio(pedido.total) }}</span>
+                                </div>
+                                <div v-if="pedido.pedidos_incluidos.length" class="flex flex-wrap gap-2">
+                                    <span v-for="id in pedido.pedidos_incluidos" :key="id" class="px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-xs font-mono font-bold text-zinc-300">#TK-{{ String(id).padStart(6, '0') }}</span>
+                                </div>
+                                <p v-if="pedido.estado === 'pendiente_pago'" class="text-xs text-zinc-500">Cuando se confirme el pago del envío, despachamos todos estos pedidos juntos.</p>
+                            </template>
+
+                            <h4 v-else class="text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5 pb-2">
                                 Detalle del pedido ({{ pedido.items?.length || 0 }} {{ (pedido.items?.length === 1) ? 'producto' : 'productos' }})
                             </h4>
 
                             <!-- Items List -->
-                            <div class="space-y-2">
+                            <div v-if="!pedido.es_cobro_envio" class="space-y-2">
                                 <div v-for="(item, i) in pedido.items" :key="i" class="flex justify-between items-center text-sm py-1.5 border-b border-white/5 last:border-0">
                                     <span class="text-zinc-300 font-medium truncate">
                                         {{ item.titulo }}
@@ -782,6 +803,7 @@ const submitConsolidar = () => {
                         v-for="link in pedidos.links"
                         :key="link.label"
                         :href="link.url || '#'"
+                        preserve-state
                         class="px-4 py-2 rounded-xl border border-white/5 transition-all text-xs font-semibold"
                         :class="{'bg-white text-black border-white shadow-md': link.active, 'text-zinc-500 hover:text-white bg-white/5': !link.active && link.url, 'text-zinc-600 cursor-not-allowed': !link.url}"
                     >{{ decodeLabel(link.label) }}</Link>
@@ -890,6 +912,30 @@ const submitConsolidar = () => {
                             <p class="text-xs text-zinc-400 leading-relaxed">
                                 Te enviamos todos tus pedidos acumulados juntos, pagando un solo envío.
                             </p>
+
+                            <!-- Resumen de los pedidos que se incluyen en este envio -->
+                            <div class="bg-[#131316] border border-white/5 rounded-xl p-4 space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <h4 class="text-xs font-bold uppercase tracking-wider text-white">Pedidos incluidos en este envío</h4>
+                                    <span class="text-[11px] font-semibold text-zinc-400">
+                                        {{ acumuladosListos.length }} {{ acumuladosListos.length === 1 ? 'pedido' : 'pedidos' }} · {{ totalLibrosAcumulados }} {{ totalLibrosAcumulados === 1 ? 'libro' : 'libros' }}
+                                    </span>
+                                </div>
+                                <div class="max-h-48 overflow-y-auto divide-y divide-white/5">
+                                    <div v-for="p in acumuladosListos" :key="p.id" class="py-2 first:pt-0 last:pb-0">
+                                        <div class="flex justify-between text-[11px] font-semibold text-zinc-300">
+                                            <span>Pedido #{{ p.id }}</span>
+                                            <span class="text-zinc-500">{{ formatFecha(p.fecha) }}</span>
+                                        </div>
+                                        <ul class="mt-1 space-y-0.5">
+                                            <li v-for="(item, i) in p.items" :key="i" class="text-xs text-zinc-400 flex justify-between gap-3">
+                                                <span class="truncate">{{ item.titulo }}</span>
+                                                <span class="text-zinc-500 shrink-0">x{{ item.cantidad }}</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
 
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>

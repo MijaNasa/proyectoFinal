@@ -233,26 +233,33 @@ class VentaController extends Controller
                     }
                 }
 
-                $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->get()->keyBy('id');
+                $librosModels = \App\Models\Libro::whereIn('id', $libroIds)->with('master:id,titulo')->get()->keyBy('id');
 
                 // 1. Validar Stock y Lock
-                $tienePreventas = false;
+                // En caja solo se vende lo que hay fisicamente en la sucursal. Las
+                // preventas (tomos que todavia no llegaron) se venden solo por la web.
+                // Un tomo marcado como preventa que YA tiene stock se vende normal.
+                $requeridoPorLibro = [];
                 foreach ($request->items as $item) {
-                    if ($librosModels[$item['libro_id']]->permite_preventa) {
-                        $tienePreventas = true;
-                        continue;
-                    }
-                    $stock = \App\Models\Stock::where('libro_id', $item['libro_id'])
+                    $requeridoPorLibro[$item['libro_id']] = ($requeridoPorLibro[$item['libro_id']] ?? 0) + $item['cantidad'];
+                }
+                foreach ($requeridoPorLibro as $libroId => $cantidadRequerida) {
+                    $libroModel = $librosModels[$libroId];
+                    $stock = \App\Models\Stock::where('libro_id', $libroId)
                         ->where('sucursal_id', $sucursal_id)
                         ->lockForUpdate()
                         ->first();
+                    $disponible = $stock ? (int) $stock->cantidad_disponible : 0;
+                    $titulo = ($libroModel->master->titulo ?? 'Libro') . ($libroModel->numero_tomo ? " - Tomo {$libroModel->numero_tomo}" : '');
 
-                    if (!$stock) {
-                        throw new \RuntimeException("No existe registro de stock para el libro ID {$item['libro_id']} en esta sucursal.");
+                    if ($disponible <= 0 && $libroModel->permite_preventa) {
+                        throw new \RuntimeException("\"{$titulo}\" está en preventa y todavía no tiene stock en esta sucursal. Las preventas se venden solo por la web.");
                     }
-
-                    if ($stock->cantidad_disponible <= 0) {
-                        throw new \RuntimeException("Producto agotado y sin preventa habilitada");
+                    if ($disponible <= 0) {
+                        throw new \RuntimeException("\"{$titulo}\" no tiene stock en esta sucursal.");
+                    }
+                    if ($disponible < $cantidadRequerida) {
+                        throw new \RuntimeException("Stock insuficiente de \"{$titulo}\": hay {$disponible} y se pidieron {$cantidadRequerida}.");
                     }
                 }
 
@@ -408,11 +415,10 @@ class VentaController extends Controller
                         'subtotal'        => $item['cantidad'] * $precio,
                     ]);
 
-                    if (!$librosModels[$item['libro_id']]->permite_preventa) {
-                        \App\Models\Stock::where('libro_id', $item['libro_id'])
-                            ->where('sucursal_id', $sucursal_id)
-                            ->decrement('cantidad_disponible', $item['cantidad']);
-                    }
+                    // Todo lo vendido en caja sale del stock fisico (ya validado arriba)
+                    \App\Models\Stock::where('libro_id', $item['libro_id'])
+                        ->where('sucursal_id', $sucursal_id)
+                        ->decrement('cantidad_disponible', $item['cantidad']);
                 }
 
                 if ($monto_saldo_usado > 0) {

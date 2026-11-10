@@ -151,7 +151,10 @@ class Venta extends Model
             );
         }
 
-        $this->update(['consolida_venta_ids' => null]);
+        // No se borra consolida_venta_ids: queda como registro de que pedidos
+        // incluyo este cobro de envio (se muestra en Ventas y en Mis Pedidos).
+        // No hay riesgo de reprocesar: solo se llama al confirmar un pago
+        // pendiente, y consolidarAcumulados() solo toma pedidos en 'acumulado'.
     }
 
     /**

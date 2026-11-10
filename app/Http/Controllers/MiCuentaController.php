@@ -19,13 +19,35 @@ class MiCuentaController extends Controller
         // Las ventas de un cliente se identifican por cliente_id, no por user_id:
         // en una venta presencial user_id es el empleado que la cobró, no el
         // cliente. Sin esto, las compras de mostrador nunca aparecían acá.
+        // Pedido -> cobro de envio (Correo Nacional) que lo incluye, para marcarlo en la lista
+        $envioConjuntoDe = [];
+        if ($cliente) {
+            $cliente->ventas()
+                ->whereNotNull('consolida_venta_ids')
+                ->where('estado', '!=', 'cancelado')
+                ->get(['id', 'consolida_venta_ids'])
+                ->each(function ($cobro) use (&$envioConjuntoDe) {
+                    foreach (array_filter(array_map('intval', explode(',', $cobro->consolida_venta_ids))) as $id) {
+                        $envioConjuntoDe[$id] = $cobro->id;
+                    }
+                });
+        }
+
         $pedidos = Venta::with(['detalles.libro.master:id,titulo', 'sucursal:id,nombre'])
             ->when($cliente, fn($q) => $q->where('cliente_id', $cliente->id), fn($q) => $q->whereRaw('1 = 0'))
             ->where('estado', '!=', 'cancelado')
+            // Los finalizados van al final; el resto, del mas nuevo al mas viejo
+            ->orderByRaw("CASE WHEN estado = 'finalizado' THEN 1 ELSE 0 END")
             ->latest('fecha')
+            ->latest('id')
             ->paginate(10)
             ->through(fn($v) => [
                 'id'         => $v->id,
+                'es_cobro_envio'    => $v->detalles->isEmpty() && (float) $v->costo_envio > 0,
+                'pedidos_incluidos' => $v->consolida_venta_ids
+                    ? array_values(array_filter(array_map('intval', explode(',', $v->consolida_venta_ids))))
+                    : [],
+                'envio_conjunto_id' => $envioConjuntoDe[$v->id] ?? null,
                 'fecha'      => $v->fecha,
                 'total'      => $v->total,
                 'estado'          => $v->estado,
@@ -50,8 +72,25 @@ class MiCuentaController extends Controller
                 ->get(['id', 'monto', 'metodo_pago', 'fecha', 'descripcion'])
             : collect();
 
+        // Pedidos acumulados listos para enviar (de todas las paginas, no solo la actual)
+        $acumuladosListos = $cliente
+            ? $this->acumuladosListosQuery($cliente)
+                ->with('detalles.libro.master:id,titulo')
+                ->orderBy('fecha')
+                ->get()
+                ->map(fn ($v) => [
+                    'id'    => $v->id,
+                    'fecha' => $v->fecha,
+                    'items' => $v->detalles->map(fn ($d) => [
+                        'titulo'   => ($d->libro->master->titulo ?? 'Libro') . ' - Tomo ' . ($d->libro->numero_tomo ?? 'Único'),
+                        'cantidad' => $d->cantidad,
+                    ]),
+                ])
+            : collect();
+
         return Inertia::render('MiCuenta/Index', [
             'pedidos' => $pedidos,
+            'acumuladosListos' => $acumuladosListos,
             'pagos'   => $pagos,
             'usuario' => [
                 'name'       => $user->name,
@@ -213,26 +252,26 @@ class MiCuentaController extends Controller
             abort(403);
         }
 
+        // Solo pedidos ya pagos ('acumulado') y que no esten en otro cobro de envio pendiente
+        $idsAcumulados = $this->acumuladosListosQuery($cliente)->pluck('id')->toArray();
+
+        if (empty($idsAcumulados)) {
+            return back()->withErrors(['error' => 'No tenés pedidos acumulados listos para enviar.']);
+        }
+
         if ($request->modo === 'domicilio') {
-            $cantidad = $cliente->consolidarAcumulados('domicilio', $request->direccion_envio, $request->latitud, $request->longitud);
+            $cantidad = $cliente->consolidarAcumulados('domicilio', $request->direccion_envio, $request->latitud, $request->longitud, $idsAcumulados);
 
             if ($cantidad === 0) {
-                return back()->withErrors(['error' => 'No tenés pedidos acumulados pendientes de envío.']);
+                return back()->withErrors(['error' => 'No tenés pedidos acumulados listos para enviar.']);
             }
+
+            $this->notificarSolicitudEnvio($cliente, $cantidad, 'domicilio');
 
             return back()->with('message', "Se solicitó el envío de {$cantidad} pedido(s) acumulado(s). Te vamos a avisar cuando esté en camino.");
         }
 
         // Correo Nacional: hay un costo de envio fijo a cobrar antes de despachar.
-        $idsAcumulados = $cliente->ventas()
-            ->where('motivo_pendiente', 'Acumulación')
-            ->pluck('id')
-            ->toArray();
-
-        if (empty($idsAcumulados)) {
-            return back()->withErrors(['error' => 'No tenés pedidos acumulados pendientes de envío.']);
-        }
-
         $costoEnvio = 50000;
         $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first() ?? \App\Models\Sucursal::first();
 
@@ -255,6 +294,7 @@ class MiCuentaController extends Controller
         ]);
 
         if ($request->medio_pago === 'Transferencia') {
+            $this->notificarSolicitudEnvio($cliente, count($idsAcumulados), 'correo_nacional', $ventaEnvio);
             return back()->with('message', 'Generamos el cobro del envío. Subí el comprobante de transferencia desde "Mis Pedidos" para confirmar el despacho.');
         }
 
@@ -302,6 +342,7 @@ class MiCuentaController extends Controller
 
             $preference = $response->json();
             $ventaEnvio->update(['payment_id' => $preference['id']]);
+            $this->notificarSolicitudEnvio($cliente, count($idsAcumulados), 'correo_nacional', $ventaEnvio);
 
             $url = config('services.mercadopago.sandbox')
                 ? $preference['sandbox_init_point']
@@ -315,6 +356,40 @@ class MiCuentaController extends Controller
                 'error'    => $e->getMessage(),
             ]);
             return back()->withErrors(['error' => 'Error al conectar con Mercado Pago. Probá con Transferencia Bancaria.']);
+        }
+    }
+
+    /**
+     * Pedidos acumulados del cliente listos para enviar: pagos (estado
+     * 'acumulado') y que no esten ya incluidos en un cobro de envio por
+     * Correo Nacional que todavia esta pendiente de pago.
+     */
+    private function acumuladosListosQuery($cliente)
+    {
+        $idsEnCobroPendiente = $cliente->ventas()
+            ->whereNotNull('consolida_venta_ids')
+            ->where('estado', 'pendiente_pago')
+            ->pluck('consolida_venta_ids')
+            ->flatMap(fn ($ids) => array_map('intval', explode(',', $ids)))
+            ->filter()
+            ->all();
+
+        return $cliente->ventas()
+            ->where('motivo_pendiente', 'Acumulación')
+            ->where('estado', 'acumulado')
+            ->when($idsEnCobroPendiente, fn ($q) => $q->whereNotIn('id', $idsEnCobroPendiente));
+    }
+
+    private function notificarSolicitudEnvio($cliente, int $cantidad, string $modo, ?Venta $cobroEnvio = null): void
+    {
+        try {
+            \Illuminate\Support\Facades\Notification::send(
+                \App\Notifications\SolicitudEnvioAcumulados::destinatarios(),
+                new \App\Notifications\SolicitudEnvioAcumulados($cliente, $cantidad, $modo, $cobroEnvio)
+            );
+        } catch (\Throwable $e) {
+            // Un error al notificar no debe frenar la solicitud del cliente
+            \Log::warning('MiCuenta: no se pudo notificar la solicitud de envío de acumulados', ['error' => $e->getMessage()]);
         }
     }
 }

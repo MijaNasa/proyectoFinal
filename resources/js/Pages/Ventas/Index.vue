@@ -437,10 +437,12 @@ const simularEscaneo = () => {
     }).then((result) => {
         if (result.isConfirmed && result.value) {
             const libroEncontrado = result.value;
-            if (libroEncontrado.stock_disponible <= 0 && !libroEncontrado.permite_preventa) {
+            if (libroEncontrado.stock_disponible <= 0) {
                 darkSwal.fire({
-                    title: 'Producto Agotado',
-                    text: `El producto "${libroEncontrado.master?.titulo}" no tiene stock disponible.`,
+                    title: libroEncontrado.permite_preventa ? 'Tomo en preventa' : 'Producto Agotado',
+                    text: libroEncontrado.permite_preventa
+                        ? `"${libroEncontrado.master?.titulo}" todavía no tiene stock en esta sucursal. Las preventas se venden solo por la web.`
+                        : `El producto "${libroEncontrado.master?.titulo}" no tiene stock disponible.`,
                     icon: 'error'
                 });
                 return;
@@ -591,6 +593,13 @@ const switchTab = (tab) => {
     selectedEstados.value = [];
     handleSearch();
 };
+
+// Cobro del envio de pedidos acumulados (Correo Nacional): no tiene productos,
+// solo el costo del envio, y guarda que pedidos incluye.
+const esCobroEnvio = (v) => !!v && (!v.detalles || v.detalles.length === 0) && Number(v.costo_envio) > 0;
+const pedidosIncluidos = (v) => v?.consolida_venta_ids
+    ? String(v.consolida_venta_ids).split(',').map(n => parseInt(n, 10)).filter(Boolean)
+    : [];
 
 const viewVenta = (venta) => {
     selectedVenta.value = venta;
@@ -984,6 +993,7 @@ onMounted(() => {
                                     <tr class="hover:bg-white/[0.02] transition-colors group">
                                         <td class="p-4 text-left">
                                             <button @click.stop="viewVenta(venta)" class="text-sm font-bold transition-colors hover:text-brand-red text-left block" :class="venta.estado === 'cancelado' ? 'text-zinc-500 line-through hover:text-zinc-400' : 'text-white'">#TK-{{ String(venta.id).padStart(6, '0') }}</button>
+                                            <span v-if="esCobroEnvio(venta)" class="inline-block mt-1 text-[10px] font-bold uppercase tracking-wider text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-1.5 py-0.5 rounded-md">Cobro de envío</span>
                                             <div class="text-xs text-zinc-500 font-mono mt-0.5">{{ formatTicketDate(venta.fecha) }}</div>
                                         </td>
                                         <td class="p-4 text-left">
@@ -1148,8 +1158,8 @@ onMounted(() => {
                                     
                                     <div v-if="showLibroDropdown && librosResults.length" class="absolute top-full left-0 z-[60] w-full mt-1 bg-[#131316] border border-white/10 rounded-2xl overflow-hidden shadow-2xl">
                                         <div v-for="l in librosResults" :key="l.id" 
-                                             @mousedown.prevent="(l.stock_disponible > 0 || l.permite_preventa) && seleccionarLibroParaAgregar(l)" 
-                                             :class="(l.stock_disponible <= 0 && !l.permite_preventa) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5'" 
+                                             @mousedown.prevent="l.stock_disponible > 0 && seleccionarLibroParaAgregar(l)" 
+                                             :class="l.stock_disponible <= 0 ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer hover:bg-white/5'" 
                                              class="px-4 py-3 transition-colors border-b border-white/5 last:border-0 flex justify-between items-center">
                                             <div>
                                                 <div class="text-sm font-bold text-white">
@@ -1160,7 +1170,7 @@ onMounted(() => {
                                                     ISBN: {{ l.isbn }} | {{ l.precio_actual ? formatCurrency(l.precio_actual.precio_venta) : 'Sin precio' }} - 
                                                     <span :class="l.stock_disponible <= 0 ? 'text-rose-400' : 'text-emerald-400'">
                                                         Stock: {{ l.stock_disponible ?? '?' }}
-                                                        <span v-if="l.stock_disponible <= 0 && l.permite_preventa" class="ml-1 text-[10px] uppercase font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-md border border-amber-400/20">(Preventa)</span>
+                                                        <span v-if="l.stock_disponible <= 0 && l.permite_preventa" class="ml-1 text-[10px] uppercase font-bold text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-md border border-amber-400/20">(Preventa · solo web)</span>
                                                         <span v-if="l.stock_disponible <= 0 && !l.permite_preventa" class="ml-1 text-[10px] uppercase font-bold text-rose-400 bg-rose-400/10 px-1.5 py-0.5 rounded-md border border-rose-400/20">(Agotado)</span>
                                                     </span>
                                                 </div>
@@ -1307,6 +1317,7 @@ onMounted(() => {
                                     Detalle de Ticket <span class="text-white font-mono font-bold text-lg ml-1">#TK-{{ String(selectedVenta.id).padStart(6, '0') }}</span>
                                 </h3>
                                 <span v-if="selectedVenta.motivo_pendiente === 'Acumulación'" class="text-xs font-semibold text-emerald-400 px-2.5 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20">Acumulado</span>
+                                <span v-if="esCobroEnvio(selectedVenta)" class="text-xs font-semibold text-indigo-300 px-2.5 py-0.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20">Cobro de envío</span>
                             </div>
                             <div class="text-right flex items-center gap-3">
                                 <div class="text-xs font-semibold text-zinc-400">{{ formatTicketDate(selectedVenta.fecha) }}</div>
@@ -1356,6 +1367,15 @@ onMounted(() => {
                                         </tr>
                                     </thead>
                                     <tbody class="divide-y divide-white/5 text-sm">
+                                        <tr v-if="esCobroEnvio(selectedVenta)">
+                                            <td class="p-4">
+                                                <div class="text-sm text-white font-bold">Envío por Correo Nacional de pedidos acumulados</div>
+                                                <div class="text-xs text-zinc-500 mt-0.5">{{ pedidosIncluidos(selectedVenta).length }} {{ pedidosIncluidos(selectedVenta).length === 1 ? 'pedido incluido' : 'pedidos incluidos' }}</div>
+                                            </td>
+                                            <td class="p-4 text-center text-sm text-white font-bold">1</td>
+                                            <td class="p-4 text-right text-sm text-zinc-300 font-medium">{{ formatCurrency(selectedVenta.costo_envio) }}</td>
+                                            <td class="p-4 text-right text-sm text-white font-bold">{{ formatCurrency(selectedVenta.costo_envio) }}</td>
+                                        </tr>
                                         <tr v-for="item in selectedVenta.detalles" :key="item.id" class="hover:bg-white/[0.02] transition-colors">
                                             <td class="p-4">
                                                 <div class="text-sm text-white font-bold">{{ item.libro?.master?.titulo }} - Tomo {{ item.libro?.numero_tomo || 'Único' }}</div>
@@ -1368,11 +1388,25 @@ onMounted(() => {
                                     </tbody>
                                     <tfoot>
                                         <tr class="border-t border-white/5 bg-white/[0.02]">
-                                            <td colspan="3" class="p-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-400">Total de la Compra</td>
+                                            <td colspan="3" class="p-4 text-right text-xs font-semibold uppercase tracking-wider text-zinc-400">{{ esCobroEnvio(selectedVenta) ? 'Total del envío' : 'Total de la Compra' }}</td>
                                             <td class="p-4 text-right text-xl font-bold text-white whitespace-nowrap">{{ formatCurrency(selectedVenta.total) }}</td>
                                         </tr>
                                     </tfoot>
                                 </table>
+                            </div>
+
+                            <!-- Pedidos que incluye el cobro de envio -->
+                            <div v-if="esCobroEnvio(selectedVenta) && pedidosIncluidos(selectedVenta).length" class="bg-[#131316] border border-white/5 rounded-2xl p-4 space-y-2">
+                                <div class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Pedidos incluidos en este envío</div>
+                                <div class="flex flex-wrap gap-2">
+                                    <Link
+                                        v-for="id in pedidosIncluidos(selectedVenta)"
+                                        :key="id"
+                                        :href="route('ventas.index', { view: id, search: id })"
+                                        class="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs font-mono font-bold text-white hover:border-white/30 transition-colors"
+                                    >#TK-{{ String(id).padStart(6, '0') }}</Link>
+                                </div>
+                                <p class="text-[11px] text-zinc-500">Al confirmar este pago, esos pedidos pasan a "En preparación".</p>
                             </div>
 
                             <div v-if="selectedVenta.estado === 'pendiente_pago' && (selectedVenta.transacciones?.filter(t => t.tipo === 'ingreso').reduce((sum, t) => sum + parseFloat(t.monto), 0) || 0) > 0" class="flex justify-between items-center bg-[#131316] p-4 border border-white/5 rounded-xl">
