@@ -683,7 +683,8 @@ const cambiarEstado = async () => {
             title: '¿Confirmar cancelación?',
             html,
             icon: 'warning',
-            preConfirm: () => puedeAcreditar ? !!document.getElementById('swal-acreditar-saldo')?.checked : false,
+            // Se devuelve un objeto: si preConfirm devuelve false, SweetAlert no cierra el cartel
+            preConfirm: () => ({ acreditar: puedeAcreditar && !!document.getElementById('swal-acreditar-saldo')?.checked }),
             showCancelButton: true,
             confirmButtonText: 'Sí, cancelar',
             cancelButtonText: 'No, mantener',
@@ -693,7 +694,7 @@ const cambiarEstado = async () => {
             estadoForm.estado = selectedVenta.value.estado;
             return;
         }
-        estadoForm.acreditar_saldo = puedeAcreditar && !!result.value;
+        estadoForm.acreditar_saldo = !!result.value?.acreditar;
     } else if (estadoForm.estado === 'finalizado' && selectedVenta.value.estado !== 'finalizado') {
         const { isConfirmed } = await darkSwal.fire({
             title: '¿Marcar como Finalizado?',
