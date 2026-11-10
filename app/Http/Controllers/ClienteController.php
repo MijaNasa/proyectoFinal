@@ -307,7 +307,8 @@ class ClienteController extends Controller
         $ventas = Venta::with([
             'sucursal:id,nombre',
             'detalles.libro.master:id,titulo',
-            'detalles.libro:id,numero_tomo',
+            // master_id hace falta para que el PDF muestre el nombre de la serie
+            'detalles.libro:id,master_id,numero_tomo',
             'transacciones' => fn($q) => $q->orderBy('fecha', 'asc')
         ])
         ->where('cliente_id', $cliente->id)
