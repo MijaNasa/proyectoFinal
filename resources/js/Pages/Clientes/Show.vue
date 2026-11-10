@@ -9,7 +9,8 @@ const props = defineProps({
     cliente: Object,
     ventas:  Object,
     canceladas: Object,
-    acumulados: Array,
+    filtroCompras: { type: String, default: 'todas' },
+    conteoCompras: { type: Object, default: () => ({ todas: 0, pendientes: 0, acumulados: 0, finalizadas: 0 }) },
     pagos:   Array,
     stats:   Object,
     libro_masters: Array,
@@ -31,7 +32,20 @@ const darkSwal = Swal.mixin({
 });
 
 const urlParams = new URLSearchParams(window.location.search);
-const tabActiva = ref(urlParams.get('tabActiva') || 'compras');
+// (la pestaña Acumulados ya no existe: un link viejo abre Compras)
+const tabActiva = ref(['compras', 'pagos', 'canceladas', 'suscripciones'].includes(urlParams.get('tabActiva')) ? urlParams.get('tabActiva') : 'compras');
+
+const filtrosCompras = [
+    { key: 'todas', label: 'Todas' },
+    { key: 'pendientes', label: 'Pendientes' },
+    { key: 'acumulados', label: 'Acumulados' },
+    { key: 'finalizadas', label: 'Finalizadas' },
+];
+
+const cambiarFiltroCompras = (f) => {
+    if (f === props.filtroCompras) return;
+    router.get(route('clientes.show', props.cliente.id), { filtro: f, tabActiva: 'compras' }, { preserveState: true, preserveScroll: true });
+};
 
 const cambiarTab = (tab) => {
     tabActiva.value = tab;
@@ -409,13 +423,6 @@ const estadoConfig = {
                             PAGOS ({{ pagos.length }})
                         </button>
                         <button
-                            @click="cambiarTab('acumulados')"
-                            class="px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
-                            :class="tabActiva === 'acumulados' ? 'bg-white text-black shadow-md' : 'text-zinc-400 hover:text-white bg-transparent'"
-                        >
-                            ACUMULADOS ({{ acumulados.length }})
-                        </button>
-                        <button
                             @click="cambiarTab('canceladas')"
                             class="px-5 py-2.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap"
                             :class="tabActiva === 'canceladas' ? 'bg-white text-black shadow-md' : 'text-zinc-400 hover:text-white bg-transparent'"
@@ -434,8 +441,23 @@ const estadoConfig = {
 
                 <!-- Tab: Compras -->
                 <div v-if="tabActiva === 'compras'">
+                    <!-- Filtros de compras -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <button
+                            v-for="f in filtrosCompras"
+                            :key="f.key"
+                            type="button"
+                            @click="cambiarFiltroCompras(f.key)"
+                            class="px-4 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-2"
+                            :class="filtroCompras === f.key ? 'bg-white text-black border-white shadow-md' : 'bg-[#131316] text-zinc-400 border-white/10 hover:text-white'"
+                        >
+                            <span>{{ f.label }}</span>
+                            <span class="font-mono text-[11px] px-1.5 rounded-md" :class="filtroCompras === f.key ? 'bg-black/10' : 'bg-white/10 text-white'">{{ conteoCompras[f.key] ?? 0 }}</span>
+                        </button>
+                    </div>
+
                     <div v-if="ventas.data.length === 0" class="bg-[#131316] border border-white/5 rounded-2xl p-12 text-center text-zinc-500 italic">
-                        Este cliente no tiene compras registradas.
+                        {{ filtroCompras === 'todas' ? 'Este cliente no tiene compras registradas.' : 'No hay compras con este filtro.' }}
                     </div>
 
                     <div v-else class="space-y-4">
@@ -550,37 +572,6 @@ const estadoConfig = {
                                 :class="{'bg-white text-black border-white shadow-md': link.active, 'text-zinc-500 hover:text-white bg-white/5': !link.active && link.url, 'text-zinc-600 cursor-not-allowed': !link.url}"
                                 v-html="decodeLabel(link.label)"
                             ></Link>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab: Acumulados -->
-                <div v-if="tabActiva === 'acumulados'">
-                    <div v-if="acumulados.length === 0" class="bg-[#131316] border border-white/5 rounded-2xl p-12 text-center text-zinc-500 italic">
-                        No hay pedidos en acumulación para este cliente.
-                    </div>
-                    
-                    <div v-else class="space-y-4">
-                        <div v-for="venta in acumulados" :key="venta.id" class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/5 bg-white/[0.01]">
-                                <div class="flex items-center gap-3">
-                                    <Link :href="route('ventas.index', { search: '#TK-' + String(venta.id).padStart(6, '0'), view: venta.id })" class="text-zinc-400 hover:text-white text-xs font-mono transition-colors">#TK-{{ String(venta.id).padStart(6, '0') }}</Link>
-                                    <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-xs font-semibold text-emerald-400">
-                                        <span class="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-                                        <span>Acumulado</span>
-                                    </span>
-                                    <span class="text-xs text-zinc-400 font-semibold">{{ formatFecha(venta.fecha) }}</span>
-                                </div>
-                                <p class="text-base font-bold text-white">{{ formatCurrency(venta.total) }}</p>
-                            </div>
-                            <div class="p-4 space-y-2 text-sm">
-                                <div v-for="detalle in venta.detalles" :key="detalle.id" class="flex justify-between">
-                                    <span class="text-zinc-300 truncate">
-                                        {{ detalle.libro?.master?.titulo ?? 'Libro' }}
-                                        <span class="text-zinc-500 text-xs ml-1">x{{ detalle.cantidad }}</span>
-                                    </span>
-                                </div>
-                            </div>
                         </div>
                     </div>
                 </div>
