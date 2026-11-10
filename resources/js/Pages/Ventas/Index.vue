@@ -671,15 +671,19 @@ const cambiarEstado = async () => {
             texto += ` Los ${formatCurrency(pagadoConSaldo)} pagados con saldo vuelven a la cuenta del cliente.`;
         }
 
+        // Casilla propia (el checkbox nativo de SweetAlert queda blanco sobre blanco en el tema oscuro)
+        const html = `<p>${texto}</p>` + (puedeAcreditar
+            ? `<label style="display:flex;align-items:center;gap:10px;margin-top:16px;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.03);cursor:pointer;text-align:left;">
+                   <input id="swal-acreditar-saldo" type="checkbox" checked style="width:16px;height:16px;accent-color:#ffffff;flex-shrink:0;">
+                   <span style="color:#e4e4e7;font-size:13px;font-weight:600;">Acreditar ${formatCurrency(pagadoOtros)} como saldo a favor del cliente</span>
+               </label>`
+            : '');
+
         const result = await darkSwal.fire({
             title: '¿Confirmar cancelación?',
-            text: texto,
+            html,
             icon: 'warning',
-            ...(puedeAcreditar ? {
-                input: 'checkbox',
-                inputValue: 1,
-                inputPlaceholder: `Acreditar ${formatCurrency(pagadoOtros)} como saldo a favor del cliente`,
-            } : {}),
+            preConfirm: () => puedeAcreditar ? !!document.getElementById('swal-acreditar-saldo')?.checked : false,
             showCancelButton: true,
             confirmButtonText: 'Sí, cancelar',
             cancelButtonText: 'No, mantener',
