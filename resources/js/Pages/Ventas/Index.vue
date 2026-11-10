@@ -601,7 +601,7 @@ const switchTab = (tab) => {
 
 // Cobro del envio de pedidos acumulados (Correo Nacional): no tiene productos,
 // solo el costo del envio, y guarda que pedidos incluye.
-const esCobroEnvio = (v) => !!v && (!v.detalles || v.detalles.length === 0) && Number(v.costo_envio) > 0;
+const esCobroEnvio = (v) => !!v && (!!v.consolida_venta_ids || ((!v.detalles || v.detalles.length === 0) && Number(v.costo_envio) > 0));
 const pedidosIncluidos = (v) => v?.consolida_venta_ids
     ? String(v.consolida_venta_ids).split(',').map(n => parseInt(n, 10)).filter(Boolean)
     : [];
@@ -1407,12 +1407,12 @@ onMounted(() => {
                                     <tbody class="divide-y divide-white/5 text-sm">
                                         <tr v-if="esCobroEnvio(selectedVenta)">
                                             <td class="p-4">
-                                                <div class="text-sm text-white font-bold">Envío por Correo Nacional de pedidos acumulados</div>
+                                                <div class="text-sm text-white font-bold">{{ selectedVenta.tipo_envio === 'correo_sucursal' ? 'Envío a sucursal de Correo Argentino' : 'Envío por correo a domicilio' }} de pedidos acumulados</div>
                                                 <div class="text-xs text-zinc-500 mt-0.5">{{ pedidosIncluidos(selectedVenta).length }} {{ pedidosIncluidos(selectedVenta).length === 1 ? 'pedido incluido' : 'pedidos incluidos' }}</div>
                                             </td>
                                             <td class="p-4 text-center text-sm text-white font-bold">1</td>
-                                            <td class="p-4 text-right text-sm text-zinc-300 font-medium">{{ formatCurrency(selectedVenta.costo_envio) }}</td>
-                                            <td class="p-4 text-right text-sm text-white font-bold">{{ formatCurrency(selectedVenta.costo_envio) }}</td>
+                                            <td class="p-4 text-right text-sm text-zinc-300 font-medium">{{ Number(selectedVenta.costo_envio) > 0 ? formatCurrency(selectedVenta.costo_envio) : 'Sin cargo' }}</td>
+                                            <td class="p-4 text-right text-sm text-white font-bold">{{ Number(selectedVenta.costo_envio) > 0 ? formatCurrency(selectedVenta.costo_envio) : 'Sin cargo' }}</td>
                                         </tr>
                                         <tr v-for="item in selectedVenta.detalles" :key="item.id" class="hover:bg-white/[0.02] transition-colors">
                                             <td class="p-4">

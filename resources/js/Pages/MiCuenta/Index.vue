@@ -210,6 +210,10 @@ const totalLibrosAcumulados = computed(() =>
 // que un cliente pueda pedir el envío a otra provincia y que quede marcado
 // como Correo Nacional igual que en una compra nueva, no solo "domicilio".
 const showConsolidarModal = ref(false);
+// Pasos: 1) a donde, 2) datos, 3) como paga el envio (solo si tiene costo)
+const pasoConsolidar = ref(1);
+const destinoConsolidar = ref('domicilio'); // 'domicilio' | 'sucursal'
+const sucursalCorreoConsolidar = ref('');
 
 const provincias = [
     'Buenos Aires', 'Catamarca', 'Chaco', 'Chubut', 'Ciudad Autónoma de Buenos Aires',
@@ -246,6 +250,7 @@ let debounceTimerConsolidar = null;
 let ultimaConsultaIdConsolidar = 0;
 
 const localidadEfectiva = computed(() => {
+    if (destinoConsolidar.value === 'sucursal') return localidad.value.trim();
     if (provincia.value === 'Santa Fe') {
         if (localidad.value === '__otra__') return otraLocalidadSantaFe.value.trim();
         return localidad.value.trim();
@@ -254,7 +259,31 @@ const localidadEfectiva = computed(() => {
 });
 
 const esEnvioLocal = computed(() => {
+    if (destinoConsolidar.value === 'sucursal') return false;
     return provincia.value === 'Santa Fe' && localidadesSantaFe.includes(localidad.value);
+});
+
+// Mismas reglas que el checkout y el servidor (App\Support\CostoEnvio)
+const montoLibrosAcumulados = computed(() =>
+    props.acumuladosListos.reduce((t, p) => t + Number(p.total_libros || 0), 0)
+);
+const modoEnvioConsolidar = computed(() => {
+    if (destinoConsolidar.value === 'sucursal') return 'correo_sucursal';
+    return esEnvioLocal.value ? 'domicilio' : 'correo_nacional';
+});
+const costoEnvioConsolidar = computed(() => {
+    if (modoEnvioConsolidar.value === 'correo_nacional') return montoLibrosAcumulados.value >= 100000 ? 0 : 50000;
+    if (modoEnvioConsolidar.value === 'correo_sucursal') return montoLibrosAcumulados.value >= 80000 ? 0 : 50000;
+    return 0;
+});
+
+watch(destinoConsolidar, () => {
+    provincia.value = 'Santa Fe';
+    localidad.value = '';
+    otraLocalidadSantaFe.value = '';
+    cp.value = '';
+    sucursalCorreoConsolidar.value = '';
+    resetearCamposDireccion();
 });
 
 const direccionHabilitada = computed(() => {
@@ -380,14 +409,15 @@ watch(direccionInput, (val) => {
 
 onUnmounted(() => clearTimeout(debounceTimerConsolidar));
 
-const puedeSolicitarEnvio = computed(() => {
-    const direccionOk = direccionInput.value.trim().length > 0
-        && !!provincia.value
-        && !!localidadEfectiva.value
-        && cp.value.trim().length > 0;
-    if (!direccionOk) return false;
-    return esEnvioLocal.value || !!medioPagoConsolidar.value;
+const datosEnvioCompletos = computed(() => {
+    const base = !!provincia.value && !!localidadEfectiva.value && cp.value.trim().length > 0;
+    if (destinoConsolidar.value === 'sucursal') return base && sucursalCorreoConsolidar.value.trim().length > 0;
+    return base && direccionInput.value.trim().length > 0;
 });
+
+const puedeSolicitarEnvio = computed(() =>
+    datosEnvioCompletos.value && (costoEnvioConsolidar.value <= 0 || !!medioPagoConsolidar.value)
+);
 
 const consolidarForm = useForm({
     modo: 'domicilio',
@@ -406,6 +436,9 @@ const solicitarEnvioAcumulados = () => {
     cp.value = '';
     comentarioConsolidar.value = '';
     medioPagoConsolidar.value = 'Tarjeta';
+    sucursalCorreoConsolidar.value = '';
+    destinoConsolidar.value = 'domicilio';
+    pasoConsolidar.value = 1;
     resetearCamposDireccion();
     showConsolidarModal.value = true;
 };
@@ -413,19 +446,25 @@ const solicitarEnvioAcumulados = () => {
 const submitConsolidar = () => {
     if (!puedeSolicitarEnvio.value) return;
 
-    let direccion = direccionFormatted.value || direccionInput.value.trim();
-    if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
-    if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
-    if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
+    let direccion;
+    if (destinoConsolidar.value === 'sucursal') {
+        direccion = `Sucursal Correo Argentino: ${sucursalCorreoConsolidar.value.trim()}`;
+        if (cp.value.trim()) direccion += `, CP ${cp.value.trim()}`;
+    } else {
+        direccion = direccionFormatted.value || direccionInput.value.trim();
+        if (piso.value.trim())  direccion += `, Piso ${piso.value.trim()}`;
+        if (depto.value.trim()) direccion += `, Depto ${depto.value.trim()}`;
+        if (cp.value.trim())    direccion += `, CP ${cp.value.trim()}`;
+    }
     if (localidadEfectiva.value) direccion += `, ${localidadEfectiva.value}`;
     if (provincia.value)    direccion += `, ${provincia.value}`;
     if (comentarioConsolidar.value.trim()) direccion += ` | Obs: ${comentarioConsolidar.value.trim()}`;
 
-    consolidarForm.modo            = esEnvioLocal.value ? 'domicilio' : 'correo_nacional';
+    consolidarForm.modo            = modoEnvioConsolidar.value;
     consolidarForm.direccion_envio = direccion;
-    consolidarForm.latitud         = latitudConsolidar.value;
-    consolidarForm.longitud        = longitudConsolidar.value;
-    consolidarForm.medio_pago      = esEnvioLocal.value ? null : medioPagoConsolidar.value;
+    consolidarForm.latitud         = destinoConsolidar.value === 'sucursal' ? null : latitudConsolidar.value;
+    consolidarForm.longitud        = destinoConsolidar.value === 'sucursal' ? null : longitudConsolidar.value;
+    consolidarForm.medio_pago      = costoEnvioConsolidar.value > 0 ? medioPagoConsolidar.value : null;
 
     consolidarForm.post(route('mi-cuenta.consolidar-acumulados'), {
         preserveScroll: true,
@@ -704,11 +743,11 @@ const submitConsolidar = () => {
                             <!-- Cobro del envio de acumulados: muestra que pedidos incluye -->
                             <template v-if="pedido.es_cobro_envio">
                                 <h4 class="text-xs font-bold uppercase tracking-wider text-zinc-400 border-b border-white/5 pb-2">
-                                    Envío por Correo Nacional de {{ pedido.pedidos_incluidos.length }} {{ pedido.pedidos_incluidos.length === 1 ? 'pedido' : 'pedidos' }}
+                                    {{ pedido.tipo_envio === 'correo_sucursal' ? 'Envío a sucursal de Correo Argentino' : 'Envío por correo a domicilio' }} de {{ pedido.pedidos_incluidos.length }} {{ pedido.pedidos_incluidos.length === 1 ? 'pedido' : 'pedidos' }}
                                 </h4>
                                 <div class="flex justify-between items-center text-sm py-1.5">
                                     <span class="text-zinc-300 font-medium">Costo del envío</span>
-                                    <span class="font-bold font-mono text-zinc-400 ml-4 shrink-0">{{ formatPrecio(pedido.total) }}</span>
+                                    <span class="font-bold font-mono text-zinc-400 ml-4 shrink-0">{{ Number(pedido.total) > 0 ? formatPrecio(pedido.total) : 'Sin cargo' }}</span>
                                 </div>
                                 <div v-if="pedido.pedidos_incluidos.length" class="flex flex-wrap gap-2">
                                     <span v-for="id in pedido.pedidos_incluidos" :key="id" class="px-3 py-1 rounded-xl bg-white/5 border border-white/10 text-xs font-mono font-bold text-zinc-300">#TK-{{ String(id).padStart(6, '0') }}</span>
@@ -940,10 +979,8 @@ const submitConsolidar = () => {
                         </div>
 
                         <form @submit.prevent="submitConsolidar" class="p-6 space-y-4">
-                            <p class="text-xs text-zinc-400 leading-relaxed">
-                                Te enviamos todos tus pedidos acumulados juntos, pagando un solo envío.
-                            </p>
-
+                            <!-- Paso 1: a donde -->
+                            <template v-if="pasoConsolidar === 1">
                             <!-- Resumen de los pedidos que se incluyen en este envio -->
                             <div class="bg-[#131316] border border-white/5 rounded-xl p-4 space-y-3">
                                 <div class="flex items-center justify-between">
@@ -968,6 +1005,30 @@ const submitConsolidar = () => {
                                 </div>
                             </div>
 
+                                <p class="text-xs font-semibold uppercase tracking-wider text-zinc-400">¿A dónde querés el envío?</p>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <button type="button" @click="destinoConsolidar = 'domicilio'" class="w-full p-4 rounded-xl border text-left transition-all flex items-start gap-3"
+                                    :class="destinoConsolidar === 'domicilio' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#131316] hover:border-white/20'">
+                                        <span class="text-lg">🏠</span>
+                                        <span>
+                                            <span class="block font-bold text-sm text-white">A domicilio</span>
+                                            <span class="block text-zinc-400 text-xs mt-0.5">Reparto local en Gran Rosario o Correo Nacional.</span>
+                                        </span>
+                                    </button>
+                                    <button type="button" @click="destinoConsolidar = 'sucursal'" class="w-full p-4 rounded-xl border text-left transition-all flex items-start gap-3"
+                                    :class="destinoConsolidar === 'sucursal' ? 'border-white/30 bg-white/5 shadow-md' : 'border-white/10 bg-[#131316] hover:border-white/20'">
+                                        <span class="text-lg">📦</span>
+                                        <span>
+                                            <span class="block font-bold text-sm text-white">A sucursal de Correo Argentino</span>
+                                            <span class="block text-zinc-400 text-xs mt-0.5">Retirás con tu DNI en la sucursal que elijas.</span>
+                                        </span>
+                                    </button>
+                                </div>
+                            </template>
+
+                            <!-- Paso 2: datos -->
+                            <template v-else-if="pasoConsolidar === 2">
+                                <template v-if="destinoConsolidar === 'domicilio'">
                             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div>
                                     <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Provincia *</label>
@@ -1057,12 +1118,51 @@ const submitConsolidar = () => {
                                 <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Comentarios y Referencias</label>
                                 <input v-model="comentarioConsolidar" type="text" placeholder="Ej: Tocar timbre fuerte. Dejar en portería" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
                             </div>
+                                </template>
+                                <template v-else>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Provincia *</label>
+                                    <select v-model="provincia" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white focus:outline-none focus:border-white/30 font-semibold uppercase tracking-wider">
+                                        <option value="" disabled>-- Provincia --</option>
+                                        <option v-for="p in provincias" :key="p" :value="p">{{ p }}</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-2">Localidad *</label>
+                                    <input v-model="localidad" type="text" placeholder="Escribí tu localidad..." class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-3 gap-3">
+                                <div class="col-span-2">
+                                    <div class="flex items-center justify-between mb-1.5">
+                                        <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">Dirección de Sucursal *</label>
+                                        <a href="https://www.correoargentino.com.ar/formularios/sucursales" target="_blank" class="text-[11px] font-semibold text-blue-400 hover:underline">🔍 Buscar Sucursal</a>
+                                    </div>
+                                    <input v-model="sucursalCorreoConsolidar" type="text" placeholder="Ej: Sucursal Central / San Martín 750" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">CP <span class="text-brand-red">*</span></label>
+                                    <input v-model="cp" type="text" placeholder="Ej: 2000" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium uppercase">
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1.5">Observaciones para el Correo (Opcional)</label>
+                                <input v-model="comentarioConsolidar" type="text" class="w-full bg-[#131316] border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-white/30 font-medium">
+                            </div>
+                                </template>
 
-                            <!-- Cobro del envio fuera del Gran Rosario -->
-                            <div v-if="!esEnvioLocal" class="space-y-3 pt-2 border-t border-white/5">
-                                <p class="text-xs text-amber-400 font-semibold">
-                                    El envío por Correo Nacional tiene un costo de {{ formatPrecio(50000) }}, a pagar aparte.
-                                </p>
+                                <div v-if="datosEnvioCompletos" class="p-3 rounded-xl text-xs font-semibold border"
+                                     :class="costoEnvioConsolidar > 0 ? 'bg-amber-500/10 border-amber-500/20 text-amber-300' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'">
+                                    <span v-if="modoEnvioConsolidar === 'domicilio'">Reparto local: sin cargo.</span>
+                                    <span v-else-if="costoEnvioConsolidar === 0">Envío gratis (tus pedidos suman {{ formatPrecio(montoLibrosAcumulados) }}).</span>
+                                    <span v-else>Costo de envío: {{ formatPrecio(costoEnvioConsolidar) }}.</span>
+                                </div>
+                            </template>
+
+                            <!-- Paso 3: como paga el envio (solo si tiene costo) -->
+                            <template v-else>
+                                <p class="text-xs text-amber-300 font-semibold">Costo de envío: {{ formatPrecio(costoEnvioConsolidar) }}</p>
                                 <label class="block text-xs font-semibold uppercase tracking-wider text-zinc-400">¿Cómo pagás el envío? *</label>
                                 <div class="grid grid-cols-2 gap-3">
                                     <button type="button" @click="medioPagoConsolidar = 'Tarjeta'"
@@ -1079,14 +1179,19 @@ const submitConsolidar = () => {
                                 <p v-if="medioPagoConsolidar === 'Transferencia'" class="text-zinc-400 text-[11px] leading-relaxed">
                                     Después de confirmar, vas a poder subir el comprobante desde "Mis Pedidos".
                                 </p>
-                            </div>
+                            </template>
 
                             <p v-if="consolidarForm.errors.direccion_envio" class="text-rose-400 text-xs font-semibold mt-1">{{ consolidarForm.errors.direccion_envio }}</p>
+                            <p v-if="consolidarForm.errors.medio_pago" class="text-rose-400 text-xs font-semibold mt-1">{{ consolidarForm.errors.medio_pago }}</p>
 
                             <div class="mt-6 flex justify-end gap-3 border-t border-white/5 pt-4 bg-[#131316] -mx-6 -mb-6 p-6">
-                                <button type="button" @click="showConsolidarModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
-                                <button type="submit" :disabled="consolidarForm.processing || !puedeSolicitarEnvio" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
-                                    <span>{{ consolidarForm.processing ? 'Enviando...' : (!esEnvioLocal && medioPagoConsolidar === 'Tarjeta' ? 'Pagar envío con Mercado Pago' : 'Confirmar envío') }}</span>
+                                <button v-if="pasoConsolidar === 1" type="button" @click="showConsolidarModal = false" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Cancelar</button>
+                                <button v-else type="button" @click="pasoConsolidar--" class="px-5 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 font-semibold text-xs rounded-xl border border-white/10 transition-all">Atrás</button>
+
+                                <button v-if="pasoConsolidar === 1" type="button" @click="pasoConsolidar = 2" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">Siguiente</button>
+                                <button v-else-if="pasoConsolidar === 2 && costoEnvioConsolidar > 0" type="button" :disabled="!datosEnvioCompletos" @click="pasoConsolidar = 3" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">Siguiente</button>
+                                <button v-else type="submit" :disabled="consolidarForm.processing || !puedeSolicitarEnvio" class="px-6 py-2.5 bg-white hover:bg-zinc-200 text-black font-bold text-xs rounded-xl transition-all shadow-md active:scale-95 disabled:opacity-50">
+                                    <span>{{ consolidarForm.processing ? 'Enviando...' : (costoEnvioConsolidar > 0 && medioPagoConsolidar === 'Tarjeta' ? 'Pagar envío con Mercado Pago' : 'Confirmar envío') }}</span>
                                 </button>
                             </div>
                         </form>

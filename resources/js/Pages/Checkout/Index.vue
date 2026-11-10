@@ -80,15 +80,21 @@ const esEnvioLocal = computed(() => {
     return provincia.value === 'Santa Fe' && localidadesSantaFe.includes(localidad.value);
 });
 
+// Mismas reglas que el servidor (App\Support\CostoEnvio): reparto local gratis;
+// correo gratis desde $100.000 (domicilio) o $80.000 (sucursal) en libros.
+const COSTO_CORREO = 50000;
+const totalLibros = computed(() => Math.max(0, (props.subtotal ?? props.total) - (props.descuento_suscripcion ?? 0)));
+const esCorreo = computed(() => tipoEnvio.value === 'correo_sucursal' || (tipoEnvio.value === 'domicilio' && !esEnvioLocal.value));
 const costoEnvio = computed(() => {
     if (tipoEnvio.value === 'domicilio' && !esEnvioLocal.value) {
-        return 50000;
+        return totalLibros.value >= 100000 ? 0 : COSTO_CORREO;
     }
     if (tipoEnvio.value === 'correo_sucursal') {
-        return 50000;
+        return totalLibros.value >= 80000 ? 0 : COSTO_CORREO;
     }
     return 0;
 });
+const textoCostoCorreo = computed(() => costoEnvio.value > 0 ? `+${formatPrecio(costoEnvio.value)}` : 'sin cargo');
 
 const totalFinal = computed(() => {
     const base = (props.subtotal ?? props.total) - (props.descuento_suscripcion ?? 0);
@@ -622,7 +628,7 @@ const confirmar = () => {
                                 <div v-if="tipoEnvio === 'correo_sucursal'" class="mt-6 space-y-4 pt-4 border-t border-white/5">
                                     <div class="p-4 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs font-semibold flex items-center gap-2">
                                         <span class="text-base shrink-0">📦</span>
-                                        <span>Envío a Sucursal de Correo Argentino con recargo de {{ formatPrecio(50000) }}. Retirás con tu DNI en la sucursal de correo elegida.</span>
+                                        <span>Envío a Sucursal de Correo Argentino {{ costoEnvio > 0 ? 'con recargo de ' + formatPrecio(costoEnvio) : 'sin cargo' }}. Retirás con tu DNI en la sucursal de correo elegida.</span>
                                     </div>
 
                                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -725,11 +731,11 @@ const confirmar = () => {
                                     </div>
                                     <div v-else-if="provincia === 'Santa Fe' && localidad === '__otra__'" class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs font-medium flex items-center gap-2">
                                         <span class="text-base shrink-0">📦</span>
-                                        <span>Envío fuera del Gran Rosario: se despacha mediante <strong>Correo Nacional</strong> a domicilio (+{{ formatPrecio(50000) }}).</span>
+                                        <span>Envío fuera del Gran Rosario: se despacha mediante <strong>Correo Nacional</strong> a domicilio ({{ textoCostoCorreo }}).</span>
                                     </div>
                                     <div v-else-if="provincia && provincia !== 'Santa Fe'" class="p-3 bg-indigo-500/10 border border-indigo-500/20 rounded-xl text-indigo-300 text-xs font-medium flex items-center gap-2">
                                         <span class="text-base shrink-0">📦</span>
-                                        <span>Envío Nacional: se despacha mediante <strong>Correo Nacional</strong> a domicilio (+{{ formatPrecio(50000) }}).</span>
+                                        <span>Envío Nacional: se despacha mediante <strong>Correo Nacional</strong> a domicilio ({{ textoCostoCorreo }}).</span>
                                     </div>
 
                                     <!-- Autocomplete -->
@@ -1034,6 +1040,10 @@ const confirmar = () => {
                                 <div v-if="costoEnvio > 0" class="flex justify-between items-center text-xs">
                                     <span class="text-zinc-400 font-medium">Costo de Envío</span>
                                     <span class="font-mono font-bold text-white text-sm">+{{ formatPrecio(costoEnvio) }}</span>
+                                </div>
+                                <div v-else-if="esCorreo" class="flex justify-between items-center text-xs">
+                                    <span class="text-zinc-400 font-medium">Costo de Envío</span>
+                                    <span class="font-bold text-emerald-400 text-sm">Gratis</span>
                                 </div>
 
                                 <div class="border-t border-white/5 pt-4 flex justify-between items-baseline">

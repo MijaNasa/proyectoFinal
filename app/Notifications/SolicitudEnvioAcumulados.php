@@ -33,12 +33,16 @@ class SolicitudEnvioAcumulados extends Notification
         $nombre = $user ? trim($user->name . ' ' . $user->apellido) : 'Un cliente';
         $pedidos = $this->cantidad === 1 ? '1 pedido acumulado' : "{$this->cantidad} pedidos acumulados";
 
-        if ($this->modo === 'correo_nacional' && $this->cobroEnvio) {
+        if ($this->cobroEnvio) {
+            $destino = $this->modo === 'correo_sucursal' ? 'a sucursal de Correo Argentino' : 'por correo a domicilio';
+            $estadoPago = $this->cobroEnvio->estado === 'pendiente_pago'
+                ? "Falta confirmar el pago del envío (Pedido #{$this->cobroEnvio->id})."
+                : 'El envío es sin cargo; ya están en preparación.';
             return [
                 'type'     => 'solicitud_envio_acumulados',
                 'title'    => 'Solicitud de envío de acumulados',
                 'cobro_id' => $this->cobroEnvio->id,
-                'message'  => "{$nombre} solicitó el envío por Correo Nacional de {$pedidos}. Falta confirmar el pago del envío (Pedido #{$this->cobroEnvio->id}).",
+                'message'  => "{$nombre} solicitó el envío {$destino} de {$pedidos}. {$estadoPago}",
                 'url'      => "/ventas?view={$this->cobroEnvio->id}&search={$this->cobroEnvio->id}",
                 'venta_id' => $this->cobroEnvio->id,
             ];

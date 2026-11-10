@@ -196,9 +196,7 @@ class CheckoutController extends Controller
             if ($sucursalPrincipal) {
                 $sucursal_id = $sucursalPrincipal->id;
             }
-            if (in_array($request->tipo_envio, ['correo_nacional', 'correo_sucursal'])) {
-                $costo_envio = 50000;
-            }
+            // El costo del correo se calcula mas abajo, cuando ya se sabe el total de los libros
         }
 
         $libroIds = collect($carrito)->pluck('libro_id');
@@ -364,6 +362,9 @@ class CheckoutController extends Controller
             }
         }
 
+        // Envio: reparto local gratis; correo gratis desde $100.000 (domicilio) o
+        // $80.000 (sucursal) en libros. Ver App\Support\CostoEnvio.
+        $costo_envio = \App\Support\CostoEnvio::calcular($request->tipo_envio, $total);
         $total += $costo_envio;
 
         try {

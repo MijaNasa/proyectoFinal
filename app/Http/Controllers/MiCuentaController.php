@@ -56,7 +56,7 @@ class MiCuentaController extends Controller
             ->withQueryString()
             ->through(fn($v) => [
                 'id'         => $v->id,
-                'es_cobro_envio'    => $v->detalles->isEmpty() && (float) $v->costo_envio > 0,
+                'es_cobro_envio'    => !empty($v->consolida_venta_ids) || ($v->detalles->isEmpty() && (float) $v->costo_envio > 0),
                 // Pago con saldo a favor (total o parcial) y lo que falta pagar
                 'pagado_saldo'      => (float) $v->transacciones->where('tipo', 'ingreso')->where('metodo_pago', 'Cuenta Corriente')->sum('monto'),
                 'restante'          => max(0, round((float) $v->total - (float) $v->transacciones->where('tipo', 'ingreso')->sum('monto'), 2)),
@@ -97,6 +97,8 @@ class MiCuentaController extends Controller
                 ->map(fn ($v) => [
                     'id'    => $v->id,
                     'fecha' => $v->fecha,
+                    // Total en libros (sin envio): define si el envio por correo es gratis
+                    'total_libros' => (float) $v->total - (float) $v->costo_envio,
                     'items' => $v->detalles->map(fn ($d) => [
                         'titulo'   => ($d->libro->master->titulo ?? 'Libro') . ' - Tomo ' . ($d->libro->numero_tomo ?? 'Único'),
                         'cantidad' => $d->cantidad,
@@ -257,11 +259,11 @@ class MiCuentaController extends Controller
     public function consolidarAcumulados(Request $request)
     {
         $request->validate([
-            'modo'            => 'required|in:domicilio,correo_nacional',
+            'modo'            => 'required|in:domicilio,correo_nacional,correo_sucursal',
             'direccion_envio' => 'required|string|max:255',
             'latitud'         => 'nullable|numeric|between:-90,90',
             'longitud'        => 'nullable|numeric|between:-180,180',
-            'medio_pago'      => 'required_if:modo,correo_nacional|nullable|in:Tarjeta,Transferencia',
+            'medio_pago'      => 'nullable|in:Tarjeta,Transferencia',
         ]);
 
         $user = Auth::user();
@@ -289,8 +291,17 @@ class MiCuentaController extends Controller
             return back()->with('message', "Se solicitó el envío de {$cantidad} pedido(s) acumulado(s). Te vamos a avisar cuando esté en camino.");
         }
 
-        // Correo Nacional: hay un costo de envio fijo a cobrar antes de despachar.
-        $costoEnvio = 50000;
+        // Correo (a domicilio o a sucursal): se arma el ticket "Envio de pedidos
+        // acumulados", que funciona como el paquete. Gratis si los libros suman
+        // $100.000 (domicilio) o $80.000 (sucursal); si no, se cobra el envio.
+        $totalLibros = (float) Venta::whereIn('id', $idsAcumulados)->get(['total', 'costo_envio'])
+            ->sum(fn ($v) => (float) $v->total - (float) $v->costo_envio);
+        $costoEnvio = \App\Support\CostoEnvio::calcular($request->modo, $totalLibros);
+
+        if ($costoEnvio > 0 && !$request->medio_pago) {
+            return back()->withErrors(['medio_pago' => 'Elegí cómo vas a pagar el envío.']);
+        }
+
         $sucursalPrincipal = \App\Models\Sucursal::where('es_principal', true)->first() ?? \App\Models\Sucursal::first();
 
         $ventaEnvio = Venta::create([
@@ -301,18 +312,25 @@ class MiCuentaController extends Controller
             'tipo'                => 'online',
             'total'               => $costoEnvio,
             'costo_envio'         => $costoEnvio,
-            'estado'              => 'pendiente_pago',
-            'tipo_envio'          => 'correo_nacional',
+            'estado'              => $costoEnvio > 0 ? 'pendiente_pago' : 'en_preparacion',
+            'tipo_envio'          => $request->modo,
             'direccion_envio'     => $request->direccion_envio,
             'latitud'             => $request->latitud,
             'longitud'            => $request->longitud,
-            'metodo_pago'         => $request->medio_pago,
+            'metodo_pago'         => $costoEnvio > 0 ? $request->medio_pago : null,
             'consolida_venta_ids' => implode(',', $idsAcumulados),
-            'pago_expira_at'      => now()->addHours($request->medio_pago === 'Transferencia' ? 12 : 6),
+            'pago_expira_at'      => $costoEnvio > 0 ? now()->addHours($request->medio_pago === 'Transferencia' ? 12 : 6) : null,
         ]);
 
+        // Envio sin cargo: no hay nada que pagar, los pedidos pasan directo a preparacion
+        if ($costoEnvio <= 0) {
+            $ventaEnvio->procesarConsolidacionAcumuladosSiCorresponde();
+            $this->notificarSolicitudEnvio($cliente, count($idsAcumulados), $request->modo, $ventaEnvio);
+            return back()->with('message', 'Solicitaste el envío sin cargo de tus pedidos. Te vamos a avisar cuando esté despachado.');
+        }
+
         if ($request->medio_pago === 'Transferencia') {
-            $this->notificarSolicitudEnvio($cliente, count($idsAcumulados), 'correo_nacional', $ventaEnvio);
+            $this->notificarSolicitudEnvio($cliente, count($idsAcumulados), $request->modo, $ventaEnvio);
             return back()->with('message', 'Generamos el cobro del envío. Subí el comprobante de transferencia desde "Mis Pedidos" para confirmar el despacho.');
         }
 
@@ -360,7 +378,7 @@ class MiCuentaController extends Controller
 
             $preference = $response->json();
             $ventaEnvio->update(['payment_id' => $preference['id']]);
-            $this->notificarSolicitudEnvio($cliente, count($idsAcumulados), 'correo_nacional', $ventaEnvio);
+            $this->notificarSolicitudEnvio($cliente, count($idsAcumulados), $request->modo, $ventaEnvio);
 
             $url = config('services.mercadopago.sandbox')
                 ? $preference['sandbox_init_point']
