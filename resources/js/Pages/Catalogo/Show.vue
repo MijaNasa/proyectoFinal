@@ -119,7 +119,7 @@ const envioSucursalCorreo = computed(() => '$50.000,00');
                     <div class="w-full max-w-md">
                         <div class="relative rounded-2xl overflow-hidden bg-[#131316] border border-white/5 shadow-2xl">
                             <img
-                                :src="libro.master?.portada_url"
+                                :src="libro.portada_url"
                                 :alt="libro.master?.titulo"
                                 @error="$event.target.src = '/images/no-cover.png'"
                                 class="w-full aspect-[2/3] object-cover"
@@ -306,7 +306,7 @@ const envioSucursalCorreo = computed(() => '$50.000,00');
                         <!-- Cover Image -->
                         <Link :href="route('catalogo.show', rel.id)" class="relative aspect-[2/3] overflow-hidden bg-[#0d0d0f] block">
                             <img
-                                :src="rel.master?.portada_url"
+                                :src="rel.portada_url"
                                 :alt="rel.master?.titulo"
                                 @error="$event.target.src = '/images/no-cover.png'"
                                 class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"

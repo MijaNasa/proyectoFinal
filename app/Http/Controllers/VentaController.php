@@ -781,6 +781,10 @@ class VentaController extends Controller
                     'pago_expira_at' => null
                 ]);
 
+                // Si la mercaderia de la preventa ya llego antes de confirmar el pago,
+                // se descuenta ahora en vez de esperar a la proxima orden de compra.
+                $fresh->intentarLiberarPreventa();
+
                 if ($fresh->consolida_venta_ids) {
                     $fresh->update(['estado' => 'finalizado']);
                     $fresh->procesarConsolidacionAcumuladosSiCorresponde();

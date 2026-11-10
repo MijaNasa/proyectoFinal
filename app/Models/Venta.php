@@ -154,6 +154,82 @@ class Venta extends Model
         $this->update(['consolida_venta_ids' => null]);
     }
 
+    /**
+     * Si la venta esta "en preventa" y la sucursal de la venta ya tiene stock
+     * de todos sus libros en preventa, descuenta ese stock y la pasa al estado
+     * que sigue (en preparacion, listo para retiro, acumulado o esperando
+     * traslado). Si falta stock de alguno, no toca nada y la venta sigue en
+     * preventa hasta la proxima recepcion de mercaderia.
+     *
+     * Se llama al recibir una orden de compra y al confirmar el pago (manual
+     * o Mercado Pago), asi no importa en que orden pasen las dos cosas.
+     * Debe ejecutarse dentro de una transaccion.
+     */
+    public function intentarLiberarPreventa(bool $notificarTraslados = true): bool
+    {
+        if ($this->estado !== 'en_preventa') {
+            return false;
+        }
+
+        $this->loadMissing('detalles.libro');
+
+        // Cantidad necesaria por libro (solo los items en preventa)
+        $necesario = [];
+        foreach ($this->detalles as $detalle) {
+            if ($detalle->libro && $detalle->libro->permite_preventa) {
+                $necesario[$detalle->libro_id] = ($necesario[$detalle->libro_id] ?? 0) + $detalle->cantidad;
+            }
+        }
+
+        if (empty($necesario)) {
+            return false;
+        }
+
+        // Solo stock de la propia sucursal de la venta
+        $stocks = [];
+        foreach ($necesario as $libroId => $cantidad) {
+            $stock = Stock::where('libro_id', $libroId)
+                ->where('sucursal_id', $this->sucursal_id)
+                ->lockForUpdate()
+                ->first();
+
+            if (!$stock || $stock->cantidad_disponible < $cantidad) {
+                return false;
+            }
+            $stocks[$libroId] = $stock;
+        }
+
+        foreach ($necesario as $libroId => $cantidad) {
+            $stocks[$libroId]->decrement('cantidad_disponible', $cantidad);
+        }
+
+        $tieneTraslados = TransferenciaStock::where('venta_id', $this->id)->exists();
+        $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
+
+        if (!$tieneTraslados) {
+            if ($this->tipo_envio === 'retiro') {
+                $nuevoEstado = 'listo_para_retiro';
+            } elseif ($this->tipo_envio === 'acumulacion') {
+                $nuevoEstado = 'acumulado';
+            }
+        }
+
+        $this->update(['estado' => $nuevoEstado]);
+
+        if ($tieneTraslados) {
+            TransferenciaStock::where('venta_id', $this->id)
+                ->where('estado', 'pendiente')
+                ->update(['estado' => 'pendiente_envio']);
+        }
+
+        if ($tieneTraslados && $notificarTraslados) {
+            $usuariosNotificar = \App\Notifications\TrasladoPendienteVenta::destinatarios($this);
+            \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($this));
+        }
+
+        return true;
+    }
+
     public function paradas(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\ParadaReparto::class);

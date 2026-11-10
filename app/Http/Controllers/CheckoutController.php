@@ -894,6 +894,10 @@ class CheckoutController extends Controller
                 ]);
             }
 
+            // Si la mercaderia de la preventa ya llego antes de que se aprobara el
+            // pago, se descuenta ahora (si ya se notifico un traslado arriba, no se repite).
+            $fresh->intentarLiberarPreventa(!$requiereTraslados);
+
             if ($requiereTraslados) {
                 $usuariosNotificar = \App\Notifications\TrasladoPendienteVenta::destinatarios($fresh);
                 \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($fresh));

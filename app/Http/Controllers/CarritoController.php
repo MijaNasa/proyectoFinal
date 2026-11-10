@@ -58,7 +58,7 @@ class CarritoController extends Controller
             'precio_original'  => $libro->precioActual?->precio_venta ?? 0,
             'permite_preventa' => $libro->permite_preventa,
             'titulo'           => $libro->master->titulo . $tomoLabel,
-            'portada_url'      => $libro->master->portada_url,
+            'portada_url'      => $libro->portada_url,
             'isbn'             => $libro->isbn,
             'proveedor'        => $libro->master->proveedor->nombre_empresa ?? '',
             'stock_total'      => $stockTotal,

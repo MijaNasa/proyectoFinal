@@ -29,18 +29,9 @@ class PublicCatalogoController extends Controller
             })
             ->where('libros.activo', true);
 
-        // 1. Búsqueda por texto (título, autor, editorial, isbn)
+        // 1. Búsqueda por texto (título, autor, editorial, isbn, número de tomo)
         if ($request->filled('search')) {
-            $like = '%' . mb_strtolower($request->search) . '%';
-            $query->where(function ($q) use ($like) {
-                $q->whereRaw('LOWER(libros.isbn) LIKE ?', [$like])
-                  ->orWhereHas('master', function ($q2) use ($like) {
-                      $q2->whereRaw('LOWER(titulo) LIKE ?', [$like])
-                         ->orWhereRaw('LOWER(titulo_original) LIKE ?', [$like])
-                         ->orWhereHas('proveedor', fn($p) => $p->whereRaw('LOWER(nombre_empresa) LIKE ?', [$like]))
-                         ->orWhereHas('autor', fn($a) => $a->whereRaw('LOWER(nombre) LIKE ? OR LOWER(apellido) LIKE ?', [$like, $like]));
-                  });
-            });
+            $this->aplicarBusqueda($query, $request->search, true);
         }
 
         // 2. Tipo (manga / comic)
@@ -309,14 +300,7 @@ class PublicCatalogoController extends Controller
             ->with(['master', 'precioActual'])
             ->whereHas('master', fn($q) => $q->where('activo', true))
             ->where('activo', true)
-            ->where(function ($q) use ($term) {
-                $like = '%' . mb_strtolower($term) . '%';
-                $q->whereRaw('LOWER(isbn) LIKE ?', [$like])
-                  ->orWhereHas('master', function ($q2) use ($like) {
-                      $q2->whereRaw('LOWER(titulo) LIKE ?', [$like])
-                         ->orWhereRaw('LOWER(titulo_original) LIKE ?', [$like]);
-                  });
-            })
+            ->tap(fn ($q) => $this->aplicarBusqueda($q, $term))
             ->limit(8)
             ->get()
             ->map(function ($libro) {
@@ -335,5 +319,47 @@ class PublicCatalogoController extends Controller
             });
 
         return response()->json($libros);
+    }
+
+    /**
+     * Búsqueda por palabras: cada palabra tiene que aparecer en algún lado
+     * (título, título original, ISBN y, si $completa, editorial o autor).
+     * Una palabra numérica corta también matchea el número de tomo, así
+     * "demon 5" encuentra "Demon Slayer: Kimetsu no Yaiba" tomo 5.
+     * Se ignoran palabras como "tomo" o "vol" que no figuran en los títulos.
+     */
+    private function aplicarBusqueda($query, string $texto, bool $completa = false): void
+    {
+        $ignorar = ['tomo', 'tomos', 'vol', 'vol.', 'volumen', 'nro', 'nro.', 'n°', '#'];
+        $palabras = array_filter(
+            preg_split('/\s+/u', mb_strtolower(trim($texto))),
+            fn ($p) => $p !== '' && !in_array($p, $ignorar, true)
+        );
+
+        foreach ($palabras as $palabra) {
+            $palabra = ltrim($palabra, '#');
+            $like = '%' . $palabra . '%';
+            $esNumeroDeTomo = ctype_digit($palabra) && strlen($palabra) <= 3;
+
+            $query->where(function ($q) use ($like, $palabra, $esNumeroDeTomo, $completa) {
+                // Un número corto ("5") no se busca dentro del ISBN: casi todos lo contienen
+                if ($esNumeroDeTomo) {
+                    $q->where('libros.numero_tomo', (int) $palabra);
+                } else {
+                    $q->whereRaw('LOWER(libros.isbn) LIKE ?', [$like]);
+                }
+
+                $q->orWhereHas('master', function ($q2) use ($like, $completa) {
+                    $q2->where(function ($t) use ($like, $completa) {
+                        $t->whereRaw('LOWER(titulo) LIKE ?', [$like])
+                          ->orWhereRaw('LOWER(titulo_original) LIKE ?', [$like]);
+                        if ($completa) {
+                            $t->orWhereHas('proveedor', fn ($p) => $p->whereRaw('LOWER(nombre_empresa) LIKE ?', [$like]))
+                              ->orWhereHas('autor', fn ($a) => $a->whereRaw('(LOWER(nombre) LIKE ? OR LOWER(apellido) LIKE ?)', [$like, $like]));
+                        }
+                    });
+                });
+            });
+        }
     }
 }

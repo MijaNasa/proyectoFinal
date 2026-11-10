@@ -336,57 +336,7 @@ class OrdenCompraController extends Controller
                 ->get();
 
             foreach ($ventasPreventa as $ventaPre) {
-                $todasPreventasCubiertas = true;
-                $detallesADescontar = [];
-                
-                foreach ($ventaPre->detalles as $detalle) {
-                    if ($detalle->libro && $detalle->libro->permite_preventa) {
-                        $stockLocal = \App\Models\Stock::where('libro_id', $detalle->libro_id)
-                            ->where('sucursal_id', $fresh->sucursal_id)
-                            ->lockForUpdate()
-                            ->first();
-                            
-                        if (!$stockLocal || $stockLocal->cantidad_disponible < $detalle->cantidad) {
-                            $todasPreventasCubiertas = false;
-                            break;
-                        }
-                        
-                        $detallesADescontar[] = [
-                            'stock' => $stockLocal,
-                            'cantidad' => $detalle->cantidad
-                        ];
-                    }
-                }
-                
-                if ($todasPreventasCubiertas && !empty($detallesADescontar)) {
-                    // Descontar stock
-                    foreach ($detallesADescontar as $desc) {
-                        $desc['stock']->decrement('cantidad_disponible', $desc['cantidad']);
-                    }
-                    
-                    // Cambiar estado
-                    $tieneTraslados = \App\Models\TransferenciaStock::where('venta_id', $ventaPre->id)->exists();
-                    $nuevoEstado = $tieneTraslados ? 'esperando_traslado' : 'en_preparacion';
-                    
-                    if (!$tieneTraslados) {
-                        if ($ventaPre->tipo_envio === 'retiro') {
-                            $nuevoEstado = 'listo_para_retiro';
-                        } elseif ($ventaPre->tipo_envio === 'acumulacion') {
-                            $nuevoEstado = 'acumulado';
-                        }
-                    }
-                    
-                    $ventaPre->update(['estado' => $nuevoEstado]);
-                    
-                    if ($tieneTraslados) {
-                        \App\Models\TransferenciaStock::where('venta_id', $ventaPre->id)
-                            ->where('estado', 'pendiente')
-                            ->update(['estado' => 'pendiente_envio']);
-                            
-                        $usuariosNotificar = \App\Notifications\TrasladoPendienteVenta::destinatarios($ventaPre);
-                        \Illuminate\Support\Facades\Notification::send($usuariosNotificar, new \App\Notifications\TrasladoPendienteVenta($ventaPre));
-                    }
-                }
+                $ventaPre->intentarLiberarPreventa();
             }
         });
 
