@@ -42,6 +42,14 @@ const filtrosCompras = [
     { key: 'finalizadas', label: 'Finalizadas' },
 ];
 
+// Compras plegadas: el detalle se abre al hacer clic en cada una
+const comprasAbiertas = ref([]);
+const toggleCompra = (id) => {
+    const i = comprasAbiertas.value.indexOf(id);
+    if (i > -1) comprasAbiertas.value.splice(i, 1);
+    else comprasAbiertas.value.push(id);
+};
+
 const cambiarFiltroCompras = (f) => {
     if (f === props.filtroCompras) return;
     router.get(route('clientes.show', props.cliente.id), { filtro: f, tabActiva: 'compras' }, { preserveState: true, preserveScroll: true });
@@ -466,9 +474,14 @@ const estadoConfig = {
                             :key="venta.id"
                             class="bg-[#131316] border border-white/5 rounded-2xl overflow-hidden shadow-xl"
                         >
-                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-white/5 bg-white/[0.01]">
+                            <!-- Cabecera: al hacer clic se despliega el detalle -->
+                            <div
+                                @click="toggleCompra(venta.id)"
+                                class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-white/[0.01] cursor-pointer select-none hover:bg-white/[0.03] transition-colors"
+                                :class="{ 'border-b border-white/5': comprasAbiertas.includes(venta.id) }"
+                            >
                                 <div class="flex items-center gap-3">
-                                    <Link :href="route('ventas.index', { search: '#TK-' + String(venta.id).padStart(6, '0'), view: venta.id, return_client: cliente.id })" class="text-white hover:text-zinc-300 text-xs font-mono font-bold hover:underline transition-colors" title="Ver en historial de ventas">#TK-{{ String(venta.id).padStart(6, '0') }}</Link>
+                                    <Link @click.stop :href="route('ventas.index', { search: '#TK-' + String(venta.id).padStart(6, '0'), view: venta.id, return_client: cliente.id })" class="text-white hover:text-zinc-300 text-xs font-mono font-bold hover:underline transition-colors" title="Ver en historial de ventas">#TK-{{ String(venta.id).padStart(6, '0') }}</Link>
                                     <span class="inline-flex items-center gap-2 px-3 py-1 rounded-xl bg-white/[0.03] border border-white/5 text-xs font-semibold text-zinc-300">
                                         <span class="w-2 h-2 rounded-full shrink-0" :class="estadoConfig[venta.estado]?.bgDot || 'bg-zinc-500'"></span>
                                         <span>{{ estadoConfig[venta.estado]?.label ?? venta.estado }}</span>
@@ -478,14 +491,17 @@ const estadoConfig = {
                                 </div>
                                 <div class="flex items-center gap-3">
                                     <p class="text-base font-bold text-white">{{ formatCurrency(venta.total) }}</p>
-                                    <a :href="route('ventas.comprobante-pdf', venta.id)" target="_blank" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg border border-white/5 transition-all" title="Descargar Reporte / Seña en PDF">
+                                    <a @click.stop :href="route('ventas.comprobante-pdf', venta.id)" target="_blank" class="p-1.5 text-zinc-400 hover:text-white hover:bg-white/5 rounded-lg border border-white/5 transition-all" title="Descargar Reporte / Seña en PDF">
                                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                             <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
                                         </svg>
                                     </a>
+                                    <svg class="w-4 h-4 text-zinc-400 transition-transform duration-200" :class="{ 'rotate-180 text-white': comprasAbiertas.includes(venta.id) }" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                                    </svg>
                                 </div>
                             </div>
-                            <div class="p-4 space-y-2 text-sm">
+                            <div v-if="comprasAbiertas.includes(venta.id)" class="p-4 space-y-2 text-sm">
                                 <div
                                     v-for="detalle in venta.detalles"
                                     :key="detalle.id"
